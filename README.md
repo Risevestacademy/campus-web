@@ -1,6 +1,6 @@
 # Next.js Template
 
-This is a Next.js 16 template using the App Router, TypeScript, ESLint, Prettier, Husky, and `lint-staged`.
+This is a Next.js 16 template using the App Router, TypeScript, ESLint, Prettier, Husky, `lint-staged`, and commitlint.
 
 ## Getting Started
 
@@ -30,6 +30,7 @@ pnpm typecheck
 pnpm format
 pnpm format:check
 pnpm check
+pnpm commitlint
 pnpm fix
 ```
 
@@ -44,16 +45,19 @@ pnpm fix
 - `pnpm format` formats the repository with Prettier.
 - `pnpm format:check` verifies formatting without changing files.
 - `pnpm check` runs lint, typecheck, and format checks.
+- `pnpm commitlint <commit-message-file>` validates a commit message file.
 - `pnpm fix` runs auto-fixable maintenance tasks.
 
 ## Git Hooks
 
-Husky is configured with a `pre-commit` hook.
+Husky is configured with `pre-commit` and `commit-msg` hooks.
 
-On commit, `lint-staged` runs against staged files only:
+Before commit creation, `lint-staged` runs against staged files only:
 
 - ESLint with `--fix` for JavaScript and TypeScript files
 - Prettier `--write` for supported staged files
+
+Commit messages are validated with commitlint using the Conventional Commits preset.
 
 This keeps commits fast while `pnpm check` remains available for full-repository validation.
 

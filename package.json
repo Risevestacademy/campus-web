@@ -14,6 +14,7 @@
     "check": "pnpm lint && pnpm typecheck && pnpm format:check",
     "fix": "pnpm lint:fix && pnpm format",
     "lint-staged": "lint-staged",
+    "commitlint": "commitlint --edit",
     "prepare": "husky"
   },
   "dependencies": {
@@ -24,6 +25,8 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.4.4",
+    "@commitlint/config-conventional": "^20.4.4",
     "@next/eslint-plugin-next": "16.2.6",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
