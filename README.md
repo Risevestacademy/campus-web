@@ -7,15 +7,19 @@ Product UI and feature implementations begin after design and contract approval.
 
 ## Requirements
 
-- Node.js 22.12 or newer
-- pnpm
+- Node.js 22.22.0, managed through `.nvmrc`
+- pnpm 11.25.0, managed through Corepack
 
 ## Getting Started
 
 ```bash
+nvm install
+nvm use
 corepack enable
+corepack install
 pnpm install
 pnpm exec playwright install
+pnpm check
 pnpm dev
 ```
 
@@ -27,19 +31,27 @@ pnpm dev
 - `shared/`: reusable domain-independent code
 - `assets/`: imported images, SVGs, and fonts
 
-Dependencies flow in one direction:
+Dependencies follow these enforced boundaries:
 
-```text
-app -> features -> core -> shared
- |         |         |
- +---------+---------+----> shared
-```
+| Source     | Allowed dependencies                  |
+| ---------- | ------------------------------------- |
+| `app`      | feature public APIs, `core`, `shared` |
+| `features` | `core`, `shared`                      |
+| `core`     | `shared`                              |
+| `shared`   | none                                  |
 
 Features cannot import other features. Route composition resolves cross-feature
 workflows. Consumers import a feature through `@/features/<feature>`.
 
-See `docs/architectural-plan.md` and
-`docs/plans/frontend-architecture-scaffold.md`.
+See the READMEs in `core/`, `features/`, `shared/`, and `assets/` for placement
+and dependency rules.
+
+## Dependency Security
+
+pnpm rejects unreviewed dependency build scripts. Approved and denied builds
+are recorded in `pnpm-workspace.yaml`. Review each package and its install
+script before changing this policy; do not approve all dependency builds
+indiscriminately.
 
 ## Quality Commands
 
