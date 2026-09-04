@@ -1,0 +1,65 @@
+{
+  "elements": [
+    {
+      "type": "feature",
+      "pattern": "features/*",
+      "capture": ["featureName"],
+      "partialMatch": false
+    },
+    {
+      "type": "app",
+      "pattern": "app",
+      "partialMatch": false
+    },
+    {
+      "type": "core",
+      "pattern": "core",
+      "partialMatch": false
+    },
+    {
+      "type": "shared",
+      "pattern": "shared",
+      "partialMatch": false
+    }
+  ],
+  "dependencyRule": {
+    "default": "disallow",
+    "policies": [
+      {
+        "from": { "element": { "type": "app" } },
+        "allow": {
+          "to": {
+            "element": { "type": ["core", "shared"] }
+          }
+        }
+      },
+      {
+        "from": { "element": { "type": "app" } },
+        "allow": {
+          "to": {
+            "element": {
+              "type": "feature",
+              "fileInternalPath": "index.{ts,tsx}"
+            }
+          }
+        }
+      },
+      {
+        "from": { "element": { "type": "feature" } },
+        "allow": {
+          "to": {
+            "element": { "type": ["core", "shared"] }
+          }
+        }
+      },
+      {
+        "from": { "element": { "type": "core" } },
+        "allow": {
+          "to": {
+            "element": { "type": "shared" }
+          }
+        }
+      }
+    ]
+  }
+}

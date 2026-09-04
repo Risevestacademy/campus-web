@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Next App Template",
-  description: "",
+  title: "Campus by Rise",
+  description:
+    "A persistent digital campus for learning, collaboration, and community at Rise.",
 };
 
 export default function RootLayout({

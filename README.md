@@ -1,67 +1,53 @@
-# Next.js Template
+# Campus by Rise
 
-This is a Next.js 16 template using the App Router, TypeScript, ESLint, Prettier, Husky, `lint-staged`, and commitlint.
+Frontend for the Campus by Rise persistent 2D learning environment.
+
+The repository currently contains architecture and development tooling only.
+Product UI and feature implementations begin after design and contract approval.
+
+## Requirements
+
+- Node.js 22.12 or newer
+- pnpm
 
 ## Getting Started
 
-Install dependencies:
-
 ```bash
+corepack enable
 pnpm install
-```
-
-Start the development server:
-
-```bash
+pnpm exec playwright install
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+## Architecture
 
-## Available Scripts
+- `app/`: routes, layouts, boundaries, providers, and composition
+- `core/`: API, game, media, and realtime infrastructure
+- `features/`: independently owned product domains
+- `shared/`: reusable domain-independent code
+- `assets/`: imported images, SVGs, and fonts
 
-```bash
-pnpm dev
-pnpm build
-pnpm start
-pnpm lint
-pnpm lint:fix
-pnpm typecheck
-pnpm format
-pnpm format:check
-pnpm check
-pnpm commitlint
-pnpm fix
+Dependencies flow in one direction:
+
+```text
+app -> features -> core -> shared
+ |         |         |
+ +---------+---------+----> shared
 ```
 
-## Script Purpose
+Features cannot import other features. Route composition resolves cross-feature
+workflows. Consumers import a feature through `@/features/<feature>`.
 
-- `pnpm dev` starts the local development server.
-- `pnpm build` creates a production build.
-- `pnpm start` serves the production build.
-- `pnpm lint` runs ESLint across the repository.
-- `pnpm lint:fix` runs ESLint with automatic fixes.
-- `pnpm typecheck` runs TypeScript in no-emit mode.
-- `pnpm format` formats the repository with Prettier.
-- `pnpm format:check` verifies formatting without changing files.
-- `pnpm check` runs lint, typecheck, and format checks.
-- `pnpm commitlint <commit-message-file>` validates a commit message file.
-- `pnpm fix` runs auto-fixable maintenance tasks.
+See `docs/architectural-plan.md` and
+`docs/plans/frontend-architecture-scaffold.md`.
 
-## Git Hooks
+## Quality Commands
 
-Husky is configured with `pre-commit` and `commit-msg` hooks.
-
-Before commit creation, `lint-staged` runs against staged files only:
-
-- ESLint with `--fix` for JavaScript and TypeScript files
-- Prettier `--write` for supported staged files
-
-Commit messages are validated with commitlint using the Conventional Commits preset.
-
-This keeps commits fast while `pnpm check` remains available for full-repository validation.
-
-## Notes
-
-- ESLint uses the flat config format required by Next.js 16.
-- Prettier is configured with `prettier-plugin-tailwindcss`.
+| Command                  | Purpose                                             |
+| ------------------------ | --------------------------------------------------- |
+| `pnpm check`             | Lint, typecheck, format-check, unit-test, and build |
+| `pnpm check:all`         | Run the full gate, including E2E                    |
+| `pnpm test`              | Run deterministic unit and architecture tests       |
+| `pnpm test:coverage`     | Generate V8 coverage                                |
+| `pnpm test:e2e`          | Build and run Playwright across three browsers      |
+| `pnpm eval:architecture` | Require zero lint or boundary violations            |
