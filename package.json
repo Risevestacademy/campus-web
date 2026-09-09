@@ -21,6 +21,7 @@
     "test:architecture": "vitest run tests/architecture",
     "test:e2e": "pnpm build && playwright test",
     "test:e2e:ui": "pnpm build && playwright test --ui",
+    "eval:api": "vitest run tests/evals/api-foundation.eval.test.ts",
     "eval:analytics": "vitest run core/analytics/contract.eval.test.ts",
     "eval:architecture": "eslint . --max-warnings=0",
     "check": "pnpm lint && pnpm typecheck && pnpm format:check && pnpm test && pnpm build",
@@ -42,7 +43,8 @@
     "react-dom": "19.2.4",
     "server-only": "^0.0.1",
     "tailwind-merge": "^3.6.0",
-    "zustand": "^5.0.15"
+    "zustand": "^5.0.15",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.4.4",

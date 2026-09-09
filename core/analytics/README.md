@@ -12,6 +12,25 @@ Typed PostHog product analytics for Campus by Rise.
 - Browser identification uses the same stable ID.
 - Logout captures its event before calling `resetAnalyticsUser()`.
 
+## Successful business operations
+
+Trusted events are emitted by the owning feature application service after its
+DAL or repository confirms that the business operation succeeded. The
+`distinctId` must come from the verified authentication context, never from
+request input.
+
+`captureServerAnalyticsEvent` is best-effort and already prevents PostHog
+delivery failures from reversing a successful business operation.
+
+When a Route Handler or Server Action uses Next.js `after()`, execute the
+business operation first and schedule only the analytics capture after success
+is known. Never place the business operation itself inside `after()`, and never
+schedule the event before the operation succeeds because `after()` also runs
+for failed responses.
+
+Events that become audit-, billing-, or compliance-critical require a
+transactional outbox instead of best-effort PostHog delivery.
+
 ## Collection policy
 
 The initial configuration captures pageviews and explicitly declared events.
@@ -37,29 +56,73 @@ Analytics consumes normalized browser-safe values from
 ## Browser example
 
 ```ts
+import { ANALYTICS_EVENTS } from "@/core/analytics";
+import { captureBrowserAnalyticsEvent } from "@/core/analytics/client";
+
 captureBrowserAnalyticsEvent(ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED, {
   auth_method: "rise_sso",
   platform: "web",
 });
 ```
 
+`instrumentation-client.ts` initializes browser analytics. Feature code calls
+the typed capture function; it does not initialize PostHog itself.
+
 ## Server example
 
 ```ts
-await captureServerAnalyticsEvent(
-  ANALYTICS_EVENTS.AUTH_LOGIN_SUCCEEDED,
-  user.id,
-  {
-    auth_method: "rise_sso",
-    role: user.role,
-    user_id: user.id,
-  },
-);
+import { ANALYTICS_EVENTS } from "@/core/analytics";
+import { captureServerAnalyticsEvent } from "@/core/analytics/server";
+import type { AuthenticatedActor, RouteExecutionContext } from "@/core/api";
+
+export async function completeProfileSetup(
+  input: CompleteProfileSetupInput,
+  context: RouteExecutionContext<AuthenticatedActor>,
+) {
+  const profile = await profileRepository.complete(input, context.actor.id);
+
+  await captureServerAnalyticsEvent(
+    ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_COMPLETED,
+    context.actor.id,
+    {
+      cohort_id: profile.cohortId,
+      role: profile.role,
+      track_id: profile.trackId,
+    },
+  );
+
+  return profile;
+}
 ```
 
-When called from a Next.js Route Handler or Server Action, schedule the
-capture with Next.js `after()` when the event should not add latency to the
-response.
+The repository operation completes before the event is emitted. The distinct
+ID comes from the verified actor, while event properties come from trusted
+service results.
+
+`captureServerAnalyticsEvent` is disabled when the PostHog project token is
+absent and catches delivery errors when PostHog is unavailable. It must not be
+used for audit-, billing-, or compliance-critical delivery.
+
+When called from a Next.js Route Handler or Server Action, the composition
+root may schedule only the capture call with Next.js `after()` after business
+success is known. Never place the business operation itself inside `after()`.
+
+No analytics endpoint is needed. A normal API endpoint reaches PostHog only
+when its successful feature service explicitly emits an event.
+
+## Development verification
+
+Configure `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and
+`NEXT_PUBLIC_POSTHOG_HOST` for the development PostHog project, restart the
+development server, and perform the real product operation.
+
+Verify that:
+
+1. The expected canonical event appears once in the development project.
+2. Its distinct ID matches the authenticated user.
+3. Its properties contain only the declared typed fields.
+4. A rejected or failed business operation emits no success event.
+5. Removing the token disables capture without breaking the operation.
 
 ## Verification
 

@@ -48,6 +48,22 @@ workflows. Consumers import a feature through `@/features/<feature>`.
 See the READMEs in `core/`, `features/`, `shared/`, and `assets/` for placement
 and dependency rules.
 
+### API foundation
+
+Reusable HTTP contracts, validation, request authentication boundaries, and
+error mapping live in `core/api`. Route Handlers remain thin composition roots:
+they select an authentication adapter, parser, feature application service, and
+logger.
+
+Resource authorization and safe DTO construction remain inside the owning
+feature service or data-access layer. Server Components call those services
+directly rather than making HTTP requests to local Route Handlers.
+
+Structured logging lives in `core/observability`. Trusted server analytics live
+in `core/analytics`; they are emitted by feature application services only
+after a successful business operation. Analytics delivery must not determine
+whether the business operation succeeded.
+
 ## Dependency Security
 
 pnpm rejects unreviewed dependency build scripts. Approved and denied builds
@@ -64,5 +80,6 @@ indiscriminately.
 | `pnpm test`              | Run deterministic unit and architecture tests       |
 | `pnpm test:coverage`     | Generate V8 coverage                                |
 | `pnpm test:e2e`          | Build and run Playwright across three browsers      |
+| `pnpm eval:api`          | Run the deterministic API contract eval             |
 | `pnpm eval:architecture` | Require zero lint or boundary violations            |
 | `pnpm eval:analytics`    | Validate analytics events and project isolation     |

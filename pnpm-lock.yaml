@@ -43,6 +43,9 @@ importers:
       zustand:
         specifier: ^5.0.15
         version: 5.0.15(@types/react@19.2.18)(react@19.2.4)
+      zod:
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       "@commitlint/cli":
         specifier: ^20.4.4

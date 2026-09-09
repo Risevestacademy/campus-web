@@ -1,0 +1,137 @@
+// @vitest-environment node
+
+import { describe, expect, it } from "vitest";
+import { z } from "zod";
+
+import type { AuthenticatedActor, RouteExecutionContext } from "@/core/api";
+import {
+  ApplicationError,
+  createAuthenticatedRoute,
+  parseJsonBody,
+} from "@/core/api";
+import type { Logger } from "@/core/observability";
+
+const quietLogger: Logger = {
+  error: () => {},
+  info: () => {},
+  warn: () => {},
+};
+
+const inputSchema = z.object({
+  displayName: z.string().min(1),
+});
+
+type Input = z.output<typeof inputSchema>;
+type OperationResult = { id: string; displayName: string };
+type Operation = (
+  input: Input,
+  context: RouteExecutionContext<AuthenticatedActor>,
+) => Promise<OperationResult>;
+
+function createHarness(operation: Operation) {
+  const handler = createAuthenticatedRoute({
+    routePattern: "/api/v1/eval-resource",
+    successStatus: 201,
+    logger: quietLogger,
+    generateRequestId: () => "eval-request",
+    authenticate: (request) =>
+      Promise.resolve(
+        request.headers.get("authorization") === "Bearer valid"
+          ? {
+              id: "verified-actor",
+              kind: "authenticated",
+              permissions: ["resource:write"],
+              roles: ["student"],
+            }
+          : null,
+      ),
+    parse: (request) => parseJsonBody(request, inputSchema),
+    execute: operation,
+  });
+
+  return handler;
+}
+
+function createRequest(body: unknown, authorization = "Bearer valid"): Request {
+  return new Request("https://example.test/api/v1/eval-resource", {
+    method: "POST",
+    headers: {
+      authorization,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+describe("API foundation eval (required threshold: 5/5)", () => {
+  it("returns a correlated success contract", async () => {
+    const handler = createHarness((input, context) =>
+      Promise.resolve({
+        id: `${context.actor.id}-resource`,
+        displayName: input.displayName,
+      }),
+    );
+
+    const response = await handler(createRequest({ displayName: "Ada" }));
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({
+      data: {
+        id: "verified-actor-resource",
+        displayName: "Ada",
+      },
+      meta: { requestId: "eval-request" },
+    });
+  });
+
+  it("rejects an unauthenticated request before the operation", async () => {
+    let operationCalls = 0;
+    const handler = createHarness(() => {
+      operationCalls += 1;
+      return Promise.resolve({ id: "resource-1", displayName: "Ada" });
+    });
+
+    const response = await handler(
+      createRequest({ displayName: "Ada" }, "Bearer invalid"),
+    );
+
+    expect(response.status).toBe(401);
+    expect(operationCalls).toBe(0);
+  });
+
+  it("rejects invalid input before the operation", async () => {
+    let operationCalls = 0;
+    const handler = createHarness(() => {
+      operationCalls += 1;
+      return Promise.resolve({ id: "resource-1", displayName: "Ada" });
+    });
+
+    const response = await handler(createRequest({ displayName: "" }));
+
+    expect(response.status).toBe(422);
+    expect(operationCalls).toBe(0);
+  });
+
+  it("maps resource authorization failure", async () => {
+    const handler = createHarness(() => {
+      throw new ApplicationError("forbidden");
+    });
+
+    const response = await handler(createRequest({ displayName: "Ada" }));
+
+    expect(response.status).toBe(403);
+  });
+
+  it("sanitizes an unexpected failure", async () => {
+    const handler = createHarness(() => {
+      throw new Error("sensitive persistence detail");
+    });
+
+    const response = await handler(createRequest({ displayName: "Ada" }));
+    const body = await response.text();
+
+    expect(response.status).toBe(500);
+    expect(body).toContain('"code":"internal_error"');
+    expect(body).not.toContain("sensitive persistence detail");
+  });
+});
