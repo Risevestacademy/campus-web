@@ -8,8 +8,7 @@ export type AnalyticsConfiguration = Readonly<{
 }>;
 
 export function readAnalyticsConfiguration():
-  | AnalyticsConfiguration
-  | undefined {
+  AnalyticsConfiguration | undefined {
   const projectToken = publicEnvironment.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
 
   if (!projectToken) {
