@@ -4,6 +4,8 @@ import { ApplicationError } from "./errors";
 
 export const DEFAULT_MAXIMUM_JSON_BYTES = 1_048_576;
 
+type BodyReader = ReadableStreamDefaultReader<Uint8Array>;
+
 function isJsonMediaType(contentType: string | null): boolean {
   const mediaType = contentType?.split(";", 1)[0]?.trim().toLowerCase();
 
@@ -15,16 +17,77 @@ function isJsonMediaType(contentType: string | null): boolean {
   );
 }
 
-function assertBodySize(request: Request, body: string, maximumBytes: number) {
-  const declaredBytes = Number(request.headers.get("content-length"));
-  const actualBytes = new TextEncoder().encode(body).byteLength;
+function assertDeclaredBodyWithinLimit(
+  contentLength: string | null,
+  maximumBytes: number,
+) {
+  if (contentLength === null) {
+    return;
+  }
 
-  if (
-    (Number.isFinite(declaredBytes) && declaredBytes > maximumBytes) ||
-    actualBytes > maximumBytes
-  ) {
+  const declaredBytes = Number(contentLength);
+
+  if (Number.isFinite(declaredBytes) && declaredBytes > maximumBytes) {
     throw new ApplicationError("payload_too_large");
   }
+}
+
+function cancelReaderBestEffort(reader: BodyReader): Promise<void> {
+  return reader.cancel().catch(() => undefined);
+}
+
+async function consumeReaderWithinLimit(
+  reader: BodyReader,
+  maximumBytes: number,
+): Promise<string> {
+  const decoder = new TextDecoder();
+  const decodedChunks: string[] = [];
+  let receivedBytes = 0;
+  let chunk = await reader.read();
+
+  while (!chunk.done) {
+    receivedBytes += chunk.value.byteLength;
+
+    if (receivedBytes > maximumBytes) {
+      await cancelReaderBestEffort(reader);
+      throw new ApplicationError("payload_too_large");
+    }
+
+    decodedChunks.push(decoder.decode(chunk.value, { stream: true }));
+    chunk = await reader.read();
+  }
+
+  decodedChunks.push(decoder.decode());
+  return decodedChunks.join("");
+}
+
+async function readStreamWithinLimit(
+  stream: ReadableStream<Uint8Array>,
+  maximumBytes: number,
+): Promise<string> {
+  const reader = stream.getReader();
+
+  try {
+    return await consumeReaderWithinLimit(reader, maximumBytes);
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+async function readRequestBodyWithinLimit(
+  request: Request,
+  maximumBytes: number,
+): Promise<string> {
+  assertDeclaredBodyWithinLimit(
+    request.headers.get("content-length"),
+    maximumBytes,
+  );
+
+  if (!request.body) {
+    return "";
+  }
+
+  return readStreamWithinLimit(request.body, maximumBytes);
 }
 
 export function parseInput<TSchema extends z.ZodType>(
@@ -56,8 +119,7 @@ export async function parseJsonBody<TSchema extends z.ZodType>(
     throw new ApplicationError("unsupported_media_type");
   }
 
-  const body = await request.text();
-  assertBodySize(request, body, maximumBytes);
+  const body = await readRequestBodyWithinLimit(request, maximumBytes);
 
   let input: unknown;
 

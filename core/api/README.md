@@ -19,6 +19,11 @@ Use public handlers only when anonymous access is intentional. Protected
 handlers authenticate before reading the request body. All dynamic route
 parameters and query values remain untrusted and require endpoint schemas.
 
+JSON media types are verified before body consumption. A declared
+`Content-Length` above the endpoint limit is rejected before reading, while
+undeclared or misleading bodies are read incrementally and cancelled as soon
+as their cumulative bytes exceed the limit.
+
 The default runtime is Node.js. Do not opt into Edge without an explicit
 latency requirement and dependency compatibility review.
 

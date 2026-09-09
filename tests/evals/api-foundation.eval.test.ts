@@ -63,7 +63,19 @@ function createRequest(body: unknown, authorization = "Bearer valid"): Request {
   });
 }
 
-describe("API foundation eval (required threshold: 5/5)", () => {
+function createDeclaredOversizedRequest(): Request {
+  return new Request("https://example.test/api/v1/eval-resource", {
+    method: "POST",
+    headers: {
+      authorization: "Bearer valid",
+      "content-length": String(1_048_577),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ displayName: "Ada" }),
+  });
+}
+
+describe("API foundation eval (required threshold: 6/6)", () => {
   it("returns a correlated success contract", async () => {
     const handler = createHarness((input, context) =>
       Promise.resolve({
@@ -109,6 +121,25 @@ describe("API foundation eval (required threshold: 5/5)", () => {
     const response = await handler(createRequest({ displayName: "" }));
 
     expect(response.status).toBe(422);
+    expect(operationCalls).toBe(0);
+  });
+
+  it("rejects an oversized declared body without consuming or executing it", async () => {
+    let operationCalls = 0;
+    const handler = createHarness(() => {
+      operationCalls += 1;
+      return Promise.resolve({ id: "resource-1", displayName: "Ada" });
+    });
+    const request = createDeclaredOversizedRequest();
+
+    const response = await handler(request);
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({
+      code: "payload_too_large",
+      requestId: "eval-request",
+    });
+    expect(request.bodyUsed).toBe(false);
     expect(operationCalls).toBe(0);
   });
 

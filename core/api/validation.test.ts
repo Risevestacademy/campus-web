@@ -35,6 +35,22 @@ describe("parseJsonBody", () => {
     });
   });
 
+  it("rejects an oversized declared body before reading it", async () => {
+    const request = new Request("https://example.test/api/profile", {
+      method: "POST",
+      headers: {
+        "content-length": "5",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ displayName: "Ada" }),
+    });
+
+    await expect(parseJsonBody(request, inputSchema, 4)).rejects.toMatchObject({
+      code: "payload_too_large",
+    });
+    expect(request.bodyUsed).toBe(false);
+  });
+
   it("rejects malformed JSON", async () => {
     const request = new Request("https://example.test/api/profile", {
       method: "POST",
@@ -57,6 +73,48 @@ describe("parseJsonBody", () => {
     await expect(parseJsonBody(request, inputSchema, 4)).rejects.toMatchObject({
       code: "payload_too_large",
     });
+  });
+
+  it("cancels an undeclared body when streamed bytes exceed the limit", async () => {
+    const encoder = new TextEncoder();
+    const chunks = [
+      encoder.encode('{"display'),
+      encoder.encode('Name":"Ada"}'),
+      encoder.encode("unread"),
+    ];
+    let chunkIndex = 0;
+    let wasCancelled = false;
+    const body = new ReadableStream<Uint8Array>(
+      {
+        cancel: () => {
+          wasCancelled = true;
+        },
+        pull: (controller) => {
+          const chunk = chunks[chunkIndex];
+          chunkIndex += 1;
+
+          if (chunk) {
+            controller.enqueue(chunk);
+          } else {
+            controller.close();
+          }
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const request = new Request("https://example.test/api/profile", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+      duplex: "half",
+    } as RequestInit & { duplex: "half" });
+
+    await expect(parseJsonBody(request, inputSchema, 10)).rejects.toMatchObject(
+      {
+        code: "payload_too_large",
+      },
+    );
+    expect(wasCancelled).toBe(true);
   });
 });
 
