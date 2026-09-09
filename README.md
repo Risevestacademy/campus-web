@@ -2,8 +2,9 @@
 
 Frontend for the Campus by Rise persistent 2D learning environment.
 
-The repository currently contains architecture and development tooling only.
-Product UI and feature implementations begin after design and contract approval.
+The repository contains the application scaffold, shared infrastructure, and
+development tooling. Product features are added after design and contract
+approval.
 
 ## Requirements
 
@@ -22,7 +23,8 @@ pnpm dev
 ## Architecture
 
 - `app/`: routes, layouts, boundaries, providers, and composition
-- `core/`: API, game, media, and realtime infrastructure
+- `config/`: architecture rules and build-time environment validation
+- `core/`: analytics and other cross-feature infrastructure
 - `features/`: independently owned product domains
 - `shared/`: reusable domain-independent code
 - `assets/`: imported images, SVGs, and fonts
@@ -38,8 +40,9 @@ app -> features -> core -> shared
 Features cannot import other features. Route composition resolves cross-feature
 workflows. Consumers import a feature through `@/features/<feature>`.
 
-See `docs/architectural-plan.md` and
-`docs/plans/frontend-architecture-scaffold.md`.
+See `core/README.md`, `features/README.md`, `shared/README.md`, and
+`config/README.md` for ownership rules. See `core/analytics/README.md` for the
+product analytics contract.
 
 ## Quality Commands
 
@@ -51,3 +54,4 @@ See `docs/architectural-plan.md` and
 | `pnpm test:coverage`     | Generate V8 coverage                                |
 | `pnpm test:e2e`          | Build and run Playwright across three browsers      |
 | `pnpm eval:architecture` | Require zero lint or boundary violations            |
+| `pnpm eval:analytics`    | Validate analytics events and project isolation     |
