@@ -3,7 +3,7 @@ import { createCampusApiProxy } from "@/core/api/campus/proxy";
 import { createJsonLogger } from "@/core/observability";
 
 const handleCampusApiRequest = createCampusApiProxy({
-  baseUrl: readCampusApiBaseUrl(),
+  baseUrl: readCampusApiBaseUrl,
   logger: createJsonLogger(),
 });
 

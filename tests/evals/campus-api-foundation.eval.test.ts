@@ -43,7 +43,18 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("Campus API foundation eval (required threshold: 8/8)", () => {
+describe("Campus API foundation eval (required threshold: 9/9)", () => {
+  it("loads the browser proxy route without build-time configuration", async () => {
+    vi.stubEnv("CAMPUS_API_BASE_URL", "");
+
+    await expect(
+      import("../../app/api/campus/[...path]/route"),
+    ).resolves.toMatchObject({
+      GET: expect.any(Function),
+      POST: expect.any(Function),
+    });
+  });
+
   it("derives the OpenAPI document from environment configuration", () => {
     expect(
       readCampusOpenApiUrl({

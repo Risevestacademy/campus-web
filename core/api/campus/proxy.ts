@@ -46,11 +46,15 @@ const MANAGED_ACCESS_TOKEN_ATTRIBUTES = new Set([
 ]);
 
 interface CampusApiProxyOptions {
-  baseUrl: string;
+  baseUrl: string | (() => string);
   clock?: () => number;
   fetch?: ClientOptions["fetch"];
   generateRequestId?: () => string;
   logger: Logger;
+}
+
+function resolveBaseUrl(baseUrl: string | (() => string)): string {
+  return typeof baseUrl === "function" ? baseUrl() : baseUrl;
 }
 
 interface CampusApiProxyContext {
@@ -255,7 +259,7 @@ export function createCampusApiProxy(options: CampusApiProxyOptions) {
       const upstreamRequest = createUpstreamRequest(
         request,
         requestId,
-        createUpstreamUrl(options.baseUrl, path, request.url),
+        createUpstreamUrl(resolveBaseUrl(options.baseUrl), path, request.url),
       );
       const upstreamResponse = await fetchUpstream(upstreamRequest);
       const responseHeaders = copyHeaders(

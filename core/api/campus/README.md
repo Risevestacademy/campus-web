@@ -52,6 +52,11 @@ every public origin must use HTTPS. Private DNS is available at runtime, not
 during the image build, so do not fetch the Campus API while generating the
 Next.js build.
 
+The browser proxy also resolves `CAMPUS_API_BASE_URL` at request time rather
+than during Route Handler module evaluation. Builds therefore do not require
+the runtime-only backend origin. A request made without runtime configuration
+returns a sanitized, correlated `502`.
+
 ## Define a feature gateway once
 
 Feature domains define a narrow application-facing gateway around the injected
