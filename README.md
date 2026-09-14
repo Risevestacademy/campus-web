@@ -55,6 +55,12 @@ error mapping live in `core/api`. Route Handlers remain thin composition roots:
 they select an authentication adapter, parser, feature application service, and
 logger.
 
+Typed Campus backend requests also live in `core/api/campus`. Browser query
+hooks use its same-origin `/api/campus` proxy, while Server Components, Server
+Functions, and Route Handlers use its direct server composition. Both paths are
+created by one OpenAPI-backed factory; feature domains inject that client into
+their API adapters instead of duplicating client and server methods.
+
 Resource authorization and safe DTO construction remain inside the owning
 feature service or data-access layer. Server Components call those services
 directly rather than making HTTP requests to local Route Handlers.
@@ -83,3 +89,4 @@ indiscriminately.
 | `pnpm eval:api`          | Run the deterministic API contract eval             |
 | `pnpm eval:architecture` | Require zero lint or boundary violations            |
 | `pnpm eval:analytics`    | Validate analytics events and project isolation     |
+| `pnpm eval:campus-api`   | Validate Campus client, proxy, and cookie isolation |

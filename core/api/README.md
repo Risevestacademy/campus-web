@@ -2,6 +2,11 @@
 
 This concern owns reusable HTTP transport policy.
 
+Outbound calls to the Campus backend use the generated client and browser BFF
+in `campus/`. See `campus/README.md` for feature composition, cookie forwarding,
+and OpenAPI generation. The contracts in this file describe endpoints owned by
+the Next.js application rather than transparent Campus backend responses.
+
 Route Handlers in `app/api` are composition roots. They select a parser,
 authentication adapter, feature application service, logger, and success
 status, then export the resulting handler.
@@ -18,6 +23,8 @@ choose product event names and no analytics endpoints are created.
 Use public handlers only when anonymous access is intentional. Protected
 handlers authenticate before reading the request body. All dynamic route
 parameters and query values remain untrusted and require endpoint schemas.
+The parser receives the asynchronous Next.js route context so dynamic
+parameters can be validated with the body and query values.
 
 JSON media types are verified before body consumption. A declared
 `Content-Length` above the endpoint limit is rejected before reading, while
@@ -107,6 +114,26 @@ permissions supplied in the request body.
 The shared handler authenticates before reading a protected request body,
 maps expected `ApplicationError` failures to public problem responses, and
 sanitizes unexpected failures.
+
+## Dynamic route parameters
+
+Dynamic parameters are asynchronous in the current Next.js version. Validate
+them inside the route parser:
+
+```ts
+const routeParametersSchema = z.object({
+  profileId: z.string().uuid(),
+});
+
+export const GET = createAuthenticatedRoute({
+  authenticate: authenticateRequest,
+  routePattern: "/api/profiles/[profileId]",
+  logger: createJsonLogger(),
+  parse: async (_request, routeContext) =>
+    parseInput(routeParametersSchema, await routeContext.params),
+  execute: (input, context) => getProfile(input.profileId, context),
+});
+```
 
 ## Analytics placement
 

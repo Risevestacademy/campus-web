@@ -14,19 +14,22 @@ Typed PostHog product analytics for Campus by Rise.
 
 ## Successful business operations
 
-Trusted events are emitted by the owning feature application service after its
-DAL or repository confirms that the business operation succeeded. The
-`distinctId` must come from the verified authentication context, never from
-request input.
+The owning feature application service chooses each trusted event after its DAL
+or repository confirms that the business operation succeeded. The `distinctId`
+must come from the verified authentication context, never from request input.
 
 `captureServerAnalyticsEvent` is best-effort and already prevents PostHog
 delivery failures from reversing a successful business operation.
 
-When a Route Handler or Server Action uses Next.js `after()`, execute the
-business operation first and schedule only the analytics capture after success
-is known. Never place the business operation itself inside `after()`, and never
-schedule the event before the operation succeeds because `after()` also runs
-for failed responses.
+For request-driven operations, inject a feature-specific analytics port whose
+Next.js adapter schedules `captureServerAnalyticsEvent` with `after()`. The
+feature calls that port only after persistence succeeds. This keeps the event
+decision in the owning domain without placing PostHog latency on the response
+path.
+
+Never place the business operation itself inside `after()`. Do not schedule a
+success event before persistence succeeds because `after()` also runs for
+failed responses.
 
 Events that become audit-, billing-, or compliance-critical require a
 transactional outbox instead of best-effort PostHog delivery.
@@ -71,41 +74,37 @@ the typed capture function; it does not initialize PostHog itself.
 ## Server example
 
 ```ts
-import { ANALYTICS_EVENTS } from "@/core/analytics";
-import { captureServerAnalyticsEvent } from "@/core/analytics/server";
 import type { AuthenticatedActor, RouteExecutionContext } from "@/core/api";
+
+interface ProfileAnalytics {
+  profileSetupCompleted(distinctId: string, profile: CompletedProfile): void;
+}
 
 export async function completeProfileSetup(
   input: CompleteProfileSetupInput,
   context: RouteExecutionContext<AuthenticatedActor>,
+  analytics: ProfileAnalytics,
 ) {
   const profile = await profileRepository.complete(input, context.actor.id);
 
-  await captureServerAnalyticsEvent(
-    ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_COMPLETED,
-    context.actor.id,
-    {
-      cohort_id: profile.cohortId,
-      role: profile.role,
-      track_id: profile.trackId,
-    },
-  );
+  analytics.profileSetupCompleted(context.actor.id, profile);
 
   return profile;
 }
 ```
 
-The repository operation completes before the event is emitted. The distinct
+The repository operation completes before the event is scheduled. The distinct
 ID comes from the verified actor, while event properties come from trusted
-service results.
+service results. The feature-specific adapter maps `CompletedProfile` to the
+canonical typed event properties.
 
 `captureServerAnalyticsEvent` is disabled when the PostHog project token is
 absent and catches delivery errors when PostHog is unavailable. It must not be
 used for audit-, billing-, or compliance-critical delivery.
 
-When called from a Next.js Route Handler or Server Action, the composition
-root may schedule only the capture call with Next.js `after()` after business
-success is known. Never place the business operation itself inside `after()`.
+The Next.js adapter implements `profileSetupCompleted` by calling
+`after(() => captureServerAnalyticsEvent(...))`. The feature owns when and why
+the event is emitted; the adapter owns deferred PostHog delivery.
 
 No analytics endpoint is needed. A normal API endpoint reaches PostHog only
 when its successful feature service explicitly emits an event.

@@ -48,6 +48,14 @@ export interface AuthenticatedActor {
 
 export type RequestActor = AnonymousActor | AuthenticatedActor;
 
+export type ApiRouteParameters = Record<string, string | string[] | undefined>;
+
+export interface ApiRouteContext<
+  TParameters extends ApiRouteParameters = ApiRouteParameters,
+> {
+  params: Promise<TParameters>;
+}
+
 export type AuthenticateRequest = (
   request: Request,
   requestId: string,
@@ -60,4 +68,9 @@ export interface RouteExecutionContext<
   requestId: string;
 }
 
-export type ApiRouteHandler = (request: Request) => Promise<Response>;
+export type ApiRouteHandler<
+  TParameters extends ApiRouteParameters = ApiRouteParameters,
+> = (
+  request: Request,
+  context: ApiRouteContext<TParameters>,
+) => Promise<Response>;

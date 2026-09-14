@@ -7,6 +7,7 @@ import type { AuthenticatedActor, RouteExecutionContext } from "@/core/api";
 import {
   ApplicationError,
   createAuthenticatedRoute,
+  parseInput,
   parseJsonBody,
 } from "@/core/api";
 import type { Logger } from "@/core/observability";
@@ -15,6 +16,10 @@ const quietLogger: Logger = {
   error: () => {},
   info: () => {},
   warn: () => {},
+};
+
+const staticRouteContext = {
+  params: Promise.resolve({}),
 };
 
 const inputSchema = z.object({
@@ -75,7 +80,7 @@ function createDeclaredOversizedRequest(): Request {
   });
 }
 
-describe("API foundation eval (required threshold: 6/6)", () => {
+describe("API foundation eval (required threshold: 7/7)", () => {
   it("returns a correlated success contract", async () => {
     const handler = createHarness((input, context) =>
       Promise.resolve({
@@ -84,7 +89,10 @@ describe("API foundation eval (required threshold: 6/6)", () => {
       }),
     );
 
-    const response = await handler(createRequest({ displayName: "Ada" }));
+    const response = await handler(
+      createRequest({ displayName: "Ada" }),
+      staticRouteContext,
+    );
 
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({
@@ -105,6 +113,7 @@ describe("API foundation eval (required threshold: 6/6)", () => {
 
     const response = await handler(
       createRequest({ displayName: "Ada" }, "Bearer invalid"),
+      staticRouteContext,
     );
 
     expect(response.status).toBe(401);
@@ -118,7 +127,10 @@ describe("API foundation eval (required threshold: 6/6)", () => {
       return Promise.resolve({ id: "resource-1", displayName: "Ada" });
     });
 
-    const response = await handler(createRequest({ displayName: "" }));
+    const response = await handler(
+      createRequest({ displayName: "" }),
+      staticRouteContext,
+    );
 
     expect(response.status).toBe(422);
     expect(operationCalls).toBe(0);
@@ -132,7 +144,7 @@ describe("API foundation eval (required threshold: 6/6)", () => {
     });
     const request = createDeclaredOversizedRequest();
 
-    const response = await handler(request);
+    const response = await handler(request, staticRouteContext);
 
     expect(response.status).toBe(413);
     expect(await response.json()).toMatchObject({
@@ -148,7 +160,10 @@ describe("API foundation eval (required threshold: 6/6)", () => {
       throw new ApplicationError("forbidden");
     });
 
-    const response = await handler(createRequest({ displayName: "Ada" }));
+    const response = await handler(
+      createRequest({ displayName: "Ada" }),
+      staticRouteContext,
+    );
 
     expect(response.status).toBe(403);
   });
@@ -158,11 +173,47 @@ describe("API foundation eval (required threshold: 6/6)", () => {
       throw new Error("sensitive persistence detail");
     });
 
-    const response = await handler(createRequest({ displayName: "Ada" }));
+    const response = await handler(
+      createRequest({ displayName: "Ada" }),
+      staticRouteContext,
+    );
     const body = await response.text();
 
     expect(response.status).toBe(500);
     expect(body).toContain('"code":"internal_error"');
     expect(body).not.toContain("sensitive persistence detail");
+  });
+
+  it("validates asynchronous dynamic route params before execution", async () => {
+    const resourceId = "550e8400-e29b-41d4-a716-446655440000";
+    const routeParametersSchema = z.object({
+      resourceId: z.string().uuid(),
+    });
+    const handler = createAuthenticatedRoute({
+      routePattern: "/api/v1/eval-resource/[resourceId]",
+      logger: quietLogger,
+      authenticate: () =>
+        Promise.resolve({
+          id: "verified-actor",
+          kind: "authenticated",
+          permissions: ["resource:read"],
+          roles: ["student"],
+        }),
+      parse: async (_request, routeContext) =>
+        parseInput(routeParametersSchema, await routeContext.params),
+      execute: (input) => Promise.resolve({ id: input.resourceId }),
+    });
+
+    const response = await handler(
+      new Request(`https://example.test/api/v1/eval-resource/${resourceId}`),
+      {
+        params: Promise.resolve({ resourceId }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: { id: resourceId },
+    });
   });
 });

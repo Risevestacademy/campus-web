@@ -2,7 +2,9 @@ import type { Logger } from "@/core/observability";
 
 import type {
   AnonymousActor,
+  ApiRouteContext,
   ApiRouteHandler,
+  ApiRouteParameters,
   ApiSuccess,
   ApiSuccessStatus,
   AuthenticatedActor,
@@ -16,7 +18,12 @@ import {
   toApiProblem,
 } from "./errors";
 
-interface SharedRouteOptions<TInput, TOutput, TActor extends RequestActor> {
+interface SharedRouteOptions<
+  TInput,
+  TOutput,
+  TActor extends RequestActor,
+  TParameters extends ApiRouteParameters,
+> {
   clock?: () => number;
   execute(
     input: TInput,
@@ -24,22 +31,25 @@ interface SharedRouteOptions<TInput, TOutput, TActor extends RequestActor> {
   ): Promise<TOutput>;
   generateRequestId?: () => string;
   logger: Logger;
-  parse(request: Request): Promise<TInput>;
+  parse(
+    request: Request,
+    context: ApiRouteContext<TParameters>,
+  ): Promise<TInput>;
   routePattern: string;
   successStatus?: ApiSuccessStatus;
 }
 
-export type PublicRouteOptions<TInput, TOutput> = SharedRouteOptions<
+export type PublicRouteOptions<
   TInput,
   TOutput,
-  AnonymousActor
->;
+  TParameters extends ApiRouteParameters = ApiRouteParameters,
+> = SharedRouteOptions<TInput, TOutput, AnonymousActor, TParameters>;
 
-export type AuthenticatedRouteOptions<TInput, TOutput> = SharedRouteOptions<
+export type AuthenticatedRouteOptions<
   TInput,
   TOutput,
-  AuthenticatedActor
-> & {
+  TParameters extends ApiRouteParameters = ApiRouteParameters,
+> = SharedRouteOptions<TInput, TOutput, AuthenticatedActor, TParameters> & {
   authenticate: AuthenticateRequest;
 };
 
@@ -56,22 +66,27 @@ function getErrorName(reason: unknown): string {
   return reason instanceof Error ? reason.name : "UnknownError";
 }
 
-function createRouteHandler<TInput, TOutput, TActor extends RequestActor>(
-  options: SharedRouteOptions<TInput, TOutput, TActor>,
+function createRouteHandler<
+  TInput,
+  TOutput,
+  TActor extends RequestActor,
+  TParameters extends ApiRouteParameters,
+>(
+  options: SharedRouteOptions<TInput, TOutput, TActor, TParameters>,
   resolveActor: ResolveActor<TActor>,
-): ApiRouteHandler {
+): ApiRouteHandler<TParameters> {
   const clock = options.clock ?? Date.now;
   const generateRequestId =
     options.generateRequestId ?? (() => globalThis.crypto.randomUUID());
   const successStatus = options.successStatus ?? 200;
 
-  return async (request) => {
+  return async (request, routeContext) => {
     const startedAt = clock();
     const requestId = generateRequestId();
 
     try {
       const actor = await resolveActor(request, requestId);
-      const input = await options.parse(request);
+      const input = await options.parse(request, routeContext);
       const data = await options.execute(input, { actor, requestId });
       const responseBody: ApiSuccess<TOutput> = {
         data,
@@ -117,15 +132,23 @@ function createRouteHandler<TInput, TOutput, TActor extends RequestActor>(
   };
 }
 
-export function createPublicRoute<TInput, TOutput>(
-  options: PublicRouteOptions<TInput, TOutput>,
-): ApiRouteHandler {
+export function createPublicRoute<
+  TInput,
+  TOutput,
+  TParameters extends ApiRouteParameters = ApiRouteParameters,
+>(
+  options: PublicRouteOptions<TInput, TOutput, TParameters>,
+): ApiRouteHandler<TParameters> {
   return createRouteHandler(options, () => Promise.resolve(anonymousActor));
 }
 
-export function createAuthenticatedRoute<TInput, TOutput>(
-  options: AuthenticatedRouteOptions<TInput, TOutput>,
-): ApiRouteHandler {
+export function createAuthenticatedRoute<
+  TInput,
+  TOutput,
+  TParameters extends ApiRouteParameters = ApiRouteParameters,
+>(
+  options: AuthenticatedRouteOptions<TInput, TOutput, TParameters>,
+): ApiRouteHandler<TParameters> {
   return createRouteHandler(options, async (request, requestId) => {
     const actor = await options.authenticate(request, requestId);
 
