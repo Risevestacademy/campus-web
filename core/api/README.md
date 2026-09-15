@@ -2,10 +2,10 @@
 
 This concern owns reusable HTTP transport policy.
 
-Outbound calls to the Campus backend use the generated client and browser BFF
-in `campus/`. See `campus/README.md` for feature composition, cookie forwarding,
+Outbound calls to the backend use the generated client and browser BFF in
+`client/`. See `client/README.md` for feature composition, cookie forwarding,
 and OpenAPI generation. The contracts in this file describe endpoints owned by
-the Next.js application rather than transparent Campus backend responses.
+the Next.js application rather than transparent backend responses.
 
 Route Handlers in `app/api` are composition roots. They select a parser,
 authentication adapter, feature application service, logger, and success

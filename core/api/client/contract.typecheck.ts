@@ -1,5 +1,5 @@
-import { campusBrowserApi } from "./browser";
-import type { CampusApi, components } from "./index";
+import { browserApi } from "./browser";
+import type { ApiClient, components } from "./index";
 
 interface SystemHealth {
   status: components["schemas"]["HealthStatus"];
@@ -9,7 +9,7 @@ interface SystemGateway {
   getHealth(): Promise<SystemHealth>;
 }
 
-function createSystemGateway(api: CampusApi): SystemGateway {
+function createSystemGateway(api: ApiClient): SystemGateway {
   return {
     async getHealth() {
       const result = await api.GET("/v1/health");
@@ -27,9 +27,9 @@ function createSystemGateway(api: CampusApi): SystemGateway {
   };
 }
 
-const systemGateway = createSystemGateway(campusBrowserApi);
+const systemGateway = createSystemGateway(browserApi);
 
 void systemGateway.getHealth;
 
 // @ts-expect-error Unpublished paths cannot be called through the typed client.
-void campusBrowserApi.GET("/v1/not-published");
+void browserApi.GET("/v1/not-published");

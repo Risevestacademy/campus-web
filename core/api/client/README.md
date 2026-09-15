@@ -1,14 +1,14 @@
-# Campus API client
+# API client
 
 This directory owns the typed outbound connection to the Campus backend. It is
 separate from the inbound Route Handler contracts in the parent directory.
 
-`createCampusApi` is the only client factory. Runtime composition supplies its
+`createApiClient` is the only client factory. Runtime composition supplies its
 base URL and request defaults:
 
-- browser code uses `/api/campus` and reaches the backend through the Next.js
+- browser code uses `/api` and reaches the backend through the Next.js
   proxy;
-- server code uses `CAMPUS_API_BASE_URL` and reaches the backend directly.
+- server code uses `API_BASE_URL` and reaches the backend directly.
 
 Feature infrastructure adapters accept the configured client as a dependency.
 They implement narrow domain gateway contracts and translate backend DTOs and
@@ -27,7 +27,7 @@ pnpm api:types
 ```
 
 The command loads `.env.local` and derives the schema URL as
-`${CAMPUS_API_BASE_URL}/docs-json`. The upstream OpenAPI document must remain
+`${API_BASE_URL}/docs-json`. The upstream OpenAPI document must remain
 the source of truth for request and response shapes.
 
 ## Environment
@@ -35,7 +35,7 @@ the source of truth for request and response shapes.
 Set the server-only backend origin in `.env.local`:
 
 ```bash
-CAMPUS_API_BASE_URL=https://api.example.com
+API_BASE_URL=https://api.example.com
 ```
 
 Do not prefix this variable with `NEXT_PUBLIC_`. When both services run in the
@@ -43,16 +43,16 @@ same Railway project and environment, configure the frontend with a Railway
 reference variable such as:
 
 ```bash
-CAMPUS_API_BASE_URL=http://${{campus-api.RAILWAY_PRIVATE_DOMAIN}}:${{campus-api.PORT}}
+API_BASE_URL=http://${{campus-api.RAILWAY_PRIVATE_DOMAIN}}:${{campus-api.PORT}}
 ```
 
 Railway private traffic is encrypted by its network even though the service URL
 uses `http`. The configuration accepts HTTP only for `*.railway.internal`;
 every public origin must use HTTPS. Private DNS is available at runtime, not
-during the image build, so do not fetch the Campus API while generating the
+during the image build, so do not fetch the API while generating the
 Next.js build.
 
-The browser proxy also resolves `CAMPUS_API_BASE_URL` at request time rather
+The browser proxy also resolves `API_BASE_URL` at request time rather
 than during Route Handler module evaluation. Builds therefore do not require
 the runtime-only backend origin. A request made without runtime configuration
 returns a sanitized, correlated `502`.
@@ -60,11 +60,11 @@ returns a sanitized, correlated `502`.
 ## Define a feature gateway once
 
 Feature domains define a narrow application-facing gateway around the injected
-`CampusApi`. Raw openapi-fetch results stay inside the adapter:
+`ApiClient`. Raw openapi-fetch results stay inside the adapter:
 
 ```ts
 // features/system/api/system-gateway.ts
-import type { CampusApi, components } from "@/core/api/campus";
+import type { ApiClient, components } from "@/core/api/client";
 
 export interface SystemHealth {
   status: components["schemas"]["HealthStatus"];
@@ -74,7 +74,7 @@ export interface SystemGateway {
   getHealth(): Promise<SystemHealth>;
 }
 
-export function createSystemGateway(api: CampusApi): SystemGateway {
+export function createSystemGateway(api: ApiClient): SystemGateway {
   return {
     async getHealth() {
       const result = await api.GET("/v1/health");
@@ -98,7 +98,7 @@ TypeScript compilation.
 
 ## Browser queries
 
-Browser code injects `campusBrowserApi`. Its relative `/api/campus` base URL
+Browser code injects `browserApi`. Its relative `/api` base URL
 uses the Next.js proxy, and the browser includes the HTTP-only cookie without
 exposing it to JavaScript:
 
@@ -108,15 +108,15 @@ exposing it to JavaScript:
 
 import { useQuery } from "@tanstack/react-query";
 
-import { campusBrowserApi } from "@/core/api/campus/browser";
+import { browserApi } from "@/core/api/client/browser";
 
 import { createSystemGateway } from "../api/system-gateway";
 
-const systemGateway = createSystemGateway(campusBrowserApi);
+const systemGateway = createSystemGateway(browserApi);
 
 export function useHealthQuery() {
   return useQuery({
-    queryKey: ["campus-api", "health"],
+    queryKey: ["api", "health"],
     queryFn: systemGateway.getHealth,
   });
 }
@@ -131,19 +131,19 @@ Server Components, Server Functions, Route Handlers, and feature application
 services use the direct server composition:
 
 ```ts
-import { getCampusServerApi } from "@/core/api/campus/server";
+import { getServerApi } from "@/core/api/client/server";
 
 import { createSystemGateway } from "@/features/system/api/system-gateway";
 
-const campusApi = await getCampusServerApi({ authentication: "none" });
-const systemGateway = createSystemGateway(campusApi);
+const api = await getServerApi({ authentication: "none" });
+const systemGateway = createSystemGateway(api);
 const health = await systemGateway.getHealth();
 ```
 
 Authenticated calls omit the option:
 
 ```ts
-const campusApi = await getCampusServerApi();
+const api = await getServerApi();
 ```
 
 The default reads `accessToken` with Next.js `cookies()` and forwards only that
@@ -152,14 +152,14 @@ between concurrent users. Use `authentication: "none"` for public data so
 Next.js does not opt the render path into request-time rendering merely to read
 cookies.
 
-Server code must not call its own `/api/campus` URL. That adds an unnecessary
+Server code must not call the frontend `/api` proxy. That adds an unnecessary
 network hop and complicates cookie forwarding and caching.
 
 ## Browser proxy
 
-`app/api/campus/[...path]/route.ts` is a transparent browser-facing proxy. It:
+`app/api/[...path]/route.ts` is a transparent browser-facing proxy. It:
 
-- fixes the upstream host from `CAMPUS_API_BASE_URL`;
+- fixes the upstream host from `API_BASE_URL`;
 - forwards only allowlisted request and response headers;
 - forwards only the `accessToken` request cookie;
 - streams request and response bodies;
@@ -178,14 +178,14 @@ in the inbound API foundation's `{ data, meta }` or problem contracts.
 Try the public health endpoint with the development server running:
 
 ```bash
-curl -i http://localhost:3000/api/campus/v1/health
+curl -i http://localhost:3000/api/v1/health
 ```
 
 Unsafe manual requests must include the frontend origin:
 
 ```bash
 curl -i \
-  -X PATCH http://localhost:3000/api/campus/v1/example \
+  -X PATCH http://localhost:3000/api/v1/example \
   -H 'Content-Type: application/json' \
   -H 'Origin: http://localhost:3000' \
   --data '{}'

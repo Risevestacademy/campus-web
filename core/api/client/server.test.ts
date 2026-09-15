@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getCampusServerApi } from "./server";
+import { getServerApi } from "./server";
 
 const nextHeaders = vi.hoisted(() => ({
   cookies: vi.fn(),
@@ -15,7 +15,7 @@ vi.mock("next/headers", () => ({
 vi.mock("server-only", () => ({}));
 
 beforeEach(() => {
-  vi.stubEnv("CAMPUS_API_BASE_URL", "https://api.example.test");
+  vi.stubEnv("API_BASE_URL", "https://api.example.test");
   nextHeaders.cookies.mockResolvedValue({
     get: (name: string) =>
       name === "accessToken"
@@ -29,10 +29,10 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("getCampusServerApi", () => {
+describe("getServerApi", () => {
   it("forwards only the request access token directly to the backend", async () => {
     let outboundRequest: Request | undefined;
-    const api = await getCampusServerApi({
+    const api = await getServerApi({
       fetch: (request) => {
         outboundRequest = request;
         return Promise.resolve(Response.json({ status: "ok" }));
@@ -62,8 +62,8 @@ describe("getCampusServerApi", () => {
     };
 
     const [firstApi, secondApi] = await Promise.all([
-      getCampusServerApi({ fetch: captureRequest }),
-      getCampusServerApi({ fetch: captureRequest }),
+      getServerApi({ fetch: captureRequest }),
+      getServerApi({ fetch: captureRequest }),
     ]);
 
     await Promise.all([
@@ -85,7 +85,7 @@ describe("getCampusServerApi", () => {
       }),
     });
     let outboundRequest: Request | undefined;
-    const api = await getCampusServerApi({
+    const api = await getServerApi({
       fetch: (request) => {
         outboundRequest = request;
         return Promise.resolve(Response.json({ status: "ok" }));
@@ -101,7 +101,7 @@ describe("getCampusServerApi", () => {
 
   it("does not access request cookies for an anonymous server client", async () => {
     let outboundRequest: Request | undefined;
-    const api = await getCampusServerApi({
+    const api = await getServerApi({
       authentication: "none",
       fetch: (request) => {
         outboundRequest = request;

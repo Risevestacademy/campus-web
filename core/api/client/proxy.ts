@@ -45,7 +45,7 @@ const MANAGED_ACCESS_TOKEN_ATTRIBUTES = new Set([
   "secure",
 ]);
 
-interface CampusApiProxyOptions {
+interface ApiProxyOptions {
   baseUrl: string | (() => string);
   clock?: () => number;
   fetch?: ClientOptions["fetch"];
@@ -57,7 +57,7 @@ function resolveBaseUrl(baseUrl: string | (() => string)): string {
   return typeof baseUrl === "function" ? baseUrl() : baseUrl;
 }
 
-interface CampusApiProxyContext {
+interface ApiProxyContext {
   params: Promise<{ path: string[] }>;
 }
 
@@ -220,7 +220,7 @@ function createUnavailableResponse(requestId: string): Response {
     {
       error: {
         code: "INTERNAL_ERROR",
-        message: "Campus API is unavailable.",
+        message: "API is unavailable.",
       },
     },
     {
@@ -230,20 +230,20 @@ function createUnavailableResponse(requestId: string): Response {
   );
 }
 
-export function createCampusApiProxy(options: CampusApiProxyOptions) {
+export function createApiProxy(options: ApiProxyOptions) {
   const clock = options.clock ?? Date.now;
   const fetchUpstream = options.fetch ?? ((request: Request) => fetch(request));
   const generateRequestId =
     options.generateRequestId ?? (() => globalThis.crypto.randomUUID());
 
-  return async (request: Request, context: CampusApiProxyContext) => {
+  return async (request: Request, context: ApiProxyContext) => {
     const startedAt = clock();
     const requestId = generateRequestId();
     const { path } = await context.params;
     const route = `/${path.join("/")}`;
 
     if (isCrossOriginUnsafeRequest(request)) {
-      options.logger.warn("campus_api.proxy.rejected", {
+      options.logger.warn("api.proxy.rejected", {
         durationMs: Math.max(0, clock() - startedAt),
         errorCode: "cross_origin",
         method: request.method,
@@ -274,7 +274,7 @@ export function createCampusApiProxy(options: CampusApiProxyOptions) {
         new URL(request.url).protocol === "https:",
       );
       responseHeaders.set("x-request-id", requestId);
-      options.logger.info("campus_api.proxy.completed", {
+      options.logger.info("api.proxy.completed", {
         durationMs: Math.max(0, clock() - startedAt),
         method: request.method,
         requestId,
@@ -288,7 +288,7 @@ export function createCampusApiProxy(options: CampusApiProxyOptions) {
         statusText: upstreamResponse.statusText,
       });
     } catch (reason) {
-      options.logger.error("campus_api.proxy.failed", {
+      options.logger.error("api.proxy.failed", {
         durationMs: Math.max(0, clock() - startedAt),
         errorName: getErrorName(reason),
         method: request.method,

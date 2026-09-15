@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { Logger } from "@/core/observability";
 
-import { createCampusApiProxy } from "./proxy";
+import { createApiProxy } from "./proxy";
 
 vi.mock("server-only", () => ({}));
 
@@ -14,14 +14,14 @@ const quietLogger: Logger = {
   warn: () => {},
 };
 
-describe("createCampusApiProxy", () => {
+describe("createApiProxy", () => {
   it("transparently forwards an authenticated backend response", async () => {
     let outboundRequest: Request | undefined;
     const responseBody = {
       status: "ok",
       timestamp: "2026-09-10T00:00:00.000Z",
     };
-    const handler = createCampusApiProxy({
+    const handler = createApiProxy({
       baseUrl: "https://api.example.test",
       logger: quietLogger,
       fetch: (request) => {
@@ -38,7 +38,7 @@ describe("createCampusApiProxy", () => {
       },
     });
     const request = new Request(
-      "https://frontend.example.test/api/campus/v1/health?verbose=true",
+      "https://frontend.example.test/api/v1/health?verbose=true",
       {
         headers: {
           accept: "application/json",
@@ -67,7 +67,7 @@ describe("createCampusApiProxy", () => {
   });
 
   it("preserves backend cache policy for anonymous responses", async () => {
-    const handler = createCampusApiProxy({
+    const handler = createApiProxy({
       baseUrl: "https://api.example.test",
       logger: quietLogger,
       fetch: () =>
@@ -84,7 +84,7 @@ describe("createCampusApiProxy", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/campus/v1/health"),
+      new Request("https://frontend.example.test/api/v1/health"),
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
 
@@ -93,7 +93,7 @@ describe("createCampusApiProxy", () => {
 
   it("streams an unsafe request body to the backend", async () => {
     let outboundBody: string | undefined;
-    const handler = createCampusApiProxy({
+    const handler = createApiProxy({
       baseUrl: "https://api.example.test",
       logger: quietLogger,
       fetch: async (request) => {
@@ -102,7 +102,7 @@ describe("createCampusApiProxy", () => {
       },
     });
     const request = new Request(
-      "https://frontend.example.test/api/campus/v1/profile",
+      "https://frontend.example.test/api/v1/profile",
       {
         body: JSON.stringify({ displayName: "Ada" }),
         headers: {
@@ -133,7 +133,7 @@ describe("createCampusApiProxy", () => {
       info: () => {},
       warn: (event, fields) => records.push({ event, fields }),
     };
-    const handler = createCampusApiProxy({
+    const handler = createApiProxy({
       baseUrl: "https://api.example.test",
       clock: () => 200,
       generateRequestId: () => "proxy-request-csrf",
@@ -144,7 +144,7 @@ describe("createCampusApiProxy", () => {
       },
     });
     const request = new Request(
-      "https://frontend.example.test/api/campus/v1/profile",
+      "https://frontend.example.test/api/v1/profile",
       {
         body: JSON.stringify({ displayName: "Mallory" }),
         headers: {
@@ -171,7 +171,7 @@ describe("createCampusApiProxy", () => {
     expect(upstreamCalls).toBe(0);
     expect(records).toEqual([
       {
-        event: "campus_api.proxy.rejected",
+        event: "api.proxy.rejected",
         fields: {
           durationMs: 0,
           errorCode: "cross_origin",
@@ -194,7 +194,7 @@ describe("createCampusApiProxy", () => {
       info: () => {},
       warn: () => {},
     };
-    const handler = createCampusApiProxy({
+    const handler = createApiProxy({
       baseUrl: "https://api.example.test",
       clock: () => 125,
       generateRequestId: () => "proxy-request-1",
@@ -205,7 +205,7 @@ describe("createCampusApiProxy", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/campus/v1/health"),
+      new Request("https://frontend.example.test/api/v1/health"),
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
     const responseText = await response.text();
@@ -213,12 +213,12 @@ describe("createCampusApiProxy", () => {
     expect(response.status).toBe(502);
     expect(response.headers.get("x-request-id")).toBe("proxy-request-1");
     expect(responseText).toBe(
-      '{"error":{"code":"INTERNAL_ERROR","message":"Campus API is unavailable."}}',
+      '{"error":{"code":"INTERNAL_ERROR","message":"API is unavailable."}}',
     );
     expect(responseText).not.toContain("sensitive upstream connection detail");
     expect(records).toEqual([
       {
-        event: "campus_api.proxy.failed",
+        event: "api.proxy.failed",
         fields: {
           durationMs: 0,
           errorName: "TypeError",
@@ -243,7 +243,7 @@ describe("createCampusApiProxy", () => {
     };
     const timestamps = [100, 125];
     let outboundRequest: Request | undefined;
-    const handler = createCampusApiProxy({
+    const handler = createApiProxy({
       baseUrl: "https://api.example.test",
       clock: () => timestamps.shift() ?? 125,
       generateRequestId: () => "proxy-request-2",
@@ -255,7 +255,7 @@ describe("createCampusApiProxy", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/campus/v1/health"),
+      new Request("https://frontend.example.test/api/v1/health"),
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
 
@@ -265,7 +265,7 @@ describe("createCampusApiProxy", () => {
     expect(response.headers.get("x-request-id")).toBe("proxy-request-2");
     expect(records).toEqual([
       {
-        event: "campus_api.proxy.completed",
+        event: "api.proxy.completed",
         fields: {
           durationMs: 25,
           method: "GET",
@@ -289,7 +289,7 @@ describe("createCampusApiProxy", () => {
       "set-cookie",
       "accessToken=renewed; Domain=api.example.test; Path=/v1",
     );
-    const handler = createCampusApiProxy({
+    const handler = createApiProxy({
       baseUrl: "https://api.example.test",
       logger: quietLogger,
       fetch: () =>
@@ -299,7 +299,7 @@ describe("createCampusApiProxy", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/campus/v1/session"),
+      new Request("https://frontend.example.test/api/v1/session"),
       { params: Promise.resolve({ path: ["v1", "session"] }) },
     );
 
@@ -311,7 +311,7 @@ describe("createCampusApiProxy", () => {
   it("keeps local HTTP cookies usable while enforcing browser isolation", async () => {
     const upstreamHeaders = new Headers();
     upstreamHeaders.append("set-cookie", "accessToken=renewed; Path=/v1");
-    const handler = createCampusApiProxy({
+    const handler = createApiProxy({
       baseUrl: "https://api.example.test",
       logger: quietLogger,
       fetch: () =>
@@ -319,7 +319,7 @@ describe("createCampusApiProxy", () => {
     });
 
     const response = await handler(
-      new Request("http://localhost:3000/api/campus/v1/session"),
+      new Request("http://localhost:3000/api/v1/session"),
       { params: Promise.resolve({ path: ["v1", "session"] }) },
     );
 
@@ -330,7 +330,7 @@ describe("createCampusApiProxy", () => {
 
   it("prevents automatic authenticated redirects beyond the backend origin", async () => {
     let redirectMode: RequestRedirect | undefined;
-    const handler = createCampusApiProxy({
+    const handler = createApiProxy({
       baseUrl: "https://api.example.test",
       logger: quietLogger,
       fetch: (request) => {
@@ -345,7 +345,7 @@ describe("createCampusApiProxy", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/campus/v1/profile", {
+      new Request("https://frontend.example.test/api/v1/profile", {
         headers: { cookie: "accessToken=session-token" },
       }),
       { params: Promise.resolve({ path: ["v1", "profile"] }) },
@@ -357,7 +357,7 @@ describe("createCampusApiProxy", () => {
 
   it("preserves conditional request and rate-limit response metadata", async () => {
     let outboundRequest: Request | undefined;
-    const handler = createCampusApiProxy({
+    const handler = createApiProxy({
       baseUrl: "https://api.example.test",
       logger: quietLogger,
       fetch: (request) => {
@@ -374,14 +374,11 @@ describe("createCampusApiProxy", () => {
         );
       },
     });
-    const request = new Request(
-      "https://frontend.example.test/api/campus/v1/health",
-      {
-        headers: {
-          "if-none-match": '"health-1"',
-        },
+    const request = new Request("https://frontend.example.test/api/v1/health", {
+      headers: {
+        "if-none-match": '"health-1"',
       },
-    );
+    });
 
     const response = await handler(request, {
       params: Promise.resolve({ path: ["v1", "health"] }),

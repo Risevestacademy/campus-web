@@ -4,13 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Logger } from "@/core/observability";
 
+import { browserApi } from "../../core/api/client/browser";
 import {
-  readCampusApiBaseUrl,
-  readCampusOpenApiUrl,
-} from "../../core/api/campus/configuration";
-import { createCampusApi } from "../../core/api/campus/create-campus-api";
-import { createCampusApiProxy } from "../../core/api/campus/proxy";
-import { getCampusServerApi } from "../../core/api/campus/server";
+  readApiBaseUrl,
+  readOpenApiUrl,
+} from "../../core/api/client/configuration";
+import { createApiClient } from "../../core/api/client/create-api-client";
+import { createApiProxy } from "../../core/api/client/proxy";
+import { getServerApi } from "../../core/api/client/server";
 
 const nextHeaders = vi.hoisted(() => ({
   cookies: vi.fn(),
@@ -29,7 +30,7 @@ const quietLogger: Logger = {
 };
 
 beforeEach(() => {
-  vi.stubEnv("CAMPUS_API_BASE_URL", "https://api.example.test");
+  vi.stubEnv("API_BASE_URL", "https://api.example.test");
   nextHeaders.cookies.mockResolvedValue({
     get: (name: string) =>
       name === "accessToken"
@@ -43,12 +44,12 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("Campus API foundation eval (required threshold: 9/9)", () => {
+describe("API client foundation eval (required threshold: 10/10)", () => {
   it("loads the browser proxy route without build-time configuration", async () => {
-    vi.stubEnv("CAMPUS_API_BASE_URL", "");
+    vi.stubEnv("API_BASE_URL", "");
 
     await expect(
-      import("../../app/api/campus/[...path]/route"),
+      import("../../app/api/[...path]/route"),
     ).resolves.toMatchObject({
       GET: expect.any(Function),
       POST: expect.any(Function),
@@ -57,28 +58,28 @@ describe("Campus API foundation eval (required threshold: 9/9)", () => {
 
   it("derives the OpenAPI document from environment configuration", () => {
     expect(
-      readCampusOpenApiUrl({
-        CAMPUS_API_BASE_URL: "https://api.example.test",
+      readOpenApiUrl({
+        API_BASE_URL: "https://api.example.test",
       }),
     ).toBe("https://api.example.test/docs-json");
   });
 
   it("accepts Railway private networking without allowing public HTTP", () => {
     expect(
-      readCampusApiBaseUrl({
-        CAMPUS_API_BASE_URL: "http://campus-api.railway.internal:3000",
+      readApiBaseUrl({
+        API_BASE_URL: "http://campus-api.railway.internal:3000",
       }),
     ).toBe("http://campus-api.railway.internal:3000");
     expect(() =>
-      readCampusApiBaseUrl({
-        CAMPUS_API_BASE_URL: "http://campus-api.example.test",
+      readApiBaseUrl({
+        API_BASE_URL: "http://campus-api.example.test",
       }),
     ).toThrow();
   });
 
   it("creates a generated client against the configured origin", async () => {
     let outboundUrl: string | undefined;
-    const api = createCampusApi({
+    const api = createApiClient({
       baseUrl: "https://api.example.test/",
       fetch: (request) => {
         outboundUrl = request.url;
@@ -91,9 +92,32 @@ describe("Campus API foundation eval (required threshold: 9/9)", () => {
     expect(outboundUrl).toBe("https://api.example.test/v1/health");
   });
 
+  it("mirrors backend paths beneath the frontend API namespace", async () => {
+    let outboundUrl: string | undefined;
+
+    class SameOriginRequest extends Request {
+      constructor(input: RequestInfo | URL, init?: RequestInit) {
+        const url =
+          typeof input === "string" || input instanceof URL ? input : input.url;
+
+        super(new URL(url, "https://frontend.example.test"), init);
+      }
+    }
+
+    await browserApi.GET("/v1/health", {
+      Request: SameOriginRequest,
+      fetch: (request) => {
+        outboundUrl = request.url;
+        return Promise.resolve(Response.json({ status: "ok" }));
+      },
+    });
+
+    expect(outboundUrl).toBe("https://frontend.example.test/api/v1/health");
+  });
+
   it("sends a request-local cookie on the direct server path", async () => {
     let outboundCookie: string | null | undefined;
-    const api = await getCampusServerApi({
+    const api = await getServerApi({
       fetch: (request) => {
         outboundCookie = request.headers.get("cookie");
         return Promise.resolve(Response.json({ status: "ok" }));
@@ -107,7 +131,7 @@ describe("Campus API foundation eval (required threshold: 9/9)", () => {
 
   it("proxies a browser request without leaking unrelated cookies", async () => {
     let outboundRequest: Request | undefined;
-    const handler = createCampusApiProxy({
+    const handler = createApiProxy({
       baseUrl: "https://api.example.test",
       logger: quietLogger,
       fetch: (request) => {
@@ -126,10 +150,9 @@ describe("Campus API foundation eval (required threshold: 9/9)", () => {
     });
 
     const response = await handler(
-      new Request(
-        "https://frontend.example.test/api/campus/v1/health?verbose=true",
-        { headers: { cookie: "accessToken=session-token; theme=dark" } },
-      ),
+      new Request("https://frontend.example.test/api/v1/health?verbose=true", {
+        headers: { cookie: "accessToken=session-token; theme=dark" },
+      }),
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
 
@@ -144,7 +167,7 @@ describe("Campus API foundation eval (required threshold: 9/9)", () => {
 
   it("rejects a cross-origin mutation before the backend", async () => {
     let upstreamCalls = 0;
-    const handler = createCampusApiProxy({
+    const handler = createApiProxy({
       baseUrl: "https://api.example.test",
       logger: quietLogger,
       fetch: () => {
@@ -154,7 +177,7 @@ describe("Campus API foundation eval (required threshold: 9/9)", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/campus/v1/profile", {
+      new Request("https://frontend.example.test/api/v1/profile", {
         body: "{}",
         headers: { origin: "https://attacker.example" },
         method: "POST",
@@ -167,7 +190,7 @@ describe("Campus API foundation eval (required threshold: 9/9)", () => {
   });
 
   it("returns a sanitized correlated response when the backend is unavailable", async () => {
-    const handler = createCampusApiProxy({
+    const handler = createApiProxy({
       baseUrl: "https://api.example.test",
       generateRequestId: () => "eval-request",
       logger: quietLogger,
@@ -177,7 +200,7 @@ describe("Campus API foundation eval (required threshold: 9/9)", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/campus/v1/health"),
+      new Request("https://frontend.example.test/api/v1/health"),
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
     const body = await response.text();
@@ -195,14 +218,14 @@ describe("Campus API foundation eval (required threshold: 9/9)", () => {
       "set-cookie",
       "accessToken=renewed; Domain=api.example.test; Path=/v1",
     );
-    const handler = createCampusApiProxy({
+    const handler = createApiProxy({
       baseUrl: "https://api.example.test",
       logger: quietLogger,
       fetch: () => Promise.resolve(new Response("{}", { headers })),
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/campus/v1/session"),
+      new Request("https://frontend.example.test/api/v1/session"),
       { params: Promise.resolve({ path: ["v1", "session"] }) },
     );
 

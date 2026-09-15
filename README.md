@@ -55,8 +55,8 @@ error mapping live in `core/api`. Route Handlers remain thin composition roots:
 they select an authentication adapter, parser, feature application service, and
 logger.
 
-Typed Campus backend requests also live in `core/api/campus`. Browser query
-hooks use its same-origin `/api/campus` proxy, while Server Components, Server
+Typed backend requests also live in `core/api/client`. Browser query
+hooks use its same-origin `/api` proxy, while Server Components, Server
 Functions, and Route Handlers use its direct server composition. Both paths are
 created by one OpenAPI-backed factory; feature domains inject that client into
 their API adapters instead of duplicating client and server methods.
@@ -86,7 +86,8 @@ indiscriminately.
 | `pnpm test`              | Run deterministic unit and architecture tests       |
 | `pnpm test:coverage`     | Generate V8 coverage                                |
 | `pnpm test:e2e`          | Build and run Playwright across three browsers      |
+| `pnpm typecheck`         | Regenerate Next route types and run TypeScript      |
 | `pnpm eval:api`          | Run the deterministic API contract eval             |
 | `pnpm eval:architecture` | Require zero lint or boundary violations            |
 | `pnpm eval:analytics`    | Validate analytics events and project isolation     |
-| `pnpm eval:campus-api`   | Validate Campus client, proxy, and cookie isolation |
+| `pnpm eval:api-client`   | Validate API client, proxy, and cookie isolation    |

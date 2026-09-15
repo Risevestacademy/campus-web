@@ -10,9 +10,9 @@ afterEach(() => {
   vi.resetModules();
 });
 
-describe("Campus API Route Handler lifecycle", () => {
-  it("loads without build-time Campus API configuration", async () => {
-    vi.stubEnv("CAMPUS_API_BASE_URL", "");
+describe("API Route Handler lifecycle", () => {
+  it("loads without build-time API configuration", async () => {
+    vi.stubEnv("API_BASE_URL", "");
 
     await expect(import("./route")).resolves.toMatchObject({
       GET: expect.any(Function),
@@ -20,8 +20,8 @@ describe("Campus API Route Handler lifecycle", () => {
     });
   });
 
-  it("resolves Campus API configuration when handling a request", async () => {
-    vi.stubEnv("CAMPUS_API_BASE_URL", "https://api.example.test");
+  it("resolves API configuration when handling a request", async () => {
+    vi.stubEnv("API_BASE_URL", "https://api.example.test");
     let outboundUrl: string | undefined;
     vi.stubGlobal("fetch", (request: Request) => {
       outboundUrl = request.url;
@@ -30,7 +30,7 @@ describe("Campus API Route Handler lifecycle", () => {
     const { GET } = await import("./route");
 
     const response = await GET(
-      new Request("https://frontend.example.test/api/campus/v1/health"),
+      new Request("https://frontend.example.test/api/v1/health"),
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
 
@@ -39,11 +39,11 @@ describe("Campus API Route Handler lifecycle", () => {
   });
 
   it("sanitizes missing runtime configuration", async () => {
-    vi.stubEnv("CAMPUS_API_BASE_URL", "");
+    vi.stubEnv("API_BASE_URL", "");
     const { GET } = await import("./route");
 
     const response = await GET(
-      new Request("https://frontend.example.test/api/campus/v1/health"),
+      new Request("https://frontend.example.test/api/v1/health"),
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
     const body = await response.text();
@@ -51,6 +51,6 @@ describe("Campus API Route Handler lifecycle", () => {
     expect(response.status).toBe(502);
     expect(response.headers.get("x-request-id")).toBeTruthy();
     expect(body).toContain('"code":"INTERNAL_ERROR"');
-    expect(body).not.toContain("CAMPUS_API_BASE_URL");
+    expect(body).not.toContain("API_BASE_URL");
   });
 });

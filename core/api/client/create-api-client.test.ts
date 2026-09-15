@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createCampusApi } from "./create-campus-api";
+import { createApiClient } from "./create-api-client";
 import type { components } from "./generated/schema";
 
 const healthResponse = {
@@ -27,10 +27,10 @@ const healthResponse = {
   },
 } satisfies components["schemas"]["HealthResponseDto"];
 
-describe("createCampusApi", () => {
+describe("createApiClient", () => {
   it("uses the configured origin without duplicating the API version", async () => {
     let outboundRequest: Request | undefined;
-    const api = createCampusApi({
+    const api = createApiClient({
       baseUrl: "https://api.example.test/",
       fetch: (request) => {
         outboundRequest = request;

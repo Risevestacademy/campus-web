@@ -3,12 +3,12 @@ import "server-only";
 import { cookies } from "next/headers";
 import type { ClientOptions } from "openapi-fetch";
 
-import { readCampusApiBaseUrl } from "./configuration";
-import { createCampusApi } from "./create-campus-api";
+import { readApiBaseUrl } from "./configuration";
+import { createApiClient } from "./create-api-client";
 
 const ACCESS_TOKEN_COOKIE_NAME = "accessToken";
 
-interface CampusServerApiOptions {
+interface ServerApiOptions {
   authentication?: "cookie" | "none";
   fetch?: ClientOptions["fetch"];
 }
@@ -17,7 +17,7 @@ function serializeAccessTokenCookie(value: string): string {
   return `${ACCESS_TOKEN_COOKIE_NAME}=${encodeURIComponent(value)}`;
 }
 
-export async function getCampusServerApi(options: CampusServerApiOptions = {}) {
+export async function getServerApi(options: ServerApiOptions = {}) {
   const accessToken =
     options.authentication === "none"
       ? undefined
@@ -26,8 +26,8 @@ export async function getCampusServerApi(options: CampusServerApiOptions = {}) {
     ? { cookie: serializeAccessTokenCookie(accessToken.value) }
     : undefined;
 
-  return createCampusApi({
-    baseUrl: readCampusApiBaseUrl(),
+  return createApiClient({
+    baseUrl: readApiBaseUrl(),
     fetch: options.fetch,
     headers,
   });

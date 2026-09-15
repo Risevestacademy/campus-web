@@ -1,7 +1,7 @@
-type CampusApiEnvironment = Readonly<Record<string, string | undefined>>;
+type ApiEnvironment = Readonly<Record<string, string | undefined>>;
 
 const INVALID_ORIGIN_MESSAGE =
-  "CAMPUS_API_BASE_URL must be an HTTPS origin or a Railway private HTTP origin.";
+  "API_BASE_URL must be an HTTPS origin or a Railway private HTTP origin.";
 
 function isAllowedProtocol(url: URL): boolean {
   const isHttps = url.protocol === "https:";
@@ -11,7 +11,7 @@ function isAllowedProtocol(url: URL): boolean {
   return isHttps || isRailwayPrivateHttp;
 }
 
-function parseCampusApiOrigin(value: string): URL {
+function parseApiOrigin(value: string): URL {
   let url: URL;
 
   try {
@@ -35,20 +35,20 @@ function parseCampusApiOrigin(value: string): URL {
   return url;
 }
 
-export function readCampusApiBaseUrl(
-  environment: CampusApiEnvironment = process.env,
+export function readApiBaseUrl(
+  environment: ApiEnvironment = process.env,
 ): string {
-  const configuredBaseUrl = environment.CAMPUS_API_BASE_URL?.trim();
+  const configuredBaseUrl = environment.API_BASE_URL?.trim();
 
   if (!configuredBaseUrl) {
-    throw new Error("CAMPUS_API_BASE_URL is required.");
+    throw new Error("API_BASE_URL is required.");
   }
 
-  return parseCampusApiOrigin(configuredBaseUrl).origin;
+  return parseApiOrigin(configuredBaseUrl).origin;
 }
 
-export function readCampusOpenApiUrl(
-  environment: CampusApiEnvironment = process.env,
+export function readOpenApiUrl(
+  environment: ApiEnvironment = process.env,
 ): string {
-  return new URL("/docs-json", readCampusApiBaseUrl(environment)).href;
+  return new URL("/docs-json", readApiBaseUrl(environment)).href;
 }
