@@ -44,7 +44,27 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("API client foundation eval (required threshold: 10/10)", () => {
+describe("API client foundation eval (required threshold: 11/11)", () => {
+  it("rejects an origin-less GET while the deployment diagnostic is enabled", async () => {
+    let upstreamCalls = 0;
+    const handler = createApiProxy({
+      baseUrl: "https://api.example.test",
+      logger: quietLogger,
+      fetch: () => {
+        upstreamCalls += 1;
+        return Promise.resolve(new Response(null, { status: 204 }));
+      },
+    });
+
+    const response = await handler(
+      new Request("https://frontend.example.test/api/v1/health"),
+      { params: Promise.resolve({ path: ["v1", "health"] }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(upstreamCalls).toBe(0);
+  });
+
   it("loads the browser proxy route without build-time configuration", async () => {
     vi.stubEnv("API_BASE_URL", "");
 
@@ -151,7 +171,10 @@ describe("API client foundation eval (required threshold: 10/10)", () => {
 
     const response = await handler(
       new Request("https://frontend.example.test/api/v1/health?verbose=true", {
-        headers: { cookie: "accessToken=session-token; theme=dark" },
+        headers: {
+          cookie: "accessToken=session-token; theme=dark",
+          origin: "https://frontend.example.test",
+        },
       }),
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
@@ -200,7 +223,9 @@ describe("API client foundation eval (required threshold: 10/10)", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/v1/health"),
+      new Request("https://frontend.example.test/api/v1/health", {
+        headers: { origin: "https://frontend.example.test" },
+      }),
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
     const body = await response.text();
@@ -225,7 +250,9 @@ describe("API client foundation eval (required threshold: 10/10)", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/v1/session"),
+      new Request("https://frontend.example.test/api/v1/session", {
+        headers: { origin: "https://frontend.example.test" },
+      }),
       { params: Promise.resolve({ path: ["v1", "session"] }) },
     );
 

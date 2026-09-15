@@ -15,6 +15,49 @@ const quietLogger: Logger = {
 };
 
 describe("createApiProxy", () => {
+  it("rejects an origin-less GET during the deployment diagnostic", async () => {
+    let upstreamCalls = 0;
+    const records: Array<{
+      event: string;
+      fields: Parameters<Logger["info"]>[1];
+    }> = [];
+    const handler = createApiProxy({
+      baseUrl: "https://api.example.test",
+      generateRequestId: () => "proxy-request-get-origin",
+      logger: {
+        error: () => {},
+        info: (event, fields) => records.push({ event, fields }),
+        warn: () => {},
+      },
+      fetch: () => {
+        upstreamCalls += 1;
+        return Promise.resolve(new Response(null, { status: 204 }));
+      },
+    });
+
+    const response = await handler(
+      new Request("https://frontend.example.test/api/v1/health"),
+      { params: Promise.resolve({ path: ["v1", "health"] }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(upstreamCalls).toBe(0);
+    expect(records).toEqual([
+      {
+        event: "api.proxy.origin_diagnostic",
+        fields: {
+          forwardedHost: null,
+          forwardedProto: null,
+          host: null,
+          method: "GET",
+          origin: null,
+          requestId: "proxy-request-get-origin",
+          requestOrigin: "https://frontend.example.test",
+        },
+      },
+    ]);
+  });
+
   it("transparently forwards an authenticated backend response", async () => {
     let outboundRequest: Request | undefined;
     const responseBody = {
@@ -43,6 +86,7 @@ describe("createApiProxy", () => {
         headers: {
           accept: "application/json",
           cookie: "accessToken=session-token; theme=dark",
+          origin: "https://frontend.example.test",
           "x-untrusted-header": "must-not-be-forwarded",
         },
       },
@@ -84,7 +128,9 @@ describe("createApiProxy", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/v1/health"),
+      new Request("https://frontend.example.test/api/v1/health", {
+        headers: { origin: "https://frontend.example.test" },
+      }),
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
 
@@ -205,7 +251,9 @@ describe("createApiProxy", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/v1/health"),
+      new Request("https://frontend.example.test/api/v1/health", {
+        headers: { origin: "https://frontend.example.test" },
+      }),
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
     const responseText = await response.text();
@@ -255,7 +303,9 @@ describe("createApiProxy", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/v1/health"),
+      new Request("https://frontend.example.test/api/v1/health", {
+        headers: { origin: "https://frontend.example.test" },
+      }),
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
 
@@ -264,6 +314,18 @@ describe("createApiProxy", () => {
     );
     expect(response.headers.get("x-request-id")).toBe("proxy-request-2");
     expect(records).toEqual([
+      {
+        event: "api.proxy.origin_diagnostic",
+        fields: {
+          forwardedHost: null,
+          forwardedProto: null,
+          host: null,
+          method: "GET",
+          origin: "https://frontend.example.test",
+          requestId: "proxy-request-2",
+          requestOrigin: "https://frontend.example.test",
+        },
+      },
       {
         event: "api.proxy.completed",
         fields: {
@@ -299,7 +361,9 @@ describe("createApiProxy", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/v1/session"),
+      new Request("https://frontend.example.test/api/v1/session", {
+        headers: { origin: "https://frontend.example.test" },
+      }),
       { params: Promise.resolve({ path: ["v1", "session"] }) },
     );
 
@@ -319,7 +383,9 @@ describe("createApiProxy", () => {
     });
 
     const response = await handler(
-      new Request("http://localhost:3000/api/v1/session"),
+      new Request("http://localhost:3000/api/v1/session", {
+        headers: { origin: "http://localhost:3000" },
+      }),
       { params: Promise.resolve({ path: ["v1", "session"] }) },
     );
 
@@ -346,7 +412,10 @@ describe("createApiProxy", () => {
 
     const response = await handler(
       new Request("https://frontend.example.test/api/v1/profile", {
-        headers: { cookie: "accessToken=session-token" },
+        headers: {
+          cookie: "accessToken=session-token",
+          origin: "https://frontend.example.test",
+        },
       }),
       { params: Promise.resolve({ path: ["v1", "profile"] }) },
     );
@@ -377,6 +446,7 @@ describe("createApiProxy", () => {
     const request = new Request("https://frontend.example.test/api/v1/health", {
       headers: {
         "if-none-match": '"health-1"',
+        origin: "https://frontend.example.test",
       },
     });
 

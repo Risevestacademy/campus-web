@@ -30,7 +30,9 @@ describe("API Route Handler lifecycle", () => {
     const { GET } = await import("./route");
 
     const response = await GET(
-      new Request("https://frontend.example.test/api/v1/health"),
+      new Request("https://frontend.example.test/api/v1/health", {
+        headers: { origin: "https://frontend.example.test" },
+      }),
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
 
@@ -43,7 +45,9 @@ describe("API Route Handler lifecycle", () => {
     const { GET } = await import("./route");
 
     const response = await GET(
-      new Request("https://frontend.example.test/api/v1/health"),
+      new Request("https://frontend.example.test/api/v1/health", {
+        headers: { origin: "https://frontend.example.test" },
+      }),
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
     const body = await response.text();
