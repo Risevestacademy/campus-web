@@ -17,6 +17,11 @@
       "partialMatch": false
     },
     {
+      "type": "design-system",
+      "pattern": "design-system",
+      "partialMatch": false
+    },
+    {
       "type": "shared",
       "pattern": "shared",
       "partialMatch": false
@@ -54,6 +59,14 @@
       },
       {
         "from": { "element": { "type": "core" } },
+        "allow": {
+          "to": {
+            "element": { "type": "shared" }
+          }
+        }
+      },
+      {
+        "from": { "element": { "type": "design-system" } },
         "allow": {
           "to": {
             "element": { "type": "shared" }

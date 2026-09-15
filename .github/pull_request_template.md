@@ -41,6 +41,16 @@ Closes #
 - [ ] No secrets or sensitive information have been committed
 - [ ] This PR is ready for review
 
+### UI / Design System
+
+- [ ] Reusable visual components include colocated Storybook stories
+- [ ] Stories cover meaningful visual and interaction states
+- [ ] Keyboard interaction has been checked
+- [ ] Storybook accessibility checks pass
+- [ ] Responsive states have been considered
+- [ ] Approved semantic design tokens are used instead of ad-hoc values
+- [ ] Design and implementation differences are documented
+
 ## Screenshots / Evidence
 
 <!-- Add screenshots, logs, API responses, or other relevant evidence if applicable. -->
