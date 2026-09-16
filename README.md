@@ -169,22 +169,23 @@ pnpm check
 
 Storybook is not exposed through the deployed Next.js application. The
 `pnpm storybook:build` command generates a static site in `storybook-static/`.
-CI verifies that this build succeeds but does not currently publish or retain
-the generated site.
-
-Deploy `storybook-static/` as a separate static site when remote access is
-required:
-
-```text
-Application → app.example.com
-Storybook   → storybook.example.com
-```
+CI verifies the tests and static build. Deploy the generated directory through
+any static hosting service.
 
 Use:
 
 - Build command: `pnpm storybook:build`
 - Output directory: `storybook-static`
+- Required build environment:
+  `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and `NEXT_PUBLIC_POSTHOG_HOST`
 
-Protect the Storybook deployment when it contains internal designs or
-unreleased component states. Do not mount Storybook inside the production
-Next.js application or commit the generated `storybook-static/` directory.
+Deploy Storybook separately from the Next.js application. Rebuild the
+application for changes under `app`, `assets`, `config`, `core`, `features`, or
+`shared`. Rebuild Storybook for changes under `.storybook`, `design-system`,
+`assets`, `config`, `core`, `features`, or `shared`, and when
+`app/globals.css` changes. Dependency and root build-configuration changes
+should rebuild both.
+
+Use non-production PostHog values for preview and staging deployments. Protect
+Storybook when it contains internal designs, and do not commit
+`storybook-static/`.
