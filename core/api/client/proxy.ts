@@ -36,12 +36,8 @@ const RESPONSE_HEADERS = [
   "x-ratelimit-remaining",
   "x-ratelimit-reset",
 ];
-const SAFE_METHODS = new Set([
-  // TODO: Restore GET after verifying Railway preserves the external origin.
-  // "GET",
-  "HEAD",
-  "OPTIONS",
-]);
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
 const MANAGED_ACCESS_TOKEN_ATTRIBUTES = new Set([
   "domain",
   "httponly",
@@ -194,10 +190,19 @@ function createUpstreamRequest(
 }
 
 function isCrossOriginUnsafeRequest(request: Request): boolean {
-  return (
-    !SAFE_METHODS.has(request.method) &&
-    request.headers.get("origin") !== new URL(request.url).origin
-  );
+  if (SAFE_METHODS.has(request.method)) return false;
+
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+
+  if (!forwardedHost || !forwardedProto) return true;
+
+  const requestOrigin = `${forwardedProto}://${forwardedHost}`;
+
+  return origin !== requestOrigin;
 }
 
 function createCrossOriginRejection(requestId: string): Response {
@@ -245,16 +250,6 @@ export function createApiProxy(options: ApiProxyOptions) {
     const requestId = generateRequestId();
     const { path } = await context.params;
     const route = `/${path.join("/")}`;
-
-    options.logger.info("api.proxy.origin_diagnostic", {
-      forwardedHost: request.headers.get("x-forwarded-host"),
-      forwardedProto: request.headers.get("x-forwarded-proto"),
-      host: request.headers.get("host"),
-      method: request.method,
-      origin: request.headers.get("origin"),
-      requestId,
-      requestOrigin: new URL(request.url).origin,
-    });
 
     if (isCrossOriginUnsafeRequest(request)) {
       options.logger.warn("api.proxy.rejected", {
