@@ -157,18 +157,6 @@ network hop and complicates cookie forwarding and caching.
 
 ## Browser proxy
 
-### Temporary GET-origin diagnostic
-
-GET temporarily undergoes origin validation to inspect Railway's reconstructed
-request origin. Origin-less GET requests therefore return `403`. Restore GET
-to `SAFE_METHODS` after recording the staging result.
-
-```bash
-curl -i \
-  https://campus-web-staging.up.railway.app/api/v1/health \
-  -H 'Origin: https://campus-web-staging.up.railway.app'
-```
-
 `app/api/[...path]/route.ts` is a transparent browser-facing proxy. It:
 
 - fixes the upstream host from `API_BASE_URL`;

@@ -15,20 +15,11 @@ const quietLogger: Logger = {
 };
 
 describe("createApiProxy", () => {
-  it("rejects an origin-less GET during the deployment diagnostic", async () => {
+  it("forwards an origin-less safe GET", async () => {
     let upstreamCalls = 0;
-    const records: Array<{
-      event: string;
-      fields: Parameters<Logger["info"]>[1];
-    }> = [];
     const handler = createApiProxy({
       baseUrl: "https://api.example.test",
-      generateRequestId: () => "proxy-request-get-origin",
-      logger: {
-        error: () => {},
-        info: (event, fields) => records.push({ event, fields }),
-        warn: () => {},
-      },
+      logger: quietLogger,
       fetch: () => {
         upstreamCalls += 1;
         return Promise.resolve(new Response(null, { status: 204 }));
@@ -40,22 +31,8 @@ describe("createApiProxy", () => {
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
 
-    expect(response.status).toBe(403);
-    expect(upstreamCalls).toBe(0);
-    expect(records).toEqual([
-      {
-        event: "api.proxy.origin_diagnostic",
-        fields: {
-          forwardedHost: null,
-          forwardedProto: null,
-          host: null,
-          method: "GET",
-          origin: null,
-          requestId: "proxy-request-get-origin",
-          requestOrigin: "https://frontend.example.test",
-        },
-      },
-    ]);
+    expect(response.status).toBe(204);
+    expect(upstreamCalls).toBe(1);
   });
 
   it("transparently forwards an authenticated backend response", async () => {
@@ -155,6 +132,8 @@ describe("createApiProxy", () => {
           "content-type": "application/json",
           cookie: "accessToken=session-token",
           origin: "https://frontend.example.test",
+          "x-forwarded-host": "frontend.example.test",
+          "x-forwarded-proto": "https",
         },
         method: "PATCH",
       },
@@ -197,6 +176,8 @@ describe("createApiProxy", () => {
           "content-type": "application/json",
           cookie: "accessToken=session-token",
           origin: "https://attacker.example",
+          "x-forwarded-host": "frontend.example.test",
+          "x-forwarded-proto": "https",
         },
         method: "PATCH",
       },
@@ -314,18 +295,6 @@ describe("createApiProxy", () => {
     );
     expect(response.headers.get("x-request-id")).toBe("proxy-request-2");
     expect(records).toEqual([
-      {
-        event: "api.proxy.origin_diagnostic",
-        fields: {
-          forwardedHost: null,
-          forwardedProto: null,
-          host: null,
-          method: "GET",
-          origin: "https://frontend.example.test",
-          requestId: "proxy-request-2",
-          requestOrigin: "https://frontend.example.test",
-        },
-      },
       {
         event: "api.proxy.completed",
         fields: {

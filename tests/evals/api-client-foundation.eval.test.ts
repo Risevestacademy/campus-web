@@ -45,7 +45,7 @@ afterEach(() => {
 });
 
 describe("API client foundation eval (required threshold: 11/11)", () => {
-  it("rejects an origin-less GET while the deployment diagnostic is enabled", async () => {
+  it("forwards an origin-less safe GET", async () => {
     let upstreamCalls = 0;
     const handler = createApiProxy({
       baseUrl: "https://api.example.test",
@@ -61,8 +61,8 @@ describe("API client foundation eval (required threshold: 11/11)", () => {
       { params: Promise.resolve({ path: ["v1", "health"] }) },
     );
 
-    expect(response.status).toBe(403);
-    expect(upstreamCalls).toBe(0);
+    expect(response.status).toBe(204);
+    expect(upstreamCalls).toBe(1);
   });
 
   it("loads the browser proxy route without build-time configuration", async () => {
@@ -202,7 +202,11 @@ describe("API client foundation eval (required threshold: 11/11)", () => {
     const response = await handler(
       new Request("https://frontend.example.test/api/v1/profile", {
         body: "{}",
-        headers: { origin: "https://attacker.example" },
+        headers: {
+          origin: "https://attacker.example",
+          "x-forwarded-host": "frontend.example.test",
+          "x-forwarded-proto": "https",
+        },
         method: "POST",
       }),
       { params: Promise.resolve({ path: ["v1", "profile"] }) },
