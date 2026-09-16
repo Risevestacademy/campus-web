@@ -12,6 +12,28 @@ Typed PostHog product analytics for Campus by Rise.
 - Browser identification uses the same stable ID.
 - Logout captures its event before calling `resetAnalyticsUser()`.
 
+## Successful business operations
+
+The owning feature application service chooses each trusted event after its DAL
+or repository confirms that the business operation succeeded. The `distinctId`
+must come from the verified authentication context, never from request input.
+
+`captureServerAnalyticsEvent` is best-effort and already prevents PostHog
+delivery failures from reversing a successful business operation.
+
+For request-driven operations, inject a feature-specific analytics port whose
+Next.js adapter schedules `captureServerAnalyticsEvent` with `after()`. The
+feature calls that port only after persistence succeeds. This keeps the event
+decision in the owning domain without placing PostHog latency on the response
+path.
+
+Never place the business operation itself inside `after()`. Do not schedule a
+success event before persistence succeeds because `after()` also runs for
+failed responses.
+
+Events that become audit-, billing-, or compliance-critical require a
+transactional outbox instead of best-effort PostHog delivery.
+
 ## Collection policy
 
 The initial configuration captures pageviews and explicitly declared events.
@@ -37,29 +59,69 @@ Analytics consumes normalized browser-safe values from
 ## Browser example
 
 ```ts
+import { ANALYTICS_EVENTS } from "@/core/analytics";
+import { captureBrowserAnalyticsEvent } from "@/core/analytics/client";
+
 captureBrowserAnalyticsEvent(ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED, {
   auth_method: "rise_sso",
   platform: "web",
 });
 ```
 
+`instrumentation-client.ts` initializes browser analytics. Feature code calls
+the typed capture function; it does not initialize PostHog itself.
+
 ## Server example
 
 ```ts
-await captureServerAnalyticsEvent(
-  ANALYTICS_EVENTS.AUTH_LOGIN_SUCCEEDED,
-  user.id,
-  {
-    auth_method: "rise_sso",
-    role: user.role,
-    user_id: user.id,
-  },
-);
+import type { AuthenticatedActor, RouteExecutionContext } from "@/core/api";
+
+interface ProfileAnalytics {
+  profileSetupCompleted(distinctId: string, profile: CompletedProfile): void;
+}
+
+export async function completeProfileSetup(
+  input: CompleteProfileSetupInput,
+  context: RouteExecutionContext<AuthenticatedActor>,
+  analytics: ProfileAnalytics,
+) {
+  const profile = await profileRepository.complete(input, context.actor.id);
+
+  analytics.profileSetupCompleted(context.actor.id, profile);
+
+  return profile;
+}
 ```
 
-When called from a Next.js Route Handler or Server Action, schedule the
-capture with Next.js `after()` when the event should not add latency to the
-response.
+The repository operation completes before the event is scheduled. The distinct
+ID comes from the verified actor, while event properties come from trusted
+service results. The feature-specific adapter maps `CompletedProfile` to the
+canonical typed event properties.
+
+`captureServerAnalyticsEvent` is disabled when the PostHog project token is
+absent and catches delivery errors when PostHog is unavailable. It must not be
+used for audit-, billing-, or compliance-critical delivery.
+
+The Next.js adapter implements `profileSetupCompleted` by calling
+`after(() => captureServerAnalyticsEvent(...))`. The feature owns when and why
+the event is emitted; the adapter owns deferred PostHog delivery.
+
+No analytics endpoint is needed. A normal API endpoint reaches PostHog only
+when its successful feature service explicitly emits an event.
+
+## Development verification
+
+Configure `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and
+`NEXT_PUBLIC_POSTHOG_HOST` for the development PostHog project, restart the
+development server, and perform the real product operation.
+
+Verify that:
+
+1. The expected canonical event appears once in the development project.
+2. Its distinct ID matches the authenticated user.
+3. Its properties contain only the declared typed fields.
+4. A rejected or failed business operation emits no success event.
+5. Removing the token disables capture without breaking the operation.
 
 ## Verification
 

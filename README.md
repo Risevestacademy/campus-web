@@ -50,6 +50,28 @@ workflows. Consumers import a feature through `@/features/<feature>`.
 See the READMEs in `core/`, `features/`, `shared/`, and `assets/` for placement
 and dependency rules.
 
+### API foundation
+
+Reusable HTTP contracts, validation, request authentication boundaries, and
+error mapping live in `core/api`. Route Handlers remain thin composition roots:
+they select an authentication adapter, parser, feature application service, and
+logger.
+
+Typed backend requests also live in `core/api/client`. Browser query
+hooks use its same-origin `/api` proxy, while Server Components, Server
+Functions, and Route Handlers use its direct server composition. Both paths are
+created by one OpenAPI-backed factory; feature domains inject that client into
+their API adapters instead of duplicating client and server methods.
+
+Resource authorization and safe DTO construction remain inside the owning
+feature service or data-access layer. Server Components call those services
+directly rather than making HTTP requests to local Route Handlers.
+
+Structured logging lives in `core/observability`. Trusted server analytics live
+in `core/analytics`; they are emitted by feature application services only
+after a successful business operation. Analytics delivery must not determine
+whether the business operation succeeded.
+
 ## Dependency Security
 
 pnpm rejects unreviewed dependency build scripts. Approved and denied builds
@@ -67,8 +89,11 @@ indiscriminately.
 | `pnpm test:coverage`     | Generate V8 coverage                                     |
 | `pnpm test:storybook`    | Run stories in Chromium with interaction and a11y checks |
 | `pnpm test:e2e`          | Build and run Playwright across three browsers           |
+| `pnpm typecheck`         | Regenerate Next route types and run TypeScript           |
+| `pnpm eval:api`          | Run the deterministic API contract eval                  |
 | `pnpm eval:architecture` | Require zero lint or boundary violations                 |
 | `pnpm eval:analytics`    | Validate analytics events and project isolation          |
+| `pnpm eval:api-client`   | Validate API client, proxy, and cookie isolation         |
 | `pnpm eval:storybook`    | Run Storybook tests and build static documentation       |
 
 ## Storybook
