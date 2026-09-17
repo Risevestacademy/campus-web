@@ -60,6 +60,7 @@ describe("architecture import boundaries", () => {
     "features/auth/imports-app.ts",
     "features/auth/imports-profile.ts",
     "app/imports-feature-internal.ts",
+    "design-system/imports-feature.ts",
   ])("rejects the dependency in %s", async (filePath) => {
     await expect(getBoundaryViolations(filePath)).resolves.toHaveLength(1);
   });
@@ -70,6 +71,7 @@ describe("architecture import boundaries", () => {
     "features/auth/imports-shared.ts",
     "app/imports-feature-public.ts",
     "features/profile/imports-own-internal.ts",
+    "design-system/imports-shared.ts",
   ])("allows the dependency in %s", async (filePath) => {
     await expect(getBoundaryViolations(filePath)).resolves.toHaveLength(0);
   });
