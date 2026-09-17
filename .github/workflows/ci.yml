@@ -68,6 +68,9 @@ jobs:
     name: storybook
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: ""
+      NEXT_PUBLIC_POSTHOG_HOST: ""
 
     steps:
       - uses: actions/checkout@v4

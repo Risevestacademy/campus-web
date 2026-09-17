@@ -23,6 +23,31 @@ describe("build environment validation", () => {
     );
   });
 
+  it("routes protected Storybook configuration through an isolated Next config", async () => {
+    vi.stubEnv("CI", "true");
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "");
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_HOST", "");
+
+    const [{ default: storybookConfig }, { default: storybookNextConfig }] =
+      await Promise.all([
+        import("../../.storybook/main"),
+        import("../../.storybook/next.config"),
+      ]);
+
+    expect(storybookConfig.framework).toMatchObject({
+      name: "@storybook/nextjs-vite",
+      options: {
+        nextConfigPath: expect.stringMatching(
+          /[/\\]\.storybook[/\\]next\.config\.ts$/,
+        ),
+      },
+    });
+    expect(storybookNextConfig).toMatchObject({
+      typedRoutes: true,
+    });
+  });
+
   it("reports every malformed analytics variable", () => {
     expect(() =>
       validateBuildEnvironment({
