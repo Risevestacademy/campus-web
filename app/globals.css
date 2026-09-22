@@ -1,15 +1,112 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  --color-neutral-50: #f7f7f7;
+  --color-neutral-100: #f0f0f0;
+  --color-neutral-200: #dedede;
+  --color-neutral-300: #c2c2c2;
+  --color-neutral-400: #9e9e9e;
+  --color-neutral-500: #808080;
+  --color-neutral-600: #6b6b6b;
+  --color-neutral-700: #575757;
+  --color-neutral-800: #454545;
+  --color-neutral-900: #333333;
+  --color-neutral-950: #252525;
+
+  --color-cobalt-50: #f5f6fa;
+  --color-cobalt-100: #e9ecf6;
+  --color-cobalt-200: #ccd4f0;
+  --color-cobalt-300: #9dade7;
+  --color-cobalt-400: #5f7bdd;
+  --color-cobalt-500: #3155d6;
+  --color-cobalt-600: #2443b3;
+  --color-cobalt-700: #1f378f;
+  --color-cobalt-800: #1b2d6f;
+  --color-cobalt-900: #162350;
+  --color-cobalt-950: #0f162f;
+
+  --color-turquoise-50: #f5faf9;
+  --color-turquoise-100: #eaf6f5;
+  --color-turquoise-200: #ceeeeb;
+  --color-turquoise-300: #a0e3dd;
+  --color-turquoise-400: #65d8cd;
+  --color-turquoise-500: #2fc3b5;
+  --color-turquoise-600: #2aada0;
+  --color-turquoise-700: #238a80;
+  --color-turquoise-800: #1e6c64;
+  --color-turquoise-900: #184e48;
+  --color-turquoise-950: #102d2a;
+
+  --color-lemon-50: #fcfaf3;
+  --color-lemon-100: #faf5e5;
+  --color-lemon-200: #f9ecc3;
+  --color-lemon-300: #fbe089;
+  --color-lemon-400: #ffd23e;
+  --color-lemon-500: #ffc400;
+  --color-lemon-600: #d6a400;
+  --color-lemon-700: #ad8500;
+  --color-lemon-800: #866804;
+  --color-lemon-900: #604b06;
+  --color-lemon-950: #372c06;
+
+  --color-info-50: #f4f8fb;
+  --color-info-100: #e8f0f7;
+  --color-info-200: #c9dff3;
+  --color-info-300: #97c5ed;
+  --color-info-400: #55a3e7;
+  --color-info-500: #2e90e5;
+  --color-info-600: #1871bf;
+  --color-info-700: #155b98;
+  --color-info-800: #144876;
+  --color-info-900: #113555;
+  --color-info-950: #0c2031;
+
+  --color-error-50: #faf5f5;
+  --color-error-100: #f6e9ea;
+  --color-error-200: #efccce;
+  --color-error-300: #e69ea1;
+  --color-error-400: #dc6067;
+  --color-error-500: #d63941;
+  --color-error-600: #b1252c;
+  --color-error-700: #8e1f25;
+  --color-error-800: #6e1b1f;
+  --color-error-900: #4f1719;
+  --color-error-950: #2e0f11;
+
+  --color-success-50: #f5faf7;
+  --color-success-100: #eaf6ee;
+  --color-success-200: #ceedda;
+  --color-success-300: #a0e3ba;
+  --color-success-400: #59d488;
+  --color-success-500: #32cd6d;
+  --color-success-600: #2aac5c;
+  --color-success-700: #248a4b;
+  --color-success-800: #1e6b3c;
+  --color-success-900: #194d2d;
+  --color-success-950: #102d1b;
+
+  --color-warning-50: #fcf9f3;
+  --color-warning-100: #faf4e6;
+  --color-warning-200: #f8eac3;
+  --color-warning-300: #f9db8b;
+  --color-warning-400: #fcc840;
+  --color-warning-500: #feb800;
+  --color-warning-600: #d69b00;
+  --color-warning-700: #ab7c03;
+  --color-warning-800: #846106;
+  --color-warning-900: #5e4608;
+  --color-warning-950: #362907;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
 }
 
 body {
@@ -20,10 +117,10 @@ body {
 
 /* LAYOUT UTILITIES */
 @utility content-grid {
-  --padding-inline: max(1rem, 1vw);
-  --content-max-width: max(80rem, 80vw);
-  --breakout-max-width: max(90rem, 90vw);
-  --layout-max-width: max(90rem, 90vw);
+  --padding-inline: 1rem;
+  --content-max-width: 80rem;
+  --breakout-max-width: 90rem;
+  --layout-max-width: 90rem;
 
   --breakout-size: calc(
     (var(--breakout-max-width) - var(--content-max-width)) / 2
@@ -66,57 +163,4 @@ body {
   .content-grid > & {
     grid-column: full-width;
   }
-}
-
-/* TEXT */
-@utility text-xs-expand {
-  font-size: max(0.75rem, 0.75vw);
-}
-
-@utility text-sm-expand {
-  font-size: max(0.875rem, 0.85vw);
-}
-
-@utility text-base-expand {
-  font-size: max(1rem, 1vw);
-}
-
-@utility text-lg-expand {
-  font-size: max(1.125rem, 1.25vw);
-}
-
-@utility text-xl-expand {
-  font-size: max(1.25rem, 1.25vw);
-}
-
-@utility text-2xl-expand {
-  font-size: max(1.5rem, 1.5vw);
-}
-
-@utility text-3xl-expand {
-  font-size: max(1.875rem, 1.5vw);
-}
-
-@utility text-4xl-expand {
-  font-size: max(2.25rem, 2.25vw);
-}
-
-@utility text-5xl-expand {
-  font-size: max(3rem, 3vw);
-}
-
-@utility text-6xl-expand {
-  font-size: max(3.75rem, 3.75vw);
-}
-
-@utility text-7xl-expand {
-  font-size: max(4.5rem, 4.5vw);
-}
-
-@utility text-8xl-expand {
-  font-size: max(6rem, 6vw);
-}
-
-@utility text-9xl-expand {
-  font-size: max(8rem, 8vw);
 }
