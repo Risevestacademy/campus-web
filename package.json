@@ -30,6 +30,7 @@
     "eval:analytics": "vitest run core/analytics/contract.eval.test.ts",
     "eval:architecture": "eslint . --max-warnings=0",
     "eval:api-client": "vitest run tests/evals/api-client-foundation.eval.test.ts",
+    "eval:theme": "vitest run --project=unit tests/evals/theme.eval.test.ts",
     "eval:storybook": "pnpm test:storybook && pnpm storybook:build",
     "check": "pnpm lint && pnpm typecheck && pnpm format:check && pnpm test && pnpm eval:storybook && pnpm build",
     "check:all": "pnpm check && playwright test",
@@ -39,6 +40,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@tanstack/react-query": "^5.102.8",
     "clsx": "^2.1.1",
     "kaplay": "^3001.0.19",
@@ -51,8 +53,8 @@
     "react-dom": "19.2.4",
     "server-only": "^0.0.1",
     "tailwind-merge": "^3.6.0",
-    "zustand": "^5.0.15",
-    "zod": "^4.5.4"
+    "zod": "^4.5.4",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.4.4",

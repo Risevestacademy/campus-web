@@ -181,7 +181,27 @@
   --font-display: var(--font-bricolage-grotesque);
 }
 
+:root {
+  color-scheme: light;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+  animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  mix-blend-mode: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 80ms;
+  }
+}
+
 [data-theme="dark"] {
+  color-scheme: dark;
+
   --color-background: var(--color-neutral-950);
   --color-surface: var(--color-neutral-900);
   --color-surface-elevated: var(--color-neutral-800);

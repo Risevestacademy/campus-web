@@ -7,6 +7,9 @@ settings:
 importers:
   .:
     dependencies:
+      "@phosphor-icons/react":
+        specifier: ^2.1.10
+        version: 2.1.10(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       "@tanstack/react-query":
         specifier: ^5.102.8
         version: 5.102.8(react@19.2.4)
@@ -1809,6 +1812,16 @@ packages:
       }
     cpu: [x64]
     os: [win32]
+
+  "@phosphor-icons/react@2.1.10":
+    resolution:
+      {
+        integrity: sha512-vt8Tvq8GLjheAZZYa+YG/pW7HDbov8El/MANW8pOAz4eGxrwhnbfrQZq0Cp4q8zBEu8NIhHdnr+r8thnfRSNYA==,
+      }
+    engines: { node: ">=10" }
+    peerDependencies:
+      react: ">= 16.8"
+      react-dom: ">= 16.8"
 
   "@playwright/test@1.62.1":
     resolution:
@@ -8220,6 +8233,11 @@ snapshots:
 
   "@oxc-resolver/binding-win32-x64-msvc@11.21.2":
     optional: true
+
+  "@phosphor-icons/react@2.1.10(react-dom@19.2.4(react@19.2.4))(react@19.2.4)":
+    dependencies:
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
 
   "@playwright/test@1.62.1":
     dependencies:
