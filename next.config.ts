@@ -5,8 +5,8 @@ import { validateBuildEnvironment } from "./config/environment/validation";
 
 validateBuildEnvironment(buildEnvironment);
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   typedRoutes: true,
-};
+} satisfies NextConfig;
 
 export default nextConfig;

@@ -176,8 +176,7 @@ Use:
 
 - Build command: `pnpm storybook:build`
 - Output directory: `storybook-static`
-- Required build environment:
-  `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and `NEXT_PUBLIC_POSTHOG_HOST`
+- Required build environment: none
 
 Deploy Storybook separately from the Next.js application. Rebuild the
 application for changes under `app`, `assets`, `config`, `core`, `features`, or
@@ -186,6 +185,7 @@ application for changes under `app`, `assets`, `config`, `core`, `features`, or
 `app/globals.css` changes. Dependency and root build-configuration changes
 should rebuild both.
 
-Use non-production PostHog values for preview and staging deployments. Protect
-Storybook when it contains internal designs, and do not commit
-`storybook-static/`.
+Storybook must not receive PostHog variables or initialize analytics. Use
+environment-specific PostHog values only for deployed Next.js application
+services. Protect Storybook when it contains internal designs, and do not
+commit `storybook-static/`.

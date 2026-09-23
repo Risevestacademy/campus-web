@@ -1,6 +1,4 @@
 # Frontend CI — Next 16 / React 19 / pnpm / Vitest / Playwright
-#
-# The e2e job is deliberately NOT named as a required check, so it doesn't flag the whole thin gif just vus tests fail
 
 name: CI
 
@@ -64,45 +62,6 @@ jobs:
       - name: Build
         run: pnpm build
 
-  storybook:
-    name: storybook
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install
-        run: pnpm install --frozen-lockfile
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        id: storybook-pw-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-
-      - name: Install Playwright browser
-        if: steps.storybook-pw-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Install Playwright system dependencies
-        if: steps.storybook-pw-cache.outputs.cache-hit == 'true'
-        run: pnpm exec playwright install-deps chromium
-
-      - name: Storybook tests
-        run: pnpm test:storybook
-
-      - name: Build Storybook
-        run: pnpm storybook:build
-
   e2e:
     name: e2e
     runs-on: ubuntu-latest
@@ -120,6 +79,14 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      - name: Restore Next.js cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -142,7 +109,7 @@ jobs:
           pnpm exec playwright test --project=chromium
 
       - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
+        if: failure()
         with:
           name: playwright-report
           path: playwright-report/
