@@ -5,7 +5,7 @@ export function FoundationsOverview() {
         aria-labelledby="foundations-title"
         className="border-foreground/20 space-y-4 border-l pl-6"
       >
-        <p className="text-foreground/60 text-xs font-semibold tracking-[0.18em] uppercase">
+        <p className="text-foreground-muted text-xs font-semibold tracking-[0.18em] uppercase">
           Campus design system
         </p>
         <h1
@@ -14,7 +14,7 @@ export function FoundationsOverview() {
         >
           Design system foundations
         </h1>
-        <p className="text-foreground/70 max-w-2xl text-base leading-7">
+        <p className="text-foreground-secondary max-w-2xl text-base leading-7">
           Colors, typography, spacing, radius, shadows, icons, and motion are
           awaiting an approved design source.
         </p>

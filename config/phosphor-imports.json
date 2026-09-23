@@ -1,0 +1,15 @@
+{
+  "paths": [
+    {
+      "name": "@phosphor-icons/react",
+      "allowTypeImports": true,
+      "message": "Import runtime icons from @phosphor-icons/react/dist/ssr/<Icon>."
+    }
+  ],
+  "patterns": [
+    {
+      "regex": "^@phosphor-icons/react/(?!dist/ssr/[^/]+$).*",
+      "message": "Import runtime icons from @phosphor-icons/react/dist/ssr/<Icon>."
+    }
+  ]
+}
