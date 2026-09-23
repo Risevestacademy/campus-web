@@ -1,24 +1,11 @@
 import "./globals.css";
 
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Instrument_Sans, Inter } from "next/font/google";
 import Script from "next/script";
 
-import { cn } from "@/lib/utils";
+import { fontVariableClasses } from "@/shared/styles/fonts";
 import { themeInitializerScript } from "@/shared/theme";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
-
-const bricolageGrotesque = Bricolage_Grotesque({
-  variable: "--font-bricolage-grotesque",
-  subsets: ["latin"],
-});
-
-const instrumentSans = Instrument_Sans({
-  variable: "--font-instrument-sans",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Campus by Rise",
@@ -34,14 +21,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn(
-        "h-full",
-        "antialiased",
-        bricolageGrotesque.variable,
-        instrumentSans.variable,
-        "font-sans",
-        inter.variable,
-      )}
+      className={`${fontVariableClasses} h-full font-sans antialiased`}
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col">

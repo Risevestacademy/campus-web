@@ -107,19 +107,22 @@ same production CSS. It does not define independent design tokens.
 
 ### Adding a story
 
-Place reusable domain-independent components in `shared/ui/<component>/`.
-Feature-aware components and their stories stay inside
-`features/<feature>/components/`. Only foundation documentation belongs in
-`design-system/foundations/`.
+Place reusable domain-independent components in `shared/ui/`. Feature-aware
+components and their stories stay inside `features/<feature>/components/`.
+Only foundation documentation belongs in `design-system/foundations/`.
 
-Keep each reusable component colocated with its tests and stories:
+Keep generated primitives flat so their paths remain compatible with the
+shadcn CLI. Colocate tests and stories by basename:
 
 ```text
-shared/ui/button/
+shared/ui/
 ├── button.tsx
 ├── button.test.tsx
 └── button.stories.tsx
 ```
+
+Application-owned composite components may use a component directory when
+they need multiple implementation files.
 
 Use typed Component Story Format:
 
