@@ -9,6 +9,7 @@ import unicornPlugin from "eslint-plugin-unicorn";
 import unusedImportsPlugin from "eslint-plugin-unused-imports";
 
 import architectureBoundaries from "./config/architecture-boundaries.json" with { type: "json" };
+import phosphorImportRestrictions from "./config/phosphor-imports.json" with { type: "json" };
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -35,7 +36,9 @@ const eslintConfig = defineConfig([
               message:
                 "Components must derive state, use event handlers, or use a focused reusable hook instead of importing useEffect directly.",
             },
+            ...phosphorImportRestrictions.paths,
           ],
+          patterns: phosphorImportRestrictions.patterns,
         },
       ],
       "unicorn/no-array-callback-reference": "off",
