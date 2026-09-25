@@ -33,7 +33,7 @@ export function ExploreCampusSection() {
         <div className="mt-10 rounded-2xl bg-[#EFFAFF] p-2 md:mt-12 md:p-4">
           <Image
             src={campusMap}
-            alt="Map of the Campus showing Town Hall, the Notice Wall, the Resource Centre, Commons, Admin, your faculty and the private rooms."
+            alt="Map of the Campus showing Town Hall, the Notice Wall, the Resource Centre, Common Area, Admin, Faculty and the private rooms."
             className="mx-auto h-auto w-full"
           />
         </div>
