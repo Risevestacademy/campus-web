@@ -1,3 +1,10 @@
+import { ExploreCampusSection, HeroSection } from "@/features/home";
+
 export default function Home() {
-  return null;
+  return (
+    <main>
+      <HeroSection />
+      <ExploreCampusSection />
+    </main>
+  );
 }
