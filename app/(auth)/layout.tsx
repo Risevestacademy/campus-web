@@ -3,5 +3,10 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <div>{children}</div>;
+  return (
+    <div className="grid h-dvh grid-cols-[1fr_40rem]">
+      {children}
+      <figure className="bg-surface/50"></figure>
+    </div>
+  );
 }

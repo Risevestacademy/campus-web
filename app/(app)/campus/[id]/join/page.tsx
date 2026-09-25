@@ -1,8 +1,8 @@
 export default function JoinPage() {
   return (
-    <div>
-      <h1>JoinPage</h1>
-      <p>Display COntrols before joining an active Campus Page</p>
-    </div>
+    <main className="grid h-dvh place-content-center">
+      <h1>Join campus</h1>
+      <p>Configure your controls before joining the active campus.</p>
+    </main>
   );
 }
