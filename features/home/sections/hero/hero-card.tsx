@@ -14,7 +14,7 @@ export function HeroCard({ title, image, className, children }: HeroCardProps) {
   return (
     <div
       className={cn(
-        "w-full rounded-2xl p-3 text-neutral-950 shadow-lg md:w-44 lg:w-52 xl:w-60",
+        "w-full rounded-2xl p-3 text-neutral-950 shadow-lg md:w-44 xl:w-60",
         className,
       )}
     >

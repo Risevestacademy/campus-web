@@ -62,11 +62,11 @@ export function HeroSection() {
         Made for learning together.
       </p>
 
-      <div className="mt-12 grid grid-cols-2 items-start gap-3 md:contents">
+      <div className="mt-12 grid grid-cols-2 items-start gap-3 md:pointer-events-none md:absolute md:inset-0 md:mt-0 md:block">
         <HeroCard
           title="Your cohort"
           image={yourCohort}
-          className="bg-neutral-50 md:absolute md:bottom-5 md:left-10 md:-rotate-18 lg:bottom-42 lg:left-[5%] lg:-rotate-7"
+          className="bg-neutral-50 md:absolute md:bottom-5 md:left-6 md:-rotate-18 lg:bottom-42 lg:left-0 lg:-rotate-7"
         >
           <p className="text-success-foreground mt-2 flex items-center gap-2 text-sm">
             <span
@@ -80,7 +80,7 @@ export function HeroSection() {
         <HeroCard
           title="Mentorship"
           image={mentorship}
-          className="bg-lemon-100 md:absolute md:right-10 md:bottom-5 md:rotate-18 lg:right-[5%] lg:bottom-48 lg:rotate-7"
+          className="bg-lemon-100 md:absolute md:right-6 md:bottom-5 md:rotate-18 lg:right-0 lg:bottom-48 lg:rotate-7"
         >
           <p className="mt-2 text-sm text-neutral-700">
             Meet in a private room
