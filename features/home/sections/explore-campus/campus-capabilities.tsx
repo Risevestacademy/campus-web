@@ -36,7 +36,7 @@ export function CampusCapabilities() {
     <ol className="grid gap-x-6 gap-y-10 md:grid-cols-2 lg:grid-cols-3">
       {capabilities.map(({ title, description }, index) => (
         <li key={title} className="border-t border-[#D3DAE9] pt-6">
-          <span className="text-primary text-sm md:text-base">
+          <span className="text-primary text-base font-semibold md:text-[1.25rem] lg:text-[1.5rem]">
             {String(index + 1).padStart(2, "0")}
           </span>
           <h3 className="text-foreground mt-3 text-xl font-medium md:text-2xl">
