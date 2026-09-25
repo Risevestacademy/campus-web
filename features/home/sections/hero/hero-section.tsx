@@ -7,13 +7,14 @@ import yourCohort from "@/assets/landing-page/your-cohort.svg";
 
 import { HeroCard } from "./hero-card";
 import { HeroNavigation } from "./hero-navigation";
+import { enterCampusHref } from "./navigation-links";
 
 export function HeroSection() {
   return (
     <section
       id="hero"
       aria-labelledby="home-hero-heading"
-      className="content-grid bg-primary text-background relative overflow-hidden pb-12 md:pb-28 lg:min-h-216 lg:pb-32"
+      className="content-grid bg-primary text-background relative overflow-hidden pt-(--hero-nav-height) pb-12 [--hero-nav-height:5.5rem] md:pb-28 md:[--hero-nav-height:7rem] lg:min-h-216 lg:pb-32"
     >
       <HeroNavigation />
 
@@ -39,7 +40,7 @@ export function HeroSection() {
 
         <div className="mt-8 flex flex-col items-center gap-4 md:flex-row md:gap-8">
           <Link
-            href="/campus"
+            href={enterCampusHref}
             className="bg-accent text-accent-foreground hover:bg-accent-hover active:bg-accent-active outline-background inline-flex h-14 items-center gap-2 rounded-lg px-7 text-lg font-medium focus-visible:outline-2 focus-visible:outline-offset-4"
           >
             Enter Campus
