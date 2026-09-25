@@ -9,7 +9,7 @@ export function ExploreCampusSection() {
     <section
       id="explore-campus"
       aria-labelledby="explore-campus-heading"
-      className="content-grid bg-background font-display py-16 md:py-24"
+      className="content-grid bg-background font-display scroll-mt-22 py-16 md:scroll-mt-28 md:py-24"
     >
       <div>
         <p className="text-primary text-sm font-medium tracking-wider uppercase md:text-base">
