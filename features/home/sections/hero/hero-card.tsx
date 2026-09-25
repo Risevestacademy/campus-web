@@ -1,20 +1,16 @@
+import Image, { type StaticImageData } from "next/image";
 import type { ReactNode } from "react";
 
 import { cn } from "@/shared/lib/cn";
 
 type HeroCardProps = {
   title: string;
-  mediaClassName: string;
+  image: StaticImageData;
   className?: string;
   children: ReactNode;
 };
 
-export function HeroCard({
-  title,
-  mediaClassName,
-  className,
-  children,
-}: HeroCardProps) {
+export function HeroCard({ title, image, className, children }: HeroCardProps) {
   return (
     <div
       className={cn(
@@ -22,10 +18,7 @@ export function HeroCard({
         className,
       )}
     >
-      <div
-        aria-hidden
-        className={cn("aspect-4/3 rounded-xl", mediaClassName)}
-      />
+      <Image src={image} alt="" className="h-auto w-full" />
       <p className="font-display mt-3 text-xl font-semibold">{title}</p>
       {children}
     </div>
