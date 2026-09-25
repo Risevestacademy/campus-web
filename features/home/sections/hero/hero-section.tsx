@@ -2,6 +2,9 @@ import { ArrowDownIcon } from "@phosphor-icons/react/dist/ssr/ArrowDown";
 import { ArrowUpRightIcon } from "@phosphor-icons/react/dist/ssr/ArrowUpRight";
 import Link from "next/link";
 
+import mentorship from "@/assets/landing-page/mentorship.svg";
+import yourCohort from "@/assets/landing-page/your-cohort.svg";
+
 import { HeroCard } from "./hero-card";
 import { HeroNavigation } from "./hero-navigation";
 
@@ -54,14 +57,14 @@ export function HeroSection() {
         <p className="mt-8 text-sm">Access is by invitation only.</p>
       </div>
 
-      <p className="bg-accent text-accent-foreground font-display absolute top-40 right-[9%] hidden w-52 rotate-5 rounded-lg px-4 py-3 text-center text-xl leading-tight font-medium text-balance lg:block">
+      <p className="bg-accent text-accent-foreground font-display absolute top-40 right-[-2%] hidden w-52 rotate-5 rounded-lg px-4 py-3 text-center text-xl leading-tight font-medium text-balance lg:block">
         Made for learning together.
       </p>
 
       <div className="mt-12 grid grid-cols-2 items-start gap-3 md:contents">
         <HeroCard
           title="Your cohort"
-          mediaClassName="bg-info-100"
+          image={yourCohort}
           className="bg-neutral-50 md:absolute md:bottom-5 md:left-10 md:-rotate-18 lg:bottom-42 lg:left-[5%] lg:-rotate-7"
         >
           <p className="text-success-foreground mt-2 flex items-center gap-2 text-sm">
@@ -75,7 +78,7 @@ export function HeroSection() {
 
         <HeroCard
           title="Mentorship"
-          mediaClassName="bg-turquoise-200"
+          image={mentorship}
           className="bg-lemon-100 md:absolute md:right-10 md:bottom-5 md:rotate-18 lg:right-[5%] lg:bottom-48 lg:rotate-7"
         >
           <p className="mt-2 text-sm text-neutral-700">
