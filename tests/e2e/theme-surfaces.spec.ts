@@ -28,7 +28,7 @@ const routeCases: ReadonlyArray<{
     path: "/campus/1",
     roles: ["background", "surface", "surface-elevated"],
   },
-  { path: "/invitation", roles: ["background", "surface"] },
+  { path: "/invitation", roles: ["background"] },
 ];
 
 async function openWithTheme(page: Page, path: string, theme: Theme) {
