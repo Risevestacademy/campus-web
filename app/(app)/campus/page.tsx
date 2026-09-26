@@ -5,11 +5,11 @@ export default function CampusPage() {
     <div data-surface-role="background" className="bg-background space-y-8">
       <header
         data-surface-role="surface"
-        className="flex h-16 items-center px-10"
+        className="bg-surface flex h-16 items-center px-10"
       >
         <Link href={"/"} className="flex items-center gap-3">
           <figure
-            data-surface-role="background"
+            data-surface-role="surface"
             className="bg-surface size-10 rounded-xl"
           ></figure>
           <h1 className="font-medium">Campus</h1>

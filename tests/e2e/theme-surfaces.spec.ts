@@ -28,7 +28,7 @@ const routeCases: ReadonlyArray<{
     path: "/campus/1",
     roles: ["background", "surface", "surface-elevated"],
   },
-  { path: "/invite", roles: ["background", "surface"] },
+  { path: "/invitation", roles: ["background", "surface"] },
 ];
 
 async function openWithTheme(page: Page, path: string, theme: Theme) {
@@ -39,12 +39,13 @@ async function openWithTheme(page: Page, path: string, theme: Theme) {
     { storageKey: THEME_STORAGE_KEY, initialTheme: theme },
   );
 
-  await page.goto(path);
+  const response = await page.goto(path);
+  expect(response?.status()).toBe(200);
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 }
 
-function surface(page: Page, role: SurfaceRole): Locator {
-  return page.locator(`[data-surface-role="${role}"]`).first();
+function surfaces(page: Page, role: SurfaceRole): Locator {
+  return page.locator(`[data-surface-role="${role}"]`);
 }
 
 for (const theme of ["light", "dark"] as const) {
@@ -55,12 +56,18 @@ for (const theme of ["light", "dark"] as const) {
       await openWithTheme(page, routeCase.path, theme);
 
       for (const role of routeCase.roles) {
-        const element = surface(page, role);
-        await expect(element).toBeVisible();
-        await expect(element).toHaveCSS(
-          "background-color",
-          expectedColors[theme][role],
-        );
+        const elements = surfaces(page, role);
+        await expect(elements).not.toHaveCount(0);
+
+        const count = await elements.count();
+        for (let index = 0; index < count; index += 1) {
+          const element = elements.nth(index);
+          await expect(element).toBeVisible();
+          await expect(element).toHaveCSS(
+            "background-color",
+            expectedColors[theme][role],
+          );
+        }
       }
     });
   }
