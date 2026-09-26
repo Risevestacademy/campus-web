@@ -1,7 +1,6 @@
+import { cn } from "cn";
 import Image, { type StaticImageData } from "next/image";
 import type { ReactNode } from "react";
-
-import { cn } from "@/shared/lib/cn";
 
 type HeroCardProps = {
   title: string;
