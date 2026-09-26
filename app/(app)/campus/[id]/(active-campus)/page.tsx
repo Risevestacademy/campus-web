@@ -5,7 +5,7 @@ export default async function ActiveCampusPage({
 }) {
   const { id } = await params;
   return (
-    <div>
+    <div className="grid place-content-center">
       <h1>ActiveCampus {id}</h1>
       <p>The Campus View and map</p>
     </div>
