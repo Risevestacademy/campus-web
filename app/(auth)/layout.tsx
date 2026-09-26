@@ -16,10 +16,7 @@ export default function AuthLayout({
       >
         {children}
       </main>
-      <section
-        data-surface-role="primary"
-        className="bg-primary grid h-full content-center justify-items-center gap-16 px-15 text-center text-white max-xl:hidden"
-      >
+      <section className="bg-primary grid h-full content-center justify-items-center gap-16 px-15 text-center text-white max-xl:hidden">
         <h2 className="font-display text-5xl font-bold">
           Your Cohort is waiting
         </h2>
