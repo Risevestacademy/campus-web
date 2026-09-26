@@ -81,20 +81,21 @@ indiscriminately.
 
 ## Quality Commands
 
-| Command                  | Purpose                                                  |
-| ------------------------ | -------------------------------------------------------- |
-| `pnpm check`             | Lint, typecheck, format-check, unit-test, and build      |
-| `pnpm check:all`         | Run the full gate, including E2E                         |
-| `pnpm test`              | Run deterministic unit and architecture tests            |
-| `pnpm test:coverage`     | Generate V8 coverage                                     |
-| `pnpm test:storybook`    | Run stories in Chromium with interaction and a11y checks |
-| `pnpm test:e2e`          | Build and run Playwright across three browsers           |
-| `pnpm typecheck`         | Regenerate Next route types and run TypeScript           |
-| `pnpm eval:api`          | Run the deterministic API contract eval                  |
-| `pnpm eval:architecture` | Require zero lint or boundary violations                 |
-| `pnpm eval:analytics`    | Validate analytics events and project isolation          |
-| `pnpm eval:api-client`   | Validate API client, proxy, and cookie isolation         |
-| `pnpm eval:storybook`    | Run Storybook tests and build static documentation       |
+| Command                       | Purpose                                                  |
+| ----------------------------- | -------------------------------------------------------- |
+| `pnpm check`                  | Lint, typecheck, format-check, unit-test, and build      |
+| `pnpm check:all`              | Run the full gate, including E2E                         |
+| `pnpm test`                   | Run deterministic unit and architecture tests            |
+| `pnpm test:coverage`          | Generate V8 coverage                                     |
+| `pnpm test:storybook`         | Run stories in Chromium with interaction and a11y checks |
+| `pnpm test:e2e`               | Build and run Playwright across three browsers           |
+| `pnpm typecheck`              | Regenerate Next route types and run TypeScript           |
+| `pnpm eval:api`               | Run the deterministic API contract eval                  |
+| `pnpm eval:architecture`      | Require zero lint or boundary violations                 |
+| `pnpm eval:analytics`         | Validate analytics events and project isolation          |
+| `pnpm eval:api-client`        | Validate API client, proxy, and cookie isolation         |
+| `pnpm eval:component-stories` | Require a story for every reusable UI primitive          |
+| `pnpm eval:storybook`         | Run Storybook tests and build static documentation       |
 
 ## Storybook
 
@@ -107,19 +108,22 @@ same production CSS. It does not define independent design tokens.
 
 ### Adding a story
 
-Place reusable domain-independent components in `shared/ui/<component>/`.
-Feature-aware components and their stories stay inside
-`features/<feature>/components/`. Only foundation documentation belongs in
-`design-system/foundations/`.
+Place reusable domain-independent components in `shared/ui/`. Feature-aware
+components and their stories stay inside `features/<feature>/components/`.
+Only foundation documentation belongs in `design-system/foundations/`.
 
-Keep each reusable component colocated with its tests and stories:
+Keep generated primitives flat so their paths remain compatible with the
+shadcn CLI. Colocate tests and stories by basename:
 
 ```text
-shared/ui/button/
+shared/ui/
 ├── button.tsx
 ├── button.test.tsx
 └── button.stories.tsx
 ```
+
+Application-owned composite components may use a component directory when
+they need multiple implementation files.
 
 Use typed Component Story Format:
 

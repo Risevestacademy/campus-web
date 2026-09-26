@@ -30,6 +30,7 @@
     "eval:analytics": "vitest run core/analytics/contract.eval.test.ts",
     "eval:architecture": "eslint . --max-warnings=0",
     "eval:api-client": "vitest run tests/evals/api-client-foundation.eval.test.ts",
+    "eval:component-stories": "vitest run --project=unit tests/evals/component-story-coverage.eval.test.ts",
     "eval:icons": "vitest run --project=unit tests/evals/icon-imports.eval.test.ts",
     "eval:theme": "vitest run --project=unit tests/evals/theme.eval.test.ts",
     "eval:railway": "vitest run --project=unit tests/evals/railway-iac.eval.test.ts",
@@ -42,9 +43,11 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@base-ui/react": "^1.8.0",
     "@phosphor-icons/react": "^2.1.10",
     "@tanstack/react-query": "^5.102.8",
-    "clsx": "^2.1.1",
+    "class-variance-authority": "^0.7.1",
+    "cn": "^0.4.0",
     "kaplay": "^3001.0.19",
     "motion": "^13.1.1",
     "next": "16.2.6",
@@ -54,7 +57,6 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "server-only": "^0.0.1",
-    "tailwind-merge": "^3.6.0",
     "zod": "^4.5.4",
     "zustand": "^5.0.15"
   },
@@ -97,8 +99,10 @@
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "railway": "3.11.0",
+    "shadcn": "^4.21.0",
     "storybook": "10.6.0",
     "tailwindcss": "^4",
+    "tw-animate-css": "^1.4.0",
     "typescript": "^5",
     "vite": "^8.2.2",
     "vitest": "^4.1.11"

@@ -31,6 +31,20 @@ export default defineConfig({
       },
       {
         extends: true,
+        optimizeDeps: {
+          include: [
+            "@base-ui/react/avatar",
+            "@base-ui/react/button",
+            "@base-ui/react/checkbox",
+            "@base-ui/react/input",
+            "@base-ui/react/merge-props",
+            "@base-ui/react/separator",
+            "@base-ui/react/switch",
+            "@base-ui/react/use-render",
+            "class-variance-authority",
+            "cn",
+          ],
+        },
         plugins: [
           storybookTest({
             configDir: path.join(projectRoot, ".storybook"),
