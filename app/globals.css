@@ -5,6 +5,7 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme static {
+  --color-neutral-0: #ffffff;
   --color-neutral-50: #f7f7f7;
   --color-neutral-100: #f0f0f0;
   --color-neutral-200: #dedede;
@@ -104,15 +105,12 @@
 
 @theme static {
   --color-background: var(--color-neutral-50);
-  --color-surface: var(--color-cobalt-50);
-  --color-surface-elevated: var(--color-neutral-50);
+  --color-surface: var(--color-neutral-100);
+  --color-surface-elevated: var(--color-cobalt-50);
   --color-surface-hover: var(--color-cobalt-100);
   --color-surface-pressed: var(--color-cobalt-200);
   --color-surface-disabled: var(--color-neutral-100);
   --color-surface-inverse: var(--color-neutral-950);
-  --color-campus-background: var(--color-neutral-50);
-  --color-campus-surface: var(--color-neutral-100);
-
   --color-foreground: var(--color-neutral-950);
   --color-foreground-secondary: var(--color-neutral-700);
   --color-foreground-muted: var(--color-neutral-700);
@@ -120,9 +118,6 @@
   --color-foreground-inverse: var(--color-neutral-50);
   --color-link: var(--color-turquoise-800);
   --color-brand-foreground: var(--color-cobalt-600);
-  --color-campus-foreground: var(--color-neutral-950);
-  --color-campus-foreground-secondary: var(--color-neutral-700);
-
   --color-icon: var(--color-neutral-700);
   --color-icon-muted: var(--color-neutral-500);
   --color-icon-disabled: var(--color-neutral-300);
@@ -134,7 +129,6 @@
   --color-border-strong: var(--color-neutral-400);
   --color-border-focus: var(--color-cobalt-500);
   --color-border-disabled: var(--color-neutral-100);
-  --color-campus-border: var(--color-neutral-200);
 
   --color-primary: var(--color-cobalt-500);
   --color-primary-hover: var(--color-cobalt-600);
@@ -178,6 +172,7 @@
   --color-info-icon: var(--color-info-600);
 }
 
+/* shadcn-only utilities; overlapping semantics stay in the project theme. */
 @theme inline {
   --font-sans: var(--font-instrument-sans);
   --font-display: var(--font-bricolage-grotesque);
@@ -197,22 +192,13 @@
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
-  --color-border: var(--border);
   --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -224,23 +210,24 @@
 
 :root {
   color-scheme: light;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+
+  /* Compatibility aliases for shadcn components. */
+  --background: var(--color-background);
+  --foreground: var(--color-foreground);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  /* --primary: var(--color-primary); */
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  --primary: var(--color-primary);
+  --primary-foreground: var(--color-primary-foreground);
+  --secondary: var(--color-secondary);
+  --secondary-foreground: var(--color-secondary-foreground);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
+  --muted-foreground: var(--color-foreground-muted);
+  --accent: var(--color-accent);
+  --accent-foreground: var(--color-accent-foreground);
+  --destructive: var(--color-error-foreground);
+  --border: var(--color-border);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.87 0 0);
@@ -289,9 +276,6 @@
   --color-surface-pressed: var(--color-neutral-600);
   --color-surface-disabled: var(--color-neutral-800);
   --color-surface-inverse: var(--color-neutral-50);
-  --color-campus-background: var(--color-neutral-950);
-  --color-campus-surface: var(--color-neutral-900);
-
   --color-foreground: var(--color-neutral-50);
   --color-foreground-secondary: var(--color-neutral-300);
   --color-foreground-muted: var(--color-neutral-400);
@@ -299,9 +283,6 @@
   --color-foreground-inverse: var(--color-neutral-950);
   --color-link: var(--color-turquoise-300);
   --color-brand-foreground: var(--color-cobalt-300);
-  --color-campus-foreground: var(--color-neutral-50);
-  --color-campus-foreground-secondary: var(--color-neutral-300);
-
   --color-icon: var(--color-neutral-200);
   --color-icon-muted: var(--color-neutral-500);
   --color-icon-disabled: var(--color-neutral-700);
@@ -313,7 +294,6 @@
   --color-border-strong: var(--color-neutral-500);
   --color-border-focus: var(--color-cobalt-400);
   --color-border-disabled: var(--color-neutral-800);
-  --color-campus-border: var(--color-neutral-700);
 
   --color-primary: var(--color-cobalt-500);
   --color-primary-hover: var(--color-cobalt-300);
@@ -355,6 +335,28 @@
   --color-info-foreground: var(--color-info-300);
   --color-info-border: var(--color-info-700);
   --color-info-icon: var(--color-info-400);
+
+  /* shadcn-only tokens. */
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
 }
 
 /* LAYOUT UTILITIES */
@@ -405,40 +407,6 @@
   .content-grid > & {
     grid-column: full-width;
   }
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {

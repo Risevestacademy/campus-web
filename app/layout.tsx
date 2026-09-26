@@ -25,7 +25,7 @@ export default function RootLayout({
       className={`${fontVariableClasses} h-full font-sans antialiased`}
       suppressHydrationWarning
     >
-      <body className="flex min-h-full flex-col">
+      <body data-surface-role="background" className="flex min-h-full flex-col">
         <Script id="theme-initializer" strategy="beforeInteractive">
           {themeInitializerScript}
         </Script>
