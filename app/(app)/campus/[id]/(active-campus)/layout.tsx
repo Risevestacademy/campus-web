@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { CampusControlBar } from "@/features/campus";
 
 export default function ActiveCampusLayout({
   children,
@@ -25,7 +25,7 @@ export default function ActiveCampusLayout({
           <div className="relative">
             <aside
               id="top-actions"
-              className="absolute inset-x-0 top-0 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-1.5 p-1.5"
+              className="absolute inset-x-0 top-0 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-1.5 p-2.5"
             >
               {/* top actions */}
               <div className="flex h-fit items-center gap-3">
@@ -58,7 +58,8 @@ export default function ActiveCampusLayout({
                 </p>
               </div>
 
-              <div className="mr-12 justify-self-end">
+              <div className="flex gap-2.5 justify-self-end">
+                <button className="bg-surface-elevated border-border size-10 rounded-xl border"></button>
                 <button className="bg-surface-elevated border-border size-10 rounded-xl border"></button>
               </div>
             </aside>
@@ -69,31 +70,11 @@ export default function ActiveCampusLayout({
           <div className="relative">
             <aside
               id="bottom-actions"
+              aria-label="Campus controls"
               data-layout-anchor="campus-controls"
-              className="absolute inset-x-0 bottom-0 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center p-1.5 px-3"
+              className="absolute inset-x-0 bottom-0 p-2.5"
             >
-              {/* bottom actions */}
-              <div className="bg-background col-start-2 flex items-center gap-1.5 rounded-[1.125rem] p-1.5 px-3">
-                <button className="bg-surface size-10 rounded-xl"></button>
-                <div className="bg-border mx-1.5 h-6 w-px"></div>
-
-                <button className="bg-surface size-10 w-12 rounded-xl"></button>
-                <button className="bg-surface size-10 w-12 rounded-xl"></button>
-                <button className="bg-surface size-10 rounded-xl"></button>
-                <button className="bg-surface size-10 rounded-xl"></button>
-                <button className="bg-surface size-10 rounded-xl"></button>
-
-                <div className="bg-border mx-1.5 h-6 w-px"></div>
-                <Link
-                  href={"/campus"}
-                  className="bg-surface size-10 rounded-xl"
-                ></Link>
-              </div>
-
-              <div className="ml-auto flex gap-3">
-                <button className="bg-surface-elevated border-border size-10 rounded-xl border"></button>
-                <button className="bg-surface-elevated border-border size-10 rounded-xl border"></button>
-              </div>
+              <CampusControlBar initials="AJ" status="active" />
             </aside>
           </div>
         </div>
