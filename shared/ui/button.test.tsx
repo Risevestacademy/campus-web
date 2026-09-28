@@ -9,7 +9,9 @@ describe("Button", () => {
 
     const trigger = screen.getByRole("button", { name: "Open settings" });
 
+    expect(trigger).toHaveClass("active:translate-y-px");
     expect(trigger).toHaveClass("active:aria-[haspopup]:scale-[0.97]");
+    expect(trigger).toHaveClass("motion-reduce:active:translate-y-0");
     expect(trigger).toHaveClass(
       "motion-reduce:active:aria-[haspopup]:scale-100",
     );
