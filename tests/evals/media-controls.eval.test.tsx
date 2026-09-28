@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { VisualsDisplay } from "@/features/campus";
@@ -24,16 +30,30 @@ describe("media controls acceptance (required threshold: 2/2)", () => {
   it("keeps media state independent and exposes both settings menus", () => {
     render(<VisualsDisplay />);
 
-    const camera = screen.getByRole("button", { name: "Camera" });
-    const microphone = screen.getByRole("button", { name: "Microphone" });
+    const cameraControls = screen.getByRole("group", {
+      name: "Camera controls",
+    });
+    const microphoneControls = screen.getByRole("group", {
+      name: "Microphone controls",
+    });
+    const camera = within(cameraControls).getByRole("button", {
+      name: "Camera",
+    });
+    const microphone = within(microphoneControls).getByRole("button", {
+      name: "Microphone",
+    });
 
     expect(camera).toHaveAttribute("aria-pressed", "true");
     expect(microphone).toHaveAttribute("aria-pressed", "true");
     expect(
-      screen.getByRole("button", { name: "Open camera settings" }),
+      within(cameraControls).getByRole("button", {
+        name: "Open camera settings",
+      }),
     ).toHaveAttribute("aria-haspopup", "menu");
     expect(
-      screen.getByRole("button", { name: "Open audio settings" }),
+      within(microphoneControls).getByRole("button", {
+        name: "Open audio settings",
+      }),
     ).toHaveAttribute("aria-haspopup", "menu");
 
     fireEvent.click(camera);
