@@ -54,7 +54,7 @@ export function FAQsSection() {
       aria-labelledby="faqs-heading"
       className="content-grid bg-background text-foreground scroll-mt-22 py-16 font-sans md:scroll-mt-28 md:py-20"
     >
-      <div className="mx-auto grid w-full max-w-[58.5rem] grid-cols-1 gap-8 md:grid-cols-[minmax(15rem,0.9fr)_minmax(0,1.8fr)] md:gap-10">
+      <div className="grid w-full grid-cols-1 gap-8 md:grid-cols-[minmax(15rem,0.9fr)_minmax(0,1.8fr)] md:gap-10">
         <header>
           <p className="text-primary text-[0.625rem] font-medium tracking-[0.12em] uppercase md:text-xs">
             Frequently asked questions

@@ -32,7 +32,7 @@ export function FeaturesSection() {
       aria-labelledby="features-heading"
       className="content-grid dark:bg-background scroll-mt-22 bg-[#EFFAFF] pt-16 pb-12 font-sans md:scroll-mt-28 md:pt-18 md:pb-16"
     >
-      <div className="mx-auto w-full max-w-[58.5rem]">
+      <div className="w-full">
         <header className="mx-auto max-w-[50rem] text-center">
           <h2
             id="features-heading"

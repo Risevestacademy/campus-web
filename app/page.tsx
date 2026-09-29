@@ -3,6 +3,7 @@ import {
   ExploreCampusSection,
   FAQsSection,
   FeaturesSection,
+  FooterSection,
   HeroSection,
   HowToJoinSection,
 } from "@/features/home";
@@ -16,6 +17,7 @@ export default function Home() {
       <HowToJoinSection />
       <FAQsSection />
       <CTASection />
+      <FooterSection />
     </main>
   );
 }

@@ -29,7 +29,7 @@ export function HowToJoinSection() {
       aria-labelledby="how-to-join-heading"
       className="content-grid scroll-mt-22 bg-[#142429] py-16 font-sans text-neutral-50 md:scroll-mt-28 md:py-18"
     >
-      <div className="mx-auto grid w-full max-w-[58.5rem] grid-cols-1 gap-12 md:grid-cols-2 md:items-center md:gap-16">
+      <div className="grid w-full grid-cols-1 gap-12 md:grid-cols-2 md:items-center md:gap-16">
         <div>
           <p className="text-turquoise-300 text-[0.625rem] font-medium tracking-[0.12em] uppercase md:text-xs">
             How to join

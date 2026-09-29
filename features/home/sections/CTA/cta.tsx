@@ -11,7 +11,7 @@ export function CTASection() {
       aria-labelledby="cta-heading"
       className="content-grid bg-primary text-primary-foreground py-16 font-sans md:py-20"
     >
-      <div className="mx-auto grid w-full max-w-[58.5rem] grid-cols-1 items-center gap-10 md:grid-cols-[minmax(0,1fr)_14rem] md:gap-12">
+      <div className="grid w-full grid-cols-1 items-center gap-10 md:grid-cols-[minmax(0,1fr)_14rem] md:gap-12">
         <div>
           <h2
             id="cta-heading"
