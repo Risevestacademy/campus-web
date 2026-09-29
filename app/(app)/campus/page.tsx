@@ -3,10 +3,7 @@ import Link from "next/link";
 export default function CampusPage() {
   return (
     <div data-surface-role="background" className="bg-background space-y-8">
-      <header
-        data-surface-role="surface"
-        className="bg-surface flex h-16 items-center px-10"
-      >
+      <header className="flex h-16 items-center px-10">
         <Link href={"/"} className="flex items-center gap-3">
           <figure
             data-surface-role="surface"
