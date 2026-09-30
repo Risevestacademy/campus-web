@@ -5,6 +5,7 @@ import Script from "next/script";
 
 import { fontVariableClasses } from "@/shared/styles/fonts";
 import { themeInitializerScript } from "@/shared/theme";
+import { ThemeToggle } from "@/shared/ui/theme-toggle";
 
 export const metadata: Metadata = {
   title: "Campus by Rise",
@@ -28,6 +29,7 @@ export default function RootLayout({
         <Script id="theme-initializer" strategy="beforeInteractive">
           {themeInitializerScript}
         </Script>
+        <ThemeToggle />
         {children}
       </body>
     </html>

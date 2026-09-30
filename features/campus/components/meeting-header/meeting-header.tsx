@@ -5,7 +5,10 @@ import { Button } from "@/shared/ui/button";
 
 import { MeetingLockToggle } from "./meeting-lock-toggle";
 
-const participantToneClassNames = ["bg-cobalt-800", "bg-lemon-800"] as const;
+const participantToneClassNames = [
+  "bg-cobalt-200 dark:bg-cobalt-800",
+  "bg-lemon-200 dark:bg-lemon-800",
+] as const;
 
 export type MeetingParticipant = Readonly<{
   id: string;
@@ -49,7 +52,7 @@ function MeetingParticipantStack({
         <span
           role="img"
           aria-label={`${remainingParticipantCount} more participants`}
-          className="bg-turquoise-800 border-border -ml-2"
+          className="bg-turquoise-200 dark:bg-turquoise-800 border-border -ml-2"
         >
           +{remainingParticipantCount}
         </span>
@@ -67,6 +70,7 @@ export function MeetingHeader({
     <header className="flex h-fit items-center gap-3">
       <Button
         type="button"
+        data-surface-role="surface-elevated"
         size="icon"
         variant="ghost"
         aria-label="Open sidebar"
