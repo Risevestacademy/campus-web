@@ -1,4 +1,3 @@
-import Script from "next/script";
 import type { ReactNode } from "react";
 
 import {
@@ -10,7 +9,6 @@ import {
   CampusRail,
   CampusSidebar,
   railPanelItems,
-  shellInitializerScript,
   SidebarCollapseButton,
   SidebarComingSoonPanel,
   toggleSidebar,
@@ -48,10 +46,6 @@ export default function ActiveCampusLayout({
       data-surface-role="background"
       className="bg-background text-foreground flex h-dvh gap-1.5 p-1.5"
     >
-      <Script id="campus-shell-initializer" strategy="beforeInteractive">
-        {shellInitializerScript}
-      </Script>
-
       <CampusRail />
       <CampusSidebar
         panels={{

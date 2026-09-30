@@ -3,6 +3,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Script from "next/script";
 
+import { shellInitializerScript } from "@/features/campus-shell";
 import { fontVariableClasses } from "@/shared/styles/fonts";
 import { themeInitializerScript } from "@/shared/theme";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
@@ -29,6 +30,11 @@ export default function RootLayout({
       <body data-surface-role="background" className="flex min-h-full flex-col">
         <Script id="theme-initializer" strategy="beforeInteractive">
           {themeInitializerScript}
+        </Script>
+        {/* Only meaningful on active-campus routes, but `beforeInteractive`
+            scripts are only allowed in the root layout. */}
+        <Script id="campus-shell-initializer" strategy="beforeInteractive">
+          {shellInitializerScript}
         </Script>
         <ThemeToggle />
         <TooltipProvider>{children}</TooltipProvider>
