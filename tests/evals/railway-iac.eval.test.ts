@@ -86,7 +86,7 @@ describe("Railway IaC eval (required threshold: 5/5)", () => {
     );
   });
 
-  it("preserves exactly the required campus-web variables", async () => {
+  it("routes both environments to their environment-local campus-api service", async () => {
     const definitions = await Promise.all([
       evaluateRailwayDefinition(stagingDefinition),
       evaluateRailwayDefinition(productionDefinition),
@@ -94,7 +94,11 @@ describe("Railway IaC eval (required threshold: 5/5)", () => {
 
     for (const definition of definitions) {
       expect(findService(definition, "campus-web").variables).toEqual({
-        API_BASE_URL: { type: "preserve" },
+        API_BASE_URL: {
+          type: "literal",
+          value:
+            "http://${{campus-api.RAILWAY_PRIVATE_DOMAIN}}:${{campus-api.PORT}}",
+        },
         NEXT_PUBLIC_POSTHOG_HOST: { type: "preserve" },
         NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: { type: "preserve" },
       });
