@@ -27,10 +27,7 @@ export default function ActiveCampusLayout({
       </aside>
 
       <div className="flex flex-1 p-1.5 pl-0">
-        <div
-          data-surface-role="surface"
-          className="bg-cobalt-500/10 grid flex-1 grid-rows-[auto_1fr_auto] rounded-xl"
-        >
+        <div className="bg-cobalt-500/10 grid flex-1 grid-rows-[auto_1fr_auto] rounded-xl">
           <div className="relative z-1">
             <aside
               id="top-actions"
