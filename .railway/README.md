@@ -24,9 +24,19 @@ Always verify `railway status` before planning or applying.
 
 ## Variables
 
-`campus-web` preserves its Railway-managed values:
+`campus-web` reaches the API service in the same Railway environment through
+private networking:
 
-- `API_BASE_URL`
+```text
+API_BASE_URL=http://${{campus-api.RAILWAY_PRIVATE_DOMAIN}}:${{campus-api.PORT}}
+```
+
+Railway resolves the reference independently in staging and production. Both
+environments must contain a service named `campus-api` that listens on its
+Railway-provided `PORT`.
+
+`campus-web` preserves its Railway-managed analytics values:
+
 - `NEXT_PUBLIC_POSTHOG_HOST`
 - `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`
 
@@ -69,6 +79,8 @@ The initial staging plan should:
 
 - Remove `API_BASE_URL`, `NEXT_PUBLIC_POSTHOG_HOST`, and
   `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` from `campus-storybook`.
+- Set `campus-web` `API_BASE_URL` to the environment-local `campus-api`
+  private-network reference.
 - Move the Storybook source from `feat/storybook` to `dev`.
 - Enable Wait for CI on the Storybook source.
 - Leave the `campus-web` source unchanged.
@@ -94,9 +106,10 @@ railway status
 railway config plan --file .railway/railway.production.ts
 ```
 
-The production plan should leave `campus-web` unchanged and create only
-`campus-storybook`, connected to `main` with Wait for CI enabled. Do not apply
-without separate production approval.
+The production plan should set `campus-web` `API_BASE_URL` to the
+environment-local `campus-api` private-network reference, otherwise leave
+`campus-web` unchanged, and create only `campus-storybook`, connected to `main`
+with Wait for CI enabled. Do not apply without separate production approval.
 
 After an approved production apply, verify the deployment and generate a
 Railway domain if Railway did not create one automatically. Domain creation is
