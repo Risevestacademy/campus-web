@@ -143,7 +143,7 @@ export function MeetingTiles({
                   transition={layoutTransition}
                   style={{ borderRadius: 12 }}
                   className={cn(
-                    "overflow-hidden",
+                    "has-[:focus-visible]:ring-border-focus overflow-hidden has-[:focus-visible]:ring-2",
                     hasFocusedTile
                       ? isFocused
                         ? "order-2 h-full min-w-0 flex-1"
@@ -160,7 +160,7 @@ export function MeetingTiles({
                     onClick={(event) =>
                       onTileActivate(participant.id, event.detail > 0)
                     }
-                    className="bg-surface focus-visible:ring-border-focus aspect-video size-full cursor-pointer appearance-none border-0 p-0 transition-transform duration-150 outline-none focus-visible:ring-2 active:scale-[0.99] motion-reduce:transition-none motion-reduce:active:scale-100"
+                    className="bg-surface aspect-video size-full cursor-pointer appearance-none border-0 p-0 transition-transform duration-150 outline-none active:scale-[0.99] motion-reduce:transition-none motion-reduce:active:scale-100"
                   />
                 </motion.div>
               );
