@@ -1,11 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
 import { CampusSidebar } from "./campus-sidebar";
+import { setSidebarOpen } from "./shell-store";
 import { SidebarCollapseButton } from "./sidebar-collapse-button";
-import { SidebarReopenToggle } from "./sidebar-reopen-toggle";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -31,34 +31,27 @@ function renderSidebar() {
           calendar: <p>Calendar panel</p>,
         }}
       />
-      <SidebarReopenToggle />
     </TooltipProvider>,
   );
 }
 
 describe("CampusSidebar", () => {
-  it("shows the active panel and hides the reopen toggle while open", () => {
+  it("shows the active panel while open", () => {
     renderSidebar();
 
     expect(screen.getByText("Map panel")).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: "Open sidebar" }),
-    ).not.toBeInTheDocument();
   });
 
-  it("collapses on request and can be reopened", () => {
+  it("collapses on request and reopens when the store is told to", () => {
     renderSidebar();
 
     fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
 
     expect(document.documentElement.dataset.sidebarOpen).toBe("false");
-    expect(screen.getByRole("button", { name: "Open sidebar" })).toBeVisible();
 
-    fireEvent.click(screen.getByRole("button", { name: "Open sidebar" }));
+    act(() => setSidebarOpen(true));
 
     expect(document.documentElement.dataset.sidebarOpen).toBe("true");
-    expect(
-      screen.queryByRole("button", { name: "Open sidebar" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText("Map panel")).toBeVisible();
   });
 });

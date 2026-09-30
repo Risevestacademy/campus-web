@@ -1,14 +1,14 @@
-import { DotsThreeVerticalIcon } from "@phosphor-icons/react/dist/ssr/DotsThreeVertical";
-import { GearSixIcon } from "@phosphor-icons/react/dist/ssr/GearSix";
-import { WarningIcon } from "@phosphor-icons/react/dist/ssr/Warning";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, screen, userEvent, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 
-import { buttonVariants } from "./button";
+import { Button } from "./button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./dropdown-menu";
 
@@ -21,36 +21,39 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const Gallery: Story = {
+export const Basic: Story = {
   render: () => (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label="More"
-        className={buttonVariants({ variant: "outline", size: "icon" })}
-      >
-        <DotsThreeVerticalIcon aria-hidden size={18} weight="bold" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem>
-          <WarningIcon aria-hidden size={16} />
-          Report an issue
-        </DropdownMenuItem>
-        <DropdownMenuItem>
-          <GearSixIcon aria-hidden size={16} />
-          Settings
-        </DropdownMenuItem>
+        render={<Button variant="outline">Open actions</Button>}
+      />
+      <DropdownMenuContent aria-label="Campus actions">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Profile</DropdownMenuLabel>
+          <DropdownMenuItem>Edit profile</DropdownMenuItem>
+          <DropdownMenuItem>View activity</DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem variant="destructive">
+            Leave campus
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const trigger = canvas.getByRole("button", { name: "More" });
+    const trigger = canvas.getByRole("button", { name: "Open actions" });
 
     await userEvent.click(trigger);
 
-    // The menu content renders in a portal, outside the story's canvas.
-    await expect(
-      await screen.findByRole("menuitem", { name: "Settings" }),
-    ).toBeVisible();
+    const page = within(canvasElement.ownerDocument.body);
+    const menu = page.getByRole("menu");
+
+    await waitFor(() => expect(menu).toBeVisible());
+    await expect(window.getComputedStyle(menu).fontFamily).toBe(
+      window.getComputedStyle(trigger).fontFamily,
+    );
   },
 };
