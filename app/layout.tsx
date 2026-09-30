@@ -6,6 +6,7 @@ import Script from "next/script";
 import { fontVariableClasses } from "@/shared/styles/fonts";
 import { themeInitializerScript } from "@/shared/theme";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
+import { TooltipProvider } from "@/shared/ui/tooltip";
 
 export const metadata: Metadata = {
   title: "Campus by Rise",
@@ -30,7 +31,7 @@ export default function RootLayout({
           {themeInitializerScript}
         </Script>
         <ThemeToggle />
-        {children}
+        <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>
   );
