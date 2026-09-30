@@ -7,7 +7,7 @@ import { CameraSettingsDropdown } from "./camera-settings-dropdown";
 import { MediaToggle } from "./media-toggle";
 
 const mediaControlGroupClassName =
-  "bg-surface rounded-2xl hover:ring-primary hover:ring-offset-background hover:ring hover:ring-offset-1";
+  "bg-surface rounded-xl hover:ring-primary h-10.75 hover:ring-offset-background hover:ring hover:ring-offset-1";
 
 export function MediaControls({ className }: { className?: string }) {
   return (

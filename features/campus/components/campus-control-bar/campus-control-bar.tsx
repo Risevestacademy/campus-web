@@ -17,7 +17,7 @@ type CampusControlBarProps = Readonly<{
 export function CampusControlBar({ initials, status }: CampusControlBarProps) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end">
-      <div className="bg-background col-start-2 flex items-center gap-1.5 rounded-[1.125rem] py-1 pr-1 pl-1.5">
+      <div className="bg-background col-start-2 flex items-center gap-1.5 rounded-l-[1.25rem] rounded-r-[1.125rem] py-1.5 pr-1.75 pl-2">
         <PresenceMenuTrigger initials={initials} status={status} />
         <Separator orientation="vertical" className="mx-1.5 my-auto h-6" />
         <MediaControls className="gap-1.5" />

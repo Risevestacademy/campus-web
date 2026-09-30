@@ -12,7 +12,7 @@ const campusActions = [
 
 export function CampusActionControls() {
   return (
-    <div role="group" aria-label="Campus actions" className="flex gap-1.5">
+    <div role="group" aria-label="Campus actions" className="flex gap-1.25">
       {campusActions.map(({ Icon, label }) => (
         <Button
           key={label}

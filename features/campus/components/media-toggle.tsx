@@ -43,7 +43,7 @@ export function MediaToggle({ kind }: { kind: MediaKind }) {
       data-media-disabled={isEnabled ? undefined : ""}
       title={title}
       onClick={() => setIsEnabled((wasEnabled) => !wasEnabled)}
-      className="group/media-toggle data-media-disabled:text-error-icon hover:bg-background data-media-disabled:hover:bg-error/10 transition-[background-color,color,scale,translate] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:transition-none active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100"
+      className="group/media-toggle data-media-disabled:text-error-icon hover:bg-muted data-media-disabled:hover:bg-error/10 transition-[background-color,color,scale,translate] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:transition-none active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100"
     >
       <span aria-hidden className="relative block size-5.5 shrink-0">
         <EnabledIcon
