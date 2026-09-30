@@ -46,6 +46,11 @@ reference variable such as:
 API_BASE_URL=http://${{campus-api.RAILWAY_PRIVATE_DOMAIN}}:${{campus-api.PORT}}
 ```
 
+The `campus-api` service must expose `PORT` as an explicit Railway service
+variable. A runtime-injected port or Public Networking target port is not
+necessarily available to cross-service reference interpolation. See
+`.railway/README.md` for deployment verification and troubleshooting.
+
 Railway private traffic is encrypted by its network even though the service URL
 uses `http`. The configuration accepts HTTP only for `*.railway.internal`;
 every public origin must use HTTPS. Private DNS is available at runtime, not
