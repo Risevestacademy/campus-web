@@ -32,8 +32,35 @@ API_BASE_URL=http://${{campus-api.RAILWAY_PRIVATE_DOMAIN}}:${{campus-api.PORT}}
 ```
 
 Railway resolves the reference independently in staging and production. Both
-environments must contain a service named `campus-api` that listens on its
-Railway-provided `PORT`.
+environments must contain a service named `campus-api`. That service must
+declare `PORT` as an explicit Railway service variable matching its listening
+port; staging currently uses `PORT=8080`.
+
+Do not rely only on the `PORT` injected into the running API container or the
+port selected under Public Networking. Those values do not guarantee that
+`${{campus-api.PORT}}` is available during cross-service reference
+interpolation. If it is unavailable, `API_BASE_URL` resolves with a trailing
+colon, Node attempts port 80, and the frontend proxy returns
+`502 API is unavailable`.
+
+Verify the resolved value from the deployed frontend:
+
+```bash
+railway ssh \
+  --service campus-web \
+  --environment staging
+
+printf '%s\n' "$API_BASE_URL"
+```
+
+It must end in a numeric port, for example:
+
+```text
+http://campus-server.railway.internal:8080
+```
+
+The API repository owns the `PORT` contract. Capture it in the backend Railway
+IaC for every environment instead of maintaining it only in the dashboard.
 
 `campus-web` preserves its Railway-managed analytics values:
 
