@@ -4,14 +4,13 @@ import type { Preview } from "@storybook/nextjs-vite";
 
 import { fontVariableClasses } from "@/shared/styles/fonts";
 
+globalThis.document?.documentElement.classList.add(
+  ...fontVariableClasses.split(/\s+/),
+  "font-sans",
+  "antialiased",
+);
+
 const preview: Preview = {
-  decorators: [
-    (Story) => (
-      <div className={`${fontVariableClasses} font-sans`}>
-        <Story />
-      </div>
-    ),
-  ],
   parameters: {
     a11y: {
       test: "error",

@@ -1,0 +1,89 @@
+.switchRoot {
+  --switch-radius: 0.875rem;
+
+  position: relative;
+  z-index: 30;
+  width: 5.5rem;
+  height: 2.5rem;
+  overflow: hidden;
+  justify-self: end;
+  border: 1px solid var(--color-border);
+  border-radius: var(--switch-radius);
+  background: var(--color-surface-elevated);
+  color: var(--color-foreground-secondary);
+}
+
+.iconLayer,
+.switchControl {
+  position: absolute;
+  inset: 0;
+}
+
+.iconLayer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  pointer-events: none;
+  place-items: center;
+}
+
+.iconLayer svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.selectedIconLayer {
+  z-index: 1;
+  border-radius: calc(var(--switch-radius) - 1px);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  clip-path: polygon(0 0, 54% 0, 46% 100%, 0 100%);
+  transition: clip-path 200ms cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+.selectedIconLayer svg {
+  transform: scale(0.86);
+  transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.switchRoot[data-active-view="map"] .selectedIconLayer svg:first-child,
+.switchRoot[data-active-view="grid"] .selectedIconLayer svg:last-child {
+  transform: scale(1);
+}
+
+.switchRoot[data-active-view="grid"] .selectedIconLayer {
+  clip-path: polygon(46% 0, 100% 0, 100% 100%, 54% 100%);
+}
+
+.switchControl {
+  z-index: 2;
+  border: 0;
+  border-radius: 0.75rem;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.switchControl:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--color-border-focus);
+}
+
+.switchRoot[data-active-view="map"]:has(.switchControl:active)
+  .iconLayer
+  svg:first-child,
+.switchRoot[data-active-view="grid"]:has(.switchControl:active)
+  .iconLayer
+  svg:last-child {
+  transform: translateY(1px) scale(0.88);
+}
+
+.switchRoot:has(.switchControl:focus-visible) .selectedIconLayer,
+.switchRoot:has(.switchControl:focus-visible) .iconLayer svg {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selectedIconLayer,
+  .iconLayer svg {
+    transition: none;
+  }
+}
