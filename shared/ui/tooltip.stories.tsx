@@ -54,7 +54,6 @@ export const Gallery: Story = {
     const trigger = canvas.getByRole("button", { name: "Campus overview" });
 
     await userEvent.hover(trigger);
-    // Tooltip content renders in a portal, outside the story's canvas.
     await expect(await screen.findByText("Campus overview")).toBeVisible();
 
     await userEvent.unhover(trigger);

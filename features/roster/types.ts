@@ -6,6 +6,5 @@ export type Participant = {
   initial: string;
   avatarClassName: string;
   status: ParticipantStatus;
-  /** The line shown under the name, e.g. "Available · Main hallway". */
   detail: string;
 };

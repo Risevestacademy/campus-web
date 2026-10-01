@@ -409,11 +409,6 @@
   }
 }
 
-/*
- * Matches the sidebar's pre-hydration width to the value the
- * `campus-shell-initializer` script already wrote to `data-sidebar-open`,
- * so a collapsed sidebar doesn't flash open before React mounts.
- */
 html[data-sidebar-open="false"] [data-slot="campus-sidebar"] {
   width: 0;
 }

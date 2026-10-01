@@ -13,8 +13,6 @@ beforeEach(() => {
 });
 
 function renderSidebar() {
-  // Each real panel places its own `<SidebarCollapseButton />`; the "map"
-  // panel here stands in for that.
   return render(
     <TooltipProvider>
       <CampusSidebar

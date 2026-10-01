@@ -11,7 +11,6 @@ export type RailPanelItem = {
   id: SidebarPanelId;
   label: string;
   Icon: Icon;
-  /** Static placeholder count until chat has real unread data. */
   badgeCount?: number;
 };
 

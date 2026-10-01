@@ -1,9 +1,5 @@
 import type { Participant } from "./types";
 
-/**
- * Placeholder roster until the presence API exists. Avatar colors are
- * temporary too — pending the real avatar design.
- */
 export const mockActiveParticipants: readonly Participant[] = [
   {
     id: "ayobami",

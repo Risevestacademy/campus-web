@@ -22,7 +22,6 @@ export type MeetingHeaderProps = Readonly<{
   title: string;
   participants: readonly MeetingParticipant[];
   remainingParticipantCount?: number;
-  /** Wires the built-in "Open sidebar" button to whatever owns the sidebar. */
   onOpenSidebar?: () => void;
 }>;
 

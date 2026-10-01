@@ -55,13 +55,6 @@ export function parseStoredShellPreferences(
   }
 }
 
-/**
- * Sets `data-sidebar-open` on the document element before hydration, so the
- * sidebar renders at its correct width on the very first paint instead of
- * flashing open (or closed) and then correcting itself once React mounts.
- * `globals.css` reads this attribute for the pre-hydration width only; once
- * mounted, the sidebar itself drives the width from the same stored value.
- */
 export const shellInitializerScript = String.raw`
 (() => {
   let sidebarOpen = ${DEFAULT_SIDEBAR_OPEN};
@@ -73,9 +66,7 @@ export const shellInitializerScript = String.raw`
     if (stored && typeof stored.sidebarOpen === "boolean") {
       sidebarOpen = stored.sidebarOpen;
     }
-  } catch {
-    // Continue with the default sidebar state when storage is unavailable.
-  }
+  } catch {}
 
   document.documentElement.dataset.sidebarOpen = String(sidebarOpen);
 })();

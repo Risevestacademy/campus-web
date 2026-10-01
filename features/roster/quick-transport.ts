@@ -5,7 +5,6 @@ export type QuickTransportDestination = {
   isLiveNow?: boolean;
 };
 
-/** Placeholder destinations until the map feature owns real navigation. */
 export const quickTransportDestinations: readonly QuickTransportDestination[] =
   [
     {

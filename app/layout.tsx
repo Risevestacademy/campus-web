@@ -31,8 +31,6 @@ export default function RootLayout({
         <Script id="theme-initializer" strategy="beforeInteractive">
           {themeInitializerScript}
         </Script>
-        {/* Only meaningful on active-campus routes, but `beforeInteractive`
-            scripts are only allowed in the root layout. */}
         <Script id="campus-shell-initializer" strategy="beforeInteractive">
           {shellInitializerScript}
         </Script>

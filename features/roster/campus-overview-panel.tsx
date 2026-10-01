@@ -26,10 +26,6 @@ import {
 import { ParticipantRow } from "./participant-row";
 import { QuickTransportList } from "./quick-transport-list";
 
-/**
- * The user's track, role and cohort. A label only for now — see the
- * `profile` feature once it owns switching between them.
- */
 const CURRENT_USER_CONTEXT_LABEL = "Product Design 2026 · Student";
 
 const CARET_ICON_CLASSNAME =
@@ -51,7 +47,6 @@ export function CampusOverviewPanel({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Fixed: title, search. Everything below this scrolls. */}
       <div className="shrink-0 p-4 pb-0">
         <div className="flex items-start justify-between gap-2">
           <div>
