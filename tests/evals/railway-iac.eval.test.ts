@@ -162,6 +162,7 @@ describe("Railway IaC eval (required threshold: 5/5)", () => {
         "/config/**",
         "/core/**",
         "/features/**",
+        "/public/**",
         "/shared/**",
         "/instrumentation-client.ts",
         "/next.config.ts",
