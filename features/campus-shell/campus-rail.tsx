@@ -21,7 +21,6 @@ import {
   subscribeToShell,
 } from "./shell-store";
 
-/** Current user's initial, until the profile feature owns this. */
 const CURRENT_USER_INITIAL = "J";
 
 function RailButton({
@@ -45,7 +44,7 @@ function RailButton({
         onClick={onClick}
         className={cn(
           buttonVariants({ variant: "ghost", size: "icon-lg" }),
-          "text-primary-foreground/70 hover:bg-primary-foreground/10 hover:text-primary-foreground aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground relative",
+          "text-primary-foreground/70 not-aria-[current=page]:hover:bg-primary-foreground/10 not-aria-[current=page]:hover:text-primary-foreground aria-[current=page]:bg-cobalt-700 dark:aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground relative",
         )}
       >
         {children}
