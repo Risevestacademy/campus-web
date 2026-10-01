@@ -28,9 +28,7 @@ function writeStoredPreferences(
 
   try {
     window.localStorage.setItem(SHELL_STORAGE_KEY, JSON.stringify(preferences));
-  } catch {
-    // The shell can still use the selected preferences without storage.
-  }
+  } catch {}
 
   window.dispatchEvent(new Event(SHELL_CHANGE_EVENT));
 }
@@ -65,6 +63,10 @@ export function setSidebarOpen(sidebarOpen: boolean): void {
 
 export function toggleSidebar(): void {
   setSidebarOpen(!getSidebarOpenSnapshot());
+}
+
+export function closeSidebarForGridView(view: "map" | "grid"): void {
+  if (view === "grid") setSidebarOpen(false);
 }
 
 export function subscribeToShell(onStoreChange: () => void): () => void {

@@ -8,9 +8,13 @@ import {
 import {
   CampusRail,
   CampusSidebar,
+  closeSidebarForGridView,
+  getServerSidebarOpenSnapshot,
+  getSidebarOpenSnapshot,
   railPanelItems,
   SidebarCollapseButton,
   SidebarComingSoonPanel,
+  subscribeToShell,
   toggleSidebar,
 } from "@/features/campus-shell";
 import { CampusOverviewPanel } from "@/features/roster";
@@ -69,7 +73,13 @@ export default function ActiveCampusLayout({
                   onOpenSidebar={toggleSidebar}
                 />
               </div>
-              <MeetingViewControls participants={meetingParticipants} />
+              <MeetingViewControls
+                participants={meetingParticipants}
+                onViewChange={closeSidebarForGridView}
+                subscribeToSidebarOpen={subscribeToShell}
+                getSidebarOpenSnapshot={getSidebarOpenSnapshot}
+                getServerSidebarOpenSnapshot={getServerSidebarOpenSnapshot}
+              />
             </aside>
           </div>
 
