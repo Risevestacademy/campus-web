@@ -15,8 +15,8 @@ export function QuickTransportList() {
             <button
               type="button"
               className={cn(
-                "flex w-full items-center gap-2.5 rounded-xl px-2 py-2.5 text-left",
-                destination.isLiveNow ? "bg-surface" : "hover:bg-surface",
+                "flex w-full items-center gap-2.5 rounded-xl px-2 py-2.5 text-left hover:bg-[#EFFAFF] dark:hover:bg-[#2B3B5F]",
+                destination.isLiveNow && "bg-[#EFFAFF] dark:bg-[#2B3B5F]",
               )}
             >
               <span
