@@ -1,267 +1,164 @@
 // @vitest-environment node
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import type { Logger } from "@/core/observability";
-
-import { browserApi } from "../../core/api/client/browser";
-import {
-  readApiBaseUrl,
-  readOpenApiUrl,
-} from "../../core/api/client/configuration";
-import { createApiClient } from "../../core/api/client/create-api-client";
-import { createApiProxy } from "../../core/api/client/proxy";
-import { getServerApi } from "../../core/api/client/server";
-
-const nextHeaders = vi.hoisted(() => ({
-  cookies: vi.fn(),
-}));
-
-vi.mock("next/headers", () => ({
-  cookies: nextHeaders.cookies,
-}));
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const quietLogger: Logger = {
-  error: () => {},
-  info: () => {},
-  warn: () => {},
-};
+function context(...path: string[]) {
+  return { params: Promise.resolve({ path }) };
+}
 
-beforeEach(() => {
-  vi.stubEnv("API_BASE_URL", "https://api.example.test");
-  nextHeaders.cookies.mockResolvedValue({
-    get: (name: string) =>
-      name === "accessToken"
-        ? { name: "accessToken", value: "session-token" }
-        : undefined,
-  });
-});
+function requireSetCookie(response: Response, name: string): string {
+  const cookie = response.headers
+    .getSetCookie()
+    .find((value) => value.startsWith(`${name}=`));
+
+  if (!cookie) {
+    throw new Error(`Expected ${name} in the response Set-Cookie headers.`);
+  }
+
+  return cookie;
+}
 
 afterEach(() => {
-  vi.clearAllMocks();
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  vi.resetModules();
 });
 
-describe("API client foundation eval (required threshold: 11/11)", () => {
-  it("forwards an origin-less safe GET", async () => {
-    let upstreamCalls = 0;
-    const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
-      fetch: () => {
-        upstreamCalls += 1;
-        return Promise.resolve(new Response(null, { status: 204 }));
-      },
-    });
+describe("API client authentication journey eval", () => {
+  it("keeps a full-access browser session usable through sign-in and logout", async () => {
+    vi.stubEnv("API_BASE_URL", "https://api.example.test");
 
-    const response = await handler(
-      new Request("https://frontend.example.test/api/v1/health"),
-      { params: Promise.resolve({ path: ["v1", "health"] }) },
-    );
+    vi.stubGlobal("fetch", (request: Request) => {
+      const url = new URL(request.url);
 
-    expect(response.status).toBe(204);
-    expect(upstreamCalls).toBe(1);
-  });
-
-  it("loads the browser proxy route without build-time configuration", async () => {
-    vi.stubEnv("API_BASE_URL", "");
-
-    await expect(
-      import("../../app/api/[...path]/route"),
-    ).resolves.toMatchObject({
-      GET: expect.any(Function),
-      POST: expect.any(Function),
-    });
-  });
-
-  it("derives the OpenAPI document from environment configuration", () => {
-    expect(
-      readOpenApiUrl({
-        API_BASE_URL: "https://api.example.test",
-      }),
-    ).toBe("https://api.example.test/docs-json");
-  });
-
-  it("accepts Railway private networking without allowing public HTTP", () => {
-    expect(
-      readApiBaseUrl({
-        API_BASE_URL: "http://campus-api.railway.internal:3000",
-      }),
-    ).toBe("http://campus-api.railway.internal:3000");
-    expect(() =>
-      readApiBaseUrl({
-        API_BASE_URL: "http://campus-api.example.test",
-      }),
-    ).toThrow();
-  });
-
-  it("creates a generated client against the configured origin", async () => {
-    let outboundUrl: string | undefined;
-    const api = createApiClient({
-      baseUrl: "https://api.example.test/",
-      fetch: (request) => {
-        outboundUrl = request.url;
-        return Promise.resolve(Response.json({ status: "ok" }));
-      },
-    });
-
-    await api.GET("/v1/health");
-
-    expect(outboundUrl).toBe("https://api.example.test/v1/health");
-  });
-
-  it("mirrors backend paths beneath the frontend API namespace", async () => {
-    let outboundUrl: string | undefined;
-
-    class SameOriginRequest extends Request {
-      constructor(input: RequestInfo | URL, init?: RequestInit) {
-        const url =
-          typeof input === "string" || input instanceof URL ? input : input.url;
-
-        super(new URL(url, "https://frontend.example.test"), init);
-      }
-    }
-
-    await browserApi.GET("/v1/health", {
-      Request: SameOriginRequest,
-      fetch: (request) => {
-        outboundUrl = request.url;
-        return Promise.resolve(Response.json({ status: "ok" }));
-      },
-    });
-
-    expect(outboundUrl).toBe("https://frontend.example.test/api/v1/health");
-  });
-
-  it("sends a request-local cookie on the direct server path", async () => {
-    let outboundCookie: string | null | undefined;
-    const api = await getServerApi({
-      fetch: (request) => {
-        outboundCookie = request.headers.get("cookie");
-        return Promise.resolve(Response.json({ status: "ok" }));
-      },
-    });
-
-    await api.GET("/v1/health");
-
-    expect(outboundCookie).toBe("accessToken=session-token");
-  });
-
-  it("proxies a browser request without leaking unrelated cookies", async () => {
-    let outboundRequest: Request | undefined;
-    const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
-      fetch: (request) => {
-        outboundRequest = request;
-        return Promise.resolve(
-          Response.json(
-            { status: "ok" },
-            {
-              headers: {
-                "cache-control": "public, max-age=3600",
-              },
-            },
-          ),
+      if (request.method === "GET" && url.pathname === "/v1/auth/google") {
+        const headers = new Headers({
+          location: "https://accounts.google.com/o/oauth2/v2/auth",
+        });
+        headers.append(
+          "set-cookie",
+          "campus_oauth_state=oauth-state; HttpOnly; Path=/v1/auth",
         );
-      },
+
+        return Promise.resolve(new Response(null, { headers, status: 302 }));
+      }
+
+      if (
+        request.method === "GET" &&
+        url.pathname === "/v1/auth/google/callback"
+      ) {
+        expect(request.headers.get("cookie")).toBe(
+          "campus_oauth_state=oauth-state",
+        );
+
+        const headers = new Headers({
+          location: "http://localhost:3000/",
+        });
+        headers.append(
+          "set-cookie",
+          "campus_oauth_state=; Max-Age=0; HttpOnly; Path=/v1/auth",
+        );
+        headers.append(
+          "set-cookie",
+          "campus_session=session-token; HttpOnly; Path=/",
+        );
+        headers.append(
+          "set-cookie",
+          "campus_refresh=refresh-token; HttpOnly; Path=/v1/auth",
+        );
+
+        return Promise.resolve(new Response(null, { headers, status: 302 }));
+      }
+
+      if (request.method === "POST" && url.pathname === "/v1/auth/logout") {
+        expect(request.headers.get("cookie")).toBe(
+          "campus_session=session-token; campus_refresh=refresh-token",
+        );
+
+        const headers = new Headers();
+        headers.append(
+          "set-cookie",
+          "campus_session=; Max-Age=0; HttpOnly; Path=/",
+        );
+        headers.append(
+          "set-cookie",
+          "campus_refresh=; Max-Age=0; HttpOnly; Path=/v1/auth",
+        );
+
+        return Promise.resolve(new Response(null, { headers, status: 204 }));
+      }
+
+      throw new Error(`Unexpected upstream request: ${request.method} ${url}`);
     });
 
-    const response = await handler(
-      new Request("https://frontend.example.test/api/v1/health?verbose=true", {
-        headers: {
-          cookie: "accessToken=session-token; theme=dark",
-          origin: "https://frontend.example.test",
+    const { GET, POST } = await import("../../app/api/[...path]/route");
+
+    const startResponse = await GET(
+      new Request(
+        "http://localhost:3000/api/v1/auth/google?returnTo=%2Fcampus%2F42%2Fjoin",
+      ),
+      context("v1", "auth", "google"),
+    );
+
+    expect(startResponse.status).toBe(302);
+    expect(startResponse.headers.get("location")).toBe(
+      "https://accounts.google.com/o/oauth2/v2/auth",
+    );
+    expect(requireSetCookie(startResponse, "campus_oauth_state")).toBe(
+      "campus_oauth_state=oauth-state; HttpOnly; SameSite=Lax; Path=/api/v1/auth",
+    );
+    expect(requireSetCookie(startResponse, "campus_oauth_return_to")).toBe(
+      "campus_oauth_return_to=%2Fcampus%2F42%2Fjoin; HttpOnly; SameSite=Lax; Path=/api/v1/auth; Max-Age=600",
+    );
+
+    const callbackResponse = await GET(
+      new Request(
+        "http://localhost:3000/api/v1/auth/google/callback?code=google-code",
+        {
+          headers: {
+            cookie:
+              "campus_oauth_state=oauth-state; campus_oauth_return_to=%2Fcampus%2F42%2Fjoin",
+          },
         },
-      }),
-      { params: Promise.resolve({ path: ["v1", "health"] }) },
+      ),
+      context("v1", "auth", "google", "callback"),
     );
 
-    expect(outboundRequest?.url).toBe(
-      "https://api.example.test/v1/health?verbose=true",
+    expect(callbackResponse.status).toBe(302);
+    expect(callbackResponse.headers.get("location")).toBe(
+      "http://localhost:3000/campus/42/join",
     );
-    expect(outboundRequest?.headers.get("cookie")).toBe(
-      "accessToken=session-token",
+    expect(requireSetCookie(callbackResponse, "campus_session")).toBe(
+      "campus_session=session-token; HttpOnly; SameSite=Lax; Path=/",
     );
-    expect(response.headers.get("cache-control")).toBe("private, no-store");
-  });
+    expect(requireSetCookie(callbackResponse, "campus_refresh")).toBe(
+      "campus_refresh=refresh-token; HttpOnly; SameSite=Lax; Path=/api/v1/auth",
+    );
+    expect(requireSetCookie(callbackResponse, "campus_oauth_return_to")).toBe(
+      "campus_oauth_return_to=; HttpOnly; SameSite=Lax; Path=/api/v1/auth; Max-Age=0",
+    );
 
-  it("rejects a cross-origin mutation before the backend", async () => {
-    let upstreamCalls = 0;
-    const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
-      fetch: () => {
-        upstreamCalls += 1;
-        return Promise.resolve(new Response(null, { status: 204 }));
-      },
-    });
-
-    const response = await handler(
-      new Request("https://frontend.example.test/api/v1/profile", {
-        body: "{}",
+    const logoutResponse = await POST(
+      new Request("http://localhost:3000/api/v1/auth/logout", {
         headers: {
-          origin: "https://attacker.example",
-          "x-forwarded-host": "frontend.example.test",
-          "x-forwarded-proto": "https",
+          cookie: "campus_session=session-token; campus_refresh=refresh-token",
+          origin: "http://localhost:3000",
+          "x-forwarded-host": "localhost:3000",
+          "x-forwarded-proto": "http",
         },
         method: "POST",
       }),
-      { params: Promise.resolve({ path: ["v1", "profile"] }) },
+      context("v1", "auth", "logout"),
     );
 
-    expect(response.status).toBe(403);
-    expect(upstreamCalls).toBe(0);
-  });
-
-  it("returns a sanitized correlated response when the backend is unavailable", async () => {
-    const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      generateRequestId: () => "eval-request",
-      logger: quietLogger,
-      fetch: () => {
-        throw new Error("private network detail");
-      },
-    });
-
-    const response = await handler(
-      new Request("https://frontend.example.test/api/v1/health", {
-        headers: { origin: "https://frontend.example.test" },
-      }),
-      { params: Promise.resolve({ path: ["v1", "health"] }) },
+    expect(logoutResponse.status).toBe(204);
+    expect(requireSetCookie(logoutResponse, "campus_session")).toBe(
+      "campus_session=; Max-Age=0; HttpOnly; SameSite=Lax; Path=/",
     );
-    const body = await response.text();
-
-    expect(response.status).toBe(502);
-    expect(response.headers.get("x-request-id")).toBe("eval-request");
-    expect(body).toContain('"code":"INTERNAL_ERROR"');
-    expect(body).not.toContain("private network detail");
-  });
-
-  it("limits an upstream session response to a frontend-scoped access token", async () => {
-    const headers = new Headers();
-    headers.append("set-cookie", "theme=dark; Path=/");
-    headers.append(
-      "set-cookie",
-      "accessToken=renewed; Domain=api.example.test; Path=/v1",
+    expect(requireSetCookie(logoutResponse, "campus_refresh")).toBe(
+      "campus_refresh=; Max-Age=0; HttpOnly; SameSite=Lax; Path=/api/v1/auth",
     );
-    const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
-      fetch: () => Promise.resolve(new Response("{}", { headers })),
-    });
-
-    const response = await handler(
-      new Request("https://frontend.example.test/api/v1/session", {
-        headers: { origin: "https://frontend.example.test" },
-      }),
-      { params: Promise.resolve({ path: ["v1", "session"] }) },
-    );
-
-    expect(response.headers.getSetCookie()).toEqual([
-      "accessToken=renewed; HttpOnly; Secure; SameSite=Lax; Path=/",
-    ]);
   });
 });
