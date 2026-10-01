@@ -30,6 +30,7 @@ const campusWebWatchPatterns = [
   "/config/**",
   "/core/**",
   "/features/**",
+  "/public/**",
   "/shared/**",
   "/instrumentation-client.ts",
   "/next.config.ts",
