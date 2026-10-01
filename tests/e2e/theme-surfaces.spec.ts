@@ -26,7 +26,7 @@ const routeCases: ReadonlyArray<{
   { path: "/campus", roles: ["background", "surface"] },
   {
     path: "/campus/1",
-    roles: ["background", "surface", "surface-elevated"],
+    roles: ["background", "surface-elevated"],
   },
   { path: "/invitation", roles: ["background"] },
 ];

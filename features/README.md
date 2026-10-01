@@ -5,9 +5,10 @@ Business behavior is organized by product domain.
 Planned domains:
 
 - auth
-- campus-session
+- campus-shell
 - campus-world
 - avatar
+- roster
 - presence
 - proximity
 - communication
@@ -17,6 +18,13 @@ Planned domains:
 - resource-centre
 - stage
 - profile
+
+`campus-shell` owns the rail and sidebar chrome around an active campus visit
+(navigation, panel switching, the collapse/reopen state) — not a class or
+mentorship session, which is a distinct, later concept. `roster` owns the
+participant directory UI (search, filters, the online/offline lists); once
+real-time status lands, it will consume it from `presence` rather than own
+it.
 
 Create a feature directory only when implementation starts. Colocate its
 components, hooks, services, schemas, state, types, and tests. Expose consumers

@@ -1,3 +1,5 @@
+"use client";
+
 import { SidebarSimpleIcon } from "@phosphor-icons/react/dist/ssr/SidebarSimple";
 import { cn } from "cn";
 
@@ -20,6 +22,7 @@ export type MeetingHeaderProps = Readonly<{
   title: string;
   participants: readonly MeetingParticipant[];
   remainingParticipantCount?: number;
+  onOpenSidebar?: () => void;
 }>;
 
 type MeetingParticipantStackProps = Pick<
@@ -65,6 +68,7 @@ export function MeetingHeader({
   title,
   participants,
   remainingParticipantCount = 0,
+  onOpenSidebar,
 }: MeetingHeaderProps) {
   return (
     <header className="flex h-fit items-center gap-3">
@@ -75,6 +79,7 @@ export function MeetingHeader({
         variant="ghost"
         aria-label="Open sidebar"
         title="Open sidebar"
+        onClick={onOpenSidebar}
         className="bg-surface-elevated border-border size-10 rounded-xl border [&_svg:not([class*='size-'])]:size-5"
       >
         <SidebarSimpleIcon aria-hidden />
