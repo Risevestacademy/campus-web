@@ -163,10 +163,13 @@ const api = await getServerApi();
 ```
 
 The default reads `campus_session` with Next.js `cookies()` and forwards only
-that cookie. A new client is created for the request, so credentials cannot leak
+that cookie. It also forwards the visitor's `X-Forwarded-For` unchanged:
+campus-api rate-limits per client address (`TRUST_PROXY_HOPS=1`), and without
+it every server read would share the Next server's address and one bucket. A
+new client is created for the request, so credentials and addresses cannot leak
 between concurrent users. Use `authentication: "none"` for public data so
 Next.js does not opt the render path into request-time rendering merely to read
-cookies.
+cookies or headers.
 
 Server code must not call the frontend `/api` proxy. That adds an unnecessary
 network hop and complicates cookie forwarding and caching.

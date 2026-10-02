@@ -17,7 +17,7 @@ export interface MockApi {
   close(): void;
 }
 
-export type Reply = () => Response;
+export type Reply = () => Response | Promise<Response>;
 
 // Node's Request rejects relative URLs; browsers resolve "/api/..." against
 // the page origin. Mirror the browser so browserApi works unchanged.

@@ -12,6 +12,7 @@ export type SessionRead =
 
 type Attempt = SessionRead | { kind: "transient"; retryAfterMs?: number };
 
+const ATTEMPT_TIMEOUT_MS = 3000;
 const BACKOFF_MS = [200, 500] as const;
 const MAX_RETRY_AFTER_MS = 2000;
 
@@ -29,14 +30,28 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Not AbortSignal.timeout: it runs on an internal timer that fake timers cannot
+// advance, which would leave the hang path untestable.
+function abortAfter(ms: number): { signal: AbortSignal; cancel: () => void } {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return { signal: controller.signal, cancel: () => clearTimeout(timer) };
+}
+
 async function attemptRead(api: ApiClient): Promise<Attempt> {
+  const timeout = abortAfter(ATTEMPT_TIMEOUT_MS);
   let result;
   try {
     // openapi-fetch throws the same way for an unparseable body as for a
     // network failure; reading text keeps malformed sessions out of the retry.
-    result = await api.GET("/v1/auth/me", { parseAs: "text" });
+    result = await api.GET("/v1/auth/me", {
+      parseAs: "text",
+      signal: timeout.signal,
+    });
   } catch {
     return transient();
+  } finally {
+    timeout.cancel();
   }
 
   const { response } = result;
@@ -58,10 +73,10 @@ export async function readSession(api: ApiClient): Promise<SessionRead> {
   for (const backoffMs of BACKOFF_MS) {
     if (attempt.kind !== "transient") return attempt;
 
-    const retryAfterMs = Math.min(
-      attempt.retryAfterMs ?? 0,
-      MAX_RETRY_AFTER_MS,
-    );
+    const retryAfterMs = attempt.retryAfterMs ?? 0;
+    if (retryAfterMs > MAX_RETRY_AFTER_MS) {
+      return { kind: "unavailable", retryAfterMs };
+    }
     await wait(Math.max(backoffMs, retryAfterMs));
     attempt = await attemptRead(api);
   }

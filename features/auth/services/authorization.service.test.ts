@@ -20,9 +20,12 @@ const mockApi = await vi.hoisted(async () => {
   return startMockApi();
 });
 
-const nextHeaders = vi.hoisted(() => ({ cookies: vi.fn() }));
+const nextHeaders = vi.hoisted(() => ({ cookies: vi.fn(), headers: vi.fn() }));
 
-vi.mock("next/headers", () => ({ cookies: nextHeaders.cookies }));
+vi.mock("next/headers", () => ({
+  cookies: nextHeaders.cookies,
+  headers: nextHeaders.headers,
+}));
 vi.mock("server-only", () => ({}));
 
 const NOW = Date.parse("2026-10-02T12:00:00.000Z");
@@ -83,6 +86,7 @@ const rawBody =
   () =>
     new Response(body, { headers: { "content-type": "application/json" } });
 const networkFailure: Reply = () => HttpResponse.error();
+const neverAnswers: Reply = () => new Promise<Response>(() => {});
 
 const SESSION_URL = "https://api.example.test/v1/auth/me";
 
@@ -118,12 +122,14 @@ beforeEach(() => {
   vi.setSystemTime(NOW);
   vi.stubEnv("API_BASE_URL", "https://api.example.test");
   browserCookies({ campus_session: "session-token" });
+  nextHeaders.headers.mockResolvedValue(new Headers());
 });
 
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllEnvs();
   nextHeaders.cookies.mockReset();
+  nextHeaders.headers.mockReset();
   mockApi.reset();
 });
 
@@ -275,6 +281,21 @@ describe("authorizeRoute: transient outages", () => {
     expect(sent).toHaveLength(1);
   });
 
+  it("abandons an attempt the backend leaves unanswered for 3 s and retries", async () => {
+    const sent = backendReplies(neverAnswers, ok(fullAccessSession));
+
+    await expect(authorize()).resolves.toMatchObject({ kind: "allow" });
+    expect(sentAtMs(sent)).toEqual([0, 3200]);
+  });
+
+  it("fails closed within 9.7 s when the backend never answers", async () => {
+    const sent = backendReplies(neverAnswers, neverAnswers, neverAnswers);
+
+    await expect(authorize()).resolves.toEqual({ kind: "unavailable" });
+    expect(sentAtMs(sent)).toEqual([0, 3200, 6700]);
+    expect(Date.now() - NOW).toBe(9700);
+  });
+
   it("stops retrying once the backend answers that the visitor is signed out", async () => {
     const sent = backendReplies(status(503), status(401));
 
@@ -286,7 +307,7 @@ describe("authorizeRoute: transient outages", () => {
 describe("authorizeRoute: Retry-After", () => {
   it.each([
     ["a longer delay extends the wait", "1", 1000],
-    ["a delay is capped at two seconds", "30", 2000],
+    ["a two-second delay is honoured in full", "2", 2000],
     ["a shorter delay keeps the backoff", "0", 200],
     ["an HTTP date is honoured", "Fri, 02 Oct 2026 12:00:01 GMT", 1000],
     ["an unreadable value is ignored", "soon", 200],
@@ -301,6 +322,22 @@ describe("authorizeRoute: Retry-After", () => {
 
     expect(sentAtMs(sent)).toEqual([0, expectedSecondRequestMs]);
   });
+
+  it.each([
+    ["seconds", "30", 30_000],
+    ["an HTTP date", "Fri, 02 Oct 2026 12:00:30 GMT", 30_000],
+  ])(
+    "fails closed without retrying early when Retry-After (%s) asks for more than two seconds",
+    async (_, retryAfter, retryAfterMs) => {
+      const sent = backendReplies(status(503, { "retry-after": retryAfter }));
+
+      await expect(authorize()).resolves.toEqual({
+        kind: "unavailable",
+        retryAfterMs,
+      });
+      expect(sent).toHaveLength(1);
+    },
+  );
 
   it("passes the final Retry-After hint to the unavailable state", async () => {
     backendReplies(

@@ -44,9 +44,14 @@ the browser `/api` proxy.
 An outage is never reported as signed out. Malformed bodies count as outages
 for the same reason.
 
-Retries: three attempts in total, waiting 200 ms and then 500 ms. A
-`Retry-After` header (seconds or HTTP-date) can lengthen a wait up to 2 s; it
-never shortens the backoff.
+Retries: three attempts in total, waiting 200 ms and then 500 ms. Each attempt
+is abandoned after 3 s and counts as a network error, so a hung backend fails
+closed within 9.7 s instead of blocking the render.
+
+A `Retry-After` header (seconds or HTTP-date) of up to 2 s lengthens the wait;
+it never shortens the backoff. A longer one stops the retries at once and
+returns `unavailable` with that `retryAfterMs`, so the backend is never asked
+again sooner than it requested.
 
 The read is wrapped in React `cache()` with no arguments, so it runs once per
 server request however many layouts and pages ask. Nothing is held in module
