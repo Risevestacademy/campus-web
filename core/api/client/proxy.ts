@@ -4,6 +4,8 @@ import type { ClientOptions } from "openapi-fetch";
 
 import type { Logger } from "@/core/observability";
 
+import { REFRESH_ATTEMPTED_COOKIE } from "./auth-cookies";
+
 const AUTH_COOKIE_NAMES = new Set([
   "campus_oauth_state",
   "campus_refresh",
@@ -15,6 +17,9 @@ const OAUTH_RETURN_COOKIE_PATH = "/api/v1/auth";
 const OAUTH_RETURN_MAX_AGE_SECONDS = 600;
 const GOOGLE_AUTH_ROUTE = "/v1/auth/google";
 const GOOGLE_CALLBACK_ROUTE = "/v1/auth/google/callback";
+const REFRESH_ROUTE = "/v1/auth/refresh";
+const REFRESH_ATTEMPTED_PATH = "/campus";
+const REFRESH_ATTEMPTED_MAX_AGE_SECONDS = 60;
 const REQUEST_HEADERS = [
   "accept",
   "accept-language",
@@ -58,12 +63,15 @@ const MANAGED_COOKIE_ATTRIBUTES = new Set([
   "secure",
 ]);
 
+type ParseReturnTo = (value: string | undefined) => string | undefined;
+
 interface ApiProxyOptions {
   baseUrl: string | (() => string);
   clock?: () => number;
   fetch?: ClientOptions["fetch"];
   generateRequestId?: () => string;
   logger: Logger;
+  parseReturnTo: ParseReturnTo;
 }
 
 function resolveBaseUrl(baseUrl: string | (() => string)): string {
@@ -131,40 +139,20 @@ function findCookieValue(
   }
 }
 
-function normalizeJoinReturnTo(value: string | undefined): string | undefined {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return undefined;
-  }
-
-  const match = /^\/campus\/([^/?#]+)\/join$/u.exec(value);
-  if (!match?.[1]) return undefined;
-
-  try {
-    const campusId = decodeURIComponent(match[1]);
-
-    if (
-      !campusId ||
-      campusId === "." ||
-      campusId === ".." ||
-      campusId.includes("/")
-    ) {
-      return undefined;
-    }
-
-    return `/campus/${encodeURIComponent(campusId)}/join`;
-  } catch {
-    return undefined;
-  }
-}
-
-function readRequestedReturnTo(requestUrl: string): string | undefined {
-  return normalizeJoinReturnTo(
+function readRequestedReturnTo(
+  requestUrl: string,
+  parseReturnTo: ParseReturnTo,
+): string | undefined {
+  return parseReturnTo(
     new URL(requestUrl).searchParams.get("returnTo") ?? undefined,
   );
 }
 
-function readStoredReturnTo(request: Request): string | undefined {
-  return normalizeJoinReturnTo(
+function readStoredReturnTo(
+  request: Request,
+  parseReturnTo: ParseReturnTo,
+): string | undefined {
+  return parseReturnTo(
     findCookieValue(request.headers.get("cookie"), OAUTH_RETURN_COOKIE_NAME),
   );
 }
@@ -246,6 +234,20 @@ function appendReturnCookie(
       secure,
       returnTo ? OAUTH_RETURN_MAX_AGE_SECONDS : 0,
     ),
+  );
+}
+
+function appendRefreshAttemptedCookie(headers: Headers, secure: boolean): void {
+  headers.append(
+    "set-cookie",
+    [
+      `${REFRESH_ATTEMPTED_COOKIE}=1`,
+      "HttpOnly",
+      ...(secure ? ["Secure"] : []),
+      "SameSite=Lax",
+      `Path=${REFRESH_ATTEMPTED_PATH}`,
+      `Max-Age=${REFRESH_ATTEMPTED_MAX_AGE_SECONDS}`,
+    ].join("; "),
   );
 }
 
@@ -368,6 +370,7 @@ function createUnavailableResponse(requestId: string): Response {
 function rewriteSuccessfulOauthDestination(
   request: Request,
   responseHeaders: Headers,
+  parseReturnTo: ParseReturnTo,
 ): void {
   const location = responseHeaders.get("location");
   if (!location) return;
@@ -382,7 +385,7 @@ function rewriteSuccessfulOauthDestination(
 
   if (!isFrontendRoot) return;
 
-  const returnTo = readStoredReturnTo(request) ?? "/campus";
+  const returnTo = readStoredReturnTo(request, parseReturnTo) ?? "/campus";
   responseHeaders.set("location", new URL(returnTo, requestUrl).href);
 }
 
@@ -432,16 +435,28 @@ export function createApiProxy(options: ApiProxyOptions) {
       enforceAuthenticatedResponsePrivacy(request, responseHeaders);
       copyAuthSetCookies(upstreamResponse.headers, responseHeaders, secure);
 
+      if (
+        route === REFRESH_ROUTE &&
+        request.method === "POST" &&
+        upstreamResponse.ok
+      ) {
+        appendRefreshAttemptedCookie(responseHeaders, secure);
+      }
+
       if (route === GOOGLE_AUTH_ROUTE) {
         appendReturnCookie(
           responseHeaders,
-          readRequestedReturnTo(request.url),
+          readRequestedReturnTo(request.url, options.parseReturnTo),
           secure,
         );
       }
 
       if (route === GOOGLE_CALLBACK_ROUTE) {
-        rewriteSuccessfulOauthDestination(request, responseHeaders);
+        rewriteSuccessfulOauthDestination(
+          request,
+          responseHeaders,
+          options.parseReturnTo,
+        );
         appendReturnCookie(responseHeaders, undefined, secure);
       }
 

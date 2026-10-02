@@ -1,6 +1,7 @@
 import { cn } from "cn";
 
 import { GoogleSVG } from "@/assets/svgs/google";
+import { firstSearchParameter } from "@/shared/lib/search-params";
 import { buttonVariants } from "@/shared/ui/button";
 
 const AUTH_ERROR_MESSAGES: Readonly<Record<string, string>> = {
@@ -16,6 +17,7 @@ const AUTH_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   missing_code: "Google did not return a sign-in code. Please try again.",
   rate_limited: "Too many sign-in attempts. Please wait and try again.",
   server_error: "Sign-in is temporarily unavailable. Please try again.",
+  session_expired: "Your session expired. Please sign in again.",
   unverified_email: "Verify your Google email address before signing in.",
 };
 
@@ -28,10 +30,6 @@ interface SignInPageProps {
   }>;
 }
 
-function firstValue(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
-
 function createGoogleAuthHref(returnTo: string | undefined): string {
   if (!returnTo) return "/api/v1/auth/google";
 
@@ -41,11 +39,13 @@ function createGoogleAuthHref(returnTo: string | undefined): string {
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const query = await searchParams;
-  const errorCode = firstValue(query.error);
+  const errorCode = firstSearchParameter(query.error);
   const errorMessage = errorCode
     ? (AUTH_ERROR_MESSAGES[errorCode] ?? UNKNOWN_AUTH_ERROR)
     : undefined;
-  const googleAuthHref = createGoogleAuthHref(firstValue(query.returnTo));
+  const googleAuthHref = createGoogleAuthHref(
+    firstSearchParameter(query.returnTo),
+  );
 
   return (
     <div className="flex flex-col items-center justify-center">

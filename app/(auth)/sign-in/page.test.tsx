@@ -33,6 +33,18 @@ describe("SignInPage", () => {
     );
   });
 
+  it("explains that an expired session needs a fresh sign-in", async () => {
+    render(
+      await SignInPage({
+        searchParams: Promise.resolve({ error: "session_expired" }),
+      }),
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Your session expired. Please sign in again.",
+    );
+  });
+
   it("does not expose an unknown backend error value", async () => {
     render(
       await SignInPage({

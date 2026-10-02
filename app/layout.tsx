@@ -9,6 +9,8 @@ import { themeInitializerScript } from "@/shared/theme";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
+import { Providers } from "./providers";
+
 export const metadata: Metadata = {
   title: "Campus by Rise",
   description:
@@ -35,7 +37,9 @@ export default function RootLayout({
           {shellInitializerScript}
         </Script>
         <ThemeToggle />
-        <TooltipProvider>{children}</TooltipProvider>
+        <Providers>
+          <TooltipProvider>{children}</TooltipProvider>
+        </Providers>
       </body>
     </html>
   );

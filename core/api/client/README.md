@@ -207,13 +207,20 @@ OAuth must begin with a browser navigation, not a client-side `fetch`:
 An optional return destination may be supplied:
 
 ```text
-/api/v1/auth/google?returnTo=/campus/42/join
+/api/v1/auth/google?returnTo=/campus/42/rooms?seat=3
 ```
 
-Only exact `/campus/<id>/join` destinations are accepted. The proxy stores the
-validated destination in the short-lived, HTTP-only
-`campus_oauth_return_to` cookie. This frontend-only cookie is never forwarded
-to the backend.
+`createApiProxy` does not own the return policy. Its required `parseReturnTo`
+option receives one, and `app/api/[...path]/route.ts` passes
+`parseCampusReturnTo` from `@/features/auth`. `core` may not import
+`features`, so injection keeps Campus rules out of the transport. That policy
+accepts same-origin `/campus` and `/campus/**` destinations with their query
+and rejects everything else (see `features/auth/README.md`).
+
+The proxy stores the parsed destination, never the raw value, in the
+short-lived, HTTP-only `campus_oauth_return_to` cookie, and parses the cookie
+again on the callback. This frontend-only cookie is never forwarded to the
+backend, and `returnTo` is removed from the upstream URL.
 
 The Google callback must return through:
 
@@ -222,7 +229,7 @@ The Google callback must return through:
 ```
 
 When the backend redirects a full-access user to the frontend root, the proxy
-redirects to the stored join route or `/campus`. Backend invitation, sign-in
+redirects to the stored Campus destination or `/campus`. Backend invitation, sign-in
 error, and unexpected destinations remain unchanged. The return cookie is
 cleared on every callback response.
 
@@ -267,6 +274,35 @@ curl -i \
   -H 'Origin: http://localhost:3000' \
   --data '{}'
 ```
+
+## Authorization and session refresh
+
+Ownership is split so each concern has exactly one home:
+
+| Concern                                                                            | Owner                                                            |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Issuing, rotating, and revoking `campus_session` and `campus_refresh`              | campus-api                                                       |
+| Cookie scoping (`Path`, `HttpOnly`, `SameSite`, `Secure`) and the cookie allowlist | browser proxy (`proxy.ts`)                                       |
+| `campus_refresh_attempted` marker                                                  | browser proxy sets it; `features/auth` reads it                  |
+| Reading the session (`GET /v1/auth/me`), retries, route decisions                  | `features/auth` (`authorizeRoute`, server-only)                  |
+| Refreshing the session (`POST /v1/auth/refresh`)                                   | `features/auth` refresh page, through `browserApi`               |
+| Which Campus return destinations are safe                                          | `features/auth` (`parseCampusReturnTo`), injected into the proxy |
+
+Rules:
+
+- Server code reads the session directly with `getServerApi()`. It never
+  refreshes: `campus_refresh` is scoped to `/api/v1/auth`, so only the
+  browser can send it.
+- The refresh POST happens only in the browser, at most once automatically,
+  and never in parallel. Refresh tokens rotate; a second concurrent POST
+  spends a used token and signs the visitor out.
+- After a successful refresh the proxy adds
+  `campus_refresh_attempted=1; HttpOnly; SameSite=Lax; Path=/campus; Max-Age=60`
+  (`Secure` on HTTPS). A Campus route that still finds no session while the
+  marker is present sends the visitor to sign-in instead of refreshing again.
+  The marker is not in the cookie allowlist, so it never reaches the backend.
+- The cookie name lives in `auth-cookies.ts` and is exported from
+  `@/core/api/client`, so the proxy and `features/auth` share one definition.
 
 ## Errors, logging, and analytics
 
