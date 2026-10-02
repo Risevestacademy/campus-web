@@ -4,14 +4,13 @@ import type { ClientOptions } from "openapi-fetch";
 
 import type { Logger } from "@/core/observability";
 
-import { REFRESH_ATTEMPTED_COOKIE } from "./auth-cookies";
+import { REFRESH_ATTEMPTED_COOKIE, SESSION_COOKIE } from "./auth-cookies";
 
 const AUTH_COOKIE_NAMES = new Set([
   "campus_oauth_state",
   "campus_refresh",
-  "campus_session",
+  SESSION_COOKIE,
 ]);
-const SESSION_COOKIE_NAME = "campus_session";
 const OAUTH_RETURN_COOKIE_NAME = "campus_oauth_return_to";
 const OAUTH_RETURN_COOKIE_PATH = "/api/v1/auth";
 const OAUTH_RETURN_MAX_AGE_SECONDS = 600;
@@ -175,7 +174,7 @@ function normalizeAuthSetCookie(
       !MANAGED_COOKIE_ATTRIBUTES.has(getCookieAttributeName(attribute)),
   );
   const domainAttribute =
-    cookieName === SESSION_COOKIE_NAME
+    cookieName === SESSION_COOKIE
       ? attributes.find(
           (attribute) => getCookieAttributeName(attribute) === "domain",
         )
@@ -185,7 +184,7 @@ function normalizeAuthSetCookie(
     "HttpOnly",
     ...(secure ? ["Secure"] : []),
     "SameSite=Lax",
-    cookieName === SESSION_COOKIE_NAME
+    cookieName === SESSION_COOKIE
       ? "Path=/"
       : `Path=${OAUTH_RETURN_COOKIE_PATH}`,
   ];
@@ -257,7 +256,7 @@ function enforceAuthenticatedResponsePrivacy(
 ): void {
   const sessionCookie = findCookies(
     request.headers.get("cookie"),
-    new Set([SESSION_COOKIE_NAME]),
+    new Set([SESSION_COOKIE]),
   )[0];
 
   if (!sessionCookie) return;

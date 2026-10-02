@@ -1,0 +1,122 @@
+// @vitest-environment node
+
+import { http, HttpResponse } from "msw";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+
+import { createApiClient } from "@/core/api/client";
+import type { Reply } from "@/tests/fixtures/mock-api";
+
+import { listCohorts } from "./cohort.service";
+
+const mockApi = await vi.hoisted(async () => {
+  const { startMockApi } = await import("@/tests/fixtures/mock-api");
+  return startMockApi();
+});
+
+const API_ORIGIN = "https://api.example.test";
+const COHORTS_URL = `${API_ORIGIN}/v1/cohorts`;
+
+const cohortDto = (id: string, name: string, code: string) => ({
+  id,
+  name,
+  code,
+  startDate: "2026-09-01",
+  endDate: null,
+  status: "active",
+  createdAt: "2026-09-22T12:00:00.000Z",
+  updatedAt: "2026-09-22T12:00:00.000Z",
+});
+
+const page2of3 = {
+  items: [
+    cohortDto("c-9", "Cohort 9", "C9"),
+    cohortDto("c-8", "Cohort 8", "C8"),
+  ],
+  meta: { page: 2, perPage: 2, total: 6, totalPages: 3 },
+};
+
+function backendReplies(reply: Reply) {
+  mockApi.server.use(http.get(COHORTS_URL, reply));
+  return mockApi.requests;
+}
+
+const api = createApiClient({ baseUrl: API_ORIGIN });
+
+afterEach(() => {
+  mockApi.reset();
+});
+
+afterAll(() => {
+  mockApi.close();
+});
+
+describe("listCohorts", () => {
+  it("asks campus-api for the requested page", async () => {
+    const sent = backendReplies(() => Response.json(page2of3));
+
+    await listCohorts(api, 2);
+
+    expect(sent.map((request) => request.url)).toEqual([
+      `${COHORTS_URL}?page=2`,
+    ]);
+  });
+
+  it("returns cohort summaries in backend order with the page position", async () => {
+    backendReplies(() => Response.json(page2of3));
+
+    await expect(listCohorts(api, 2)).resolves.toEqual({
+      kind: "loaded",
+      cohorts: [
+        { id: "c-9", name: "Cohort 9", code: "C9" },
+        { id: "c-8", name: "Cohort 8", code: "C8" },
+      ],
+      page: 2,
+      totalPages: 3,
+    });
+  });
+
+  it.each([401, 403, 429, 500, 503])(
+    "reports HTTP %i as unavailable",
+    async (code) => {
+      backendReplies(() => new Response(null, { status: code }));
+
+      await expect(listCohorts(api, 1)).resolves.toEqual({
+        kind: "unavailable",
+      });
+    },
+  );
+
+  it("reports a network failure as unavailable", async () => {
+    backendReplies(() => HttpResponse.error());
+
+    await expect(listCohorts(api, 1)).resolves.toEqual({
+      kind: "unavailable",
+    });
+  });
+
+  it.each([
+    [
+      "invalid JSON",
+      () =>
+        new Response("{nope", {
+          headers: { "content-type": "application/json" },
+        }),
+    ],
+    ["a missing item list", () => Response.json({ meta: page2of3.meta })],
+    [
+      "a cohort without an ID",
+      () =>
+        Response.json({ ...page2of3, items: [{ name: "No ID", code: "X" }] }),
+    ],
+    [
+      "missing page counts",
+      () => Response.json({ items: page2of3.items, meta: { page: 2 } }),
+    ],
+  ])("reports %s as unavailable", async (_, reply) => {
+    backendReplies(reply);
+
+    await expect(listCohorts(api, 2)).resolves.toEqual({
+      kind: "unavailable",
+    });
+  });
+});

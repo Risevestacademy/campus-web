@@ -1,3 +1,5 @@
+export const SESSION_COOKIE = "campus_session";
+
 // Frontend-only marker set by the browser proxy after a successful refresh.
 // Route authorization reads it to send a still-signed-out visitor to sign-in
 // instead of looping back through /session/refresh. Never sent upstream.

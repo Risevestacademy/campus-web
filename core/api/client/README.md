@@ -163,10 +163,13 @@ const api = await getServerApi();
 ```
 
 The default reads `campus_session` with Next.js `cookies()` and forwards only
-that cookie. A new client is created for the request, so credentials cannot leak
+that cookie. It also forwards the visitor's `X-Forwarded-For` unchanged:
+campus-api rate-limits per client address (`TRUST_PROXY_HOPS=1`), and without
+it every server read would share the Next server's address and one bucket. A
+new client is created for the request, so credentials and addresses cannot leak
 between concurrent users. Use `authentication: "none"` for public data so
 Next.js does not opt the render path into request-time rendering merely to read
-cookies.
+cookies or headers.
 
 Server code must not call the frontend `/api` proxy. That adds an unnecessary
 network hop and complicates cookie forwarding and caching.
@@ -283,7 +286,8 @@ Ownership is split so each concern has exactly one home:
 | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | Issuing, rotating, and revoking `campus_session` and `campus_refresh`              | campus-api                                                       |
 | Cookie scoping (`Path`, `HttpOnly`, `SameSite`, `Secure`) and the cookie allowlist | browser proxy (`proxy.ts`)                                       |
-| `campus_refresh_attempted` marker                                                  | browser proxy sets it; `features/auth` reads it                  |
+| `campus_refresh_attempted` marker                                                  | browser proxy sets it; root `proxy.ts` reads and clears it       |
+| Cookie-presence redirects for `/campus/**`                                         | root `proxy.ts` (`features/auth` `guardCampusRequest`)           |
 | Reading the session (`GET /v1/auth/me`), retries, route decisions                  | `features/auth` (`authorizeRoute`, server-only)                  |
 | Refreshing the session (`POST /v1/auth/refresh`)                                   | `features/auth` refresh page, through `browserApi`               |
 | Which Campus return destinations are safe                                          | `features/auth` (`parseCampusReturnTo`), injected into the proxy |
@@ -301,8 +305,12 @@ Rules:
   (`Secure` on HTTPS). A Campus route that still finds no session while the
   marker is present sends the visitor to sign-in instead of refreshing again.
   The marker is not in the cookie allowlist, so it never reaches the backend.
-- The cookie name lives in `auth-cookies.ts` and is exported from
-  `@/core/api/client`, so the proxy and `features/auth` share one definition.
+- The root `proxy.ts` deletes the marker on the first `/campus/**` response
+  and forwards its presence to the render as `x-campus-refresh-attempted`, so
+  the marker covers exactly one Campus request after a refresh.
+- Cookie names (`campus_session`, `campus_refresh_attempted`) live in
+  `auth-cookies.ts` and are exported from `@/core/api/client`, so the browser
+  proxy, the server client, and `features/auth` share one definition.
 
 ## Errors, logging, and analytics
 

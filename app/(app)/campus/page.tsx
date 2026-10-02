@@ -1,8 +1,25 @@
 import Link from "next/link";
 
-import { CohortCard } from "@/features/campus";
+import { getServerApi } from "@/core/api/client/server";
+import { requireRouteAccess, SessionUnavailable } from "@/features/auth";
+import { CohortChooser } from "@/features/campus";
+import { firstSearchParameter } from "@/shared/lib/search-params";
 
-export default function CampusPage() {
+interface CampusPageProps {
+  searchParams: Promise<{ page?: string | string[] }>;
+}
+
+export default async function CampusPage({ searchParams }: CampusPageProps) {
+  const [access, { page }, api] = await Promise.all([
+    requireRouteAccess({ kind: "campus-index" }),
+    searchParams,
+    getServerApi(),
+  ]);
+
+  if (access.kind === "unavailable") {
+    return <SessionUnavailable retryHref={access.retryHref} />;
+  }
+
   return (
     <div data-surface-role="background" className="bg-background space-y-8">
       <header className="flex h-16 items-end px-10">
@@ -15,10 +32,12 @@ export default function CampusPage() {
         </Link>
       </header>
 
-      <div className="flex gap-8 px-10">
-        {[1, 2].map((item) => (
-          <CohortCard key={item} cohort={{ id: item }} />
-        ))}
+      <div className="px-10">
+        <CohortChooser
+          viewer={access.session}
+          page={firstSearchParameter(page)}
+          api={api}
+        />
       </div>
     </div>
   );
