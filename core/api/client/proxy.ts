@@ -4,6 +4,8 @@ import type { ClientOptions } from "openapi-fetch";
 
 import type { Logger } from "@/core/observability";
 
+import { REFRESH_ATTEMPTED_COOKIE } from "./auth-cookies";
+
 const AUTH_COOKIE_NAMES = new Set([
   "campus_oauth_state",
   "campus_refresh",
@@ -15,6 +17,9 @@ const OAUTH_RETURN_COOKIE_PATH = "/api/v1/auth";
 const OAUTH_RETURN_MAX_AGE_SECONDS = 600;
 const GOOGLE_AUTH_ROUTE = "/v1/auth/google";
 const GOOGLE_CALLBACK_ROUTE = "/v1/auth/google/callback";
+const REFRESH_ROUTE = "/v1/auth/refresh";
+const REFRESH_ATTEMPTED_PATH = "/campus";
+const REFRESH_ATTEMPTED_MAX_AGE_SECONDS = 60;
 const REQUEST_HEADERS = [
   "accept",
   "accept-language",
@@ -232,6 +237,20 @@ function appendReturnCookie(
   );
 }
 
+function appendRefreshAttemptedCookie(headers: Headers, secure: boolean): void {
+  headers.append(
+    "set-cookie",
+    [
+      `${REFRESH_ATTEMPTED_COOKIE}=1`,
+      "HttpOnly",
+      ...(secure ? ["Secure"] : []),
+      "SameSite=Lax",
+      `Path=${REFRESH_ATTEMPTED_PATH}`,
+      `Max-Age=${REFRESH_ATTEMPTED_MAX_AGE_SECONDS}`,
+    ].join("; "),
+  );
+}
+
 function enforceAuthenticatedResponsePrivacy(
   request: Request,
   responseHeaders: Headers,
@@ -415,6 +434,14 @@ export function createApiProxy(options: ApiProxyOptions) {
 
       enforceAuthenticatedResponsePrivacy(request, responseHeaders);
       copyAuthSetCookies(upstreamResponse.headers, responseHeaders, secure);
+
+      if (
+        route === REFRESH_ROUTE &&
+        request.method === "POST" &&
+        upstreamResponse.ok
+      ) {
+        appendRefreshAttemptedCookie(responseHeaders, secure);
+      }
 
       if (route === GOOGLE_AUTH_ROUTE) {
         appendReturnCookie(

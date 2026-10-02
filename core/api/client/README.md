@@ -275,6 +275,35 @@ curl -i \
   --data '{}'
 ```
 
+## Authorization and session refresh
+
+Ownership is split so each concern has exactly one home:
+
+| Concern                                                                            | Owner                                                            |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Issuing, rotating, and revoking `campus_session` and `campus_refresh`              | campus-api                                                       |
+| Cookie scoping (`Path`, `HttpOnly`, `SameSite`, `Secure`) and the cookie allowlist | browser proxy (`proxy.ts`)                                       |
+| `campus_refresh_attempted` marker                                                  | browser proxy sets it; `features/auth` reads it                  |
+| Reading the session (`GET /v1/auth/me`), retries, route decisions                  | `features/auth` (`authorizeRoute`, server-only)                  |
+| Refreshing the session (`POST /v1/auth/refresh`)                                   | `features/auth` refresh page, through `browserApi`               |
+| Which Campus return destinations are safe                                          | `features/auth` (`parseCampusReturnTo`), injected into the proxy |
+
+Rules:
+
+- Server code reads the session directly with `getServerApi()`. It never
+  refreshes: `campus_refresh` is scoped to `/api/v1/auth`, so only the
+  browser can send it.
+- The refresh POST happens only in the browser, at most once automatically,
+  and never in parallel. Refresh tokens rotate; a second concurrent POST
+  spends a used token and signs the visitor out.
+- After a successful refresh the proxy adds
+  `campus_refresh_attempted=1; HttpOnly; SameSite=Lax; Path=/campus; Max-Age=60`
+  (`Secure` on HTTPS). A Campus route that still finds no session while the
+  marker is present sends the visitor to sign-in instead of refreshing again.
+  The marker is not in the cookie allowlist, so it never reaches the backend.
+- The cookie name lives in `auth-cookies.ts` and is exported from
+  `@/core/api/client`, so the proxy and `features/auth` share one definition.
+
 ## Errors, logging, and analytics
 
 Backend HTTP failures remain typed OpenAPI results. Network failures on the

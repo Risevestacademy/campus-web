@@ -647,3 +647,106 @@ describe("createApiProxy", () => {
     expect(response.headers.get("ratelimit-remaining")).toBe("42");
   });
 });
+
+describe("createApiProxy refresh-attempt marker", () => {
+  function refreshThrough(
+    upstream: Response,
+    frontendOrigin = "https://frontend.example.test",
+  ) {
+    const handler = createApiProxy({
+      ...baseOptions,
+      fetch: () => Promise.resolve(upstream),
+    });
+
+    return handler(
+      new Request(`${frontendOrigin}/api/v1/auth/refresh`, {
+        method: "POST",
+        headers: {
+          origin: frontendOrigin,
+          "x-forwarded-host": new URL(frontendOrigin).host,
+          "x-forwarded-proto": new URL(frontendOrigin).protocol.slice(0, -1),
+        },
+      }),
+      { params: Promise.resolve({ path: ["v1", "auth", "refresh"] }) },
+    );
+  }
+
+  const refreshed = () =>
+    Response.json({
+      expiresAt: "2026-10-02T12:15:00.000Z",
+      refreshExpiresAt: "2026-11-01T12:00:00.000Z",
+    });
+
+  it("marks the Campus visit after a successful refresh", async () => {
+    const response = await refreshThrough(refreshed());
+
+    expect(response.headers.getSetCookie()).toContain(
+      "campus_refresh_attempted=1; HttpOnly; Secure; SameSite=Lax; Path=/campus; Max-Age=60",
+    );
+  });
+
+  it("omits Secure from the marker on plain HTTP", async () => {
+    const response = await refreshThrough(refreshed(), "http://127.0.0.1:3100");
+
+    expect(response.headers.getSetCookie()).toContain(
+      "campus_refresh_attempted=1; HttpOnly; SameSite=Lax; Path=/campus; Max-Age=60",
+    );
+  });
+
+  it.each([401, 503])(
+    "does not mark the visit when the refresh answers %i",
+    async (status) => {
+      const response = await refreshThrough(new Response(null, { status }));
+
+      expect(response.headers.getSetCookie().join("\n")).not.toContain(
+        "campus_refresh_attempted",
+      );
+    },
+  );
+
+  it("does not mark the visit for other successful auth requests", async () => {
+    const handler = createApiProxy({
+      ...baseOptions,
+      fetch: () => Promise.resolve(new Response(null, { status: 204 })),
+    });
+
+    const response = await handler(
+      new Request("https://frontend.example.test/api/v1/auth/logout", {
+        method: "POST",
+        headers: {
+          origin: "https://frontend.example.test",
+          "x-forwarded-host": "frontend.example.test",
+          "x-forwarded-proto": "https",
+        },
+      }),
+      { params: Promise.resolve({ path: ["v1", "auth", "logout"] }) },
+    );
+
+    expect(response.headers.getSetCookie().join("\n")).not.toContain(
+      "campus_refresh_attempted",
+    );
+  });
+
+  it("never forwards the marker to the backend", async () => {
+    let outboundCookie: string | null | undefined;
+    const handler = createApiProxy({
+      ...baseOptions,
+      fetch: (request) => {
+        outboundCookie = request.headers.get("cookie");
+        return Promise.resolve(Response.json({ scope: "full_access" }));
+      },
+    });
+
+    await handler(
+      new Request("https://frontend.example.test/api/v1/auth/me", {
+        headers: {
+          cookie: "campus_session=session-token; campus_refresh_attempted=1",
+          origin: "https://frontend.example.test",
+        },
+      }),
+      { params: Promise.resolve({ path: ["v1", "auth", "me"] }) },
+    );
+
+    expect(outboundCookie).toBe("campus_session=session-token");
+  });
+});

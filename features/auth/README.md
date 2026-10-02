@@ -139,6 +139,16 @@ capture `fetch` when created; request cookies are a mocked `next/headers`; time
 is Vitest fake timers. Components render inside a fresh `QueryClient`
 (`tests/fixtures/query-client.tsx`).
 
+Browser behaviour runs in Playwright against a local fake API
+(`tests/e2e/authorization.spec.ts`, `tests/e2e/support/fake-auth-api.mjs`):
+the Next.js proxy calls the backend server-side, so `page.route` cannot stand
+in for it.
+
+```bash
+pnpm build
+pnpm playwright test tests/e2e/authorization.spec.ts
+```
+
 React `cache()` is a pass-through outside a server render, so per-request
 memoization is verified by the Playwright suite in
 `02-campus-route-protection-plan.md`, not here.

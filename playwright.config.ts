@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const E2E_PORT = 3100;
+const FAKE_API_PORT = 3101;
+const FAKE_API_ORIGIN = `http://127.0.0.1:${FAKE_API_PORT}`;
 const baseURL =
   process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${E2E_PORT}`;
 
@@ -31,10 +33,20 @@ export default defineConfig({
   ],
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
-    : {
-        command: `pnpm start --port ${E2E_PORT}`,
-        url: baseURL,
-        reuseExistingServer: false,
-        timeout: 120_000,
-      },
+    : [
+        {
+          command: "node tests/e2e/support/fake-auth-api.mjs",
+          url: `${FAKE_API_ORIGIN}/__health`,
+          env: { FAKE_API_PORT: String(FAKE_API_PORT) },
+          reuseExistingServer: false,
+          timeout: 10_000,
+        },
+        {
+          command: `pnpm start --port ${E2E_PORT}`,
+          url: baseURL,
+          env: { API_BASE_URL: FAKE_API_ORIGIN },
+          reuseExistingServer: false,
+          timeout: 120_000,
+        },
+      ],
 });

@@ -3,6 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { cache } from "react";
 
+import { REFRESH_ATTEMPTED_COOKIE } from "@/core/api/client";
 import { getServerApi } from "@/core/api/client/server";
 
 import { normalizeCampusReturnTo } from "../schemas/return-to";
@@ -12,7 +13,6 @@ import type {
 } from "../types/auth.types";
 import { readSession, type SessionRead } from "./session.service";
 
-const REFRESH_ATTEMPTED_COOKIE = "campus_refresh_attempted";
 const INVITATION_PATH = "/invitation";
 const SESSION_REFRESH_PATH = "/session/refresh";
 const SIGN_IN_PATH = "/sign-in";
