@@ -14,6 +14,17 @@ const quietLogger: Logger = {
   warn: () => {},
 };
 
+const rejectEveryReturnTo = () => undefined;
+const keepReturnTo = (value: string | undefined) => value;
+const sanitizeRawReturnTo = (value: string | undefined) =>
+  value === "/raw" ? "/sanitized" : undefined;
+
+const baseOptions = {
+  baseUrl: "https://api.example.test",
+  logger: quietLogger,
+  parseReturnTo: rejectEveryReturnTo,
+};
+
 describe("createApiProxy", () => {
   it("transparently forwards an authenticated backend response", async () => {
     let outboundRequest: Request | undefined;
@@ -22,8 +33,7 @@ describe("createApiProxy", () => {
       timestamp: "2026-09-10T00:00:00.000Z",
     };
     const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
+      ...baseOptions,
       fetch: (request) => {
         outboundRequest = request;
         return Promise.resolve(
@@ -73,8 +83,7 @@ describe("createApiProxy", () => {
 
   it("preserves backend cache policy for anonymous responses", async () => {
     const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
+      ...baseOptions,
       fetch: () =>
         Promise.resolve(
           Response.json(
@@ -101,8 +110,7 @@ describe("createApiProxy", () => {
   it("streams an unsafe request body to the backend", async () => {
     let outboundBody: string | undefined;
     const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
+      ...baseOptions,
       fetch: async (request) => {
         outboundBody = await request.text();
         return new Response(null, { status: 204 });
@@ -143,7 +151,7 @@ describe("createApiProxy", () => {
       warn: (event, fields) => records.push({ event, fields }),
     };
     const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
+      ...baseOptions,
       clock: () => 200,
       generateRequestId: () => "proxy-request-csrf",
       logger,
@@ -206,7 +214,7 @@ describe("createApiProxy", () => {
       warn: () => {},
     };
     const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
+      ...baseOptions,
       clock: () => 125,
       generateRequestId: () => "proxy-request-1",
       logger,
@@ -257,7 +265,7 @@ describe("createApiProxy", () => {
     const timestamps = [100, 125];
     let outboundRequest: Request | undefined;
     const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
+      ...baseOptions,
       clock: () => timestamps.shift() ?? 125,
       generateRequestId: () => "proxy-request-2",
       logger,
@@ -313,8 +321,7 @@ describe("createApiProxy", () => {
       "campus_oauth_state=state-token; Path=/v1/auth",
     );
     const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
+      ...baseOptions,
       fetch: () =>
         Promise.resolve(
           new Response("{}", { headers: upstreamHeaders, status: 200 }),
@@ -339,8 +346,7 @@ describe("createApiProxy", () => {
     const upstreamHeaders = new Headers();
     upstreamHeaders.append("set-cookie", "campus_session=renewed; Path=/v1");
     const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
+      ...baseOptions,
       fetch: () =>
         Promise.resolve(new Response("{}", { headers: upstreamHeaders })),
     });
@@ -360,8 +366,7 @@ describe("createApiProxy", () => {
   it("preserves a redirect without following it on the server", async () => {
     let redirectMode: RequestRedirect | undefined;
     const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
+      ...baseOptions,
       fetch: (request) => {
         redirectMode = request.redirect;
         return Promise.resolve(
@@ -390,7 +395,7 @@ describe("createApiProxy", () => {
     );
   });
 
-  it("starts Google OAuth with backend state and a validated frontend return destination", async () => {
+  it("starts Google OAuth with backend state and the parsed frontend return destination", async () => {
     let outboundRequest: Request | undefined;
     const headers = new Headers({
       location: "https://accounts.google.com/o/oauth2/v2/auth",
@@ -400,8 +405,8 @@ describe("createApiProxy", () => {
       "campus_oauth_state=oauth-state; Path=/v1/auth; HttpOnly; Secure",
     );
     const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
+      ...baseOptions,
+      parseReturnTo: keepReturnTo,
       fetch: (request) => {
         outboundRequest = request;
         return Promise.resolve(new Response(null, { headers, status: 302 }));
@@ -429,45 +434,109 @@ describe("createApiProxy", () => {
     ]);
   });
 
-  it.each([
-    ["an absolute URL", "https://attacker.example"],
-    ["a literal parent segment", "/campus/../join"],
-    ["an encoded parent segment", "/campus/%2E%2E/join"],
-    ["a literal current segment", "/campus/./join"],
-    ["an encoded current segment", "/campus/%2E/join"],
-  ])("rejects %s as an OAuth return destination", async (_, returnTo) => {
-    const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
-      fetch: () =>
-        Promise.resolve(
-          new Response(null, {
-            headers: {
-              location: "https://accounts.google.com/o/oauth2/v2/auth",
-            },
-            status: 302,
-          }),
+  describe("OAuth return destinations", () => {
+    const googleRedirect = () =>
+      Promise.resolve(
+        new Response(null, {
+          headers: { location: "https://accounts.google.com/o/oauth2/v2/auth" },
+          status: 302,
+        }),
+      );
+    const frontendRootRedirect = () =>
+      Promise.resolve(
+        new Response(null, {
+          headers: { location: "https://frontend.example.test/" },
+          status: 302,
+        }),
+      );
+
+    function startOauth(
+      returnTo: string,
+      parseReturnTo: (value: string | undefined) => string | undefined,
+    ) {
+      const handler = createApiProxy({
+        ...baseOptions,
+        parseReturnTo,
+        fetch: googleRedirect,
+      });
+      const search = new URLSearchParams({ returnTo });
+
+      return handler(
+        new Request(
+          `https://frontend.example.test/api/v1/auth/google?${search.toString()}`,
         ),
+        { params: Promise.resolve({ path: ["v1", "auth", "google"] }) },
+      );
+    }
+
+    function completeOauth(
+      storedReturnTo: string,
+      parseReturnTo: (value: string | undefined) => string | undefined,
+    ) {
+      const handler = createApiProxy({
+        ...baseOptions,
+        parseReturnTo,
+        fetch: frontendRootRedirect,
+      });
+
+      return handler(
+        new Request(
+          "https://frontend.example.test/api/v1/auth/google/callback?code=google-code",
+          {
+            headers: {
+              cookie: `campus_oauth_state=oauth-state; campus_oauth_return_to=${encodeURIComponent(storedReturnTo)}`,
+            },
+          },
+        ),
+        {
+          params: Promise.resolve({
+            path: ["v1", "auth", "google", "callback"],
+          }),
+        },
+      );
+    }
+
+    it("stores the destination the injected policy returns, not the raw value", async () => {
+      const response = await startOauth("/raw", sanitizeRawReturnTo);
+
+      expect(response.headers.getSetCookie()).toContain(
+        "campus_oauth_return_to=%2Fsanitized; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth; Max-Age=600",
+      );
     });
 
-    const search = new URLSearchParams({ returnTo });
-    const response = await handler(
-      new Request(
-        `https://frontend.example.test/api/v1/auth/google?${search.toString()}`,
-      ),
-      { params: Promise.resolve({ path: ["v1", "auth", "google"] }) },
-    );
+    it("clears the return cookie when the injected policy rejects the destination", async () => {
+      const response = await startOauth("/campus/42/join", rejectEveryReturnTo);
 
-    expect(response.headers.getSetCookie()).toContain(
-      "campus_oauth_return_to=; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth; Max-Age=0",
-    );
+      expect(response.headers.getSetCookie()).toContain(
+        "campus_oauth_return_to=; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth; Max-Age=0",
+      );
+    });
+
+    it("re-checks the stored destination through the injected policy on callback", async () => {
+      const response = await completeOauth("/raw", sanitizeRawReturnTo);
+
+      expect(response.headers.get("location")).toBe(
+        "https://frontend.example.test/sanitized",
+      );
+    });
+
+    it("falls back to the campus index when the stored destination is rejected", async () => {
+      const response = await completeOauth(
+        "/campus/42/join",
+        rejectEveryReturnTo,
+      );
+
+      expect(response.headers.get("location")).toBe(
+        "https://frontend.example.test/campus",
+      );
+    });
   });
 
-  it("rewrites a successful OAuth callback to the stored join route", async () => {
+  it("rewrites a successful OAuth callback to the stored destination", async () => {
     let outboundCookie: string | null | undefined;
     const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
+      ...baseOptions,
+      parseReturnTo: keepReturnTo,
       fetch: (request) => {
         outboundCookie = request.headers.get("cookie");
         return Promise.resolve(
@@ -513,8 +582,7 @@ describe("createApiProxy", () => {
     "https://unexpected.example.test/elsewhere",
   ])("preserves the backend callback destination %s", async (location) => {
     const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
+      ...baseOptions,
       fetch: () =>
         Promise.resolve(
           new Response(null, {
@@ -547,8 +615,7 @@ describe("createApiProxy", () => {
   it("preserves conditional request and rate-limit response metadata", async () => {
     let outboundRequest: Request | undefined;
     const handler = createApiProxy({
-      baseUrl: "https://api.example.test",
-      logger: quietLogger,
+      ...baseOptions,
       fetch: (request) => {
         outboundRequest = request;
         return Promise.resolve(

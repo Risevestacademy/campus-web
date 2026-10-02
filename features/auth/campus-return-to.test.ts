@@ -69,6 +69,7 @@ describe("parseCampusReturnTo", () => {
     ["an encoded parent segment", "/campus/%2E%2E/admin"],
     ["a lowercase encoded parent segment", "/campus/%2e%2e/admin"],
     ["a literal current segment", "/campus/./42"],
+    ["an encoded current segment", "/campus/%2E/join"],
     ["an encoded slash", "/campus/42%2F..%2Fadmin"],
     ["an empty interior segment", "/campus//42"],
   ])("rejects %s as path traversal", (_, value) => {

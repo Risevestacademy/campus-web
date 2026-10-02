@@ -58,12 +58,15 @@ const MANAGED_COOKIE_ATTRIBUTES = new Set([
   "secure",
 ]);
 
+type ParseReturnTo = (value: string | undefined) => string | undefined;
+
 interface ApiProxyOptions {
   baseUrl: string | (() => string);
   clock?: () => number;
   fetch?: ClientOptions["fetch"];
   generateRequestId?: () => string;
   logger: Logger;
+  parseReturnTo: ParseReturnTo;
 }
 
 function resolveBaseUrl(baseUrl: string | (() => string)): string {
@@ -131,40 +134,20 @@ function findCookieValue(
   }
 }
 
-function normalizeJoinReturnTo(value: string | undefined): string | undefined {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return undefined;
-  }
-
-  const match = /^\/campus\/([^/?#]+)\/join$/u.exec(value);
-  if (!match?.[1]) return undefined;
-
-  try {
-    const campusId = decodeURIComponent(match[1]);
-
-    if (
-      !campusId ||
-      campusId === "." ||
-      campusId === ".." ||
-      campusId.includes("/")
-    ) {
-      return undefined;
-    }
-
-    return `/campus/${encodeURIComponent(campusId)}/join`;
-  } catch {
-    return undefined;
-  }
-}
-
-function readRequestedReturnTo(requestUrl: string): string | undefined {
-  return normalizeJoinReturnTo(
+function readRequestedReturnTo(
+  requestUrl: string,
+  parseReturnTo: ParseReturnTo,
+): string | undefined {
+  return parseReturnTo(
     new URL(requestUrl).searchParams.get("returnTo") ?? undefined,
   );
 }
 
-function readStoredReturnTo(request: Request): string | undefined {
-  return normalizeJoinReturnTo(
+function readStoredReturnTo(
+  request: Request,
+  parseReturnTo: ParseReturnTo,
+): string | undefined {
+  return parseReturnTo(
     findCookieValue(request.headers.get("cookie"), OAUTH_RETURN_COOKIE_NAME),
   );
 }
@@ -368,6 +351,7 @@ function createUnavailableResponse(requestId: string): Response {
 function rewriteSuccessfulOauthDestination(
   request: Request,
   responseHeaders: Headers,
+  parseReturnTo: ParseReturnTo,
 ): void {
   const location = responseHeaders.get("location");
   if (!location) return;
@@ -382,7 +366,7 @@ function rewriteSuccessfulOauthDestination(
 
   if (!isFrontendRoot) return;
 
-  const returnTo = readStoredReturnTo(request) ?? "/campus";
+  const returnTo = readStoredReturnTo(request, parseReturnTo) ?? "/campus";
   responseHeaders.set("location", new URL(returnTo, requestUrl).href);
 }
 
@@ -435,13 +419,17 @@ export function createApiProxy(options: ApiProxyOptions) {
       if (route === GOOGLE_AUTH_ROUTE) {
         appendReturnCookie(
           responseHeaders,
-          readRequestedReturnTo(request.url),
+          readRequestedReturnTo(request.url, options.parseReturnTo),
           secure,
         );
       }
 
       if (route === GOOGLE_CALLBACK_ROUTE) {
-        rewriteSuccessfulOauthDestination(request, responseHeaders);
+        rewriteSuccessfulOauthDestination(
+          request,
+          responseHeaders,
+          options.parseReturnTo,
+        );
         appendReturnCookie(responseHeaders, undefined, secure);
       }
 
