@@ -1,10 +1,29 @@
 import { render } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import ActiveCampusLayout from "@/app/(app)/campus/[id]/(active-campus)/layout";
 import CampusPage from "@/app/(app)/campus/page";
 import AuthLayout from "@/app/(auth)/layout";
+
+// Surface roles are under test here, not route authorization or cohort data:
+// stand in for an allowed member and skip the async chooser, which jsdom
+// cannot render, so the Campus page's own markup is measured.
+vi.mock("@/features/auth", () => ({
+  requireRouteAccess: () =>
+    Promise.resolve({
+      kind: "allow",
+      session: { user: { systemRole: "user" }, memberships: [] },
+    }),
+  SessionUnavailable: () => null,
+}));
+vi.mock("@/core/api/client/server", () => ({
+  getServerApi: () => Promise.resolve({}),
+}));
+vi.mock("@/features/campus", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/campus")>()),
+  CohortChooser: () => null,
+}));
 
 const supportedSurfaceRoles = [
   "background",
@@ -18,7 +37,7 @@ const structuralComponents: ReadonlyArray<{
 }> = [
   {
     name: "campus page",
-    element: <CampusPage />,
+    element: await CampusPage({ searchParams: Promise.resolve({}) }),
   },
   {
     name: "auth layout",
