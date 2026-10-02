@@ -1,8 +1,24 @@
 // @vitest-environment node
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { http, HttpResponse } from "msw";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
-import { authorizeRoute, type RouteAuthorizationRequest } from "./index";
+import { inOrder, type Reply } from "@/tests/fixtures/mock-api";
+
+import { authorizeRoute, type RouteAuthorizationRequest } from "../index";
+
+const mockApi = await vi.hoisted(async () => {
+  const { startMockApi } = await import("@/tests/fixtures/mock-api");
+  return startMockApi();
+});
 
 const nextHeaders = vi.hoisted(() => ({ cookies: vi.fn() }));
 
@@ -54,8 +70,6 @@ const provisionalSession = {
   memberships: [],
 };
 
-type Reply = () => Response;
-
 const ok =
   (body: unknown): Reply =>
   () =>
@@ -68,34 +82,17 @@ const rawBody =
   (body: string): Reply =>
   () =>
     new Response(body, { headers: { "content-type": "application/json" } });
-const networkFailure: Reply = () => {
-  throw new TypeError("fetch failed");
-};
+const networkFailure: Reply = () => HttpResponse.error();
 
-interface SentRequest {
-  url: string;
-  cookie: string | null;
-  sentAtMs: number;
+const SESSION_URL = "https://api.example.test/v1/auth/me";
+
+function backendReplies(...replies: Reply[]) {
+  mockApi.server.use(http.get(SESSION_URL, inOrder(...replies)));
+  return mockApi.requests;
 }
 
-function backendReplies(...replies: Reply[]): SentRequest[] {
-  const sent: SentRequest[] = [];
-  vi.stubGlobal("fetch", (request: Request) => {
-    sent.push({
-      url: request.url,
-      cookie: request.headers.get("cookie"),
-      sentAtMs: Date.now() - NOW,
-    });
-    const reply = replies.shift();
-    if (!reply) return Promise.reject(new Error("Unexpected extra request."));
-    try {
-      return Promise.resolve(reply());
-    } catch (error) {
-      return Promise.reject(error);
-    }
-  });
-  return sent;
-}
+const sentAtMs = (requests: typeof mockApi.requests) =>
+  requests.map((request) => request.sentAt - NOW);
 
 function browserCookies(values: Record<string, string>) {
   nextHeaders.cookies.mockResolvedValue({
@@ -126,8 +123,12 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllEnvs();
-  vi.unstubAllGlobals();
   nextHeaders.cookies.mockReset();
+  mockApi.reset();
+});
+
+afterAll(() => {
+  mockApi.close();
 });
 
 describe("authorizeRoute: signed-in sessions", () => {
@@ -148,9 +149,10 @@ describe("authorizeRoute: signed-in sessions", () => {
 
     expect(sent).toEqual([
       {
-        url: "https://api.example.test/v1/auth/me",
+        method: "GET",
+        url: SESSION_URL,
         cookie: "campus_session=session-token",
-        sentAtMs: 0,
+        sentAt: NOW,
       },
     ]);
   });
@@ -249,7 +251,7 @@ describe("authorizeRoute: transient outages", () => {
     );
 
     await expect(authorize()).resolves.toMatchObject({ kind: "allow" });
-    expect(sent.map((request) => request.sentAtMs)).toEqual([0, 200, 700]);
+    expect(sentAtMs(sent)).toEqual([0, 200, 700]);
   });
 
   it("fails closed after three attempts", async () => {
@@ -297,10 +299,7 @@ describe("authorizeRoute: Retry-After", () => {
 
     await authorize();
 
-    expect(sent.map((request) => request.sentAtMs)).toEqual([
-      0,
-      expectedSecondRequestMs,
-    ]);
+    expect(sentAtMs(sent)).toEqual([0, expectedSecondRequestMs]);
   });
 
   it("passes the final Retry-After hint to the unavailable state", async () => {

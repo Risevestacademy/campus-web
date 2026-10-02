@@ -87,19 +87,45 @@ Component sanitizes the value and passes it down as a prop.
 Dot segments are checked on the raw input. The URL parser resolves them
 silently, so `/campus/42/../43` would otherwise look like a clean Campus path.
 
+## Session refresh
+
+`RefreshSession` (client component) renders `/session/refresh`. The route's
+Server Component sanitizes `returnTo` with `normalizeCampusReturnTo` and passes
+it as a prop. The component follows the project flow:
+
+```text
+RefreshSession -> useSessionRefresh -> useMutation -> createSessionRefresher -> browserApi
+```
+
+- One automatic POST to `/api/v1/auth/refresh` on mount, never retried by
+  TanStack Query (`retry: false`).
+- Success replaces history with the destination; 401 replaces it with
+  `/sign-in?error=session_expired&returnTo=...`; anything else shows a
+  fail-closed retry state.
+- Manual retry cooldowns: 1, 2, 4, then 8 seconds. A longer `Retry-After`
+  extends a cooldown up to 8 seconds.
+- `createSessionRefresher` shares one in-flight POST between concurrent
+  callers. The refresh token rotates, so a second POST (for example from React
+  StrictMode's double mount in development) would sign the visitor out. Each
+  mounted page owns its refresher, so no request state outlives the page.
+
 ## Layout
 
-| Path                  | Role                                                     |
-| --------------------- | -------------------------------------------------------- |
-| `index.ts`            | public interface                                         |
-| `authorization.ts`    | `authorizeRoute`: cookies, `cache()`, route policy       |
-| `session-read.ts`     | `/v1/auth/me` read, status mapping, retry, `Retry-After` |
-| `session-schema.ts`   | validates the session fields route policies depend on    |
-| `campus-return-to.ts` | return-destination policy                                |
-| `types.ts`            | public types                                             |
+| Path                                | Role                                                            |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `index.ts`                          | public interface                                                |
+| `components/refresh-session.tsx`    | refresh page UI                                                 |
+| `hooks/use-session-refresh.ts`      | refresh mutation, outcome handling, cooldown schedule           |
+| `hooks/use-countdown.ts`            | retry countdown                                                 |
+| `hooks/use-mount-effect.ts`         | the only sanctioned `useEffect` wrapper                         |
+| `services/authorization.service.ts` | `authorizeRoute`: server-only, `cache()`, cookies, route policy |
+| `services/session.service.ts`       | `/v1/auth/me` read with retries; single-flight refresh POST     |
+| `schemas/session.schema.ts`         | validates the session fields route policies depend on           |
+| `schemas/return-to.ts`              | Campus return-destination policy                                |
+| `types/auth.types.ts`               | public types                                                    |
 
-Internal files are free to change shape. Nothing outside this directory may
-import them.
+Client modules import siblings directly, never `index.ts`: the entry point
+re-exports the server-only `authorizeRoute`.
 
 ## Tests
 
@@ -107,11 +133,11 @@ import them.
 pnpm vitest run --project unit features/auth
 ```
 
-Tests exercise only the public interface in `index.ts`. `authorizeRoute` runs
-for real against a stubbed `fetch` (the backend), a mocked `next/headers`
-(the request cookies), and Vitest fake timers (the retry clock). Each request
-records the fake time it was sent, so the backoff schedule is asserted as
-observed behaviour rather than through an injected delay function.
+Tests exercise the public interface in `index.ts`. The backend is MSW
+(`tests/fixtures/mock-api.ts`), started inside `vi.hoisted` because API clients
+capture `fetch` when created; request cookies are a mocked `next/headers`; time
+is Vitest fake timers. Components render inside a fresh `QueryClient`
+(`tests/fixtures/query-client.tsx`).
 
 React `cache()` is a pass-through outside a server render, so per-request
 memoization is verified by the Playwright suite in

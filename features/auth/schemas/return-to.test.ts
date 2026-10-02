@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { normalizeCampusReturnTo, parseCampusReturnTo } from "./index";
+import { normalizeCampusReturnTo, parseCampusReturnTo } from "../index";
 
 vi.mock("server-only", () => ({}));
 

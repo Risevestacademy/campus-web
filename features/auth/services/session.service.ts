@@ -1,7 +1,8 @@
 import type { ApiClient } from "@/core/api/client";
+import { parseRetryAfterMs } from "@/shared/lib/retry-after";
 
-import { parseSessionBody } from "./session-schema";
-import type { Session } from "./types";
+import { parseSessionBody } from "../schemas/session.schema";
+import type { Session } from "../types/auth.types";
 
 export type SessionRead =
   | { kind: "authenticated"; session: Session }
@@ -13,21 +14,9 @@ type Attempt = SessionRead | { kind: "transient"; retryAfterMs?: number };
 
 const BACKOFF_MS = [200, 500] as const;
 const MAX_RETRY_AFTER_MS = 2000;
-const DELAY_SECONDS = /^\d+$/u;
 
 function isTransientStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
-}
-
-function parseRetryAfterMs(header: string | null): number | undefined {
-  const value = header?.trim();
-  if (!value) return undefined;
-  if (DELAY_SECONDS.test(value)) return Number(value) * 1000;
-
-  const retryAtMs = Date.parse(value);
-  return Number.isNaN(retryAtMs)
-    ? undefined
-    : Math.max(0, retryAtMs - Date.now());
 }
 
 function transient(retryAfterMs?: number): Attempt {
@@ -54,7 +43,9 @@ async function attemptRead(api: ApiClient): Promise<Attempt> {
   if (response.status === 401) return { kind: "unauthenticated" };
   if (response.status === 403) return { kind: "forbidden" };
   if (isTransientStatus(response.status)) {
-    return transient(parseRetryAfterMs(response.headers.get("retry-after")));
+    return transient(
+      parseRetryAfterMs(response.headers.get("retry-after"), Date.now()),
+    );
   }
 
   const session = parseSessionBody(result.data);
@@ -78,4 +69,43 @@ export async function readSession(api: ApiClient): Promise<SessionRead> {
   return attempt.kind === "transient"
     ? { ...attempt, kind: "unavailable" }
     : attempt;
+}
+
+export type SessionRefresh =
+  | { kind: "refreshed" }
+  | { kind: "expired" }
+  | { kind: "failed"; retryAfterMs?: number };
+
+async function postRefresh(api: ApiClient): Promise<SessionRefresh> {
+  try {
+    const { response } = await api.POST("/v1/auth/refresh", {
+      parseAs: "stream",
+    });
+    if (response.ok) return { kind: "refreshed" };
+    if (response.status === 401) return { kind: "expired" };
+
+    const retryAfterMs = parseRetryAfterMs(
+      response.headers.get("retry-after"),
+      Date.now(),
+    );
+    return { kind: "failed", retryAfterMs };
+  } catch {
+    return { kind: "failed" };
+  }
+}
+
+// The refresh token rotates, so a second concurrent POST would spend an
+// already-spent token and sign the visitor out. Concurrent callers (including
+// React StrictMode's double mount in development) share one request.
+export function createSessionRefresher(
+  api: ApiClient,
+): () => Promise<SessionRefresh> {
+  let inFlight: Promise<SessionRefresh> | undefined;
+
+  return () => {
+    inFlight ??= postRefresh(api).finally(() => {
+      inFlight = undefined;
+    });
+    return inFlight;
+  };
 }

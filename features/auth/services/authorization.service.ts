@@ -5,12 +5,12 @@ import { cache } from "react";
 
 import { getServerApi } from "@/core/api/client/server";
 
-import { normalizeCampusReturnTo } from "./campus-return-to";
-import { readSession, type SessionRead } from "./session-read";
+import { normalizeCampusReturnTo } from "../schemas/return-to";
 import type {
   RouteAuthorizationDecision,
   RouteAuthorizationRequest,
-} from "./types";
+} from "../types/auth.types";
+import { readSession, type SessionRead } from "./session.service";
 
 const REFRESH_ATTEMPTED_COOKIE = "campus_refresh_attempted";
 const INVITATION_PATH = "/invitation";

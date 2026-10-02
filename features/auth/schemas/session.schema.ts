@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { Session } from "./types";
+import type { Session } from "../types/auth.types";
 
 const sessionSchema = z.looseObject({
   scope: z.enum(["provisional", "full_access"]),

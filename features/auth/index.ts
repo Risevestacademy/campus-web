@@ -1,10 +1,11 @@
-export { authorizeRoute } from "./authorization";
+export { RefreshSession } from "./components/refresh-session";
 export {
   normalizeCampusReturnTo,
   parseCampusReturnTo,
-} from "./campus-return-to";
+} from "./schemas/return-to";
+export { authorizeRoute } from "./services/authorization.service";
 export type {
   RouteAuthorizationDecision,
   RouteAuthorizationRequest,
   Session,
-} from "./types";
+} from "./types/auth.types";
