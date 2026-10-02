@@ -7,6 +7,7 @@ import { shellInitializerScript } from "@/features/campus-shell";
 import { fontVariableClasses } from "@/shared/styles/fonts";
 import { themeInitializerScript } from "@/shared/theme";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
+import { Toaster } from "@/shared/ui/toast";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
 import { Providers } from "./providers";
@@ -40,6 +41,7 @@ export default function RootLayout({
         <Providers>
           <TooltipProvider>{children}</TooltipProvider>
         </Providers>
+        <Toaster />
       </body>
     </html>
   );

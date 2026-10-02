@@ -3,9 +3,16 @@
 import { DropdownMenuItem } from "@/shared/ui/dropdown-menu";
 
 import { useMediaSession } from "../services/media-session/media-session-provider";
+import {
+  describeBlockedAccess,
+  reportSpeakerResult,
+  reportSwitchResult,
+} from "./media-error-feedback";
 import { MediaSettingsDropdown } from "./media-settings-dropdown";
 
-export function AudioSettingsDropdown() {
+export function AudioSettingsDropdown({
+  onRetry,
+}: Readonly<{ onRetry: () => Promise<void> }>) {
   const deviceDiscoveryStatus = useMediaSession(
     (state) => state.deviceDiscoveryStatus,
   );
@@ -17,12 +24,24 @@ export function AudioSettingsDropdown() {
   const selectOutputDevice = useMediaSession(
     (state) => state.selectOutputDevice,
   );
+  const isAccessBlocked =
+    microphone.error === "permission-denied" && !microphone.track;
+
+  async function handleMicrophoneSelection(deviceId: string) {
+    const hadActiveTrack = Boolean(microphone.track);
+    const error = await selectInputDevice("microphone", deviceId);
+    reportSwitchResult("microphone", error, hadActiveTrack);
+  }
+
+  async function handleChooseSpeaker() {
+    reportSpeakerResult(await chooseAudioOutput());
+  }
 
   return (
     <MediaSettingsDropdown
       action={
         output.supportsSelection ? (
-          <DropdownMenuItem onClick={() => void chooseAudioOutput()}>
+          <DropdownMenuItem onClick={() => void handleChooseSpeaker()}>
             Choose speaker…
           </DropdownMenuItem>
         ) : null
@@ -42,16 +61,25 @@ export function AudioSettingsDropdown() {
           label: "Speaker",
         },
       ]}
+      isDisabled={microphone.error === "unsupported"}
       label="Audio settings"
       onRefresh={refreshDevices}
       onSelectionChange={(groupId, deviceId) => {
         if (groupId === "microphones") {
-          void selectInputDevice("microphone", deviceId);
+          void handleMicrophoneSelection(deviceId);
           return;
         }
 
         selectOutputDevice(deviceId);
       }}
+      recovery={
+        isAccessBlocked
+          ? {
+              ...describeBlockedAccess("microphone"),
+              onRetry: () => void onRetry(),
+            }
+          : undefined
+      }
       selectedDeviceIds={{
         microphones: microphone.selectedDeviceId,
         speakers: output.selectedDeviceId,

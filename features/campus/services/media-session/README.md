@@ -31,6 +31,11 @@ Callers use three entry points:
 - `MeetingMediaTransport` describes local publication changes and remote
   publication subscriptions for a future signaling/SFU adapter.
 
+User-initiated commands (`toggleSource`, `selectInputDevice`, and
+`chooseAudioOutput`) resolve to the `MediaSessionErrorCode` that the action
+produced, or `null` on success. UI callers use that value to decide on
+feedback, so they never have to diff state before and after a command.
+
 Tests that need controlled state may inject a store through
 `MediaSessionProvider`. Production UI should use
 `CampusMediaSessionProvider`.
@@ -43,6 +48,11 @@ Tests that need controlled state may inject a store through
 - Re-enabling a source reacquires its remembered device.
 - Camera and microphone acquisition fail independently.
 - Input replacement retains the current track until its replacement succeeds.
+- A source that failed with `device-unavailable` becomes retryable again as
+  soon as discovery lists a device of its kind. A selection that is no longer
+  listed is dropped, so the retry uses the system default.
+- Permission, unreadable, and unsupported failures are not cleared by
+  discovery. Only a new user action clears them.
 - Browser tracks remain client-owned and route-scoped.
 - Publications have stable IDs and are indexed by participant and source.
 - A `screen` publication can coexist with a `camera` publication.
@@ -75,6 +85,9 @@ Implemented:
 - Source-aware publication rendering.
 - Meeting controls, preview, and participant-tile integration.
 - A transport interface ready for a future backend adapter.
+- Permission recovery: per-source failure codes, settings-based retry, and
+  device-unavailable recovery on discovery
+  (`docs/media-permission-recovery-plan.md`).
 
 Remaining:
 
