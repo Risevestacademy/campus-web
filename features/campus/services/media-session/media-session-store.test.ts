@@ -216,8 +216,11 @@ describe("media session store", () => {
     });
     await store.getState().start();
 
-    await store.getState().selectInputDevice("camera", "camera-2");
+    const failure = await store
+      .getState()
+      .selectInputDevice("camera", "camera-2");
 
+    expect(failure).toBeNull();
     expect(mediaDevices.getUserMedia).not.toHaveBeenCalled();
     expect(store.getState().camera).toMatchObject({
       desiredEnabled: false,
@@ -242,9 +245,11 @@ describe("media session store", () => {
     });
 
     await store.getState().start();
-    await store.getState().toggleSource("camera");
-    await store.getState().toggleSource("microphone");
+    const cameraFailure = await store.getState().toggleSource("camera");
+    const microphoneFailure = await store.getState().toggleSource("microphone");
 
+    expect(cameraFailure).toBe("permission-denied");
+    expect(microphoneFailure).toBeNull();
     expect(store.getState().camera.status).toBe("denied");
     expect(store.getState().microphone.status).toBe("ready");
     expect(store.getState().localPublications.microphone?.track).toBe(
@@ -384,8 +389,11 @@ describe("media session store", () => {
     await store.getState().start();
     await store.getState().toggleSource("camera");
 
-    await store.getState().selectInputDevice("camera", "camera-2");
+    const failure = await store
+      .getState()
+      .selectInputDevice("camera", "camera-2");
 
+    expect(failure).toBe("device-unreadable");
     expect(store.getState().camera.track).toBe(camera);
     expect(store.getState().camera.selectedDeviceId).toBe("camera-1");
     expect(camera.stop).not.toHaveBeenCalled();
@@ -425,6 +433,126 @@ describe("media session store", () => {
     });
     expect(store.getState().camera.selectedDeviceId).toBe("camera-2");
     expect(firstCamera.stop).toHaveBeenCalledOnce();
+  });
+
+  it("re-enables an unavailable camera once discovery lists a camera", async () => {
+    const mediaDevices = createMediaDevices(async () => {
+      throw new DOMException("missing", "NotFoundError");
+    });
+    const enumerateDevices = vi.mocked(mediaDevices.enumerateDevices);
+    enumerateDevices.mockResolvedValue([]);
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+    });
+    await store.getState().start();
+
+    expect(await store.getState().toggleSource("camera")).toBe(
+      "device-unavailable",
+    );
+    await store.getState().refreshDevices();
+    expect(store.getState().camera).toMatchObject({
+      error: "device-unavailable",
+      status: "unavailable",
+    });
+
+    enumerateDevices.mockResolvedValue([
+      createDevice("camera-1", "videoinput", "Studio Camera"),
+    ]);
+    mediaDevices.dispatchEvent(new Event("devicechange"));
+
+    await vi.waitFor(() => {
+      expect(store.getState().camera).toMatchObject({
+        error: null,
+        status: "disabled",
+        track: null,
+      });
+    });
+  });
+
+  it("drops a stale camera selection when an unavailable camera recovers", async () => {
+    const camera = createTrack("video", "camera-1");
+    const mediaDevices = createMediaDevices(async (constraints) => {
+      const requestedId = (constraints.video as MediaTrackConstraints).deviceId;
+      if (requestedId) {
+        throw new DOMException("missing", "OverconstrainedError");
+      }
+      return createStream([camera]);
+    });
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+    });
+    await store.getState().start();
+    await store.getState().selectInputDevice("camera", "unplugged-camera");
+
+    expect(await store.getState().toggleSource("camera")).toBe(
+      "device-unavailable",
+    );
+    await store.getState().refreshDevices();
+
+    expect(store.getState().camera).toMatchObject({
+      error: null,
+      selectedDeviceId: "",
+    });
+    expect(await store.getState().toggleSource("camera")).toBeNull();
+    expect(store.getState().camera.track).toBe(camera);
+  });
+
+  it("does not clear permission failures when devices are discovered", async () => {
+    const mediaDevices = createMediaDevices(async () => {
+      throw new DOMException("denied", "NotAllowedError");
+    });
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+    });
+    await store.getState().start();
+    await store.getState().toggleSource("camera");
+
+    await store.getState().refreshDevices();
+
+    expect(store.getState().camera).toMatchObject({
+      error: "permission-denied",
+      status: "denied",
+    });
+  });
+
+  it("reports whether choosing a speaker failed", async () => {
+    const selectAudioOutput = vi
+      .fn()
+      .mockRejectedValueOnce(new DOMException("dismissed", "NotAllowedError"))
+      .mockResolvedValueOnce(
+        createDevice("speaker-1", "audiooutput", "Studio Speakers"),
+      );
+    const mediaDevices = Object.assign(
+      createMediaDevices(async () => createStream()),
+      { selectAudioOutput },
+    );
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+    });
+    await store.getState().start();
+
+    expect(await store.getState().chooseAudioOutput()).toBe(
+      "permission-denied",
+    );
+    expect(await store.getState().chooseAudioOutput()).toBeNull();
+    expect(store.getState().output).toMatchObject({
+      error: null,
+      selectedDeviceId: "speaker-1",
+    });
+  });
+
+  it("reports an unsupported speaker picker", async () => {
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices: createMediaDevices(async () => createStream()),
+    });
+    await store.getState().start();
+
+    expect(await store.getState().chooseAudioOutput()).toBe("unsupported");
   });
 
   it("accepts screen publications through the backend transport port", async () => {

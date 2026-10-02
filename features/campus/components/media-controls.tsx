@@ -4,36 +4,24 @@ import { cn } from "cn";
 
 import { ButtonGroup, ButtonGroupSeparator } from "@/shared/ui/button-group";
 
+import type { CaptureSource } from "../services/media-session/contracts";
 import { useMediaSession } from "../services/media-session/media-session-provider";
 import { AudioSettingsDropdown } from "./audio-settings-dropdown";
 import { CameraSettingsDropdown } from "./camera-settings-dropdown";
+import { reportSourceResult } from "./media-error-feedback";
 import { MediaToggle } from "./media-toggle";
 
 const mediaControlGroupClassName =
-  "bg-surface rounded-xl hover:ring-primary h-10.75 hover:ring-offset-background hover:ring hover:ring-offset-1";
+  "bg-surface rounded-xl h-10.75 hover:has-enabled:ring hover:has-enabled:ring-primary hover:has-enabled:ring-offset-1 hover:has-enabled:ring-offset-background";
 
 export function MediaControls({ className }: { className?: string }) {
   const camera = useMediaSession((state) => state.camera);
   const microphone = useMediaSession((state) => state.microphone);
-  const output = useMediaSession((state) => state.output);
   const toggleSource = useMediaSession((state) => state.toggleSource);
-  const errorMessage = [
-    camera.error
-      ? camera.track
-        ? "Couldn't switch camera. The previous camera is still active."
-        : "Camera unavailable. Use the camera control to retry."
-      : null,
-    microphone.error
-      ? microphone.track
-        ? "Couldn't switch microphone. The previous microphone is still active."
-        : "Microphone unavailable. Use the microphone control to retry."
-      : null,
-    output.error
-      ? "Speaker selection unavailable. Using the system default."
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" ");
+
+  async function handleToggle(source: CaptureSource) {
+    reportSourceResult(source, await toggleSource(source));
+  }
 
   return (
     <div className="grid justify-items-center gap-1">
@@ -43,13 +31,14 @@ export function MediaControls({ className }: { className?: string }) {
           className={mediaControlGroupClassName}
         >
           <MediaToggle
+            error={camera.error}
             isEnabled={camera.desiredEnabled && Boolean(camera.track)}
             kind="video"
-            onToggle={() => toggleSource("camera")}
+            onToggle={() => handleToggle("camera")}
             status={camera.status}
           />
           <ButtonGroupSeparator className="-ml-px" />
-          <CameraSettingsDropdown />
+          <CameraSettingsDropdown onRetry={() => handleToggle("camera")} />
         </ButtonGroup>
 
         <ButtonGroup
@@ -57,21 +46,16 @@ export function MediaControls({ className }: { className?: string }) {
           className={mediaControlGroupClassName}
         >
           <MediaToggle
+            error={microphone.error}
             isEnabled={microphone.desiredEnabled && Boolean(microphone.track)}
             kind="microphone"
-            onToggle={() => toggleSource("microphone")}
+            onToggle={() => handleToggle("microphone")}
             status={microphone.status}
           />
           <ButtonGroupSeparator className="-ml-px" />
-          <AudioSettingsDropdown />
+          <AudioSettingsDropdown onRetry={() => handleToggle("microphone")} />
         </ButtonGroup>
       </div>
-
-      {errorMessage ? (
-        <p role="status" aria-live="polite" className="text-error-icon text-xs">
-          {errorMessage}
-        </p>
-      ) : null}
     </div>
   );
 }

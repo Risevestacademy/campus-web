@@ -6,6 +6,7 @@ import type {
   CaptureSourceState,
   DeviceDiscoveryStatus,
   LocalMediaPublication,
+  MediaDeviceOption,
   MediaSessionErrorCode,
   MeetingMediaTransport,
   PublicationSource,
@@ -28,9 +29,11 @@ type SelectableAudioOutputMediaDevices = MediaDevices &
     selectAudioOutput?: () => Promise<MediaDeviceInfo>;
   }>;
 
+type MediaActionFailure = Promise<MediaSessionErrorCode | null>;
+
 export type MediaSessionState = Readonly<{
   camera: CaptureSourceState;
-  chooseAudioOutput: () => Promise<void>;
+  chooseAudioOutput: () => MediaActionFailure;
   deviceDiscoveryStatus: DeviceDiscoveryStatus;
   localPublications: Readonly<
     Partial<Record<PublicationSource, LocalMediaPublication>>
@@ -39,11 +42,14 @@ export type MediaSessionState = Readonly<{
   output: AudioOutputState;
   refreshDevices: () => Promise<void>;
   remotePublications: RemotePublicationRegistry;
-  selectInputDevice: (source: CaptureSource, deviceId: string) => Promise<void>;
+  selectInputDevice: (
+    source: CaptureSource,
+    deviceId: string,
+  ) => MediaActionFailure;
   selectOutputDevice: (deviceId: string) => void;
   start: () => Promise<void>;
   stop: () => void;
-  toggleSource: (source: CaptureSource) => Promise<void>;
+  toggleSource: (source: CaptureSource) => MediaActionFailure;
 }>;
 
 type MediaSessionStoreDependencies = Readonly<{
@@ -131,6 +137,33 @@ function supportsAudioOutputSelection(mediaDevices: MediaDevices | undefined) {
     typeof (mediaDevices as SelectableAudioOutputMediaDevices | undefined)
       ?.selectAudioOutput === "function"
   );
+}
+
+// A missing device only blocks capture until discovery lists one again. A stale
+// selection is dropped because its `exact` constraint would fail every retry.
+function withDiscoveredDevices(
+  source: CaptureSourceState,
+  devices: readonly MediaDeviceOption[],
+): CaptureSourceState {
+  const canRecover =
+    !source.track &&
+    source.status !== "requesting" &&
+    source.error === "device-unavailable" &&
+    devices.length > 0;
+
+  if (!canRecover) return { ...source, devices };
+
+  const isSelectedDeviceListed = devices.some(
+    (device) => device.id === source.selectedDeviceId,
+  );
+
+  return {
+    ...source,
+    devices,
+    error: null,
+    selectedDeviceId: isSelectedDeviceListed ? source.selectedDeviceId : "",
+    status: "disabled",
+  };
 }
 
 function createDefaultMediaStream() {
@@ -286,12 +319,12 @@ export function createMediaSessionStore(
             );
 
           return {
-            camera: { ...state.camera, devices: devices.cameras },
+            camera: withDiscoveredDevices(state.camera, devices.cameras),
             deviceDiscoveryStatus: "ready",
-            microphone: {
-              ...state.microphone,
-              devices: devices.microphones,
-            },
+            microphone: withDiscoveredDevices(
+              state.microphone,
+              devices.microphones,
+            ),
             output: {
               ...state.output,
               devices: devices.speakers,
@@ -454,7 +487,7 @@ export function createMediaSessionStore(
               status: "unsupported",
             },
           }));
-          return;
+          return "unsupported";
         }
 
         try {
@@ -469,14 +502,17 @@ export function createMediaSessionStore(
               status: "ready",
             },
           }));
+          return null;
         } catch (error) {
+          const errorCode = getErrorCode(error);
           set((state) => ({
             output: {
               ...state.output,
-              error: getErrorCode(error),
+              error: errorCode,
               status: "failed",
             },
           }));
+          return errorCode;
         }
       },
       deviceDiscoveryStatus: "idle",
@@ -502,10 +538,11 @@ export function createMediaSessionStore(
             selectedDeviceId: deviceId,
             status: "disabled",
           });
-          return;
+          return null;
         }
 
         await acquireSource(source, deviceId);
+        return get()[source].error;
       },
       selectOutputDevice(deviceId) {
         persistOutputDevicePreference(deviceId);
@@ -601,11 +638,11 @@ export function createMediaSessionStore(
               desiredEnabled: false,
               status: "disabled",
             });
-            return;
+            return null;
           }
 
           updateSource(source, { desiredEnabled: nextEnabled });
-          return;
+          return null;
         }
 
         if (!sourceState.track) {
@@ -614,7 +651,7 @@ export function createMediaSessionStore(
             source,
             sourceState.selectedDeviceId || undefined,
           );
-          return;
+          return get()[source].error;
         }
 
         if (!nextEnabled) {
@@ -627,8 +664,10 @@ export function createMediaSessionStore(
             status: "disabled",
             track: null,
           });
-          return;
+          return null;
         }
+
+        return null;
       },
     };
   });

@@ -1,7 +1,7 @@
 "use client";
 
 import { CaretUpIcon } from "@phosphor-icons/react/dist/ssr/CaretUp";
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ReactNode, useId } from "react";
 
 import { Button } from "@/shared/ui/button";
 import {
@@ -30,13 +30,22 @@ export type MediaDeviceGroup = Readonly<{
   label: string;
 }>;
 
+type MediaSettingsRecovery = Readonly<{
+  description: string;
+  onRetry: () => void;
+  retryLabel: string;
+  title: string;
+}>;
+
 type MediaSettingsDropdownProps = Readonly<{
   action?: ReactNode;
   deviceDiscoveryStatus: DeviceDiscoveryStatus;
   groups: readonly MediaDeviceGroup[];
+  isDisabled?: boolean;
   label: string;
   onRefresh: () => Promise<void>;
   onSelectionChange: (groupId: string, deviceId: string) => void;
+  recovery?: MediaSettingsRecovery;
   selectedDeviceIds: Readonly<Record<string, string>>;
   statusMessages: Readonly<{
     error: string;
@@ -52,6 +61,32 @@ function getDiscoveryViewStatus(
   if (deviceDiscoveryStatus !== "failed") return deviceDiscoveryStatus;
 
   return groups.some((group) => group.devices.length > 0) ? "ready" : "error";
+}
+
+function RecoveryGroup({
+  recovery,
+}: Readonly<{ recovery: MediaSettingsRecovery }>) {
+  const descriptionId = useId();
+
+  return (
+    <DropdownMenuGroup>
+      <DropdownMenuLabel className="text-popover-foreground text-sm">
+        {recovery.title}
+      </DropdownMenuLabel>
+      <p
+        id={descriptionId}
+        className="text-muted-foreground px-1.5 pb-2 text-xs text-pretty"
+      >
+        {recovery.description}
+      </p>
+      <DropdownMenuItem
+        aria-describedby={descriptionId}
+        onClick={recovery.onRetry}
+      >
+        {recovery.retryLabel}
+      </DropdownMenuItem>
+    </DropdownMenuGroup>
+  );
 }
 
 function DeviceGroup({
@@ -99,9 +134,11 @@ export function MediaSettingsDropdown({
   action,
   deviceDiscoveryStatus,
   groups,
+  isDisabled = false,
   label,
   onRefresh,
   onSelectionChange,
+  recovery,
   selectedDeviceIds,
   statusMessages,
   triggerLabel,
@@ -109,7 +146,7 @@ export function MediaSettingsDropdown({
   const status = getDiscoveryViewStatus(deviceDiscoveryStatus, groups);
 
   function handleOpenChange(open: boolean) {
-    if (!open || status === "loading") return;
+    if (!open || isDisabled || status === "loading") return;
     void onRefresh();
   }
 
@@ -126,6 +163,7 @@ export function MediaSettingsDropdown({
             type="button"
             size="icon"
             variant="ghost"
+            disabled={isDisabled}
             className="hover:bg-background w-fit px-1.75"
             aria-label={triggerLabel}
             title={label}
@@ -142,7 +180,9 @@ export function MediaSettingsDropdown({
         alignOffset={-44}
         className="w-64 max-w-[calc(100vw-2rem)]"
       >
-        {showStatus ? (
+        {recovery ? (
+          <RecoveryGroup recovery={recovery} />
+        ) : showStatus ? (
           <DropdownMenuItem disabled>
             <span role="status" aria-live="polite">
               {statusMessage}
