@@ -6,26 +6,47 @@ return-destination policy stay behind it.
 
 ## Public interface
 
-Import only from `@/features/auth`.
+Route code imports from `@/features/auth`. The root `proxy.ts` imports from
+`@/features/auth/proxy` instead (see [Root proxy](#root-proxy)).
 
-```ts
-import { authorizeRoute, normalizeCampusReturnTo } from "@/features/auth";
+```tsx
+import {
+  CampusShellGate,
+  requireRouteAccess,
+  SessionUnavailable,
+} from "@/features/auth";
 
-const decision = await authorizeRoute({
-  kind: "campus-shell",
-  returnTo: "/campus/42?tab=people",
-});
+// Layouts and pages that only need "may this render?"
+<CampusShellGate>{children}</CampusShellGate>;
+
+// Pages that need the session
+const access = await requireRouteAccess({ kind: "campus-index" });
+if (access.kind === "unavailable") {
+  return <SessionUnavailable retryHref={access.retryHref} />;
+}
+access.session; // full SessionResponseDto
 ```
 
-| Decision      | Meaning                                                             | Route action                                                             |
-| ------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `allow`       | `full_access` session; `session` is the full `SessionResponseDto`   | render                                                                   |
-| `redirect`    | provisional, anonymous, or expired session                          | `redirect(decision.href)`                                                |
-| `forbidden`   | backend refused the account (403, e.g. suspended)                   | `forbidden()`                                                            |
-| `unavailable` | session service down after retries, or returned a malformed session | fail-closed retry state; `retryAfterMs` is the backend hint when present |
+`requireRouteAccess` turns `redirect` into Next's `redirect()` and `forbidden`
+into `forbidden()`, and returns only `allow` or `unavailable`.
+`authorizeRoute(request)` returns the raw decision for callers that act on it
+differently:
 
-`authorizeRoute` is server-only. It reads cookies, so any route that calls it
-renders per request.
+| Decision      | Meaning                                                              | Route action                                                                           |
+| ------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `allow`       | the session may render the route; `session` is the full DTO          | render                                                                                 |
+| `redirect`    | provisional, anonymous, expired, or a one-cohort member at `/campus` | `redirect(decision.href)`                                                              |
+| `forbidden`   | backend refused the account (403), or a member with no cohort        | `forbidden()`                                                                          |
+| `unavailable` | session service down after retries, or returned a malformed session  | `SessionUnavailable` linking to `retryHref`; `retryAfterMs` is the backend hint if any |
+
+Requests are `{ kind: "campus-shell" }` or `{ kind: "campus-index" }`. The
+return destination comes from the root proxy, not the caller (layouts cannot
+see the URL). Everything here is server-only and reads request headers, so any
+route that uses it renders per request.
+
+Every `/campus/**` page checks access itself as well as the `(app)` layout:
+layouts keep their state across soft navigation and would not run again.
+`cache()` keeps that to one `GET /v1/auth/me` per request.
 
 ## Session outcomes
 
@@ -48,6 +69,13 @@ Retries: three attempts in total, waiting 200 ms and then 500 ms. Each attempt
 is abandoned after 3 s and counts as a network error, so a hung backend fails
 closed within 9.7 s instead of blocking the render.
 
+Each attempt calls `fetch(request, { signal })`. Next deduplicates identical
+GETs made during one render and only skips that when `fetch` receives a signal
+in its second argument; openapi-fetch passes just a `Request`, so without this
+every retry would replay the first response and never reach the network. Only
+a real server render dedupes, so the Playwright outage test (three backend
+hits) is the regression check.
+
 A `Retry-After` header (seconds or HTTP-date) of up to 2 s lengthens the wait;
 it never shortens the backoff. A longer one stops the retries at once and
 returns `unavailable` with that `retryAfterMs`, so the backend is never asked
@@ -59,16 +87,48 @@ state or the Next Data Cache.
 
 ## Route policy
 
-| Session                                    | Decision                               |
-| ------------------------------------------ | -------------------------------------- |
-| `full_access`                              | `allow`                                |
-| `provisional`                              | redirect `/invitation`                 |
-| none, no `campus_refresh_attempted` cookie | redirect `/session/refresh?returnTo=…` |
-| none, `campus_refresh_attempted` present   | redirect `/sign-in?returnTo=…`         |
+`services/route-policy.ts` holds the policy as pure functions shared by the
+root proxy and `authorizeRoute`.
+
+| Session                             | `campus-shell`                         | `campus-index` (`/campus`)         |
+| ----------------------------------- | -------------------------------------- | ---------------------------------- |
+| `full_access`, system admin         | `allow`                                | `allow` (admin chooser)            |
+| `full_access`, 2+ memberships       | `allow`                                | `allow` (membership chooser)       |
+| `full_access`, exactly 1 membership | `allow`                                | redirect `/campus/{cohortId}/join` |
+| `full_access`, no memberships       | `allow`                                | `forbidden`                        |
+| `provisional`                       | redirect `/invitation`                 | redirect `/invitation`             |
+| none, refresh not yet attempted     | redirect `/session/refresh?returnTo=…` | same                               |
+| none, refresh already attempted     | redirect `/sign-in?returnTo=…`         | same                               |
 
 The refresh-attempt marker breaks the refresh/redirect loop: one automatic
-refresh per visit, then sign-in. `campus-shell` and `campus-index` share this
-policy until the cohort chooser adds index-specific rules.
+refresh per visit, then sign-in. A pending `inviteId` does not block a
+`full_access` member.
+
+## Root proxy
+
+`guardCampusRequest` (exported from `@/features/auth/proxy`) runs for
+`/campus/**` from the root `proxy.ts`. It checks cookie presence only and never
+calls the backend:
+
+- no `campus_session`: redirect through refresh, or to sign-in once
+  `campus_refresh_attempted` is present;
+- `campus_session` present: pass through, writing two request headers the
+  render reads (`services/campus-request-headers.ts`). Client-supplied values
+  are overwritten or removed:
+
+  | Header                       | Value                                            |
+  | ---------------------------- | ------------------------------------------------ |
+  | `x-campus-return-to`         | sanitized `pathname + search`                    |
+  | `x-campus-refresh-attempted` | `1` when the marker cookie came with the request |
+
+- the marker cookie is deleted on the first `/campus/**` response.
+
+The render reads the marker from the header, not the cookie: Next copies
+cookies the proxy sets or deletes into `cookies()` for the same request, so
+after the deletion the cookie no longer says whether a refresh happened.
+
+`@/features/auth/proxy` exists because `index.ts` also exports client and
+server-only modules, which do not belong in Next's proxy bundle.
 
 ## Return destinations
 
@@ -116,32 +176,44 @@ RefreshSession -> useSessionRefresh -> useMutation -> createSessionRefresher -> 
 
 ## Layout
 
-| Path                                | Role                                                            |
-| ----------------------------------- | --------------------------------------------------------------- |
-| `index.ts`                          | public interface                                                |
-| `components/refresh-session.tsx`    | refresh page UI                                                 |
-| `hooks/use-session-refresh.ts`      | refresh mutation, outcome handling, cooldown schedule           |
-| `hooks/use-countdown.ts`            | retry countdown                                                 |
-| `hooks/use-mount-effect.ts`         | the only sanctioned `useEffect` wrapper                         |
-| `services/authorization.service.ts` | `authorizeRoute`: server-only, `cache()`, cookies, route policy |
-| `services/session.service.ts`       | `/v1/auth/me` read with retries; single-flight refresh POST     |
-| `schemas/session.schema.ts`         | validates the session fields route policies depend on           |
-| `schemas/return-to.ts`              | Campus return-destination policy                                |
-| `types/auth.types.ts`               | public types                                                    |
+| Path                                 | Role                                                            |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `index.ts`                           | public interface for routes                                     |
+| `proxy.ts`                           | public interface for the root `proxy.ts`                        |
+| `components/campus-shell-gate.tsx`   | renders children only when the visitor may enter Campus         |
+| `components/session-unavailable.tsx` | fail-closed retry state                                         |
+| `components/refresh-session.tsx`     | refresh page UI                                                 |
+| `hooks/use-session-refresh.ts`       | refresh mutation, outcome handling, cooldown schedule           |
+| `hooks/use-countdown.ts`             | retry countdown                                                 |
+| `hooks/use-mount-effect.ts`          | the only sanctioned `useEffect` wrapper                         |
+| `services/authorization.service.ts`  | `authorizeRoute`: server-only, `cache()`, proxy headers         |
+| `services/route-access.service.ts`   | `requireRouteAccess`: decisions to Next interrupts              |
+| `services/route-policy.ts`           | pure route policy, shared with the proxy                        |
+| `services/campus-proxy.service.ts`   | `guardCampusRequest`: cookie-presence redirects, render headers |
+| `services/campus-request-headers.ts` | proxy-to-render header names                                    |
+| `services/session.service.ts`        | `/v1/auth/me` read with retries; single-flight refresh POST     |
+| `schemas/session.schema.ts`          | validates the session fields route policies depend on           |
+| `schemas/return-to.ts`               | Campus return-destination policy                                |
+| `types/auth.types.ts`                | public types                                                    |
 
 Client modules import siblings directly, never `index.ts`: the entry point
-re-exports the server-only `authorizeRoute`.
+re-exports server-only modules.
 
 ## Tests
 
 ```bash
-pnpm vitest run --project unit features/auth
+pnpm vitest run --project unit features/auth ./proxy.test.ts
+pnpm eval:route-protection
+pnpm eval:session-read
 ```
 
-Tests exercise the public interface in `index.ts`. The backend is MSW
-(`tests/fixtures/mock-api.ts`), started inside `vi.hoisted` because API clients
-capture `fetch` when created; request cookies are a mocked `next/headers`; time
-is Vitest fake timers. Components render inside a fresh `QueryClient`
+Tests exercise the public interface in `index.ts`, and the root `proxy.ts`
+through `proxy.test.ts` (matcher via `unstable_doesMiddlewareMatch`). The
+backend is MSW (`tests/fixtures/mock-api.ts`), started inside `vi.hoisted`
+because API clients capture `fetch` when created; request cookies and headers
+are a mocked `next/headers`; time is Vitest fake timers. `forbidden()` needs
+`__NEXT_EXPERIMENTAL_AUTH_INTERRUPTS`, which `experimental.authInterrupts` sets
+at build time; tests stub it. Components render inside a fresh `QueryClient`
 (`tests/fixtures/query-client.tsx`).
 
 Browser behaviour runs in Playwright against a local fake API
@@ -154,6 +226,6 @@ pnpm build
 pnpm playwright test tests/e2e/authorization.spec.ts
 ```
 
-React `cache()` is a pass-through outside a server render, so per-request
-memoization is verified by the Playwright suite in
-`02-campus-route-protection-plan.md`, not here.
+React `cache()` is a pass-through outside a server render, so the one
+`/v1/auth/me` read per navigation is asserted by the Playwright suite (fake API
+hit count), not by unit tests.

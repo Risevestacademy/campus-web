@@ -38,6 +38,13 @@ function abortAfter(ms: number): { signal: AbortSignal; cancel: () => void } {
   return { signal: controller.signal, cancel: () => clearTimeout(timer) };
 }
 
+// Next replays an identical GET made during the same render unless fetch()
+// receives a signal in its init argument. openapi-fetch passes only a Request,
+// so without this every retry would return the first attempt's response.
+function fetchOutsideRenderDedupe(request: Request): Promise<Response> {
+  return fetch(request, { signal: request.signal });
+}
+
 async function attemptRead(api: ApiClient): Promise<Attempt> {
   const timeout = abortAfter(ATTEMPT_TIMEOUT_MS);
   let result;
@@ -45,6 +52,7 @@ async function attemptRead(api: ApiClient): Promise<Attempt> {
     // openapi-fetch throws the same way for an unparseable body as for a
     // network failure; reading text keeps malformed sessions out of the retry.
     result = await api.GET("/v1/auth/me", {
+      fetch: fetchOutsideRenderDedupe,
       parseAs: "text",
       signal: timeout.signal,
     });

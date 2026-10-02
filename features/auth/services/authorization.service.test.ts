@@ -1,6 +1,14 @@
 // @vitest-environment node
 
 import { http, HttpResponse } from "msw";
+import { getAccessFallbackHTTPStatus } from "next/dist/client/components/http-access-fallback/http-access-fallback";
+import {
+  getRedirectStatusCodeFromError,
+  getURLFromRedirectError,
+} from "next/dist/client/components/redirect";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { createElement, type ReactElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   afterAll,
   afterEach,
@@ -13,7 +21,12 @@ import {
 
 import { inOrder, type Reply } from "@/tests/fixtures/mock-api";
 
-import { authorizeRoute, type RouteAuthorizationRequest } from "../index";
+import {
+  authorizeRoute,
+  CampusShellGate,
+  requireRouteAccess,
+  type RouteAuthorizationRequest,
+} from "../index";
 
 const mockApi = await vi.hoisted(async () => {
   const { startMockApi } = await import("@/tests/fixtures/mock-api");
@@ -106,10 +119,45 @@ function browserCookies(values: Record<string, string>) {
   });
 }
 
-const campusShell: RouteAuthorizationRequest = {
-  kind: "campus-shell",
-  returnTo: "/campus/42/rooms?seat=3#chat",
+const RETURN_TO = "/campus/42/rooms?seat=3";
+const UNAVAILABLE = { kind: "unavailable", retryHref: RETURN_TO } as const;
+
+function proxySignals(signals: { returnTo?: string; refreshAttempted?: true }) {
+  const headers = new Headers();
+  if (signals.returnTo !== undefined) {
+    headers.set("x-campus-return-to", signals.returnTo);
+  }
+  if (signals.refreshAttempted) {
+    headers.set("x-campus-refresh-attempted", "1");
+  }
+  nextHeaders.headers.mockResolvedValue(headers);
+}
+
+const campusShell: RouteAuthorizationRequest = { kind: "campus-shell" };
+const campusIndex: RouteAuthorizationRequest = { kind: "campus-index" };
+
+const COHORT_A = {
+  cohortId: "11111111-1111-4111-8111-111111111111",
+  role: "student",
+  cohort: { name: "Cohort 3", code: "C3" },
 };
+const COHORT_B = {
+  cohortId: "22222222-2222-4222-8222-222222222222",
+  role: "mentor",
+  cohort: { name: "Cohort 4", code: "C4" },
+};
+
+function fullAccess(
+  systemRole: "user" | "admin",
+  memberships: readonly object[],
+) {
+  return {
+    ...fullAccessSession,
+    user: { ...fullAccessSession.user, systemRole },
+    membership: null,
+    memberships,
+  };
+}
 
 async function authorize(request = campusShell) {
   const decision = authorizeRoute(request);
@@ -122,7 +170,7 @@ beforeEach(() => {
   vi.setSystemTime(NOW);
   vi.stubEnv("API_BASE_URL", "https://api.example.test");
   browserCookies({ campus_session: "session-token" });
-  nextHeaders.headers.mockResolvedValue(new Headers());
+  proxySignals({ returnTo: RETURN_TO });
 });
 
 afterEach(() => {
@@ -175,9 +223,10 @@ describe("authorizeRoute: signed-in sessions", () => {
   it("applies the same policy to the campus index", async () => {
     backendReplies(ok(provisionalSession));
 
-    await expect(
-      authorize({ kind: "campus-index", returnTo: "/campus" }),
-    ).resolves.toEqual({ kind: "redirect", href: "/invitation" });
+    await expect(authorize(campusIndex)).resolves.toEqual({
+      kind: "redirect",
+      href: "/invitation",
+    });
   });
 });
 
@@ -192,8 +241,8 @@ describe("authorizeRoute: signed-out and refused sessions", () => {
     expect(sent).toHaveLength(1);
   });
 
-  it("sends an unauthenticated visitor to sign-in once a refresh was attempted", async () => {
-    browserCookies({ campus_refresh_attempted: "1" });
+  it("sends an unauthenticated visitor to sign-in once the proxy reports a refresh attempt", async () => {
+    proxySignals({ returnTo: RETURN_TO, refreshAttempted: true });
     backendReplies(status(401));
 
     await expect(authorize()).resolves.toEqual({
@@ -202,15 +251,34 @@ describe("authorizeRoute: signed-out and refused sessions", () => {
     });
   });
 
-  it("replaces an unsafe return destination with the campus index", async () => {
+  it("trusts the proxy's refresh signal, not the marker cookie the proxy clears", async () => {
+    browserCookies({
+      campus_session: "session-token",
+      campus_refresh_attempted: "1",
+    });
     backendReplies(status(401));
 
-    await expect(
-      authorize({
-        kind: "campus-shell",
-        returnTo: "//attacker.example/campus",
-      }),
-    ).resolves.toEqual({
+    await expect(authorize()).resolves.toEqual({
+      kind: "redirect",
+      href: "/session/refresh?returnTo=%2Fcampus%2F42%2Frooms%3Fseat%3D3",
+    });
+  });
+
+  it("replaces an unsafe return destination with the campus index", async () => {
+    proxySignals({ returnTo: "//attacker.example/campus" });
+    backendReplies(status(401));
+
+    await expect(authorize()).resolves.toEqual({
+      kind: "redirect",
+      href: "/session/refresh?returnTo=%2Fcampus",
+    });
+  });
+
+  it("returns to the campus index when the proxy sent no return path", async () => {
+    proxySignals({});
+    backendReplies(status(401));
+
+    await expect(authorize()).resolves.toEqual({
       kind: "redirect",
       href: "/session/refresh?returnTo=%2Fcampus",
     });
@@ -243,7 +311,7 @@ describe("authorizeRoute: malformed sessions", () => {
   ])("fails closed on %s instead of reporting a sign-out", async (_, reply) => {
     const sent = backendReplies(reply);
 
-    await expect(authorize()).resolves.toEqual({ kind: "unavailable" });
+    await expect(authorize()).resolves.toEqual(UNAVAILABLE);
     expect(sent).toHaveLength(1);
   });
 });
@@ -263,7 +331,7 @@ describe("authorizeRoute: transient outages", () => {
   it("fails closed after three attempts", async () => {
     const sent = backendReplies(networkFailure, networkFailure, networkFailure);
 
-    await expect(authorize()).resolves.toEqual({ kind: "unavailable" });
+    await expect(authorize()).resolves.toEqual(UNAVAILABLE);
     expect(sent).toHaveLength(3);
   });
 
@@ -277,7 +345,7 @@ describe("authorizeRoute: transient outages", () => {
   it.each([400, 404, 409, 422])("does not retry HTTP %i", async (code) => {
     const sent = backendReplies(status(code));
 
-    await expect(authorize()).resolves.toEqual({ kind: "unavailable" });
+    await expect(authorize()).resolves.toEqual(UNAVAILABLE);
     expect(sent).toHaveLength(1);
   });
 
@@ -291,9 +359,22 @@ describe("authorizeRoute: transient outages", () => {
   it("fails closed within 9.7 s when the backend never answers", async () => {
     const sent = backendReplies(neverAnswers, neverAnswers, neverAnswers);
 
-    await expect(authorize()).resolves.toEqual({ kind: "unavailable" });
+    await expect(authorize()).resolves.toEqual(UNAVAILABLE);
     expect(sentAtMs(sent)).toEqual([0, 3200, 6700]);
     expect(Date.now() - NOW).toBe(9700);
+  });
+
+  it("opts every attempt out of Next's per-render fetch dedupe so retries reach the network", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    backendReplies(status(503), status(503), ok(fullAccessSession));
+
+    await authorize();
+
+    const signals = fetchSpy.mock.calls.map(([, init]) => init?.signal);
+    expect(signals).toHaveLength(3);
+    expect(signals.every((signal) => signal instanceof AbortSignal)).toBe(true);
+    expect(new Set(signals).size).toBe(3);
+    fetchSpy.mockRestore();
   });
 
   it("stops retrying once the backend answers that the visitor is signed out", async () => {
@@ -332,7 +413,7 @@ describe("authorizeRoute: Retry-After", () => {
       const sent = backendReplies(status(503, { "retry-after": retryAfter }));
 
       await expect(authorize()).resolves.toEqual({
-        kind: "unavailable",
+        ...UNAVAILABLE,
         retryAfterMs,
       });
       expect(sent).toHaveLength(1);
@@ -347,8 +428,163 @@ describe("authorizeRoute: Retry-After", () => {
     );
 
     await expect(authorize()).resolves.toEqual({
-      kind: "unavailable",
+      ...UNAVAILABLE,
       retryAfterMs: 5000,
     });
+  });
+});
+
+describe("authorizeRoute: outage retry destination", () => {
+  it("offers a retry of the sanitized path the visitor asked for", async () => {
+    proxySignals({ returnTo: "//attacker.example/campus" });
+    backendReplies(status(503), status(503), status(503));
+
+    await expect(authorize()).resolves.toEqual({
+      kind: "unavailable",
+      retryHref: "/campus",
+    });
+  });
+});
+
+describe("authorizeRoute: campus index membership routing", () => {
+  it("lets a member with several cohorts choose between them", async () => {
+    const session = fullAccess("user", [COHORT_A, COHORT_B]);
+    backendReplies(ok(session));
+
+    await expect(authorize(campusIndex)).resolves.toEqual({
+      kind: "allow",
+      session,
+    });
+  });
+
+  it("sends a member with one cohort straight to its pre-join screen", async () => {
+    backendReplies(ok(fullAccess("user", [COHORT_A])));
+
+    await expect(authorize(campusIndex)).resolves.toEqual({
+      kind: "redirect",
+      href: "/campus/11111111-1111-4111-8111-111111111111/join",
+    });
+  });
+
+  it("encodes the cohort ID into a single path segment", async () => {
+    backendReplies(
+      ok(fullAccess("user", [{ ...COHORT_A, cohortId: "a/b c?d" }])),
+    );
+
+    await expect(authorize(campusIndex)).resolves.toEqual({
+      kind: "redirect",
+      href: "/campus/a%2Fb%20c%3Fd/join",
+    });
+  });
+
+  it("forbids a member who belongs to no cohort", async () => {
+    backendReplies(ok(fullAccess("user", [])));
+
+    await expect(authorize(campusIndex)).resolves.toEqual({
+      kind: "forbidden",
+    });
+  });
+
+  it("lets an admin with no cohort place choose from every cohort", async () => {
+    const session = fullAccess("admin", []);
+    backendReplies(ok(session));
+
+    await expect(authorize(campusIndex)).resolves.toEqual({
+      kind: "allow",
+      session,
+    });
+  });
+
+  it("does not redirect an admin who holds a single cohort place", async () => {
+    const session = fullAccess("admin", [COHORT_A]);
+    backendReplies(ok(session));
+
+    await expect(authorize(campusIndex)).resolves.toEqual({
+      kind: "allow",
+      session,
+    });
+  });
+
+  it("keeps membership routing out of the campus shell", async () => {
+    const session = fullAccess("user", []);
+    backendReplies(ok(session));
+
+    await expect(authorize(campusShell)).resolves.toEqual({
+      kind: "allow",
+      session,
+    });
+  });
+});
+
+async function settle<T>(pending: Promise<T>): Promise<T | unknown> {
+  const outcome = pending.catch((error: unknown) => error);
+  await vi.runAllTimersAsync();
+  return outcome;
+}
+
+describe("requireRouteAccess", () => {
+  beforeEach(() => {
+    vi.stubEnv("__NEXT_EXPERIMENTAL_AUTH_INTERRUPTS", "true");
+  });
+
+  it("returns the session for a visitor who may render the route", async () => {
+    backendReplies(ok(fullAccessSession));
+
+    await expect(settle(requireRouteAccess(campusShell))).resolves.toEqual({
+      kind: "allow",
+      session: fullAccessSession,
+    });
+  });
+
+  it("interrupts the render with a temporary redirect to the decided destination", async () => {
+    backendReplies(ok(provisionalSession));
+
+    const interrupt = await settle(requireRouteAccess(campusShell));
+
+    expect(isRedirectError(interrupt)).toBe(true);
+    if (!isRedirectError(interrupt)) return;
+    expect(getURLFromRedirectError(interrupt)).toBe("/invitation");
+    expect(getRedirectStatusCodeFromError(interrupt)).toBe(307);
+  });
+
+  it("interrupts the render with a 403 for a refused account", async () => {
+    backendReplies(status(403));
+
+    const interrupt = await settle(requireRouteAccess(campusShell));
+
+    expect(getAccessFallbackHTTPStatus(interrupt as never)).toBe(403);
+  });
+
+  it("returns the retry destination when the session service is down", async () => {
+    backendReplies(status(503), status(503), status(503));
+
+    await expect(settle(requireRouteAccess(campusShell))).resolves.toEqual(
+      UNAVAILABLE,
+    );
+  });
+});
+
+describe("CampusShellGate", () => {
+  const campusContent = createElement("p", null, "Campus content");
+
+  async function renderGate() {
+    const element = await settle(CampusShellGate({ children: campusContent }));
+    return renderToStaticMarkup(element as ReactElement);
+  }
+
+  it("renders the route for a full-access visitor", async () => {
+    backendReplies(ok(fullAccessSession));
+
+    await expect(renderGate()).resolves.toBe("<p>Campus content</p>");
+  });
+
+  it("renders the retry state instead of the route during an outage", async () => {
+    backendReplies(status(503), status(503), status(503));
+
+    const markup = await renderGate();
+
+    expect(markup).not.toContain("Campus content");
+    expect(markup).toContain('role="alert"');
+    expect(markup).toContain(`href="${RETURN_TO}"`);
   });
 });

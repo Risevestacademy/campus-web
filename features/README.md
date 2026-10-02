@@ -29,3 +29,7 @@ it.
 Create a feature directory only when implementation starts. Colocate its
 components, hooks, services, schemas, state, types, and tests. Expose consumers
 through `index.ts`; do not deep-import another feature or import feature-to-feature.
+
+The one other entry point is `proxy.ts`, for code the root `proxy.ts` runs.
+Next bundles the proxy separately, so that entry must not pull in React,
+client components, or `server-only` modules. Only `auth` has one today.

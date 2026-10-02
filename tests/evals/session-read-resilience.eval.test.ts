@@ -14,6 +14,7 @@ vi.mock("server-only", () => ({}));
 
 const NOW = Date.parse("2026-10-02T12:00:00.000Z");
 const RENDER_BUDGET_MS = 9700;
+const RETURN_TO = "/campus/42";
 
 const fullAccessSession = {
   scope: "full_access",
@@ -62,15 +63,15 @@ function visitor(clientAddress: string) {
     has: () => false,
   });
   nextHeaders.headers.mockResolvedValue(
-    new Headers({ "x-forwarded-for": clientAddress }),
+    new Headers({
+      "x-forwarded-for": clientAddress,
+      "x-campus-return-to": RETURN_TO,
+    }),
   );
 }
 
 async function renderCampusRoute() {
-  const decision = authorizeRoute({
-    kind: "campus-shell",
-    returnTo: "/campus/42",
-  });
+  const decision = authorizeRoute({ kind: "campus-shell" });
   await vi.runAllTimersAsync();
   return decision;
 }
@@ -93,7 +94,10 @@ describe("Session read resilience eval (threshold: fail closed within 9.7 s, 0 r
   it("fails closed within the render budget when campus-api hangs", async () => {
     const sent = installBackend(hangUntilAborted);
 
-    await expect(renderCampusRoute()).resolves.toEqual({ kind: "unavailable" });
+    await expect(renderCampusRoute()).resolves.toEqual({
+      kind: "unavailable",
+      retryHref: RETURN_TO,
+    });
 
     expect(sent).toHaveLength(3);
     expect(Date.now() - NOW).toBeLessThanOrEqual(RENDER_BUDGET_MS);
@@ -108,6 +112,7 @@ describe("Session read resilience eval (threshold: fail closed within 9.7 s, 0 r
 
     await expect(renderCampusRoute()).resolves.toEqual({
       kind: "unavailable",
+      retryHref: RETURN_TO,
       retryAfterMs: 30_000,
     });
 

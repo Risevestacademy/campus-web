@@ -15,6 +15,8 @@ const ROTATED_COOKIES = [
 ];
 
 let refreshReplies = [];
+let sessionReply;
+let cohortPages = {};
 let requests = [];
 
 function sendJson(response, status, body, headers = {}) {
@@ -25,12 +27,27 @@ function sendJson(response, status, body, headers = {}) {
   response.end(body === undefined ? undefined : JSON.stringify(body));
 }
 
+function sendScripted(response, reply) {
+  sendJson(
+    response,
+    reply.status,
+    reply.body ?? { error: { code: "SCRIPTED" } },
+    reply.headers,
+  );
+}
+
 function readBody(request) {
   return new Promise((resolve) => {
     let body = "";
     request.on("data", (chunk) => (body += chunk));
     request.on("end", () => resolve(body));
   });
+}
+
+function hasSessionCookie(request) {
+  return (request.headers.cookie ?? "")
+    .split(";")
+    .some((cookie) => cookie.trim().startsWith("campus_session="));
 }
 
 function replyToRefresh(response) {
@@ -49,12 +66,32 @@ function replyToRefresh(response) {
     return;
   }
 
-  sendJson(
-    response,
-    reply.status,
-    { error: { code: "SCRIPTED" } },
-    reply.headers,
-  );
+  sendScripted(response, reply);
+}
+
+function replyToSession(request, response) {
+  if (!sessionReply || !hasSessionCookie(request)) {
+    sendJson(response, 401, { error: { code: "UNAUTHENTICATED" } });
+    return;
+  }
+  sendScripted(response, sessionReply);
+}
+
+function replyToCohorts(url, response) {
+  const page = cohortPages[url.searchParams.get("page") ?? "1"];
+  if (!page) {
+    sendJson(response, 503, { error: { code: "UNSCRIPTED_COHORT_PAGE" } });
+    return;
+  }
+  sendJson(response, 200, page);
+}
+
+// Each key present in the body replaces that part of the scenario, so tests
+// can script the refresh, session, and cohort replies independently.
+function applyScenario(scenario) {
+  if ("refresh" in scenario) refreshReplies = scenario.refresh;
+  if ("session" in scenario) sessionReply = scenario.session;
+  if ("cohorts" in scenario) cohortPages = scenario.cohorts;
 }
 
 async function handleControl(request, response, path) {
@@ -62,18 +99,21 @@ async function handleControl(request, response, path) {
   if (path === "/__requests") return sendJson(response, 200, requests);
   if (path === "/__reset") {
     refreshReplies = [];
+    sessionReply = undefined;
+    cohortPages = {};
     requests = [];
     return sendJson(response, 204);
   }
   if (path === "/__scenario" && request.method === "POST") {
-    refreshReplies = JSON.parse(await readBody(request)).refresh ?? [];
+    applyScenario(JSON.parse(await readBody(request)));
     return sendJson(response, 204);
   }
   return sendJson(response, 404, { error: { code: "UNKNOWN_CONTROL" } });
 }
 
 const server = createServer(async (request, response) => {
-  const path = new URL(request.url ?? "/", "http://fake-api").pathname;
+  const url = new URL(request.url ?? "/", "http://fake-api");
+  const path = url.pathname;
 
   if (path.startsWith("/__")) {
     await handleControl(request, response, path);
@@ -83,11 +123,22 @@ const server = createServer(async (request, response) => {
   requests.push({
     method: request.method,
     path,
+    search: url.search,
     cookie: request.headers.cookie ?? null,
   });
 
   if (request.method === "POST" && path === "/v1/auth/refresh") {
     replyToRefresh(response);
+    return;
+  }
+
+  if (request.method === "GET" && path === "/v1/auth/me") {
+    replyToSession(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && path === "/v1/cohorts") {
+    replyToCohorts(url, response);
     return;
   }
 

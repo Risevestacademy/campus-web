@@ -3,10 +3,10 @@ import "server-only";
 import { cookies, headers } from "next/headers";
 import type { ClientOptions } from "openapi-fetch";
 
+import { SESSION_COOKIE } from "./auth-cookies";
 import { readApiBaseUrl } from "./configuration";
 import { createApiClient } from "./create-api-client";
 
-const SESSION_COOKIE_NAME = "campus_session";
 const CLIENT_ADDRESS_HEADER = "x-forwarded-for";
 
 interface ServerApiOptions {
@@ -15,7 +15,7 @@ interface ServerApiOptions {
 }
 
 function serializeSessionCookie(value: string): string {
-  return `${SESSION_COOKIE_NAME}=${encodeURIComponent(value)}`;
+  return `${SESSION_COOKIE}=${encodeURIComponent(value)}`;
 }
 
 // campus-api rate-limits by client address. Without the visitor's
@@ -25,7 +25,7 @@ async function readVisitorHeaders(): Promise<Record<string, string>> {
     cookies(),
     headers(),
   ]);
-  const session = requestCookies.get(SESSION_COOKIE_NAME);
+  const session = requestCookies.get(SESSION_COOKIE);
   const clientAddress = requestHeaders.get(CLIENT_ADDRESS_HEADER);
 
   return {
