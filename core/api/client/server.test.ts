@@ -18,8 +18,8 @@ beforeEach(() => {
   vi.stubEnv("API_BASE_URL", "https://api.example.test");
   nextHeaders.cookies.mockResolvedValue({
     get: (name: string) =>
-      name === "accessToken"
-        ? { name: "accessToken", value: "session-token" }
+      name === "campus_session"
+        ? { name: "campus_session", value: "session-token" }
         : undefined,
   });
 });
@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 describe("getServerApi", () => {
-  it("forwards only the request access token directly to the backend", async () => {
+  it("forwards only the request session directly to the backend", async () => {
     let outboundRequest: Request | undefined;
     const api = await getServerApi({
       fetch: (request) => {
@@ -43,17 +43,17 @@ describe("getServerApi", () => {
 
     expect(outboundRequest?.url).toBe("https://api.example.test/v1/health");
     expect(outboundRequest?.headers.get("cookie")).toBe(
-      "accessToken=session-token",
+      "campus_session=session-token",
     );
   });
 
   it("keeps credentials isolated between concurrent server clients", async () => {
     nextHeaders.cookies
       .mockResolvedValueOnce({
-        get: () => ({ name: "accessToken", value: "token-one" }),
+        get: () => ({ name: "campus_session", value: "token-one" }),
       })
       .mockResolvedValueOnce({
-        get: () => ({ name: "accessToken", value: "token-two" }),
+        get: () => ({ name: "campus_session", value: "token-two" }),
       });
     const outboundCookies: Array<string | null> = [];
     const captureRequest = (request: Request) => {
@@ -72,15 +72,15 @@ describe("getServerApi", () => {
     ]);
 
     expect(outboundCookies).toEqual([
-      "accessToken=token-one",
-      "accessToken=token-two",
+      "campus_session=token-one",
+      "campus_session=token-two",
     ]);
   });
 
   it("encodes the token before placing it in an outbound cookie header", async () => {
     nextHeaders.cookies.mockResolvedValue({
       get: () => ({
-        name: "accessToken",
+        name: "campus_session",
         value: "token; unrelatedCookie=exposed",
       }),
     });
@@ -95,7 +95,7 @@ describe("getServerApi", () => {
     await api.GET("/v1/health");
 
     expect(outboundRequest?.headers.get("cookie")).toBe(
-      "accessToken=token%3B%20unrelatedCookie%3Dexposed",
+      "campus_session=token%3B%20unrelatedCookie%3Dexposed",
     );
   });
 

@@ -1,13 +1,18 @@
-export default async function ActiveCampusPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
+import Image from "next/image";
+
+import { IMAGES } from "@/assets/images";
+
+export default async function ActiveCampusPage() {
   return (
-    <div className="grid place-content-center">
-      <h1>ActiveCampus {id}</h1>
-      <p>The Campus View and map</p>
+    <div className="relative grid place-content-center">
+      <Image
+        src={IMAGES.map}
+        alt="Campus Map"
+        fill
+        sizes="100vw"
+        className="size-full object-cover"
+      />
+      <div className="relative"></div>
     </div>
   );
 }

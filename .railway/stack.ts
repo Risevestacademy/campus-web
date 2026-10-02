@@ -30,6 +30,7 @@ const campusWebWatchPatterns = [
   "/config/**",
   "/core/**",
   "/features/**",
+  "/public/**",
   "/shared/**",
   "/instrumentation-client.ts",
   "/next.config.ts",
@@ -68,7 +69,8 @@ export function createFrontendProject(environment: RailwayEnvironment) {
     },
     replicas: { ams: 1 },
     env: {
-      API_BASE_URL: preserve(),
+      API_BASE_URL:
+        "http://${{campus-api.RAILWAY_PRIVATE_DOMAIN}}:${{campus-api.PORT}}",
       NEXT_PUBLIC_POSTHOG_HOST: preserve(),
       NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: preserve(),
     },
