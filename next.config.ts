@@ -18,6 +18,9 @@ const nextConfig = {
     ],
   },
   typedRoutes: true,
+  experimental: {
+    authInterrupts: true,
+  },
 } satisfies NextConfig;
 
 export default nextConfig;

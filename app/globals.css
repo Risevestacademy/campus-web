@@ -409,6 +409,10 @@
   }
 }
 
+html[data-sidebar-open="false"] [data-slot="campus-sidebar"] {
+  width: 0;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -2,7 +2,7 @@
 
 import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 import { SquaresFourIcon } from "@phosphor-icons/react/dist/ssr/SquaresFour";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 import type { MeetingParticipant } from "./meeting-header";
 import {
@@ -33,7 +33,14 @@ interface MeetingViewControlsProps {
   localParticipantId: MeetingParticipant["id"];
   motionConfig?: MeetingTileMotionConfig;
   participants: readonly MeetingParticipant[];
+  onViewChange?: (view: MeetingView) => void;
+  subscribeToSidebarOpen?: (onStoreChange: () => void) => () => void;
+  getSidebarOpenSnapshot?: () => boolean;
+  getServerSidebarOpenSnapshot?: () => boolean;
 }
+
+const noSidebarSubscription = () => () => {};
+const assumeSidebarOpen = () => true;
 
 function MeetingViewIconPair() {
   return (
@@ -86,11 +93,31 @@ export function MeetingViewControls({
   localParticipantId,
   motionConfig,
   participants,
+  onViewChange,
+  subscribeToSidebarOpen = noSidebarSubscription,
+  getSidebarOpenSnapshot = assumeSidebarOpen,
+  getServerSidebarOpenSnapshot = assumeSidebarOpen,
 }: MeetingViewControlsProps) {
   const [viewState, setViewState] = useState<MeetingViewState>(
     INITIAL_MEETING_VIEW_STATE,
   );
   const activeView = viewState.layout.mode === "compact" ? "map" : "grid";
+
+  const isSidebarOpen = useSyncExternalStore(
+    subscribeToSidebarOpen,
+    getSidebarOpenSnapshot,
+    getServerSidebarOpenSnapshot,
+  );
+  const [sidebarOpenAtLastRender, setSidebarOpenAtLastRender] =
+    useState(isSidebarOpen);
+
+  if (isSidebarOpen !== sidebarOpenAtLastRender) {
+    setSidebarOpenAtLastRender(isSidebarOpen);
+
+    if (isSidebarOpen && viewState.layout.mode !== "compact") {
+      setViewState({ layout: { mode: "compact" }, shouldAnimate: true });
+    }
+  }
 
   function updateActiveView(nextView: MeetingView, animateViewChange: boolean) {
     setViewState({
@@ -100,6 +127,7 @@ export function MeetingViewControls({
           : { mode: "expanded", focusedTileId: null },
       shouldAnimate: animateViewChange,
     });
+    onViewChange?.(nextView);
   }
 
   function activateParticipantTile(
@@ -125,6 +153,7 @@ export function MeetingViewControls({
         shouldAnimate: animateViewChange,
       };
     });
+    onViewChange?.("grid");
   }
 
   return (

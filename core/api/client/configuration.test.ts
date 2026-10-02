@@ -21,6 +21,18 @@ describe("readApiBaseUrl", () => {
     ).toBe("http://campus-api.railway.internal:3000");
   });
 
+  it.each([
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+    "http://[::1]:3001",
+  ])("accepts the loopback HTTP origin %s", (origin) => {
+    expect(
+      readApiBaseUrl({
+        API_BASE_URL: origin,
+      }),
+    ).toBe(new URL(origin).origin);
+  });
+
   it("rejects a missing server origin", () => {
     expect(() => readApiBaseUrl({ API_BASE_URL: " " })).toThrow(
       "API_BASE_URL is required.",
@@ -33,7 +45,7 @@ describe("readApiBaseUrl", () => {
         API_BASE_URL: "http://api.example.test",
       }),
     ).toThrow(
-      "API_BASE_URL must be an HTTPS origin or a Railway private HTTP origin.",
+      "API_BASE_URL must be an HTTPS, loopback HTTP, or Railway private HTTP origin.",
     );
   });
 
@@ -43,7 +55,7 @@ describe("readApiBaseUrl", () => {
         API_BASE_URL: "https://user:secret@api.example.test/v1",
       }),
     ).toThrow(
-      "API_BASE_URL must be an HTTPS origin or a Railway private HTTP origin.",
+      "API_BASE_URL must be an HTTPS, loopback HTTP, or Railway private HTTP origin.",
     );
   });
 });

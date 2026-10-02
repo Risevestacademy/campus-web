@@ -1,14 +1,17 @@
 type ApiEnvironment = Readonly<Record<string, string | undefined>>;
 
 const INVALID_ORIGIN_MESSAGE =
-  "API_BASE_URL must be an HTTPS origin or a Railway private HTTP origin.";
+  "API_BASE_URL must be an HTTPS, loopback HTTP, or Railway private HTTP origin.";
 
 function isAllowedProtocol(url: URL): boolean {
   const isHttps = url.protocol === "https:";
+  const isLoopbackHttp =
+    url.protocol === "http:" &&
+    ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
   const isRailwayPrivateHttp =
     url.protocol === "http:" && url.hostname.endsWith(".railway.internal");
 
-  return isHttps || isRailwayPrivateHttp;
+  return isHttps || isLoopbackHttp || isRailwayPrivateHttp;
 }
 
 function parseApiOrigin(value: string): URL {

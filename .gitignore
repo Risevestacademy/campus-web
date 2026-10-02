@@ -45,4 +45,5 @@ yarn-error.log*
 next-env.d.ts
 
 # Others
-docs/
+docs/*
+!docs/architectural-plan.md
