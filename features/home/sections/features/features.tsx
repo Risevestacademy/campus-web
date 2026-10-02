@@ -30,38 +30,41 @@ export function FeaturesSection() {
     <section
       id="features"
       aria-labelledby="features-heading"
-      className="content-grid dark:bg-background scroll-mt-22 bg-[#EFFAFF] pt-16 pb-12 font-sans md:scroll-mt-28 md:pt-18 md:pb-16"
+      className="content-grid dark:bg-background scroll-mt-22 bg-[#EFFAFF] pt-24 pb-20 font-sans md:scroll-mt-28"
     >
       <div className="w-full">
-        <header className="mx-auto max-w-[50rem] text-center">
+        <header className="mx-auto max-w-[900px] text-center">
           <h2
             id="features-heading"
-            className="font-display text-foreground text-4xl leading-[1.08] font-semibold tracking-tight md:text-[2.375rem]"
+            className="font-display text-foreground text-[56px] leading-[60px] font-semibold tracking-[-0.02em]"
           >
             <span className="block">Connection, with</span>
             <span className="block">room to breathe.</span>
           </h2>
-          <p className="text-foreground-secondary mx-auto mt-7 max-w-[49rem] text-sm leading-5 md:text-[0.9375rem] md:leading-6">
+
+          <p className="text-foreground-secondary mx-auto mt-7 max-w-[760px] text-lg leading-[160%]">
             A question after class. A catch-up at someone’s desk. A mentoring
             session in a private room. Campus gives those conversations a place,
             with controls for when you’re ready to join in.
           </p>
         </header>
 
-        <ul className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {featureCards.map(({ title, description, illustration }) => (
             <li key={title}>
-              <article className="flex h-full flex-col rounded-xl bg-neutral-50 p-4 text-neutral-950 transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm">
+              <article className="flex h-full flex-col gap-[18px] rounded-2xl bg-neutral-50 p-6 text-neutral-950 transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm">
                 <figure
                   aria-hidden="true"
-                  className="mx-auto aspect-[5/3] w-[90%] overflow-hidden rounded-xl"
+                  className="mx-auto h-[190px] w-full overflow-hidden rounded-xl"
                 >
                   {illustration}
                 </figure>
-                <h3 className="font-display text-foreground mt-3 text-base leading-snug font-semibold dark:text-neutral-950">
+
+                <h3 className="font-display text-foreground text-2xl leading-[130%] font-semibold tracking-[-0.005em] dark:text-neutral-950">
                   {title}
                 </h3>
-                <p className="text-foreground-secondary mt-3 text-xs leading-relaxed md:text-[0.8125rem] dark:text-neutral-700">
+
+                <p className="text-foreground-secondary text-base leading-[160%] dark:text-neutral-700">
                   {description}
                 </p>
               </article>

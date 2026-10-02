@@ -12,18 +12,14 @@ const footerLinks = [
 
 export function FooterSection() {
   return (
-    <footer
-      className="content-grid bg-[#142429] font-sans text-neutral-50"
-      style={{
-        borderTop: "2px solid var(--color-turquoise-500)",
-        paddingBlock: "2rem",
-      }}
-    >
-      <div className="w-full">
-        <div
-          className="flex flex-col gap-6 md:flex-row md:items-center"
-          style={{ justifyContent: "space-between" }}
-        >
+    <footer className="content-grid relative bg-[#142429] py-12 font-sans text-neutral-50">
+      <div
+        aria-hidden="true"
+        className="full-width bg-turquoise-500 pointer-events-none absolute inset-x-0 top-0 h-0.5"
+      />
+
+      <div className="flex w-full flex-col gap-11">
+        <div className="flex min-h-[52.5476px] flex-col justify-between gap-6 md:flex-row md:items-center">
           <Link
             href="/"
             className="w-fit rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-neutral-50"
@@ -33,15 +29,12 @@ export function FooterSection() {
               alt="Campus by Rise"
               width={181}
               height={53}
-              className="h-auto w-32"
+              className="h-auto w-[180.0707px] rounded-[1.06px]"
             />
           </Link>
 
-          <nav
-            aria-label="Footer"
-            className="font-sans text-[0.6875rem] leading-4"
-          >
-            <ul className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <nav aria-label="Footer" className="w-96 max-w-full font-sans">
+            <ul className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 text-[15px] leading-6 font-medium">
               {footerLinks.map(({ label, href }) => (
                 <li key={href}>
                   <Link
@@ -56,12 +49,14 @@ export function FooterSection() {
           </nav>
         </div>
 
-        <div
-          className="mt-8 flex flex-col gap-2 text-[0.625rem] leading-4 text-neutral-200 md:flex-row md:items-center"
-          style={{ justifyContent: "space-between" }}
-        >
-          <p>A shared place to learn, connect and belong.</p>
-          <p>© {new Date().getFullYear()} Campus by Rise.</p>
+        <div className="flex w-full flex-col justify-between gap-2 text-neutral-200 md:flex-row md:items-center">
+          <p className="w-[430px] max-w-full text-[15px] leading-6 font-normal">
+            A shared place to learn, connect and belong.
+          </p>
+
+          <p className="w-[180px] max-w-full text-[13px] leading-6 font-normal">
+            © {new Date().getFullYear()} Campus by Rise.
+          </p>
         </div>
       </div>
     </footer>

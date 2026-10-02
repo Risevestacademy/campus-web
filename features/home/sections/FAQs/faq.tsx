@@ -52,16 +52,17 @@ export function FAQsSection() {
     <section
       id="faqs"
       aria-labelledby="faqs-heading"
-      className="content-grid bg-background text-foreground scroll-mt-22 py-16 font-sans md:scroll-mt-28 md:py-20"
+      className="content-grid bg-background text-foreground scroll-mt-22 py-24 font-sans md:scroll-mt-28"
     >
-      <div className="grid w-full grid-cols-1 gap-8 md:grid-cols-[minmax(15rem,0.9fr)_minmax(0,1.8fr)] md:gap-10">
+      <div className="grid w-full grid-cols-1 gap-12 md:grid-cols-[368px_minmax(0,1fr)] md:gap-24">
         <header>
-          <p className="text-primary text-[0.625rem] font-medium tracking-[0.12em] uppercase md:text-xs">
+          <p className="text-primary text-xs leading-5 font-semibold tracking-[0.08em] uppercase">
             Frequently asked questions
           </p>
+
           <h2
             id="faqs-heading"
-            className="font-display mt-4 max-w-[19rem] text-[2rem] leading-[1.08] font-semibold tracking-tight md:text-[2.375rem]"
+            className="font-display mt-4 max-w-[368px] text-[56px] leading-[60px] font-semibold tracking-[-0.02em]"
           >
             <span className="block">Before you</span>
             <span className="block">step inside.</span>
@@ -80,8 +81,9 @@ export function FAQsSection() {
               className="border-border-subtle border-b"
             >
               <Accordion.Header className="m-0">
-                <Accordion.Trigger className="group text-foreground hover:text-primary focus-visible:ring-primary flex min-h-[3.5rem] w-full cursor-pointer items-center justify-between gap-5 py-3 text-left text-sm leading-5 font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset md:text-base">
+                <Accordion.Trigger className="group text-foreground hover:text-primary focus-visible:ring-primary flex min-h-[3.5rem] w-full cursor-pointer items-center justify-between gap-4 py-6 text-left text-xl leading-7 font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset">
                   <span>{question}</span>
+
                   <span className="text-primary grid size-5 shrink-0 place-items-center">
                     <PlusIcon
                       aria-hidden
@@ -98,8 +100,9 @@ export function FAQsSection() {
                   </span>
                 </Accordion.Trigger>
               </Accordion.Header>
+
               <Accordion.Panel className="h-(--accordion-panel-height) overflow-hidden transition-[height,opacity] duration-200 ease-out data-[ending-style]:h-0 data-[ending-style]:opacity-0 data-[starting-style]:h-0 data-[starting-style]:opacity-0 motion-reduce:transition-none">
-                <p className="text-foreground-secondary max-w-[38rem] pb-4 text-xs leading-5 md:text-[0.8125rem]">
+                <p className="text-foreground-secondary max-w-[816px] pb-6 text-base leading-[160%]">
                   {answer}
                 </p>
               </Accordion.Panel>
