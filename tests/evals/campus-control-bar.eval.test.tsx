@@ -2,13 +2,16 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import ActiveCampusLayout from "@/app/(app)/campus/[id]/(active-campus)/layout";
+import CampusLayout from "@/app/(app)/campus/[id]/layout";
 
 describe("campus control bar acceptance (required threshold: 1/1)", () => {
   it("exposes the complete desktop control bar through the active-campus layout", () => {
     render(
-      <ActiveCampusLayout>
-        <div />
-      </ActiveCampusLayout>,
+      <CampusLayout>
+        <ActiveCampusLayout>
+          <div />
+        </ActiveCampusLayout>
+      </CampusLayout>,
     );
 
     const controls = screen.getByRole("complementary", {

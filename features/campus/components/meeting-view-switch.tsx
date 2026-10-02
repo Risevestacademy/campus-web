@@ -30,6 +30,7 @@ interface MeetingViewSwitchControlProps {
 }
 
 interface MeetingViewControlsProps {
+  localParticipantId: MeetingParticipant["id"];
   motionConfig?: MeetingTileMotionConfig;
   participants: readonly MeetingParticipant[];
 }
@@ -82,6 +83,7 @@ function MeetingViewSwitchControl({
 }
 
 export function MeetingViewControls({
+  localParticipantId,
   motionConfig,
   participants,
 }: MeetingViewControlsProps) {
@@ -129,6 +131,7 @@ export function MeetingViewControls({
     <>
       <MeetingTiles
         layout={viewState.layout}
+        localParticipantId={localParticipantId}
         motionConfig={motionConfig}
         onTileActivate={activateParticipantTile}
         participants={participants}

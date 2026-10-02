@@ -1,6 +1,15 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import {
+  CampusMediaSessionProvider,
+  MediaSessionProvider,
+} from "../services/media-session/media-session-provider";
+import { createMediaSessionStore } from "../services/media-session/media-session-store";
+import {
+  createTestMediaDevice,
+  installTestMediaDevices,
+} from "../testing/media-session-test-utils";
 import { MeetingViewControls } from "./meeting-view-switch";
 
 const meetingParticipants = [
@@ -8,9 +17,54 @@ const meetingParticipants = [
   { id: "participant-j", initials: "J", name: "James Baldwin" },
 ] as const;
 
+function renderMeetingViewControls() {
+  const store = createMediaSessionStore({ mediaDevices: null });
+
+  return render(
+    <MediaSessionProvider store={store}>
+      <MeetingViewControls
+        localParticipantId="participant-a"
+        participants={meetingParticipants}
+      />
+    </MediaSessionProvider>,
+  );
+}
+
 describe("MeetingViewControls", () => {
+  afterEach(() => {
+    window.localStorage.clear();
+    vi.unstubAllGlobals();
+  });
+
+  it("renders the local camera publication in the matching participant tile", async () => {
+    window.localStorage.setItem(
+      "campus-media-control-preferences",
+      JSON.stringify({
+        cameraEnabled: true,
+        microphoneEnabled: false,
+      }),
+    );
+    installTestMediaDevices([
+      createTestMediaDevice("camera-1", "videoinput", "Camera"),
+      createTestMediaDevice("microphone-1", "audioinput", "Microphone"),
+    ]);
+    render(
+      <CampusMediaSessionProvider>
+        <MeetingViewControls
+          localParticipantId="participant-a"
+          participants={meetingParticipants}
+        />
+      </CampusMediaSessionProvider>,
+    );
+
+    const localVideo = await screen.findByLabelText("Ada Lovelace video");
+
+    expect(localVideo).toHaveProperty("srcObject", expect.any(Object));
+    expect(screen.getByText("Waiting for video")).toBeInTheDocument();
+  });
+
   it("animates pointer-driven tile expansion and makes keyboard changes instant", () => {
-    render(<MeetingViewControls participants={meetingParticipants} />);
+    renderMeetingViewControls();
 
     const viewSwitch = screen.getByRole("switch", { name: "Use grid view" });
     const meetingTiles = screen.getByRole("region", {
@@ -35,7 +89,7 @@ describe("MeetingViewControls", () => {
   });
 
   it("expands the meeting view and synchronizes the switch when a tile is activated", () => {
-    render(<MeetingViewControls participants={meetingParticipants} />);
+    renderMeetingViewControls();
 
     const meetingTiles = screen.getByRole("region", {
       name: "Meeting participant tiles",
@@ -56,7 +110,7 @@ describe("MeetingViewControls", () => {
   });
 
   it("focuses, swaps, and restores expanded meeting tiles", () => {
-    render(<MeetingViewControls participants={meetingParticipants} />);
+    renderMeetingViewControls();
 
     const viewSwitch = screen.getByRole("switch", { name: "Use grid view" });
 
@@ -90,7 +144,7 @@ describe("MeetingViewControls", () => {
   });
 
   it("makes keyboard focus changes instant and clears focus on map view", () => {
-    render(<MeetingViewControls participants={meetingParticipants} />);
+    renderMeetingViewControls();
 
     const meetingTiles = screen.getByRole("region", {
       name: "Meeting participant tiles",

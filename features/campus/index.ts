@@ -11,3 +11,4 @@ export {
 } from "./components/meeting-header";
 export { MeetingViewControls } from "./components/meeting-view-switch";
 export { VisualsDisplay } from "./components/visuals-display";
+export { CampusMediaSessionProvider } from "./services/media-session/media-session-provider";

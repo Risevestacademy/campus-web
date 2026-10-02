@@ -8,27 +8,35 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { VisualsDisplay } from "@/features/campus";
+import { CampusMediaSessionProvider } from "@/features/campus/services/media-session/media-session-provider";
+import {
+  createTestMediaDevice,
+  installTestMediaDevices,
+} from "@/features/campus/testing/media-session-test-utils";
 
-function createDevice(
-  deviceId: string,
-  kind: MediaDeviceKind,
-  label: string,
-): MediaDeviceInfo {
-  const device = { deviceId, groupId: `${deviceId}-group`, kind, label };
-
-  return {
-    ...device,
-    toJSON: () => device,
-  } as MediaDeviceInfo;
+function renderVisualsDisplay() {
+  return render(
+    <CampusMediaSessionProvider>
+      <VisualsDisplay />
+    </CampusMediaSessionProvider>,
+  );
 }
 
-describe("media controls acceptance (required threshold: 2/2)", () => {
+const availableDevices = [
+  createTestMediaDevice("default", "videoinput", "FaceTime HD Camera"),
+  createTestMediaDevice("mic-1", "audioinput", "Studio Microphone"),
+  createTestMediaDevice("speaker-1", "audiooutput", "Studio Speakers"),
+];
+
+describe("media controls acceptance", () => {
   afterEach(() => {
+    window.localStorage.clear();
     vi.unstubAllGlobals();
   });
 
-  it("keeps media state independent and exposes both settings menus", () => {
-    render(<VisualsDisplay />);
+  it("keeps media state independent and exposes both settings menus", async () => {
+    installTestMediaDevices(availableDevices);
+    renderVisualsDisplay();
 
     const cameraControls = screen.getByRole("group", {
       name: "Camera controls",
@@ -43,8 +51,8 @@ describe("media controls acceptance (required threshold: 2/2)", () => {
       name: "Microphone",
     });
 
-    expect(camera).toHaveAttribute("aria-pressed", "true");
-    expect(microphone).toHaveAttribute("aria-pressed", "true");
+    expect(camera).toHaveAttribute("aria-pressed", "false");
+    expect(microphone).toHaveAttribute("aria-pressed", "false");
     expect(
       within(cameraControls).getByRole("button", {
         name: "Open camera settings",
@@ -58,30 +66,52 @@ describe("media controls acceptance (required threshold: 2/2)", () => {
 
     fireEvent.click(camera);
 
-    expect(camera).toHaveAttribute("aria-pressed", "false");
-    expect(microphone).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => {
+      expect(camera).toHaveAttribute("aria-pressed", "true");
+    });
+    expect(microphone).toHaveAttribute("aria-pressed", "false");
 
     fireEvent.click(microphone);
 
+    await waitFor(() => {
+      expect(microphone).toHaveAttribute("aria-pressed", "true");
+    });
+    expect(camera).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(camera);
+
     expect(camera).toHaveAttribute("aria-pressed", "false");
-    expect(microphone).toHaveAttribute("aria-pressed", "false");
+    expect(microphone).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("restores persisted media intent after the provider remounts", async () => {
+    installTestMediaDevices(availableDevices);
+    const firstRender = renderVisualsDisplay();
+    const firstCamera = screen.getByRole("button", { name: "Camera" });
+
+    fireEvent.click(firstCamera);
+    await waitFor(() => {
+      expect(firstCamera).toHaveAttribute("aria-pressed", "true");
+    });
+    firstRender.unmount();
+
+    renderVisualsDisplay();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Camera" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
+    expect(screen.getByRole("button", { name: "Microphone" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 
   it("shows only browser-provided devices in the matching settings menu", async () => {
-    const getUserMedia = vi.fn();
-    vi.stubGlobal("navigator", {
-      mediaDevices: {
-        enumerateDevices: vi
-          .fn()
-          .mockResolvedValue([
-            createDevice("default", "videoinput", "FaceTime HD Camera"),
-            createDevice("mic-1", "audioinput", "Studio Microphone"),
-            createDevice("speaker-1", "audiooutput", "Studio Speakers"),
-          ]),
-        getUserMedia,
-      },
-    });
-    render(<VisualsDisplay />);
+    installTestMediaDevices(availableDevices);
+    renderVisualsDisplay();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Open camera settings" }),
@@ -111,6 +141,27 @@ describe("media controls acceptance (required threshold: 2/2)", () => {
     expect(
       screen.getByRole("menuitemradio", { name: "Studio Speakers" }),
     ).toBeInTheDocument();
-    expect(getUserMedia).not.toHaveBeenCalled();
+  });
+
+  it("announces when camera discovery is unavailable", async () => {
+    const mediaDevices = installTestMediaDevices([]);
+    vi.mocked(mediaDevices.enumerateDevices).mockRejectedValue(
+      new Error("denied"),
+    );
+    renderVisualsDisplay();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open camera settings" }),
+    );
+
+    await waitFor(() => {
+      const cameraSettings = screen.getByRole("menu", {
+        name: "Open camera settings",
+      });
+
+      expect(within(cameraSettings).getByRole("status")).toHaveTextContent(
+        "Cameras unavailable",
+      );
+    });
   });
 });

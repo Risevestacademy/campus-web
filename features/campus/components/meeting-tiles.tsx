@@ -3,6 +3,8 @@
 import { cn } from "cn";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
+import { useMediaSession } from "../services/media-session/media-session-provider";
+import { MediaPublicationOutput } from "./media-publication-output";
 import type { MeetingParticipant } from "./meeting-header";
 
 type CubicBezier = [number, number, number, number];
@@ -26,6 +28,7 @@ export type MeetingTileLayout =
 
 export interface MeetingTilesProps {
   layout: MeetingTileLayout;
+  localParticipantId: MeetingParticipant["id"];
   motionConfig?: MeetingTileMotionConfig;
   onTileActivate: (
     participantId: MeetingParticipant["id"],
@@ -33,6 +36,41 @@ export interface MeetingTilesProps {
   ) => void;
   participants: readonly MeetingParticipant[];
   shouldAnimate?: boolean;
+}
+
+function ParticipantMedia({
+  localParticipantId,
+  participant,
+}: Readonly<{
+  localParticipantId: MeetingParticipant["id"];
+  participant: MeetingParticipant;
+}>) {
+  const isLocal = participant.id === localParticipantId;
+  const videoPublication = useMediaSession((state) =>
+    isLocal
+      ? state.localPublications.camera
+      : state.remotePublications[participant.id]?.camera,
+  );
+  const audioPublication = useMediaSession((state) =>
+    isLocal ? undefined : state.remotePublications[participant.id]?.microphone,
+  );
+  const outputDeviceId = useMediaSession((state) =>
+    isLocal ? undefined : state.output.selectedDeviceId,
+  );
+
+  return (
+    <MediaPublicationOutput
+      audioPublication={audioPublication}
+      fallbackInitials={participant.initials}
+      fallbackLabel={
+        isLocal || videoPublication ? "Camera off" : "Waiting for video"
+      }
+      isLocal={isLocal}
+      label={`${participant.name} video`}
+      outputDeviceId={outputDeviceId}
+      videoPublication={videoPublication}
+    />
+  );
 }
 
 const OPACITY_DURATION_MS = 180;
@@ -75,6 +113,7 @@ const opacityVariants = {
 
 export function MeetingTiles({
   layout,
+  localParticipantId,
   motionConfig = DEFAULT_MEETING_TILE_MOTION,
   onTileActivate,
   participants,
@@ -161,7 +200,12 @@ export function MeetingTiles({
                       onTileActivate(participant.id, event.detail > 0)
                     }
                     className="bg-surface aspect-video size-full cursor-pointer appearance-none border-0 p-0 transition-transform duration-150 outline-none active:scale-[0.99] motion-reduce:transition-none motion-reduce:active:scale-100"
-                  />
+                  >
+                    <ParticipantMedia
+                      localParticipantId={localParticipantId}
+                      participant={participant}
+                    />
+                  </button>
                 </motion.div>
               );
             })}

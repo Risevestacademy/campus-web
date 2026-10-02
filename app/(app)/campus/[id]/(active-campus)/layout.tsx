@@ -40,7 +40,10 @@ export default function ActiveCampusLayout({
                   remainingParticipantCount={2}
                 />
               </div>
-              <MeetingViewControls participants={meetingParticipants} />
+              <MeetingViewControls
+                localParticipantId="participant-a"
+                participants={meetingParticipants}
+              />
             </aside>
           </div>
 

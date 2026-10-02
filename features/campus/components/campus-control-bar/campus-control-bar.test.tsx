@@ -1,11 +1,19 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { MediaSessionProvider } from "../../services/media-session/media-session-provider";
+import { createMediaSessionStore } from "../../services/media-session/media-session-store";
 import { CampusControlBar } from "./campus-control-bar";
 
 describe("CampusControlBar", () => {
   it("composes accessible campus controls from explicit presence data", () => {
-    render(<CampusControlBar initials="AJ" status="active" />);
+    const store = createMediaSessionStore({ mediaDevices: null });
+
+    render(
+      <MediaSessionProvider store={store}>
+        <CampusControlBar initials="AJ" status="active" />
+      </MediaSessionProvider>,
+    );
 
     expect(
       screen.getByRole("button", {

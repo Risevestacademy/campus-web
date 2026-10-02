@@ -1,11 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, userEvent, within } from "storybook/test";
 
+import { MediaSessionProvider } from "../services/media-session/media-session-provider";
+import { createMediaSessionStore } from "../services/media-session/media-session-store";
 import {
   DEFAULT_MEETING_TILE_MOTION,
   type MeetingTileMotionConfig,
 } from "./meeting-tiles";
 import { MeetingViewControls } from "./meeting-view-switch";
+
+const previewMediaSessionStore = createMediaSessionStore({
+  mediaDevices: null,
+});
 
 const meetingParticipants = [
   { id: "participant-a", initials: "A", name: "Ada Lovelace" },
@@ -31,6 +37,7 @@ function MeetingViewMotionLab({
       <div className="relative z-1 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-1.5 p-2.5">
         <span aria-hidden="true" />
         <MeetingViewControls
+          localParticipantId="participant-a"
           motionConfig={motionConfig}
           participants={meetingParticipants}
         />
@@ -48,6 +55,13 @@ function MeetingViewMotionLab({
 const meta = {
   title: "Features/Campus/MeetingView/Motion",
   component: MeetingViewMotionLab,
+  decorators: [
+    (Story) => (
+      <MediaSessionProvider store={previewMediaSessionStore}>
+        <Story />
+      </MediaSessionProvider>
+    ),
+  ],
   tags: ["!autodocs"],
   args: {
     durationMs: DEFAULT_MEETING_TILE_MOTION.durationMs,

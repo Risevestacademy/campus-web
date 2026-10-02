@@ -4,9 +4,10 @@ import { MicrophoneIcon } from "@phosphor-icons/react/dist/ssr/Microphone";
 import { MicrophoneSlashIcon } from "@phosphor-icons/react/dist/ssr/MicrophoneSlash";
 import { VideoCameraIcon } from "@phosphor-icons/react/dist/ssr/VideoCamera";
 import { VideoCameraSlashIcon } from "@phosphor-icons/react/dist/ssr/VideoCameraSlash";
-import { useState } from "react";
 
 import { Button } from "@/shared/ui/button";
+
+import type { CaptureStatus } from "../services/media-session/contracts";
 
 const mediaControls = {
   microphone: {
@@ -27,11 +28,27 @@ const mediaControls = {
 
 type MediaKind = keyof typeof mediaControls;
 
-export function MediaToggle({ kind }: { kind: MediaKind }) {
-  const [isEnabled, setIsEnabled] = useState(true);
+type MediaToggleProps = Readonly<{
+  isEnabled: boolean;
+  kind: MediaKind;
+  onToggle: () => Promise<void>;
+  status: CaptureStatus;
+}>;
+
+export function MediaToggle({
+  isEnabled,
+  kind,
+  onToggle,
+  status,
+}: MediaToggleProps) {
   const { DisabledIcon, disableTitle, EnabledIcon, enableTitle, label } =
     mediaControls[kind];
-  const title = isEnabled ? disableTitle : enableTitle;
+  const title =
+    status === "requesting"
+      ? `Starting ${label.toLowerCase()}`
+      : isEnabled
+        ? disableTitle
+        : enableTitle;
 
   return (
     <Button
@@ -40,9 +57,11 @@ export function MediaToggle({ kind }: { kind: MediaKind }) {
       variant="ghost"
       aria-label={label}
       aria-pressed={isEnabled}
+      aria-busy={status === "requesting"}
       data-media-disabled={isEnabled ? undefined : ""}
+      data-media-status={status}
       title={title}
-      onClick={() => setIsEnabled((wasEnabled) => !wasEnabled)}
+      onClick={() => void onToggle()}
       className="group/media-toggle data-media-disabled:text-error-icon hover:bg-muted data-media-disabled:hover:bg-error/10 transition-[background-color,color,scale,translate] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:transition-none active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100"
     >
       <span aria-hidden className="relative block size-5.5 shrink-0">
