@@ -114,12 +114,6 @@ export type LocalPublicationChange =
       type: "replaced";
     }>
   | Readonly<{
-      enabled: boolean;
-      publicationId: string;
-      source: PublicationSource;
-      type: "enabled-changed";
-    }>
-  | Readonly<{
       previousTrack: MediaStreamTrack;
       publicationId: string;
       source: PublicationSource;

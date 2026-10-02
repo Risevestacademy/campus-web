@@ -45,10 +45,10 @@ describe("media controls acceptance", () => {
       name: "Microphone controls",
     });
     const camera = within(cameraControls).getByRole("button", {
-      name: "Camera",
+      name: "Turn on camera",
     });
     const microphone = within(microphoneControls).getByRole("button", {
-      name: "Microphone",
+      name: "Turn on microphone",
     });
 
     expect(camera).toHaveAttribute("aria-pressed", "false");
@@ -69,6 +69,7 @@ describe("media controls acceptance", () => {
     await waitFor(() => {
       expect(camera).toHaveAttribute("aria-pressed", "true");
     });
+    expect(camera).toHaveAccessibleName("Turn off camera");
     expect(microphone).toHaveAttribute("aria-pressed", "false");
 
     fireEvent.click(microphone);
@@ -76,37 +77,43 @@ describe("media controls acceptance", () => {
     await waitFor(() => {
       expect(microphone).toHaveAttribute("aria-pressed", "true");
     });
+    expect(microphone).toHaveAccessibleName("Turn off microphone");
     expect(camera).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(camera);
 
     expect(camera).toHaveAttribute("aria-pressed", "false");
+    expect(camera).toHaveAccessibleName("Turn on camera");
     expect(microphone).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("restores persisted media intent after the provider remounts", async () => {
-    installTestMediaDevices(availableDevices);
+  it("requires a fresh enable action after the provider remounts", async () => {
+    const mediaDevices = installTestMediaDevices(availableDevices);
     const firstRender = renderVisualsDisplay();
-    const firstCamera = screen.getByRole("button", { name: "Camera" });
+    const firstCamera = screen.getByRole("button", {
+      name: "Turn on camera",
+    });
 
     fireEvent.click(firstCamera);
     await waitFor(() => {
       expect(firstCamera).toHaveAttribute("aria-pressed", "true");
     });
+    const acquiredStream = await vi.mocked(mediaDevices.getUserMedia).mock
+      .results[0]!.value;
+    const cameraTrack = acquiredStream.getVideoTracks()[0]!;
     firstRender.unmount();
+
+    expect(cameraTrack.stop).toHaveBeenCalledOnce();
 
     renderVisualsDisplay();
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Camera" })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
-    });
-    expect(screen.getByRole("button", { name: "Microphone" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    expect(
+      screen.getByRole("button", { name: "Turn on camera" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.getByRole("button", { name: "Turn on microphone" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(mediaDevices.getUserMedia).toHaveBeenCalledOnce();
   });
 
   it("shows only browser-provided devices in the matching settings menu", async () => {

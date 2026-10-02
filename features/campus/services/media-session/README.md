@@ -8,12 +8,12 @@ selectors, while a `MeetingMediaTransport` receives local publication changes
 and supplies remote publications. The production transport is a no-op until the
 backend signaling/SFU integration is implemented.
 
-Camera and microphone intent is remembered in browser local storage and
-defaults to off when no valid preference exists. Startup acquires only enabled
-sources. Camera off stops and removes the camera track so the browser can
-release the physical device; microphone off remains a soft mute after capture
-has started. These preferences stay client-owned when a backend transport is
-added.
+Selected camera, microphone, and speaker IDs are remembered in browser local
+storage. Capture intent is not persisted: every route session starts with both
+input sources off and does not call `getUserMedia()` until the user explicitly
+turns one on. Turning either input off invalidates pending acquisition, stops
+and removes its track, and removes its local publication. Device preferences
+stay client-owned when a backend transport is added.
 
 Media is modeled as source-aware publications rather than one stream per
 participant. Remote publications are indexed by participant and source so a
@@ -37,10 +37,10 @@ Tests that need controlled state may inject a store through
 
 ## Invariants
 
-- Missing, invalid, or inaccessible preferences default camera and microphone
-  intent to off.
-- Camera off stops and removes its track and local publication.
-- Microphone off soft-mutes an existing track.
+- Every route session starts camera and microphone capture off.
+- Missing, malformed, or inaccessible device preferences use system defaults.
+- Camera and microphone off stop and remove their track and local publication.
+- Re-enabling a source reacquires its remembered device.
 - Camera and microphone acquisition fail independently.
 - Input replacement retains the current track until its replacement succeeds.
 - Browser tracks remain client-owned and route-scoped.
@@ -67,8 +67,9 @@ use this coordinator and still calls `discoverMediaDevices` directly.
 Implemented:
 
 - Route-scoped camera, microphone, and speaker state.
-- Persisted camera and microphone intent with default-off startup.
-- Camera hard release and microphone soft mute.
+- Persisted camera, microphone, and speaker selections.
+- Fresh enablement consent for every route session.
+- Camera and microphone hard release.
 - Transactional input switching.
 - Local and remote publication registries.
 - Source-aware publication rendering.
@@ -77,12 +78,11 @@ Implemented:
 
 Remaining:
 
-1. Reject partially malformed preference records as invalid.
-2. Reset disconnected selections even when their capture source is off.
-3. Prove camera and screen publication coexistence in registry coverage.
-4. Migrate the production store to `createDeviceCatalog`.
-5. Add the signaling/SFU transport adapter.
-6. Add screen capture as a separate module in a future worktree.
+1. Reset disconnected selections even when their capture source is off.
+2. Prove camera and screen publication coexistence in registry coverage.
+3. Migrate the production store to `createDeviceCatalog`.
+4. Add the signaling/SFU transport adapter.
+5. Add screen capture as a separate module in a future worktree.
 
 ## Worktree ownership
 
@@ -90,7 +90,7 @@ Remaining:
 should modify it at a time.
 
 - Preference correctness should stay within
-  `media-control-preferences.ts` and its store-level behavior tests.
+  `media-device-preferences.ts` and its store-level behavior tests.
 - Device-catalog migration owns `device-discovery.ts`,
   `media-session-store.ts`, device menus, and their acceptance coverage.
 - Publication coexistence should remain localized to
@@ -104,8 +104,12 @@ transport, backend, and screen-sharing work all depend on that interface.
 
 ## Verification
 
-Before the `origin/dev` merge, the complete unit suite passed 37 test files and
-158 tests. The merged result still requires a new verification baseline.
+Verified on 2026-10-02:
+
+- Unit suite: 56 test files and 388 tests passed.
+- Lint, typecheck, Prettier check, and production build passed.
+- The browser privacy indicator still requires manual verification because unit
+  tests cannot observe browser or operating-system chrome.
 
 Run:
 

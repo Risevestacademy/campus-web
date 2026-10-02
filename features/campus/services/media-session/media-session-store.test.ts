@@ -120,63 +120,65 @@ describe("media session store", () => {
     expect(store.getState().localPublications).toEqual({});
   });
 
-  it("restores explicitly enabled sources from local preferences", async () => {
-    storeMediaControlPreferences(true, false);
-    const camera = createTrack("video", "camera-1");
-    const mediaDevices = createMediaDevices(async () => createStream([camera]));
+  it("starts a new route session with sources off even when legacy enabled intent exists", async () => {
+    storeMediaControlPreferences(true, true);
+    const mediaDevices = createMediaDevices(async () => createStream());
     const store = createMediaSessionStore({
       createMediaStream: () => createStream(),
       mediaDevices,
     });
 
+    await store.getState().start();
+
+    expect(mediaDevices.getUserMedia).not.toHaveBeenCalled();
     expect(store.getState().camera).toMatchObject({
       desiredEnabled: false,
       status: "disabled",
       track: null,
-    });
-
-    await store.getState().start();
-
-    expect(mediaDevices.getUserMedia).toHaveBeenCalledOnce();
-    expect(store.getState().camera).toMatchObject({
-      desiredEnabled: true,
-      status: "ready",
-      track: camera,
     });
     expect(store.getState().microphone).toMatchObject({
       desiredEnabled: false,
       status: "disabled",
       track: null,
     });
+    expect(store.getState().localPublications).toEqual({});
   });
 
-  it("persists enabled intent when sources are toggled on", async () => {
-    const camera = createTrack("video", "camera-1");
-    const microphone = createTrack("audio", "microphone-1");
-    const mediaDevices = createMediaDevices(async (constraints) =>
-      createStream([constraints.video ? camera : microphone]),
-    );
-    const store = createMediaSessionStore({
+  it("restores selected devices without enabling capture", async () => {
+    const firstMediaDevices = createMediaDevices(async () => createStream());
+    const firstStore = createMediaSessionStore({
       createMediaStream: () => createStream(),
-      mediaDevices,
+      mediaDevices: firstMediaDevices,
     });
-    await store.getState().start();
+    await firstStore.getState().start();
 
-    await store.getState().toggleSource("camera");
-    await store.getState().toggleSource("microphone");
+    await firstStore.getState().selectInputDevice("camera", "camera-1");
+    await firstStore.getState().selectInputDevice("microphone", "microphone-1");
+    firstStore.getState().selectOutputDevice("speaker-1");
+    firstStore.getState().stop();
 
-    expect(
-      window.localStorage.getItem("campus-media-control-preferences"),
-    ).toBe(
-      JSON.stringify({
-        cameraEnabled: true,
-        microphoneEnabled: true,
-      }),
-    );
+    const secondMediaDevices = createMediaDevices(async () => createStream());
+    const secondStore = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices: secondMediaDevices,
+    });
+    await secondStore.getState().start();
+
+    expect(secondMediaDevices.getUserMedia).not.toHaveBeenCalled();
+    expect(secondStore.getState().camera).toMatchObject({
+      desiredEnabled: false,
+      selectedDeviceId: "camera-1",
+      track: null,
+    });
+    expect(secondStore.getState().microphone).toMatchObject({
+      desiredEnabled: false,
+      selectedDeviceId: "microphone-1",
+      track: null,
+    });
+    expect(secondStore.getState().output.selectedDeviceId).toBe("speaker-1");
   });
 
   it("releases the camera when it is switched off", async () => {
-    storeMediaControlPreferences(true, false);
     const camera = createTrack("video", "camera-1");
     const mediaDevices = createMediaDevices(async () => createStream([camera]));
     const { changes, transport } = createTransport();
@@ -187,6 +189,7 @@ describe("media session store", () => {
     });
     await store.getState().start();
 
+    await store.getState().toggleSource("camera");
     await store.getState().toggleSource("camera");
 
     expect(camera.stop).toHaveBeenCalledOnce();
@@ -201,14 +204,6 @@ describe("media session store", () => {
       source: "camera",
       type: "removed",
     });
-    expect(
-      window.localStorage.getItem("campus-media-control-preferences"),
-    ).toBe(
-      JSON.stringify({
-        cameraEnabled: false,
-        microphoneEnabled: false,
-      }),
-    );
   });
 
   it("does not acquire an input selected while its source is off", async () => {
@@ -233,7 +228,6 @@ describe("media session store", () => {
   });
 
   it("keeps microphone capture usable when camera permission is denied", async () => {
-    storeMediaControlPreferences(true, true);
     const microphone = createTrack("audio", "microphone-1");
     const mediaDevices = createMediaDevices(async (constraints) => {
       if (constraints.video) {
@@ -248,6 +242,8 @@ describe("media session store", () => {
     });
 
     await store.getState().start();
+    await store.getState().toggleSource("camera");
+    await store.getState().toggleSource("microphone");
 
     expect(store.getState().camera.status).toBe("denied");
     expect(store.getState().microphone.status).toBe("ready");
@@ -256,11 +252,12 @@ describe("media session store", () => {
     );
   });
 
-  it("soft-mutes the microphone without reacquiring", async () => {
-    storeMediaControlPreferences(false, true);
-    const microphone = createTrack("audio", "microphone-1");
+  it("releases the microphone and reacquires the selected device", async () => {
+    const firstMicrophone = createTrack("audio", "microphone-1");
+    const secondMicrophone = createTrack("audio", "microphone-1");
+    const microphones = [firstMicrophone, secondMicrophone];
     const mediaDevices = createMediaDevices(async () =>
-      createStream([microphone]),
+      createStream([microphones.shift()!]),
     );
     const { changes, transport } = createTransport();
     const store = createMediaSessionStore({
@@ -269,30 +266,44 @@ describe("media session store", () => {
       transport,
     });
     await store.getState().start();
-    const captureCount = vi.mocked(mediaDevices.getUserMedia).mock.calls.length;
+    await store.getState().toggleSource("microphone");
 
     await store.getState().toggleSource("microphone");
 
-    expect(microphone.enabled).toBe(false);
-    expect(store.getState().microphone.status).toBe("disabled");
-    expect(mediaDevices.getUserMedia).toHaveBeenCalledTimes(captureCount);
-    expect(changes.at(-1)).toMatchObject({
-      enabled: false,
-      source: "microphone",
-      type: "enabled-changed",
+    expect(firstMicrophone.stop).toHaveBeenCalledOnce();
+    expect(store.getState().microphone).toMatchObject({
+      desiredEnabled: false,
+      selectedDeviceId: "microphone-1",
+      status: "disabled",
+      track: null,
     });
-    expect(
-      window.localStorage.getItem("campus-media-control-preferences"),
-    ).toBe(
-      JSON.stringify({
-        cameraEnabled: false,
-        microphoneEnabled: false,
+    expect(store.getState().localPublications.microphone).toBeUndefined();
+    expect(changes.at(-1)).toMatchObject({
+      previousTrack: firstMicrophone,
+      source: "microphone",
+      type: "removed",
+    });
+
+    await store.getState().toggleSource("microphone");
+
+    expect(mediaDevices.getUserMedia).toHaveBeenCalledTimes(2);
+    expect(mediaDevices.getUserMedia).toHaveBeenLastCalledWith({
+      audio: expect.objectContaining({
+        deviceId: { exact: "microphone-1" },
       }),
+      video: false,
+    });
+    expect(store.getState().microphone.track).toBe(secondMicrophone);
+    expect(store.getState().localPublications.microphone?.track).toBe(
+      secondMicrophone,
     );
+    expect(changes.at(-1)).toMatchObject({
+      publication: { track: secondMicrophone },
+      type: "added",
+    });
   });
 
   it("releases a camera acquired after it was switched off while pending", async () => {
-    storeMediaControlPreferences(true, false);
     const camera = createTrack("video", "camera-1");
     const microphone = createTrack("audio", "microphone-1");
     let resolveCamera: ((stream: MediaStream) => void) | undefined;
@@ -307,14 +318,15 @@ describe("media session store", () => {
       createMediaStream: () => createStream(),
       mediaDevices,
     });
-    const startPromise = store.getState().start();
+    await store.getState().start();
+    const enableCamera = store.getState().toggleSource("camera");
 
     await vi.waitFor(() => {
       expect(store.getState().camera.status).toBe("requesting");
     });
     await store.getState().toggleSource("camera");
     resolveCamera?.(createStream([camera]));
-    await startPromise;
+    await enableCamera;
 
     expect(camera.stop).toHaveBeenCalledOnce();
     expect(store.getState().camera).toMatchObject({
@@ -326,7 +338,6 @@ describe("media session store", () => {
   });
 
   it("replaces a selected camera transactionally and stops the previous track", async () => {
-    storeMediaControlPreferences(true, true);
     const firstCamera = createTrack("video", "camera-1");
     const secondCamera = createTrack("video", "camera-2");
     const microphone = createTrack("audio", "microphone-1");
@@ -342,6 +353,7 @@ describe("media session store", () => {
       transport,
     });
     await store.getState().start();
+    await store.getState().toggleSource("camera");
 
     await store.getState().selectInputDevice("camera", "camera-2");
 
@@ -356,7 +368,6 @@ describe("media session store", () => {
   });
 
   it("retains the current camera when replacement acquisition fails", async () => {
-    storeMediaControlPreferences(true, true);
     const camera = createTrack("video", "camera-1");
     const microphone = createTrack("audio", "microphone-1");
     const mediaDevices = createMediaDevices(async (constraints) => {
@@ -371,6 +382,7 @@ describe("media session store", () => {
       mediaDevices,
     });
     await store.getState().start();
+    await store.getState().toggleSource("camera");
 
     await store.getState().selectInputDevice("camera", "camera-2");
 
@@ -380,7 +392,6 @@ describe("media session store", () => {
   });
 
   it("falls back to the default camera when the selected device disappears", async () => {
-    storeMediaControlPreferences(true, true);
     const firstCamera = createTrack("video", "camera-1");
     const fallbackCamera = createTrack("video", "camera-2");
     const microphone = createTrack("audio", "microphone-1");
@@ -400,6 +411,7 @@ describe("media session store", () => {
       mediaDevices,
     });
     await store.getState().start();
+    await store.getState().toggleSource("camera");
 
     useFallbackCamera = true;
     enumerateDevices.mockResolvedValue([
@@ -464,7 +476,6 @@ describe("media session store", () => {
   });
 
   it("stops owned tracks and clears publications when the session ends", async () => {
-    storeMediaControlPreferences(true, true);
     const camera = createTrack("video", "camera-1");
     const microphone = createTrack("audio", "microphone-1");
     const mediaDevices = createMediaDevices(async (constraints) =>
@@ -475,6 +486,8 @@ describe("media session store", () => {
       mediaDevices,
     });
     await store.getState().start();
+    await store.getState().toggleSource("camera");
+    await store.getState().toggleSource("microphone");
 
     store.getState().stop();
 

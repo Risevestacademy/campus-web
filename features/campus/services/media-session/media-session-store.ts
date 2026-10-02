@@ -13,10 +13,10 @@ import type {
 } from "./contracts";
 import { discoverMediaDevices } from "./device-discovery";
 import {
-  DEFAULT_MEDIA_CONTROL_PREFERENCES,
-  readMediaControlPreferences,
-  writeMediaControlPreferences,
-} from "./media-control-preferences";
+  DEFAULT_MEDIA_DEVICE_PREFERENCES,
+  loadMediaDevicePreferences,
+  saveMediaDevicePreferences,
+} from "./media-device-preferences";
 import { noopMeetingMediaTransport } from "./meeting-media-transport";
 import {
   removeRemotePublication,
@@ -54,12 +54,13 @@ type MediaSessionStoreDependencies = Readonly<{
 
 function createInitialCaptureState(
   desiredEnabled: boolean,
+  selectedDeviceId = "",
 ): CaptureSourceState {
   return {
     desiredEnabled,
     devices: [],
     error: null,
-    selectedDeviceId: "",
+    selectedDeviceId,
     status: desiredEnabled ? "idle" : "disabled",
     track: null,
   };
@@ -154,7 +155,7 @@ export function createMediaSessionStore(
   const mediaDevices = Object.hasOwn(dependencies, "mediaDevices")
     ? (dependencies.mediaDevices ?? undefined)
     : globalThis.navigator?.mediaDevices;
-  let preferences = DEFAULT_MEDIA_CONTROL_PREFERENCES;
+  let devicePreferences = DEFAULT_MEDIA_DEVICE_PREFERENCES;
   const localStream = createMediaStream();
   const operationVersions: Record<CaptureSource, number> = {
     camera: 0,
@@ -167,15 +168,23 @@ export function createMediaSessionStore(
   let unsubscribeRemotePublications: (() => void) | undefined;
 
   const store = createStore<MediaSessionState>((set, get) => {
-    function persistSourcePreference(
+    function persistInputDevicePreference(
       source: CaptureSource,
-      desiredEnabled: boolean,
+      deviceId: string,
     ) {
-      preferences =
+      devicePreferences =
         source === "camera"
-          ? { ...preferences, cameraEnabled: desiredEnabled }
-          : { ...preferences, microphoneEnabled: desiredEnabled };
-      writeMediaControlPreferences(preferences);
+          ? { ...devicePreferences, cameraDeviceId: deviceId }
+          : { ...devicePreferences, microphoneDeviceId: deviceId };
+      saveMediaDevicePreferences(devicePreferences);
+    }
+
+    function persistOutputDevicePreference(deviceId: string) {
+      devicePreferences = {
+        ...devicePreferences,
+        speakerDeviceId: deviceId,
+      };
+      saveMediaDevicePreferences(devicePreferences);
     }
 
     function updateSource(
@@ -380,6 +389,7 @@ export function createMediaSessionStore(
           track.getSettings().deviceId ??
           deviceId ??
           currentSource.selectedDeviceId;
+        persistInputDevicePreference(source, selectedDeviceId);
 
         updateSource(source, {
           error: null,
@@ -450,6 +460,7 @@ export function createMediaSessionStore(
         try {
           const device = await selectableMediaDevices.selectAudioOutput();
           await refreshDevices();
+          persistOutputDevicePreference(device.deviceId);
           set((state) => ({
             output: {
               ...state.output,
@@ -485,6 +496,7 @@ export function createMediaSessionStore(
       async selectInputDevice(source, deviceId) {
         const sourceState = get()[source];
         if (!sourceState.desiredEnabled && !sourceState.track) {
+          persistInputDevicePreference(source, deviceId);
           updateSource(source, {
             error: null,
             selectedDeviceId: deviceId,
@@ -496,6 +508,7 @@ export function createMediaSessionStore(
         await acquireSource(source, deviceId);
       },
       selectOutputDevice(deviceId) {
+        persistOutputDevicePreference(deviceId);
         set((state) => ({
           output: {
             ...state.output,
@@ -508,11 +521,21 @@ export function createMediaSessionStore(
       async start() {
         if (started) return;
         started = true;
-        preferences = readMediaControlPreferences();
-        set({
-          camera: createInitialCaptureState(preferences.cameraEnabled),
-          microphone: createInitialCaptureState(preferences.microphoneEnabled),
-        });
+        devicePreferences = loadMediaDevicePreferences();
+        set((state) => ({
+          camera: createInitialCaptureState(
+            false,
+            devicePreferences.cameraDeviceId,
+          ),
+          microphone: createInitialCaptureState(
+            false,
+            devicePreferences.microphoneDeviceId,
+          ),
+          output: {
+            ...state.output,
+            selectedDeviceId: devicePreferences.speakerDeviceId,
+          },
+        }));
 
         unsubscribeRemotePublications = transport.subscribeToRemotePublications(
           (change) => {
@@ -537,13 +560,6 @@ export function createMediaSessionStore(
               deviceChangeHandler,
             );
         }
-
-        const enabledSources = (["camera", "microphone"] as const).filter(
-          (source) => get()[source].desiredEnabled,
-        );
-        await Promise.all(
-          enabledSources.map((source) => acquireSource(source)),
-        );
       },
       stop() {
         if (!started) return;
@@ -561,22 +577,27 @@ export function createMediaSessionStore(
         }
 
         set({
-          camera: createInitialCaptureState(preferences.cameraEnabled),
+          camera: createInitialCaptureState(
+            false,
+            devicePreferences.cameraDeviceId,
+          ),
           deviceDiscoveryStatus: "idle",
           localPublications: {},
-          microphone: createInitialCaptureState(preferences.microphoneEnabled),
+          microphone: createInitialCaptureState(
+            false,
+            devicePreferences.microphoneDeviceId,
+          ),
           remotePublications: {},
         });
       },
       async toggleSource(source) {
         const sourceState = get()[source];
         const nextEnabled = !sourceState.desiredEnabled;
-        persistSourcePreference(source, nextEnabled);
 
         if (sourceState.status === "requesting" && !sourceState.track) {
-          if (source === "camera" && !nextEnabled) {
-            operationVersions.camera += 1;
-            updateSource("camera", {
+          if (!nextEnabled) {
+            operationVersions[source] += 1;
+            updateSource(source, {
               desiredEnabled: false,
               status: "disabled",
             });
@@ -596,8 +617,8 @@ export function createMediaSessionStore(
           return;
         }
 
-        if (source === "camera" && !nextEnabled) {
-          operationVersions.camera += 1;
+        if (!nextEnabled) {
+          operationVersions[source] += 1;
           removeTrack(source, sourceState.track);
           removeLocalPublication(source);
           updateSource(source, {
@@ -608,27 +629,6 @@ export function createMediaSessionStore(
           });
           return;
         }
-
-        sourceState.track.enabled = nextEnabled;
-        updateSource(source, {
-          desiredEnabled: nextEnabled,
-          status: nextEnabled ? "ready" : "disabled",
-        });
-        set((state) => ({
-          localPublications: {
-            ...state.localPublications,
-            [source]: {
-              ...state.localPublications[source]!,
-              enabled: nextEnabled,
-            },
-          },
-        }));
-        transport.handleLocalPublicationChange({
-          enabled: nextEnabled,
-          publicationId: `local-${source}`,
-          source,
-          type: "enabled-changed",
-        });
       },
     };
   });

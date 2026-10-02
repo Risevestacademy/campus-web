@@ -52,10 +52,10 @@ The cameras, microphones, and speakers currently known to a campus media
 session, together with whether that knowledge is current or stale.
 _Avoid_: Device list, device inventory
 
-**Media control preference**:
-The locally remembered user intent for whether a camera or microphone should
-begin enabled in a campus session.
-_Avoid_: Track state, server mute state
+**Media device preference**:
+The locally remembered camera, microphone, or speaker device ID. It never
+implies permission to begin capture in a new route session.
+_Avoid_: Persisted media intent, server media state
 
 **Publication**:
 A track with a stable ID, source role, enabled state, and stream used by
@@ -70,9 +70,10 @@ _Avoid_: Local stream
 A publication received for another participant through a transport adapter.
 _Avoid_: Remote stream
 
-**Soft mute**:
-Disabling a `MediaStreamTrack` while retaining ownership of the live track.
-_Avoid_: Track release, publication removal
+**Hard release**:
+Invalidating pending acquisition and stopping and removing an owned track and
+its local publication when the user turns a capture source off.
+_Avoid_: Soft mute, retained disabled track
 
 **Transactional input switch**:
 Acquiring and publishing a replacement input before stopping the current

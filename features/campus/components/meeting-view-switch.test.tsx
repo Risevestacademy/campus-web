@@ -1,10 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  CampusMediaSessionProvider,
-  MediaSessionProvider,
-} from "../services/media-session/media-session-provider";
+import { MediaSessionProvider } from "../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../services/media-session/media-session-store";
 import {
   createTestMediaDevice,
@@ -37,30 +34,27 @@ describe("MeetingViewControls", () => {
   });
 
   it("renders the local camera publication in the matching participant tile", async () => {
-    window.localStorage.setItem(
-      "campus-media-control-preferences",
-      JSON.stringify({
-        cameraEnabled: true,
-        microphoneEnabled: false,
-      }),
-    );
-    installTestMediaDevices([
+    const mediaDevices = installTestMediaDevices([
       createTestMediaDevice("camera-1", "videoinput", "Camera"),
       createTestMediaDevice("microphone-1", "audioinput", "Microphone"),
     ]);
+    const store = createMediaSessionStore({ mediaDevices });
+    await store.getState().start();
+    await store.getState().toggleSource("camera");
     render(
-      <CampusMediaSessionProvider>
+      <MediaSessionProvider store={store}>
         <MeetingViewControls
           localParticipantId="participant-a"
           participants={meetingParticipants}
         />
-      </CampusMediaSessionProvider>,
+      </MediaSessionProvider>,
     );
 
     const localVideo = await screen.findByLabelText("Ada Lovelace video");
 
     expect(localVideo).toHaveProperty("srcObject", expect.any(Object));
     expect(screen.getByText("Waiting for video")).toBeInTheDocument();
+    store.getState().stop();
   });
 
   it("animates pointer-driven tile expansion and makes keyboard changes instant", () => {

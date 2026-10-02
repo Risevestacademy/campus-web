@@ -13,8 +13,8 @@ const mediaControls = {
   microphone: {
     DisabledIcon: MicrophoneSlashIcon,
     EnabledIcon: MicrophoneIcon,
-    disableTitle: "Mute microphone",
-    enableTitle: "Unmute microphone",
+    disableTitle: "Turn off microphone",
+    enableTitle: "Turn on microphone",
     label: "Microphone",
   },
   video: {
@@ -55,7 +55,7 @@ export function MediaToggle({
       type="button"
       size="icon"
       variant="ghost"
-      aria-label={label}
+      aria-label={title}
       aria-pressed={isEnabled}
       aria-busy={status === "requesting"}
       data-media-disabled={isEnabled ? undefined : ""}
