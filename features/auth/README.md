@@ -5,6 +5,41 @@ and "should sign-in render, or send this visitor on?" Route code asks one
 function and branches on the answer. Session transport, retries, and
 return-destination policy stay behind it.
 
+## Status
+
+| PR  | Scope                                                       | State                        |
+| --- | ----------------------------------------------------------- | ---------------------------- |
+| 1   | session read, `/session/refresh`                            | merged (#21)                 |
+| 2   | `CampusShellGate`, `/campus` routing by membership          | merged (#22)                 |
+| 3   | `CohortGate`, hard loads through `/campus/{id}/join`        | merged (#24)                 |
+| 4   | sign-in redirect, `InvitationGate`, log out (`AccountMenu`) | `feat/auth-route-completion` |
+
+## Rules for other features
+
+- A new page under `/campus/[id]` wraps its content in `CohortGate`
+  ([Public interface](#public-interface)).
+- Links into a cohort from outside it target `/campus/{id}/join`, never an
+  active route ([Pre-join](#pre-join)).
+- Client modules import auth siblings directly, never `@/features/auth`: the
+  entry point re-exports server-only modules.
+- `features/campus-shell` does not import auth. The rail's Log out menu is
+  composed in `app/(app)/campus/[id]/(active-campus)/layout.tsx` through
+  `CampusRail`'s `account` slot.
+- Navigation that must drop the media session and query cache uses
+  `replaceDocument` (`shared/lib/document-navigation.ts`), not the router.
+
+## Known gaps
+
+- OAuth deep links: `rewriteSuccessfulOauthDestination`
+  (`core/api/client/proxy.ts`) only rewrites a callback redirect to `/`, so a
+  stored `returnTo` can be lost after Google sign-in.
+- A 403 from `/v1/auth/me` is treated as a suspended account. A member with no
+  cohort lands on the same 403 page and has no way to log out there.
+- `/invitation` and `/preview` content is placeholder. Live invite validation
+  and invite states belong to the invitation feature.
+- The rail avatar initial is the placeholder "J"
+  (`features/campus-shell/rail-avatar.tsx`); only `/campus` shows the real one.
+
 ## Public interface
 
 Route code imports from `@/features/auth`. The root `proxy.ts` imports from
