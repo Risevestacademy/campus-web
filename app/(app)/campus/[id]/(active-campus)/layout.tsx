@@ -74,6 +74,7 @@ export default function ActiveCampusLayout({
                 />
               </div>
               <MeetingViewControls
+                localParticipantId="participant-a"
                 participants={meetingParticipants}
                 onViewChange={closeSidebarForGridView}
                 subscribeToSidebarOpen={subscribeToShell}

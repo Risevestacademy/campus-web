@@ -3,6 +3,7 @@ import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import ActiveCampusLayout from "@/app/(app)/campus/[id]/(active-campus)/layout";
+import CampusLayout from "@/app/(app)/campus/[id]/layout";
 import CampusPage from "@/app/(app)/campus/page";
 import AuthLayout from "@/app/(auth)/layout";
 
@@ -50,9 +51,11 @@ const structuralComponents: ReadonlyArray<{
   {
     name: "active-campus layout",
     element: (
-      <ActiveCampusLayout>
-        <div />
-      </ActiveCampusLayout>
+      <CampusLayout>
+        <ActiveCampusLayout>
+          <div />
+        </ActiveCampusLayout>
+      </CampusLayout>
     ),
   },
 ];

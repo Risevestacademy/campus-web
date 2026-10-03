@@ -2,14 +2,21 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import ActiveCampusLayout from "@/app/(app)/campus/[id]/(active-campus)/layout";
+import CampusLayout from "@/app/(app)/campus/[id]/layout";
+
+function renderActiveCampusLayout() {
+  return render(
+    <CampusLayout>
+      <ActiveCampusLayout>
+        <div />
+      </ActiveCampusLayout>
+    </CampusLayout>,
+  );
+}
 
 describe("meeting view switch acceptance (required threshold: 3/3)", () => {
   it("controls the tile layout and backdrop through the active-campus layout", () => {
-    render(
-      <ActiveCampusLayout>
-        <div />
-      </ActiveCampusLayout>,
-    );
+    renderActiveCampusLayout();
 
     const viewSwitch = screen.getByRole("switch", { name: "Use grid view" });
 
@@ -30,11 +37,7 @@ describe("meeting view switch acceptance (required threshold: 3/3)", () => {
   });
 
   it("expands the meeting view when a compact tile is activated", () => {
-    render(
-      <ActiveCampusLayout>
-        <div />
-      </ActiveCampusLayout>,
-    );
+    renderActiveCampusLayout();
 
     const viewSwitch = screen.getByRole("switch", { name: "Use grid view" });
     const participantTile = screen.getByRole("button", {
@@ -51,11 +54,7 @@ describe("meeting view switch acceptance (required threshold: 3/3)", () => {
   });
 
   it("promotes an expanded tile and moves the other tile to secondary emphasis", () => {
-    render(
-      <ActiveCampusLayout>
-        <div />
-      </ActiveCampusLayout>,
-    );
+    renderActiveCampusLayout();
 
     fireEvent.click(screen.getByRole("switch", { name: "Use grid view" }), {
       detail: 1,

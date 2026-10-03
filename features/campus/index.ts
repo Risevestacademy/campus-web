@@ -13,5 +13,8 @@ export {
 export { MeetingViewControls } from "./components/meeting-view-switch";
 export { VisualsDisplay } from "./components/visuals-display";
 
+// Services
+export { CampusMediaSessionProvider } from "./services/media-session/media-session-provider";
+
 // Types
 export type { CohortSummary, CohortViewer } from "./types/cohort.types";

@@ -1,31 +1,57 @@
 "use client";
 
-import { discoverCameraDevices } from "../services/media-device-discovery";
+import { useMediaSession } from "../services/media-session/media-session-provider";
 import {
-  type MediaDeviceGroup,
-  MediaSettingsDropdown,
-} from "./media-settings-dropdown";
+  describeBlockedAccess,
+  reportSwitchResult,
+} from "./media-error-feedback";
+import { MediaSettingsDropdown } from "./media-settings-dropdown";
 
-async function discoverCameraDeviceGroups(): Promise<
-  readonly MediaDeviceGroup[]
-> {
-  const devices = await discoverCameraDevices();
+export function CameraSettingsDropdown({
+  onRetry,
+}: Readonly<{ onRetry: () => Promise<void> }>) {
+  const camera = useMediaSession((state) => state.camera);
+  const deviceDiscoveryStatus = useMediaSession(
+    (state) => state.deviceDiscoveryStatus,
+  );
+  const refreshDevices = useMediaSession((state) => state.refreshDevices);
+  const selectInputDevice = useMediaSession((state) => state.selectInputDevice);
+  const isAccessBlocked = camera.error === "permission-denied" && !camera.track;
 
-  return [
-    {
-      devices,
-      emptyMessage: "No cameras found",
-      id: "cameras",
-      label: "Camera",
-    },
-  ];
-}
+  async function handleCameraSelection(deviceId: string) {
+    const hadActiveTrack = Boolean(camera.track);
+    const error = await selectInputDevice("camera", deviceId);
+    reportSwitchResult("camera", error, hadActiveTrack);
+  }
 
-export function CameraSettingsDropdown() {
   return (
     <MediaSettingsDropdown
-      discoverGroups={discoverCameraDeviceGroups}
+      deviceDiscoveryStatus={deviceDiscoveryStatus}
+      groups={[
+        {
+          devices: camera.devices,
+          emptyMessage: camera.devicesRequirePermission
+            ? "Turn on your camera to choose one"
+            : "No cameras found",
+          id: "cameras",
+          label: "Camera",
+        },
+      ]}
+      isDisabled={camera.error === "unsupported"}
       label="Camera settings"
+      onRefresh={refreshDevices}
+      onSelectionChange={(_groupId, deviceId) =>
+        void handleCameraSelection(deviceId)
+      }
+      recovery={
+        isAccessBlocked
+          ? {
+              ...describeBlockedAccess("camera"),
+              onRetry: () => void onRetry(),
+            }
+          : undefined
+      }
+      selectedDeviceIds={{ cameras: camera.selectedDeviceId }}
       statusMessages={{
         error: "Cameras unavailable",
         loading: "Loading cameras…",

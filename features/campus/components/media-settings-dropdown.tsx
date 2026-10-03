@@ -1,7 +1,7 @@
 "use client";
 
 import { CaretUpIcon } from "@phosphor-icons/react/dist/ssr/CaretUp";
-import { Fragment, useState } from "react";
+import { Fragment, type ReactNode, useId } from "react";
 
 import { Button } from "@/shared/ui/button";
 import {
@@ -16,9 +16,12 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu";
 
-import type { MediaDeviceOption } from "../services/media-device-discovery";
+import type {
+  DeviceDiscoveryStatus,
+  MediaDeviceOption,
+} from "../services/media-session/contracts";
 
-type DiscoveryStatus = "idle" | "loading" | "ready" | "error";
+type DiscoveryViewStatus = Exclude<DeviceDiscoveryStatus, "failed"> | "error";
 
 export type MediaDeviceGroup = Readonly<{
   devices: readonly MediaDeviceOption[];
@@ -27,9 +30,23 @@ export type MediaDeviceGroup = Readonly<{
   label: string;
 }>;
 
+type MediaSettingsRecovery = Readonly<{
+  description: string;
+  onRetry: () => void;
+  retryLabel: string;
+  title: string;
+}>;
+
 type MediaSettingsDropdownProps = Readonly<{
-  discoverGroups: () => Promise<readonly MediaDeviceGroup[]>;
+  action?: ReactNode;
+  deviceDiscoveryStatus: DeviceDiscoveryStatus;
+  groups: readonly MediaDeviceGroup[];
+  isDisabled?: boolean;
   label: string;
+  onRefresh: () => Promise<void>;
+  onSelectionChange: (groupId: string, deviceId: string) => void;
+  recovery?: MediaSettingsRecovery;
+  selectedDeviceIds: Readonly<Record<string, string>>;
   statusMessages: Readonly<{
     error: string;
     loading: string;
@@ -37,23 +54,38 @@ type MediaSettingsDropdownProps = Readonly<{
   triggerLabel: string;
 }>;
 
-type SelectedDeviceIds = Readonly<Record<string, string>>;
-
-function reconcileSelections(
-  current: SelectedDeviceIds,
+function getDiscoveryViewStatus(
+  deviceDiscoveryStatus: DeviceDiscoveryStatus,
   groups: readonly MediaDeviceGroup[],
-): SelectedDeviceIds {
-  return Object.fromEntries(
-    groups.map((group) => {
-      const currentDeviceId = current[group.id];
-      const selectedDeviceId =
-        currentDeviceId !== undefined &&
-        group.devices.some((device) => device.id === currentDeviceId)
-          ? currentDeviceId
-          : (group.devices[0]?.id ?? "");
+): DiscoveryViewStatus {
+  if (deviceDiscoveryStatus !== "failed") return deviceDiscoveryStatus;
 
-      return [group.id, selectedDeviceId];
-    }),
+  return groups.some((group) => group.devices.length > 0) ? "ready" : "error";
+}
+
+function RecoveryGroup({
+  recovery,
+}: Readonly<{ recovery: MediaSettingsRecovery }>) {
+  const descriptionId = useId();
+
+  return (
+    <DropdownMenuGroup>
+      <DropdownMenuLabel className="text-popover-foreground text-sm">
+        {recovery.title}
+      </DropdownMenuLabel>
+      <p
+        id={descriptionId}
+        className="text-muted-foreground px-1.5 pb-2 text-xs text-pretty"
+      >
+        {recovery.description}
+      </p>
+      <DropdownMenuItem
+        aria-describedby={descriptionId}
+        onClick={recovery.onRetry}
+      >
+        {recovery.retryLabel}
+      </DropdownMenuItem>
+    </DropdownMenuGroup>
   );
 }
 
@@ -99,38 +131,23 @@ function DeviceGroup({
 }
 
 export function MediaSettingsDropdown({
-  discoverGroups,
+  action,
+  deviceDiscoveryStatus,
+  groups,
+  isDisabled = false,
   label,
+  onRefresh,
+  onSelectionChange,
+  recovery,
+  selectedDeviceIds,
   statusMessages,
   triggerLabel,
 }: MediaSettingsDropdownProps) {
-  const [groups, setGroups] = useState<readonly MediaDeviceGroup[]>([]);
-  const [selectedDeviceIds, setSelectedDeviceIds] = useState<SelectedDeviceIds>(
-    {},
-  );
-  const [status, setStatus] = useState<DiscoveryStatus>("idle");
-
-  async function refreshDevices() {
-    const hasDevices = groups.some((group) => group.devices.length > 0);
-
-    if (!hasDevices) setStatus("loading");
-
-    try {
-      const nextGroups = await discoverGroups();
-
-      setGroups(nextGroups);
-      setSelectedDeviceIds((current) =>
-        reconcileSelections(current, nextGroups),
-      );
-      setStatus("ready");
-    } catch {
-      setStatus(hasDevices ? "ready" : "error");
-    }
-  }
+  const status = getDiscoveryViewStatus(deviceDiscoveryStatus, groups);
 
   function handleOpenChange(open: boolean) {
-    if (!open || status === "loading") return;
-    void refreshDevices();
+    if (!open || isDisabled || status === "loading") return;
+    void onRefresh();
   }
 
   const statusMessage =
@@ -146,6 +163,7 @@ export function MediaSettingsDropdown({
             type="button"
             size="icon"
             variant="ghost"
+            disabled={isDisabled}
             className="hover:bg-background w-fit px-1.75"
             aria-label={triggerLabel}
             title={label}
@@ -162,28 +180,33 @@ export function MediaSettingsDropdown({
         alignOffset={-44}
         className="w-64 max-w-[calc(100vw-2rem)]"
       >
-        {showStatus ? (
+        {recovery ? (
+          <RecoveryGroup recovery={recovery} />
+        ) : showStatus ? (
           <DropdownMenuItem disabled>
             <span role="status" aria-live="polite">
               {statusMessage}
             </span>
           </DropdownMenuItem>
         ) : (
-          groups.map((group, index) => (
-            <Fragment key={group.id}>
-              {index > 0 ? <DropdownMenuSeparator /> : null}
-              <DeviceGroup
-                group={group}
-                value={selectedDeviceIds[group.id] ?? ""}
-                onValueChange={(value) =>
-                  setSelectedDeviceIds((current) => ({
-                    ...current,
-                    [group.id]: value,
-                  }))
-                }
-              />
-            </Fragment>
-          ))
+          <>
+            {groups.map((group, index) => (
+              <Fragment key={group.id}>
+                {index > 0 ? <DropdownMenuSeparator /> : null}
+                <DeviceGroup
+                  group={group}
+                  value={selectedDeviceIds[group.id] ?? ""}
+                  onValueChange={(value) => onSelectionChange(group.id, value)}
+                />
+              </Fragment>
+            ))}
+            {action ? (
+              <>
+                <DropdownMenuSeparator />
+                {action}
+              </>
+            ) : null}
+          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
