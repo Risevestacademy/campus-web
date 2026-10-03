@@ -6,7 +6,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { createApiClient } from "@/core/api/client";
 import type { Reply } from "@/tests/fixtures/mock-api";
 
-import { listCohorts } from "./cohort.service";
+import { createCohort, listCohorts } from "./cohort.service";
 
 const mockApi = await vi.hoisted(async () => {
   const { startMockApi } = await import("@/tests/fixtures/mock-api");
@@ -117,6 +117,55 @@ describe("listCohorts", () => {
 
     await expect(listCohorts(api, 2)).resolves.toEqual({
       kind: "unavailable",
+    });
+  });
+});
+
+describe("createCohort", () => {
+  const newCohort = {
+    name: "Cohort 1",
+    code: "C1",
+    status: "upcoming" as const,
+  };
+
+  function backendAnswersCreate(reply: Reply) {
+    mockApi.server.use(http.post(COHORTS_URL, reply));
+  }
+
+  it("reports a 201 as created", async () => {
+    backendAnswersCreate(() => Response.json({}, { status: 201 }));
+
+    await expect(createCohort(api, newCohort)).resolves.toEqual({
+      kind: "created",
+    });
+  });
+
+  it.each([
+    [400, "rejected"],
+    [401, "signed-out"],
+    [403, "unavailable"],
+    [409, "duplicate-code"],
+    [500, "unavailable"],
+  ])("reports HTTP %i as %s", async (status, problem) => {
+    backendAnswersCreate(() =>
+      Response.json(
+        { error: { code: "SCRIPTED", message: "scripted" } },
+        { status },
+      ),
+    );
+
+    await expect(createCohort(api, newCohort)).resolves.toEqual({
+      kind: "problem",
+      problem,
+    });
+  });
+
+  it("reports a network failure as unavailable", async () => {
+    backendAnswersCreate(() => HttpResponse.error());
+
+    await expect(createCohort(api, newCohort)).resolves.toEqual({
+      kind: "problem",
+      problem: "unavailable",
     });
   });
 });

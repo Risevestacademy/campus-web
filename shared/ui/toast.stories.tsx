@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import { Button } from "./button";
+import { Dialog, DialogContent, DialogTitle } from "./dialog";
 import { createToastManager, Toaster } from "./toast";
 
 const storyToastManager = createToastManager();
@@ -66,5 +67,50 @@ export const ErrorFeedback: Story = {
     await waitFor(() =>
       expect(document.querySelector("[data-slot=toast]")).toBeNull(),
     );
+  },
+};
+
+export const AboveDialog: Story = {
+  render: (toasterProps) => (
+    <Toaster {...toasterProps}>
+      <Dialog defaultOpen>
+        <DialogContent showCloseButton={false}>
+          <DialogTitle>Create a cohort</DialogTitle>
+          <Button
+            onClick={() =>
+              storyToastManager.add({
+                id: "story-over-dialog",
+                title: "Cohort created",
+                type: "success",
+              })
+            }
+          >
+            Save
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </Toaster>
+  ),
+  play: async ({ canvasElement }) => {
+    const document = canvasElement.ownerDocument;
+    const page = within(document.body);
+
+    await userEvent.click(await page.findByRole("button", { name: "Save" }));
+
+    const toastElement = (await page.findByText("Cohort created")).closest(
+      "[data-slot=toast]",
+    );
+    if (!toastElement) throw new Error("Expected the toast to render.");
+    await waitFor(() => expect(toastElement).toBeVisible());
+
+    // Whatever paints at the toast's centre must be the toast, not the backdrop.
+    await waitFor(() => {
+      const { left, top, width, height } = toastElement.getBoundingClientRect();
+      const painted = document.elementFromPoint(
+        left + width / 2,
+        top + height / 2,
+      );
+      return expect(toastElement.contains(painted)).toBe(true);
+    });
   },
 };

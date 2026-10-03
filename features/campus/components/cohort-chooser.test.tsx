@@ -3,6 +3,7 @@ import { http } from "msw";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
 import { createApiClient } from "@/core/api/client";
+import { withQueryClient } from "@/tests/fixtures/query-client";
 
 import { CohortChooser, type CohortViewer } from "../index";
 
@@ -10,6 +11,10 @@ const mockApi = await vi.hoisted(async () => {
   const { startMockApi } = await import("@/tests/fixtures/mock-api");
   return startMockApi();
 });
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
 
 const API_ORIGIN = "https://api.example.test";
 const COHORTS_URL = `${API_ORIGIN}/v1/cohorts`;
@@ -53,7 +58,7 @@ function backendPages(...pages: ReturnType<typeof cohortsPage>[]) {
 }
 
 async function renderChooser(viewer: CohortViewer, page?: string) {
-  render(await CohortChooser({ viewer, page, api }));
+  render(withQueryClient(await CohortChooser({ viewer, page, api })));
 }
 
 function cohortLinks() {
@@ -82,6 +87,22 @@ describe("CohortChooser: members", () => {
       ["Cohort 4C4", "/campus/c-4/join"],
     ]);
     expect(sent).toEqual([]);
+  });
+
+  it("points a member without a cohort to an invite", async () => {
+    backendPages();
+
+    await renderChooser({ ...member, memberships: [] });
+
+    expect(
+      screen.getByText(
+        "You're not in a cohort yet. Ask your programme admin for an invite.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Create cohort" }),
+    ).not.toBeInTheDocument();
   });
 
   it("ignores a page number", async () => {
@@ -153,12 +174,32 @@ describe("CohortChooser: admins", () => {
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });
 
-  it("says so when there are no cohorts", async () => {
+  it("puts the create tile before the cohorts on every page", async () => {
+    backendPages(cohortsPage(2, 3, ["Gamma", "Delta"]));
+
+    await renderChooser(admin, "2");
+
+    expect(
+      screen.getAllByRole("listitem").map((item) => item.textContent),
+    ).toEqual(["Create cohort", "GammaGAMMA", "DeltaDELTA"]);
+    expect(
+      screen.getByRole("button", { name: "Create cohort" }),
+    ).toBeInTheDocument();
+  });
+
+  it("explains the empty state next to the create tile", async () => {
     backendPages(cohortsPage(1, 0, []));
 
     await renderChooser(admin);
 
-    expect(screen.getByText("No cohorts to show.")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "No cohorts yet. Create the first one, then add its tracks before inviting students.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("listitem").map((item) => item.textContent),
+    ).toEqual(["Create cohort"]);
   });
 
   it("fails closed with a retry of the same page when campus-api is down", async () => {
@@ -173,5 +214,8 @@ describe("CohortChooser: admins", () => {
       "href",
       "/campus?page=2",
     );
+    expect(
+      screen.queryByRole("button", { name: "Create cohort" }),
+    ).not.toBeInTheDocument();
   });
 });

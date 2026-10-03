@@ -9,6 +9,7 @@ import { parseChooserPage } from "../schemas/cohort.schema";
 import { listCohorts } from "../services/cohort.service";
 import type { CohortSummary, CohortViewer } from "../types/cohort.types";
 import { CohortCard } from "./cohort-card";
+import { CreateCohortTile } from "./create-cohort-tile";
 
 interface CohortChooserProps {
   viewer: CohortViewer;
@@ -28,19 +29,38 @@ function membershipCohorts(viewer: CohortViewer): CohortSummary[] {
   }));
 }
 
-function CohortGrid({ cohorts }: { cohorts: CohortSummary[] }) {
-  if (cohorts.length === 0) {
-    return <p className="text-foreground-secondary">No cohorts to show.</p>;
-  }
+const MEMBER_EMPTY =
+  "You're not in a cohort yet. Ask your programme admin for an invite.";
+const ADMIN_EMPTY =
+  "No cohorts yet. Create the first one, then add its tracks before inviting students.";
+
+function CohortGrid({
+  cohorts,
+  leading,
+  emptyMessage,
+}: {
+  cohorts: CohortSummary[];
+  leading?: ReactNode;
+  emptyMessage: string;
+}) {
+  const isEmpty = cohorts.length === 0;
 
   return (
-    <ul className="flex flex-wrap gap-8">
-      {cohorts.map((cohort) => (
-        <li key={cohort.id}>
-          <CohortCard cohort={cohort} />
-        </li>
-      ))}
-    </ul>
+    <>
+      {isEmpty ? (
+        <p className="text-foreground-secondary text-pretty">{emptyMessage}</p>
+      ) : null}
+      {isEmpty && !leading ? null : (
+        <ul className="flex flex-wrap gap-8">
+          {leading ? <li>{leading}</li> : null}
+          {cohorts.map((cohort) => (
+            <li key={cohort.id}>
+              <CohortCard cohort={cohort} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }
 
@@ -100,7 +120,12 @@ async function chooserContent({
   api,
 }: Omit<CohortChooserProps, "page"> & { page: number }): Promise<ReactNode> {
   if (viewer.user.systemRole !== "admin") {
-    return <CohortGrid cohorts={membershipCohorts(viewer)} />;
+    return (
+      <CohortGrid
+        cohorts={membershipCohorts(viewer)}
+        emptyMessage={MEMBER_EMPTY}
+      />
+    );
   }
 
   const cohorts = await listCohorts(api, page);
@@ -108,7 +133,11 @@ async function chooserContent({
 
   return (
     <div className="grid gap-8">
-      <CohortGrid cohorts={cohorts.cohorts} />
+      <CohortGrid
+        cohorts={cohorts.cohorts}
+        leading={<CreateCohortTile page={cohorts.page} />}
+        emptyMessage={ADMIN_EMPTY}
+      />
       <CohortPagination page={cohorts.page} totalPages={cohorts.totalPages} />
     </div>
   );
