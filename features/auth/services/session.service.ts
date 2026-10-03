@@ -94,6 +94,10 @@ export async function readSession(api: ApiClient): Promise<SessionRead> {
     : attempt;
 }
 
+// The OpenAPI document marks this body required, but campus-api reads the
+// refresh cookie first and ignores the body; only native clients send a token.
+const COOKIE_CARRIES_TOKEN = {};
+
 export type SessionRefresh =
   | { kind: "refreshed" }
   | { kind: "expired" }
@@ -102,6 +106,7 @@ export type SessionRefresh =
 async function postRefresh(api: ApiClient): Promise<SessionRefresh> {
   try {
     const { response } = await api.POST("/v1/auth/refresh", {
+      body: COOKIE_CARRIES_TOKEN,
       parseAs: "stream",
     });
     if (response.ok) return { kind: "refreshed" };
@@ -139,6 +144,7 @@ export type SessionEnd = { kind: "ended" } | { kind: "failed" };
 export async function endSession(api: ApiClient): Promise<SessionEnd> {
   try {
     const { response } = await api.POST("/v1/auth/logout", {
+      body: COOKIE_CARRIES_TOKEN,
       parseAs: "stream",
     });
     return response.ok || response.status === 401

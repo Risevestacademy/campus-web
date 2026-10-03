@@ -24,6 +24,15 @@ A limited Campus Access Session for a verified user who has not yet gained
 membership through an invitation.
 _Avoid_: Partial session, temporary login
 
+**Invite Link**:
+The emailed `/invitation?token=…` URL. Its token lets anyone holding it read
+the invitation, never act on it.
+_Avoid_: Invite code, magic link
+
+**Invite Preview**:
+The public read of an invitation by its token, before sign-in.
+_Avoid_: Invite validation (that is the signed-in read of the session's invite)
+
 **OAuth Attempt**:
 One expiring Google sign-in journey whose start and callback must be correlated.
 _Avoid_: Login request, OAuth session

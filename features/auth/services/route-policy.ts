@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { normalizeReturnTo } from "../schemas/return-to";
 import type {
   CampusRouteRequest,
+  InvitationPath,
   RouteAuthorizationDecision,
   RouteAuthorizationRequest,
   Session,
@@ -12,6 +13,7 @@ import type { SessionRead } from "./session.service";
 
 const CAMPUS_HOME_PATH: Route = "/campus";
 const INVITATION_PATH: Route = "/invitation";
+const PREVIEW_PATH: Route = "/preview";
 const INVITE_REQUIRED_PATH = "/sign-in?error=invite_required" as Route;
 const SESSION_REFRESH_PATH = "/session/refresh";
 const SIGN_IN_PATH = "/sign-in";
@@ -95,8 +97,17 @@ function decideCampus(
     : { kind: "redirect", href: INVITATION_PATH };
 }
 
-function decideInvitation(session: Session): RouteAuthorizationDecision {
-  if (session.inviteId) return { kind: "allow", session };
+// campus-api's OAuth callback lands every invitee on /invitation, which has
+// nothing to show without the link's token: the invite is answered on /preview.
+function decideInvitation(
+  path: InvitationPath,
+  session: Session,
+): RouteAuthorizationDecision {
+  if (session.inviteId) {
+    return path === PREVIEW_PATH
+      ? { kind: "allow", session }
+      : { kind: "redirect", href: PREVIEW_PATH };
+  }
 
   const href =
     session.scope === "full_access" ? CAMPUS_HOME_PATH : INVITE_REQUIRED_PATH;
@@ -108,7 +119,7 @@ function decideSignedIn(
   session: Session,
 ): RouteAuthorizationDecision {
   return request.kind === "invitation"
-    ? decideInvitation(session)
+    ? decideInvitation(request.path, session)
     : decideCampus(request, session);
 }
 
