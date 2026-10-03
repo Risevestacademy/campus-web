@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 
+import { railwayCliEnvironment } from "./railway-cli-environment.ts";
 import {
   evaluateWakeGate,
   formatBaselineRow,
@@ -64,13 +65,19 @@ function timestamp(): string {
 
 function railway(commandArguments: readonly string[]): number {
   print(`$ railway ${commandArguments.join(" ")}`);
-  const result = spawnSync("railway", commandArguments, { stdio: "inherit" });
+  const result = spawnSync("railway", commandArguments, {
+    env: railwayCliEnvironment(process.env),
+    stdio: "inherit",
+  });
 
   return result.status ?? 1;
 }
 
 function railwayOutput(commandArguments: readonly string[]): string {
-  const result = spawnSync("railway", commandArguments, { encoding: "utf8" });
+  const result = spawnSync("railway", commandArguments, {
+    encoding: "utf8",
+    env: railwayCliEnvironment(process.env),
+  });
 
   if (result.status !== 0) {
     throw new Error(
