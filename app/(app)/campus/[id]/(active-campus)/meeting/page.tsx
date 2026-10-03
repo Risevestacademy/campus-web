@@ -1,11 +1,17 @@
-import { CampusShellGate } from "@/features/auth";
+import { CohortGate } from "@/features/auth";
 
-export default function ActiveCampusMeetingPage() {
+export default async function ActiveCampusMeetingPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+
   return (
-    <CampusShellGate>
+    <CohortGate cohortId={id}>
       <div className="grid place-content-center">
         <h1>ActiveCampusMeetingPage</h1>
       </div>
-    </CampusShellGate>
+    </CohortGate>
   );
 }

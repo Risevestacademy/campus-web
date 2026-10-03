@@ -5,7 +5,9 @@ import type { components } from "@/core/api/client";
 export type Session = components["schemas"]["SessionResponseDto"];
 
 export type RouteAuthorizationRequest =
-  { kind: "campus-shell" } | { kind: "campus-index" };
+  | { kind: "campus-shell" }
+  | { kind: "campus-index" }
+  | { kind: "cohort"; cohortId: string };
 
 export type RouteAuthorizationDecision =
   | { kind: "allow"; session: Session }

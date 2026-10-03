@@ -27,6 +27,7 @@
       "partialMatch": false
     }
   ],
+  "files": [{ "category": "root-proxy", "pattern": "proxy.ts" }],
   "dependencyRule": {
     "default": "disallow",
     "policies": [
@@ -70,6 +71,14 @@
         "allow": {
           "to": {
             "element": { "type": "shared" }
+          }
+        }
+      },
+      {
+        "from": { "file": { "categories": ["root-proxy"] } },
+        "allow": {
+          "to": {
+            "element": { "type": "feature", "fileInternalPath": "proxy.ts" }
           }
         }
       }

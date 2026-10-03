@@ -5,6 +5,7 @@ import {
   type Page,
 } from "@playwright/test";
 
+import { enterCampus } from "./support/campus-entry";
 import {
   type FakeApi,
   membership,
@@ -38,7 +39,7 @@ const routeCases: ReadonlyArray<{
   { path: "/", roles: ["background"] },
   { path: "/campus", roles: ["background", "surface"] },
   {
-    path: "/campus/1",
+    path: "/campus/c-1",
     roles: ["background", "surface-elevated"],
   },
   { path: "/invitation", roles: ["background"] },
@@ -48,6 +49,10 @@ const usesFakeApi = !process.env.PLAYWRIGHT_BASE_URL;
 
 function isCampusRoute(path: string): boolean {
   return path === "/campus" || path.startsWith("/campus/");
+}
+
+function isActiveCampusRoute(path: string): boolean {
+  return path.startsWith("/campus/");
 }
 
 // Campus routes are protected; enter them as a member with two cohorts so
@@ -74,8 +79,12 @@ async function openWithTheme(page: Page, path: string, theme: Theme) {
     { storageKey: THEME_STORAGE_KEY, initialTheme: theme },
   );
 
-  const response = await page.goto(path);
-  expect(response?.status()).toBe(200);
+  if (isActiveCampusRoute(path)) {
+    await enterCampus(page, path);
+  } else {
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(200);
+  }
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 }
 
@@ -141,7 +150,7 @@ test.describe("protected campus routes", () => {
   test("switching themes does not move the campus controls", async ({
     page,
   }) => {
-    await openWithTheme(page, "/campus/1", "light");
+    await openWithTheme(page, "/campus/c-1", "light");
 
     const controls = page.locator('[data-layout-anchor="campus-controls"]');
     await expect(controls).toBeVisible();

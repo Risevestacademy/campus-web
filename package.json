@@ -28,7 +28,7 @@
     "test:e2e:ui": "pnpm build && playwright test --ui",
     "eval:api": "vitest run tests/evals/api-foundation.eval.test.ts",
     "eval:analytics": "vitest run core/analytics/contract.eval.test.ts",
-    "eval:architecture": "eslint . --max-warnings=0",
+    "eval:architecture": "eslint . --max-warnings=0 && vitest run --project=unit tests/evals/proxy-entry-boundary.eval.test.ts",
     "eval:api-client": "vitest run tests/evals/api-client-foundation.eval.test.ts",
     "eval:session-read": "vitest run --project=unit tests/evals/session-read-resilience.eval.test.ts",
     "eval:route-protection": "vitest run --project=unit tests/evals/campus-route-protection.eval.test.ts",

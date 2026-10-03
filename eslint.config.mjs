@@ -92,6 +92,7 @@ const eslintConfig = defineConfig([
       "design-system/**/*.{js,jsx,ts,tsx}",
       "features/**/*.{js,jsx,ts,tsx}",
       "shared/**/*.{js,jsx,ts,tsx}",
+      "proxy.ts",
     ],
     plugins: {
       boundaries,
@@ -99,6 +100,7 @@ const eslintConfig = defineConfig([
     settings: {
       "boundaries/root-path": import.meta.dirname,
       "boundaries/elements": architectureBoundaries.elements,
+      "boundaries/files": architectureBoundaries.files,
       "import/resolver": {
         typescript: {
           project: "./tsconfig.json",

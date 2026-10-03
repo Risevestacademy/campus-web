@@ -34,6 +34,11 @@ function preJoinPath(cohortId: string): Route {
   return `/campus/${encodeURIComponent(cohortId)}/join` as Route;
 }
 
+export function preJoinRedirect(cohortId: string, returnTo: string): Route {
+  const search = new URLSearchParams({ returnTo });
+  return `${preJoinPath(cohortId)}?${search.toString()}` as Route;
+}
+
 function decideCampusIndex(session: Session): RouteAuthorizationDecision {
   if (session.user.systemRole === "admin") return { kind: "allow", session };
 
@@ -44,13 +49,28 @@ function decideCampusIndex(session: Session): RouteAuthorizationDecision {
   return { kind: "redirect", href: preJoinPath(onlyMembership.cohortId) };
 }
 
+function decideCohort(
+  session: Session,
+  cohortId: string,
+): RouteAuthorizationDecision {
+  const mayEnter =
+    session.user.systemRole === "admin" ||
+    session.memberships.some((membership) => membership.cohortId === cohortId);
+  return mayEnter ? { kind: "allow", session } : { kind: "forbidden" };
+}
+
 function decideFullAccess(
   request: RouteAuthorizationRequest,
   session: Session,
 ): RouteAuthorizationDecision {
-  return request.kind === "campus-index"
-    ? decideCampusIndex(session)
-    : { kind: "allow", session };
+  switch (request.kind) {
+    case "campus-index":
+      return decideCampusIndex(session);
+    case "cohort":
+      return decideCohort(session, request.cohortId);
+    case "campus-shell":
+      return { kind: "allow", session };
+  }
 }
 
 export function decideRoute(

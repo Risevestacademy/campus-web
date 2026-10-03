@@ -1,4 +1,5 @@
 const CAMPUS_HOME_PATH = "/campus";
+const PRE_JOIN_SEGMENT = "join";
 const MAX_RETURN_TO_LENGTH = 2048;
 // Only used to serialize a path that already passed validation.
 const PARSING_ORIGIN = "https://campus.invalid";
@@ -54,4 +55,28 @@ export function parseCampusReturnTo(
 
 export function normalizeCampusReturnTo(value: string | undefined): string {
   return parseCampusReturnTo(value) ?? CAMPUS_HOME_PATH;
+}
+
+// Active campus: /campus/{id} and everything under it except /campus/{id}/join.
+export function activeCampusCohort(pathname: string): string | undefined {
+  const [root, campus, cohortSegment, section] = pathname.split("/");
+  if (root !== "" || `/${campus}` !== CAMPUS_HOME_PATH || !cohortSegment) {
+    return undefined;
+  }
+
+  const isPreJoin =
+    section !== undefined && decodeSegment(section) === PRE_JOIN_SEGMENT;
+  return isPreJoin ? undefined : decodeSegment(cohortSegment);
+}
+
+export function normalizeCohortReturnTo(
+  cohortId: string,
+  value: string | undefined,
+): string {
+  const destination = parseCampusReturnTo(value);
+  const [pathname = ""] = destination?.split("?", 1) ?? [];
+
+  return destination && activeCampusCohort(pathname) === cohortId
+    ? destination
+    : `${CAMPUS_HOME_PATH}/${encodeURIComponent(cohortId)}`;
 }
