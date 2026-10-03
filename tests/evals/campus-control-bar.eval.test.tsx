@@ -1,16 +1,16 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import ActiveCampusLayout from "@/app/(app)/campus/[id]/(active-campus)/layout";
 import { CampusMediaSessionProvider } from "@/features/campus";
+import { activeCampusLayout } from "@/tests/fixtures/active-campus-layout";
+
+vi.mock("@/features/auth", () => import("@/tests/fixtures/route-access-stub"));
 
 describe("campus control bar acceptance (required threshold: 1/1)", () => {
-  it("exposes the complete desktop control bar through the active-campus layout", () => {
+  it("exposes the complete desktop control bar through the active-campus layout", async () => {
     render(
       <CampusMediaSessionProvider>
-        <ActiveCampusLayout>
-          <div />
-        </ActiveCampusLayout>
+        {await activeCampusLayout()}
       </CampusMediaSessionProvider>,
     );
 

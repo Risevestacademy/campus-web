@@ -60,7 +60,7 @@ const hangUntilAborted: Backend = (request) =>
 function visitor(clientAddress: string) {
   nextHeaders.cookies.mockResolvedValue({
     get: () => ({ name: "campus_session", value: `token-${clientAddress}` }),
-    has: () => false,
+    has: (name: string) => name === "campus_session",
   });
   nextHeaders.headers.mockResolvedValue(
     new Headers({

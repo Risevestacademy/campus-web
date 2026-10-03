@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  normalizeCampusReturnTo,
   normalizeCohortReturnTo,
-  parseCampusReturnTo,
+  normalizeReturnTo,
+  parseReturnTo,
 } from "../index";
 
 vi.mock("server-only", () => ({}));
 
-describe("parseCampusReturnTo", () => {
+describe("parseReturnTo", () => {
   it.each([
     ["the campus index", "/campus", "/campus"],
     ["a trailing slash", "/campus/", "/campus/"],
@@ -25,8 +25,19 @@ describe("parseCampusReturnTo", () => {
       "/campus/cohort%20three",
     ],
   ])("accepts %s", (_, value, expected) => {
-    expect(parseCampusReturnTo(value)).toBe(expected);
+    expect(parseReturnTo(value)).toBe(expected);
   });
+
+  it.each([
+    ["the invitation", "/invitation", "/invitation"],
+    ["the invitation preview", "/preview", "/preview"],
+    ["an invitation step query", "/invitation?step=2", "/invitation?step=2"],
+  ])(
+    "accepts %s, which needs an invite rather than Campus",
+    (_, value, expected) => {
+      expect(parseReturnTo(value)).toBe(expected);
+    },
+  );
 
   it.each([
     [
@@ -38,7 +49,7 @@ describe("parseCampusReturnTo", () => {
   ])(
     "percent-encodes %s so it is safe in a Location header",
     (_, value, expected) => {
-      expect(parseCampusReturnTo(value)).toBe(expected);
+      expect(parseReturnTo(value)).toBe(expected);
     },
   );
 
@@ -50,20 +61,23 @@ describe("parseCampusReturnTo", () => {
       "/campus/42?tab=people",
     ],
   ])("discards %s", (_, value, expected) => {
-    expect(parseCampusReturnTo(value)).toBe(expected);
+    expect(parseReturnTo(value)).toBe(expected);
   });
 
   it.each([
     ["an undefined value", undefined],
     ["an empty value", ""],
     ["a relative path", "campus/42"],
-    ["a non-campus path", "/invitation"],
+    ["the sign-in page", "/sign-in"],
+    ["the session refresh page", "/session/refresh"],
     ["a campus prefix lookalike", "/campusfake/42"],
+    ["an invitation prefix lookalike", "/invitationfake"],
+    ["a preview prefix lookalike", "/previews"],
     ["an absolute URL", "https://attacker.example/campus"],
     ["a protocol-relative URL", "//attacker.example/campus"],
     ["a javascript URL", "javascript:alert(1)"],
-  ])("rejects %s as off-campus", (_, value) => {
-    expect(parseCampusReturnTo(value)).toBeUndefined();
+  ])("rejects %s as outside the allowed destinations", (_, value) => {
+    expect(parseReturnTo(value)).toBeUndefined();
   });
 
   it.each([
@@ -76,8 +90,10 @@ describe("parseCampusReturnTo", () => {
     ["an encoded current segment", "/campus/%2E/join"],
     ["an encoded slash", "/campus/42%2F..%2Fadmin"],
     ["an empty interior segment", "/campus//42"],
+    ["a parent segment out of the invitation", "/invitation/../campus"],
+    ["an encoded parent segment under the preview", "/preview/%2E%2E/admin"],
   ])("rejects %s as path traversal", (_, value) => {
-    expect(parseCampusReturnTo(value)).toBeUndefined();
+    expect(parseReturnTo(value)).toBeUndefined();
   });
 
   it.each([
@@ -91,37 +107,41 @@ describe("parseCampusReturnTo", () => {
     ["an encoded newline in the path", "/campus/42%0Aadmin"],
     ["malformed percent encoding", "/campus/%E0%A4%A"],
   ])("rejects %s as an unsafe character", (_, value) => {
-    expect(parseCampusReturnTo(value)).toBeUndefined();
+    expect(parseReturnTo(value)).toBeUndefined();
   });
 
   it("accepts a destination of exactly 2048 characters", () => {
     const value = `/campus/${"a".repeat(2048 - "/campus/".length)}`;
 
-    expect(parseCampusReturnTo(value)).toBe(value);
+    expect(parseReturnTo(value)).toBe(value);
   });
 
   it("rejects a destination longer than 2048 characters", () => {
     const value = `/campus/${"a".repeat(2049 - "/campus/".length)}`;
 
-    expect(parseCampusReturnTo(value)).toBeUndefined();
+    expect(parseReturnTo(value)).toBeUndefined();
   });
 });
 
-describe("normalizeCampusReturnTo", () => {
+describe("normalizeReturnTo", () => {
   it("returns the sanitized destination when it is valid", () => {
-    expect(normalizeCampusReturnTo("/campus/42?tab=people#row")).toBe(
+    expect(normalizeReturnTo("/campus/42?tab=people#row")).toBe(
       "/campus/42?tab=people",
     );
+  });
+
+  it("keeps an invitation destination", () => {
+    expect(normalizeReturnTo("/invitation")).toBe("/invitation");
   });
 
   it.each([
     undefined,
     "",
-    "/invitation",
+    "/sign-in",
     "//attacker.example",
     "/campus/../admin",
   ])("falls back to the campus index for %j", (value) => {
-    expect(normalizeCampusReturnTo(value)).toBe("/campus");
+    expect(normalizeReturnTo(value)).toBe("/campus");
   });
 });
 
@@ -148,6 +168,7 @@ describe("normalizeCohortReturnTo", () => {
     ["a protocol-relative URL", "//attacker.example/campus/c-3"],
     ["a traversal into another cohort", "/campus/c-3/../c-4"],
     ["a cohort prefix lookalike", "/campus/c-33"],
+    ["the invitation", "/invitation"],
   ])("falls back to the cohort's campus for %s", (_, value) => {
     expect(normalizeCohortReturnTo("c-3", value)).toBe("/campus/c-3");
   });

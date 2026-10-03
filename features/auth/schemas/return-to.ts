@@ -1,4 +1,5 @@
 const CAMPUS_HOME_PATH = "/campus";
+const RETURN_ROOTS = [CAMPUS_HOME_PATH, "/invitation", "/preview"] as const;
 const PRE_JOIN_SEGMENT = "join";
 const MAX_RETURN_TO_LENGTH = 2048;
 // Only used to serialize a path that already passed validation.
@@ -28,10 +29,14 @@ function isSafeSegment(segment: string, isLast: boolean): boolean {
   );
 }
 
-function isCampusPath(path: string): boolean {
-  if (path !== CAMPUS_HOME_PATH && !path.startsWith(`${CAMPUS_HOME_PATH}/`)) {
-    return false;
-  }
+function isUnderReturnRoot(path: string): boolean {
+  return RETURN_ROOTS.some(
+    (root) => path === root || path.startsWith(`${root}/`),
+  );
+}
+
+function isReturnPath(path: string): boolean {
+  if (!isUnderReturnRoot(path)) return false;
 
   const segments = path.split("/").slice(1);
   return segments.every((segment, index) =>
@@ -39,22 +44,20 @@ function isCampusPath(path: string): boolean {
   );
 }
 
-export function parseCampusReturnTo(
-  value: string | undefined,
-): string | undefined {
+export function parseReturnTo(value: string | undefined): string | undefined {
   if (!value || value.length > MAX_RETURN_TO_LENGTH) return undefined;
   if (UNSAFE_CHARACTERS.test(value)) return undefined;
 
   const [withoutFragment = ""] = value.split("#", 1);
   const [path = ""] = withoutFragment.split("?", 1);
-  if (!isCampusPath(path)) return undefined;
+  if (!isReturnPath(path)) return undefined;
 
   const url = new URL(withoutFragment, PARSING_ORIGIN);
   return `${url.pathname}${url.search}`;
 }
 
-export function normalizeCampusReturnTo(value: string | undefined): string {
-  return parseCampusReturnTo(value) ?? CAMPUS_HOME_PATH;
+export function normalizeReturnTo(value: string | undefined): string {
+  return parseReturnTo(value) ?? CAMPUS_HOME_PATH;
 }
 
 // Active campus: /campus/{id} and everything under it except /campus/{id}/join.
@@ -73,7 +76,7 @@ export function normalizeCohortReturnTo(
   cohortId: string,
   value: string | undefined,
 ): string {
-  const destination = parseCampusReturnTo(value);
+  const destination = parseReturnTo(value);
   const [pathname = ""] = destination?.split("?", 1) ?? [];
 
   return destination && activeCampusCohort(pathname) === cohortId

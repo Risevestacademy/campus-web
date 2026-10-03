@@ -1,18 +1,22 @@
 import type { Route } from "next";
 
-import { normalizeCampusReturnTo } from "../schemas/return-to";
+import { normalizeReturnTo } from "../schemas/return-to";
 import type {
+  CampusRouteRequest,
   RouteAuthorizationDecision,
   RouteAuthorizationRequest,
   Session,
+  SignInDecision,
 } from "../types/auth.types";
 import type { SessionRead } from "./session.service";
 
+const CAMPUS_HOME_PATH: Route = "/campus";
 const INVITATION_PATH: Route = "/invitation";
+const INVITE_REQUIRED_PATH = "/sign-in?error=invite_required" as Route;
 const SESSION_REFRESH_PATH = "/session/refresh";
 const SIGN_IN_PATH = "/sign-in";
 
-export interface CampusRequestSignals {
+export interface RouteRequestSignals {
   returnTo: string | undefined;
   refreshAttempted: boolean;
 }
@@ -22,10 +26,10 @@ export interface CampusRequestSignals {
 export function signedOutRedirect({
   returnTo,
   refreshAttempted,
-}: CampusRequestSignals): Route {
+}: RouteRequestSignals): Route {
   const path = refreshAttempted ? SIGN_IN_PATH : SESSION_REFRESH_PATH;
   const search = new URLSearchParams({
-    returnTo: normalizeCampusReturnTo(returnTo),
+    returnTo: normalizeReturnTo(returnTo),
   });
   return `${path}?${search.toString()}` as Route;
 }
@@ -39,14 +43,23 @@ export function preJoinRedirect(cohortId: string, returnTo: string): Route {
   return `${preJoinPath(cohortId)}?${search.toString()}` as Route;
 }
 
+// Admins and members of several cohorts choose at /campus; everyone else is
+// sent straight into their one cohort and never sees the chooser.
+function usesCohortChooser(session: Session): boolean {
+  return session.user.systemRole === "admin" || session.memberships.length > 1;
+}
+
+export function logsOutFromRail(session: Session): boolean {
+  return !usesCohortChooser(session);
+}
+
 function decideCampusIndex(session: Session): RouteAuthorizationDecision {
-  if (session.user.systemRole === "admin") return { kind: "allow", session };
+  if (usesCohortChooser(session)) return { kind: "allow", session };
 
-  const [onlyMembership, ...otherMemberships] = session.memberships;
-  if (!onlyMembership) return { kind: "forbidden" };
-  if (otherMemberships.length > 0) return { kind: "allow", session };
-
-  return { kind: "redirect", href: preJoinPath(onlyMembership.cohortId) };
+  const [onlyMembership] = session.memberships;
+  return onlyMembership
+    ? { kind: "redirect", href: preJoinPath(onlyMembership.cohortId) }
+    : { kind: "forbidden" };
 }
 
 function decideCohort(
@@ -60,7 +73,7 @@ function decideCohort(
 }
 
 function decideFullAccess(
-  request: RouteAuthorizationRequest,
+  request: CampusRouteRequest,
   session: Session,
 ): RouteAuthorizationDecision {
   switch (request.kind) {
@@ -73,16 +86,40 @@ function decideFullAccess(
   }
 }
 
+function decideCampus(
+  request: CampusRouteRequest,
+  session: Session,
+): RouteAuthorizationDecision {
+  return session.scope === "full_access"
+    ? decideFullAccess(request, session)
+    : { kind: "redirect", href: INVITATION_PATH };
+}
+
+function decideInvitation(session: Session): RouteAuthorizationDecision {
+  if (session.inviteId) return { kind: "allow", session };
+
+  const href =
+    session.scope === "full_access" ? CAMPUS_HOME_PATH : INVITE_REQUIRED_PATH;
+  return { kind: "redirect", href };
+}
+
+function decideSignedIn(
+  request: RouteAuthorizationRequest,
+  session: Session,
+): RouteAuthorizationDecision {
+  return request.kind === "invitation"
+    ? decideInvitation(session)
+    : decideCampus(request, session);
+}
+
 export function decideRoute(
   request: RouteAuthorizationRequest,
   sessionRead: SessionRead,
-  signals: CampusRequestSignals,
+  signals: RouteRequestSignals,
 ): RouteAuthorizationDecision {
   switch (sessionRead.kind) {
     case "authenticated":
-      return sessionRead.session.scope === "full_access"
-        ? decideFullAccess(request, sessionRead.session)
-        : { kind: "redirect", href: INVITATION_PATH };
+      return decideSignedIn(request, sessionRead.session);
 
     case "unauthenticated":
       return { kind: "redirect", href: signedOutRedirect(signals) };
@@ -93,7 +130,25 @@ export function decideRoute(
     case "unavailable":
       return {
         ...sessionRead,
-        retryHref: normalizeCampusReturnTo(signals.returnTo),
+        retryHref: normalizeReturnTo(signals.returnTo),
       };
   }
+}
+
+// Sign-in is the way out of every failed state, so anything short of a usable
+// session renders it. A provisional session without an invite renders too:
+// /invitation sends it here, and redirecting back would bounce forever.
+export function decideSignIn(
+  sessionRead: SessionRead,
+  returnTo: string | undefined,
+): SignInDecision {
+  if (sessionRead.kind !== "authenticated") return { kind: "render" };
+
+  const { session } = sessionRead;
+  if (session.scope === "full_access") {
+    return { kind: "redirect", href: normalizeReturnTo(returnTo) as Route };
+  }
+  return session.inviteId
+    ? { kind: "redirect", href: INVITATION_PATH }
+    : { kind: "render" };
 }

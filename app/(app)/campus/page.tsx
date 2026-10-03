@@ -1,9 +1,20 @@
 import Link from "next/link";
 
 import { getServerApi } from "@/core/api/client/server";
-import { requireRouteAccess, SessionUnavailable } from "@/features/auth";
+import {
+  AccountMenu,
+  requireRouteAccess,
+  SessionUnavailable,
+} from "@/features/auth";
 import { CohortChooser } from "@/features/campus";
 import { firstSearchParameter } from "@/shared/lib/search-params";
+import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
+
+type Viewer = Readonly<{ displayName?: string | null; email: string }>;
+
+function initialOf({ displayName, email }: Viewer): string {
+  return (displayName || email).charAt(0).toUpperCase();
+}
 
 interface CampusPageProps {
   searchParams: Promise<{ page?: string | string[] }>;
@@ -22,7 +33,7 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
 
   return (
     <div data-surface-role="background" className="bg-background space-y-8">
-      <header className="flex h-16 items-end px-10">
+      <header className="flex h-16 items-end justify-between px-10">
         <Link href={"/"} className="flex items-center gap-3">
           <figure
             data-surface-role="surface"
@@ -30,6 +41,13 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
           ></figure>
           <h1 className="text-xl font-medium">Campus by Rise</h1>
         </Link>
+        <AccountMenu side="bottom">
+          <Avatar size="lg">
+            <AvatarFallback className="bg-accent text-accent-foreground font-medium">
+              {initialOf(access.session.user)}
+            </AvatarFallback>
+          </Avatar>
+        </AccountMenu>
       </header>
 
       <div className="px-10">

@@ -132,3 +132,19 @@ export function createSessionRefresher(
     return inFlight;
   };
 }
+
+export type SessionEnd = { kind: "ended" } | { kind: "failed" };
+
+// 401 means the session had already ended, which is what logging out wants.
+export async function endSession(api: ApiClient): Promise<SessionEnd> {
+  try {
+    const { response } = await api.POST("/v1/auth/logout", {
+      parseAs: "stream",
+    });
+    return response.ok || response.status === 401
+      ? { kind: "ended" }
+      : { kind: "failed" };
+  } catch {
+    return { kind: "failed" };
+  }
+}

@@ -677,11 +677,11 @@ describe("createApiProxy refresh-attempt marker", () => {
       refreshExpiresAt: "2026-11-01T12:00:00.000Z",
     });
 
-  it("marks the Campus visit after a successful refresh", async () => {
+  it("marks the visit on every route after a successful refresh", async () => {
     const response = await refreshThrough(refreshed());
 
     expect(response.headers.getSetCookie()).toContain(
-      "campus_refresh_attempted=1; HttpOnly; Secure; SameSite=Lax; Path=/campus; Max-Age=60",
+      "campus_refresh_attempted=1; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=60",
     );
   });
 
@@ -689,7 +689,7 @@ describe("createApiProxy refresh-attempt marker", () => {
     const response = await refreshThrough(refreshed(), "http://127.0.0.1:3100");
 
     expect(response.headers.getSetCookie()).toContain(
-      "campus_refresh_attempted=1; HttpOnly; SameSite=Lax; Path=/campus; Max-Age=60",
+      "campus_refresh_attempted=1; HttpOnly; SameSite=Lax; Path=/; Max-Age=60",
     );
   });
 

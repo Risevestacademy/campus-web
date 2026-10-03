@@ -215,10 +215,10 @@ An optional return destination may be supplied:
 
 `createApiProxy` does not own the return policy. Its required `parseReturnTo`
 option receives one, and `app/api/[...path]/route.ts` passes
-`parseCampusReturnTo` from `@/features/auth`. `core` may not import
-`features`, so injection keeps Campus rules out of the transport. That policy
-accepts same-origin `/campus` and `/campus/**` destinations with their query
-and rejects everything else (see `features/auth/README.md`).
+`parseReturnTo` from `@/features/auth`. `core` may not import `features`, so
+injection keeps Campus rules out of the transport. That policy accepts
+same-origin paths under `/campus`, `/invitation`, and `/preview` with their
+query and rejects everything else (see `features/auth/README.md`).
 
 The proxy stores the parsed destination, never the raw value, in the
 short-lived, HTTP-only `campus_oauth_return_to` cookie, and parses the cookie
@@ -282,15 +282,15 @@ curl -i \
 
 Ownership is split so each concern has exactly one home:
 
-| Concern                                                                            | Owner                                                            |
-| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Issuing, rotating, and revoking `campus_session` and `campus_refresh`              | campus-api                                                       |
-| Cookie scoping (`Path`, `HttpOnly`, `SameSite`, `Secure`) and the cookie allowlist | browser proxy (`proxy.ts`)                                       |
-| `campus_refresh_attempted` marker                                                  | browser proxy sets it; root `proxy.ts` reads and clears it       |
-| Cookie-presence redirects for `/campus/**`                                         | root `proxy.ts` (`features/auth` `guardCampusRequest`)           |
-| Reading the session (`GET /v1/auth/me`), retries, route decisions                  | `features/auth` (`authorizeRoute`, server-only)                  |
-| Refreshing the session (`POST /v1/auth/refresh`)                                   | `features/auth` refresh page, through `browserApi`               |
-| Which Campus return destinations are safe                                          | `features/auth` (`parseCampusReturnTo`), injected into the proxy |
+| Concern                                                                            | Owner                                                                |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Issuing, rotating, and revoking `campus_session` and `campus_refresh`              | campus-api                                                           |
+| Cookie scoping (`Path`, `HttpOnly`, `SameSite`, `Secure`) and the cookie allowlist | browser proxy (`proxy.ts`)                                           |
+| `campus_refresh_attempted` marker                                                  | browser proxy sets it; root `proxy.ts` and invitation routes read it |
+| Cookie-presence redirects for `/campus/**`                                         | root `proxy.ts` (`features/auth` `guardCampusRequest`)               |
+| Reading the session (`GET /v1/auth/me`), retries, route decisions                  | `features/auth` (`authorizeRoute`, server-only)                      |
+| Refreshing the session (`POST /v1/auth/refresh`)                                   | `features/auth` refresh page, through `browserApi`                   |
+| Which return destinations are safe                                                 | `features/auth` (`parseReturnTo`), injected into the proxy           |
 
 Rules:
 
@@ -301,13 +301,15 @@ Rules:
   and never in parallel. Refresh tokens rotate; a second concurrent POST
   spends a used token and signs the visitor out.
 - After a successful refresh the proxy adds
-  `campus_refresh_attempted=1; HttpOnly; SameSite=Lax; Path=/campus; Max-Age=60`
-  (`Secure` on HTTPS). A Campus route that still finds no session while the
-  marker is present sends the visitor to sign-in instead of refreshing again.
+  `campus_refresh_attempted=1; HttpOnly; SameSite=Lax; Path=/; Max-Age=60`
+  (`Secure` on HTTPS). A Campus or invitation route that still finds no
+  session while the marker is present sends the visitor to sign-in instead of
+  refreshing again.
   The marker is not in the cookie allowlist, so it never reaches the backend.
 - The root `proxy.ts` deletes the marker on the first `/campus/**` response
   and forwards its presence to the render as `x-campus-refresh-attempted`, so
-  the marker covers exactly one Campus request after a refresh.
+  the marker covers exactly one Campus request after a refresh. Invitation
+  routes have no proxy: they read the cookie directly and leave it to expire.
 - Cookie names (`campus_session`, `campus_refresh_attempted`) live in
   `auth-cookies.ts` and are exported from `@/core/api/client`, so the browser
   proxy, the server client, and `features/auth` share one definition.

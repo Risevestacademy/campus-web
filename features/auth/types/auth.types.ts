@@ -4,10 +4,15 @@ import type { components } from "@/core/api/client";
 
 export type Session = components["schemas"]["SessionResponseDto"];
 
-export type RouteAuthorizationRequest =
+export type InvitationPath = "/invitation" | "/preview";
+
+export type CampusRouteRequest =
   | { kind: "campus-shell" }
   | { kind: "campus-index" }
   | { kind: "cohort"; cohortId: string };
+
+export type RouteAuthorizationRequest =
+  CampusRouteRequest | { kind: "invitation"; path: InvitationPath };
 
 export type RouteAuthorizationDecision =
   | { kind: "allow"; session: Session }
@@ -19,3 +24,6 @@ export type RouteAccess = Extract<
   RouteAuthorizationDecision,
   { kind: "allow" } | { kind: "unavailable" }
 >;
+
+export type SignInDecision =
+  { kind: "render" } | { kind: "redirect"; href: Route };

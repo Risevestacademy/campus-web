@@ -26,7 +26,7 @@ function cooldownAfter(failures: number, retryAfterMs = 0): number {
 }
 
 function signInHref(returnTo: string): Route {
-  const search = new URLSearchParams({ error: "session_expired", returnTo });
+  const search = new URLSearchParams({ returnTo });
   return `/sign-in?${search.toString()}` as Route;
 }
 

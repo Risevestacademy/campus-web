@@ -1,24 +1,16 @@
 import { render } from "@testing-library/react";
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import ActiveCampusLayout from "@/app/(app)/campus/[id]/(active-campus)/layout";
 import CampusLayout from "@/app/(app)/campus/[id]/layout";
 import CampusPage from "@/app/(app)/campus/page";
 import AuthLayout from "@/app/(auth)/layout";
+import { activeCampusLayout } from "@/tests/fixtures/active-campus-layout";
 
 // Surface roles are under test here, not route authorization or cohort data:
 // stand in for an allowed member and skip the async chooser, which jsdom
 // cannot render, so the Campus page's own markup is measured.
-vi.mock("@/features/auth", () => ({
-  requireRouteAccess: () =>
-    Promise.resolve({
-      kind: "allow",
-      session: { user: { systemRole: "user" }, memberships: [] },
-    }),
-  CohortGate: ({ children }: { children: ReactNode }) => children,
-  SessionUnavailable: () => null,
-}));
+vi.mock("@/features/auth", () => import("@/tests/fixtures/route-access-stub"));
 vi.mock("@/core/api/client/server", () => ({
   getServerApi: () => Promise.resolve({}),
 }));
@@ -53,11 +45,7 @@ const structuralComponents: ReadonlyArray<{
     name: "active-campus layout",
     element: await CampusLayout({
       params: Promise.resolve({ id: "c-1" }),
-      children: (
-        <ActiveCampusLayout>
-          <div />
-        </ActiveCampusLayout>
-      ),
+      children: await activeCampusLayout(),
     }),
   },
 ];

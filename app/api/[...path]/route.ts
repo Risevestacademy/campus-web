@@ -1,12 +1,12 @@
 import { readApiBaseUrl } from "@/core/api/client/configuration";
 import { createApiProxy } from "@/core/api/client/proxy";
 import { createJsonLogger } from "@/core/observability";
-import { parseCampusReturnTo } from "@/features/auth";
+import { parseReturnTo } from "@/features/auth";
 
 const handleApiRequest = createApiProxy({
   baseUrl: readApiBaseUrl,
   logger: createJsonLogger(),
-  parseReturnTo: parseCampusReturnTo,
+  parseReturnTo: parseReturnTo,
 });
 
 export {

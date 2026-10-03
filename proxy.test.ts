@@ -109,7 +109,7 @@ describe("proxy: visitors without an access cookie", () => {
       `${ORIGIN}/sign-in?returnTo=${ENCODED_DEEP_LINK}`,
     );
     expect(markerDeletion(response)).toMatch(
-      /^campus_refresh_attempted=; Path=\/campus; Expires=Thu, 01 Jan 1970/,
+      /^campus_refresh_attempted=; Path=\/; Expires=Thu, 01 Jan 1970/,
     );
   });
 
@@ -171,7 +171,7 @@ describe("proxy: visitors with an access cookie", () => {
       headersSeenByRender(response).get("x-campus-refresh-attempted"),
     ).toBe("1");
     expect(markerDeletion(response)).toMatch(
-      /^campus_refresh_attempted=; Path=\/campus; Expires=Thu, 01 Jan 1970/,
+      /^campus_refresh_attempted=; Path=\/; Expires=Thu, 01 Jan 1970/,
     );
   });
 });

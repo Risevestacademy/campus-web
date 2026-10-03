@@ -34,7 +34,19 @@ _Avoid_: Redirect URL, callback URL
 
 **Join Gate**:
 The required media-setup step before a user enters an active campus experience.
+Code and tests call it pre-join (`/campus/{id}/join`).
 _Avoid_: Join page, onboarding redirect
+
+**Route Access Decision**:
+The answer to whether a session may render a route: allow, redirect, forbidden,
+or unavailable. Unavailable means the session could not be read, never that the
+user is signed out.
+_Avoid_: Auth check, permission result
+
+**Return Destination**:
+The sanitized same-origin Campus or invitation path a visitor goes back to
+after refresh, sign-in, or the Join Gate. Unsafe values fall back to `/campus`.
+_Avoid_: Redirect URL, next URL
 
 ## Campus Media
 

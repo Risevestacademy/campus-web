@@ -33,15 +33,18 @@ export function membership(cohortId: string, name: string): MembershipFixture {
   };
 }
 
+export const INVITE_ID = "66666666-6666-4666-8666-666666666666";
+
 function sessionBody(
   scope: "provisional" | "full_access",
   systemRole: "user" | "admin",
   memberships: MembershipFixture[],
+  inviteId: string | null = null,
 ) {
   return {
     scope,
     expiresAt: "2099-01-01T00:15:00.000Z",
-    inviteId: null,
+    inviteId,
     user: {
       id: "55555555-5555-4555-8555-555555555555",
       email: "ada@campus.local",
@@ -57,13 +60,17 @@ export const sessions = {
     status: 200,
     body: sessionBody("full_access", "user", memberships),
   }),
+  invitedMember: (...memberships: MembershipFixture[]): ScriptedReply => ({
+    status: 200,
+    body: sessionBody("full_access", "user", memberships, INVITE_ID),
+  }),
   admin: (...memberships: MembershipFixture[]): ScriptedReply => ({
     status: 200,
     body: sessionBody("full_access", "admin", memberships),
   }),
-  provisional: (): ScriptedReply => ({
+  provisional: (inviteId: string | null = INVITE_ID): ScriptedReply => ({
     status: 200,
-    body: sessionBody("provisional", "user", []),
+    body: sessionBody("provisional", "user", [], inviteId),
   }),
 };
 
@@ -103,6 +110,10 @@ export class FakeApi {
     await this.scenario({ refresh: replies });
   }
 
+  async scriptLogout(...replies: ScriptedReply[]): Promise<void> {
+    await this.scenario({ logout: replies });
+  }
+
   async scriptSession(reply: ScriptedReply | null): Promise<void> {
     await this.scenario({ session: reply });
   }
@@ -113,6 +124,10 @@ export class FakeApi {
 
   async refreshPosts(): Promise<LoggedRequest[]> {
     return this.requestsTo("POST", "/v1/auth/refresh");
+  }
+
+  async logoutPosts(): Promise<LoggedRequest[]> {
+    return this.requestsTo("POST", "/v1/auth/logout");
   }
 
   async sessionReads(): Promise<LoggedRequest[]> {

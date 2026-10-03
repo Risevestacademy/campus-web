@@ -1,4 +1,4 @@
-import { normalizeCampusReturnTo, RefreshSession } from "@/features/auth";
+import { normalizeReturnTo, RefreshSession } from "@/features/auth";
 import { firstSearchParameter } from "@/shared/lib/search-params";
 
 interface SessionRefreshPageProps {
@@ -12,7 +12,7 @@ export default async function SessionRefreshPage({
 
   return (
     <RefreshSession
-      returnTo={normalizeCampusReturnTo(firstSearchParameter(returnTo))}
+      returnTo={normalizeReturnTo(firstSearchParameter(returnTo))}
     />
   );
 }

@@ -2,11 +2,17 @@ import { cn } from "cn";
 
 import { buttonVariants } from "@/shared/ui/button";
 
+interface SessionUnavailableProps {
+  retryHref: string;
+}
+
 // A plain anchor, not next/link: the retry must be a full request so the
 // layout's session check runs again too.
-export function SessionUnavailable({ retryHref }: { retryHref: string }) {
+export function SessionUnavailableNotice({
+  retryHref,
+}: SessionUnavailableProps) {
   return (
-    <main className="grid h-dvh content-center justify-items-center gap-6 px-6 text-center">
+    <div className="grid justify-items-center gap-6 text-center">
       <div role="alert" className="grid max-w-md gap-2">
         <h1 className="font-display text-2xl font-bold">
           We couldn&apos;t check your session
@@ -19,6 +25,14 @@ export function SessionUnavailable({ retryHref }: { retryHref: string }) {
       <a href={retryHref} className={cn(buttonVariants({ size: "lg" }))}>
         Try again
       </a>
+    </div>
+  );
+}
+
+export function SessionUnavailable({ retryHref }: SessionUnavailableProps) {
+  return (
+    <main className="grid h-dvh content-center px-6">
+      <SessionUnavailableNotice retryHref={retryHref} />
     </main>
   );
 }

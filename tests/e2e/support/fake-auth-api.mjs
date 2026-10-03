@@ -13,8 +13,13 @@ const ROTATED_COOKIES = [
   "campus_session=rotated-session; Path=/; HttpOnly",
   "campus_refresh=rotated-refresh; Path=/v1/auth; HttpOnly",
 ];
+const CLEARED_COOKIES = [
+  "campus_session=; Path=/; HttpOnly; Max-Age=0",
+  "campus_refresh=; Path=/v1/auth; HttpOnly; Max-Age=0",
+];
 
 let refreshReplies = [];
+let logoutReplies = [];
 let sessionReply;
 let cohortPages = {};
 let requests = [];
@@ -69,6 +74,18 @@ function replyToRefresh(response) {
   sendScripted(response, reply);
 }
 
+// Unscripted logouts succeed: most tests only need the session to end.
+function replyToLogout(response) {
+  const reply = logoutReplies.shift();
+  if (reply && reply.status !== 204) {
+    sendScripted(response, reply);
+    return;
+  }
+
+  response.writeHead(204, { "set-cookie": CLEARED_COOKIES });
+  response.end();
+}
+
 function replyToSession(request, response) {
   if (!sessionReply || !hasSessionCookie(request)) {
     sendJson(response, 401, { error: { code: "UNAUTHENTICATED" } });
@@ -90,6 +107,7 @@ function replyToCohorts(url, response) {
 // can script the refresh, session, and cohort replies independently.
 function applyScenario(scenario) {
   if ("refresh" in scenario) refreshReplies = scenario.refresh;
+  if ("logout" in scenario) logoutReplies = scenario.logout;
   if ("session" in scenario) sessionReply = scenario.session;
   if ("cohorts" in scenario) cohortPages = scenario.cohorts;
 }
@@ -99,6 +117,7 @@ async function handleControl(request, response, path) {
   if (path === "/__requests") return sendJson(response, 200, requests);
   if (path === "/__reset") {
     refreshReplies = [];
+    logoutReplies = [];
     sessionReply = undefined;
     cohortPages = {};
     requests = [];
@@ -129,6 +148,11 @@ const server = createServer(async (request, response) => {
 
   if (request.method === "POST" && path === "/v1/auth/refresh") {
     replyToRefresh(response);
+    return;
+  }
+
+  if (request.method === "POST" && path === "/v1/auth/logout") {
+    replyToLogout(response);
     return;
   }
 

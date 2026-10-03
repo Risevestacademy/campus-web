@@ -6,7 +6,7 @@ import type {
   RouteAccess,
   RouteAuthorizationRequest,
 } from "../types/auth.types";
-import { authorizeRoute } from "./authorization.service";
+import { authorizeRoute, resolveSignIn } from "./authorization.service";
 
 export async function requireRouteAccess(
   request: RouteAuthorizationRequest,
@@ -17,4 +17,11 @@ export async function requireRouteAccess(
   if (decision.kind === "forbidden") forbidden();
 
   return decision;
+}
+
+export async function redirectSignedInVisitor(
+  returnTo: string | undefined,
+): Promise<void> {
+  const decision = await resolveSignIn(returnTo);
+  if (decision.kind === "redirect") redirect(decision.href);
 }

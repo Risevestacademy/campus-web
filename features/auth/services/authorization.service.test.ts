@@ -25,7 +25,11 @@ import {
   authorizeRoute,
   CampusShellGate,
   CohortGate,
+  InvitationGate,
+  logsOutFromRail,
+  redirectSignedInVisitor,
   requireRouteAccess,
+  resolveSignIn,
   type RouteAuthorizationRequest,
 } from "../index";
 
@@ -140,6 +144,14 @@ const cohort = (cohortId: string): RouteAuthorizationRequest => ({
   kind: "cohort",
   cohortId,
 });
+const invitation: RouteAuthorizationRequest = {
+  kind: "invitation",
+  path: "/invitation",
+};
+const preview: RouteAuthorizationRequest = {
+  kind: "invitation",
+  path: "/preview",
+};
 
 const COHORT_A = {
   cohortId: "11111111-1111-4111-8111-111111111111",
@@ -236,6 +248,17 @@ describe("authorizeRoute: signed-in sessions", () => {
 });
 
 describe("authorizeRoute: signed-out and refused sessions", () => {
+  it("treats a visitor without an access cookie as signed out without asking the backend", async () => {
+    browserCookies({});
+    const sent = backendReplies(ok(fullAccessSession));
+
+    await expect(authorize()).resolves.toEqual({
+      kind: "redirect",
+      href: "/session/refresh?returnTo=%2Fcampus%2F42%2Frooms%3Fseat%3D3",
+    });
+    expect(sent).toEqual([]);
+  });
+
   it("sends an unauthenticated visitor through one refresh attempt", async () => {
     const sent = backendReplies(status(401));
 
@@ -585,11 +608,203 @@ describe("authorizeRoute: cohort membership", () => {
   });
 });
 
+describe("authorizeRoute: invitation routes", () => {
+  const invitedFullAccess = {
+    ...fullAccess("user", [COHORT_A]),
+    inviteId: provisionalSession.inviteId,
+  };
+  const uninvitedProvisional = { ...provisionalSession, inviteId: null };
+
+  it("lets a provisional session with an invite in", async () => {
+    backendReplies(ok(provisionalSession));
+
+    await expect(authorize(invitation)).resolves.toEqual({
+      kind: "allow",
+      session: provisionalSession,
+    });
+  });
+
+  it("lets a full-access member invited to another cohort in", async () => {
+    backendReplies(ok(invitedFullAccess));
+
+    await expect(authorize(preview)).resolves.toEqual({
+      kind: "allow",
+      session: invitedFullAccess,
+    });
+  });
+
+  it("sends a full-access session without an invite to Campus", async () => {
+    backendReplies(ok(fullAccess("user", [COHORT_A])));
+
+    await expect(authorize(invitation)).resolves.toEqual({
+      kind: "redirect",
+      href: "/campus",
+    });
+  });
+
+  it("sends a provisional session without an invite to sign-in with the reason", async () => {
+    backendReplies(ok(uninvitedProvisional));
+
+    await expect(authorize(invitation)).resolves.toEqual({
+      kind: "redirect",
+      href: "/sign-in?error=invite_required",
+    });
+  });
+
+  it("sends an unauthenticated visitor through refresh back to the invitation", async () => {
+    backendReplies(status(401));
+
+    await expect(authorize(invitation)).resolves.toEqual({
+      kind: "redirect",
+      href: "/session/refresh?returnTo=%2Finvitation",
+    });
+  });
+
+  it("keeps the preview as the refresh destination", async () => {
+    backendReplies(status(401));
+
+    await expect(authorize(preview)).resolves.toEqual({
+      kind: "redirect",
+      href: "/session/refresh?returnTo=%2Fpreview",
+    });
+  });
+
+  it("sends a visitor still signed out after a refresh to sign-in, read from the marker cookie", async () => {
+    browserCookies({
+      campus_session: "session-token",
+      campus_refresh_attempted: "1",
+    });
+    backendReplies(status(401));
+
+    await expect(authorize(invitation)).resolves.toEqual({
+      kind: "redirect",
+      href: "/sign-in?returnTo=%2Finvitation",
+    });
+  });
+
+  it("ignores Campus proxy headers, which no proxy writes on these routes", async () => {
+    proxySignals({ returnTo: RETURN_TO, refreshAttempted: true });
+    backendReplies(status(401));
+
+    await expect(authorize(invitation)).resolves.toEqual({
+      kind: "redirect",
+      href: "/session/refresh?returnTo=%2Finvitation",
+    });
+  });
+
+  it("forbids an account the backend refuses", async () => {
+    backendReplies(status(403));
+
+    await expect(authorize(invitation)).resolves.toEqual({
+      kind: "forbidden",
+    });
+  });
+
+  it("fails closed during an outage with a retry of the same page", async () => {
+    backendReplies(status(503), status(503), status(503));
+
+    await expect(authorize(preview)).resolves.toEqual({
+      kind: "unavailable",
+      retryHref: "/preview",
+    });
+  });
+});
+
 async function settle<T>(pending: Promise<T>): Promise<T | unknown> {
   const outcome = pending.catch((error: unknown) => error);
   await vi.runAllTimersAsync();
   return outcome;
 }
+
+describe("resolveSignIn", () => {
+  async function resolve(returnTo?: string) {
+    const decision = resolveSignIn(returnTo);
+    await vi.runAllTimersAsync();
+    return decision;
+  }
+
+  it("renders sign-in for a visitor without an access cookie without asking the backend", async () => {
+    browserCookies({});
+    const sent = backendReplies(ok(fullAccessSession));
+
+    await expect(resolve("/campus/42")).resolves.toEqual({ kind: "render" });
+    expect(sent).toEqual([]);
+  });
+
+  it.each([
+    ["an expired session", [status(401)]],
+    ["a refused account", [status(403)]],
+    ["a session outage", [status(503), status(503), status(503)]],
+  ])(
+    "renders sign-in for %s instead of refreshing or retrying",
+    async (_, replies) => {
+      backendReplies(...replies);
+
+      await expect(resolve("/campus/42")).resolves.toEqual({ kind: "render" });
+    },
+  );
+
+  it("sends a provisional session with an invite to its invitation, whatever the return destination", async () => {
+    backendReplies(ok(provisionalSession));
+
+    await expect(resolve("/preview")).resolves.toEqual({
+      kind: "redirect",
+      href: "/invitation",
+    });
+  });
+
+  it("renders sign-in for a provisional session without an invite, which the invitation sent here", async () => {
+    backendReplies(ok({ ...provisionalSession, inviteId: null }));
+
+    await expect(resolve()).resolves.toEqual({ kind: "render" });
+  });
+
+  it.each(["/campus/42/join?seat=3", "/invitation"])(
+    "sends a full-access session to the safe destination %s",
+    async (returnTo) => {
+      backendReplies(ok(fullAccessSession));
+
+      await expect(resolve(returnTo)).resolves.toEqual({
+        kind: "redirect",
+        href: returnTo,
+      });
+    },
+  );
+
+  it.each([
+    ["no destination", undefined],
+    ["an off-site destination", "//attacker.example/campus"],
+    ["sign-in itself", "/sign-in"],
+  ])("sends a full-access session with %s to Campus", async (_, returnTo) => {
+    backendReplies(ok(fullAccessSession));
+
+    await expect(resolve(returnTo)).resolves.toEqual({
+      kind: "redirect",
+      href: "/campus",
+    });
+  });
+});
+
+describe("redirectSignedInVisitor", () => {
+  it("interrupts the render with a temporary redirect for a signed-in visitor", async () => {
+    backendReplies(ok(fullAccessSession));
+
+    const interrupt = await settle(redirectSignedInVisitor("/campus/42"));
+
+    expect(isRedirectError(interrupt)).toBe(true);
+    if (!isRedirectError(interrupt)) return;
+    expect(getURLFromRedirectError(interrupt)).toBe("/campus/42");
+    expect(getRedirectStatusCodeFromError(interrupt)).toBe(307);
+  });
+
+  it("lets the sign-in page render for a signed-out visitor", async () => {
+    backendReplies(status(401));
+
+    await expect(
+      settle(redirectSignedInVisitor("/campus/42")),
+    ).resolves.toBeUndefined();
+  });
+});
 
 describe("requireRouteAccess", () => {
   beforeEach(() => {
@@ -696,5 +911,69 @@ describe("CohortGate", () => {
 
     expect(markup).not.toContain("Cohort content");
     expect(markup).toContain('role="alert"');
+  });
+});
+
+describe("InvitationGate", () => {
+  const invitationContent = createElement("p", null, "Invitation content");
+
+  beforeEach(() => {
+    vi.stubEnv("__NEXT_EXPERIMENTAL_AUTH_INTERRUPTS", "true");
+  });
+
+  function gate(path: "/invitation" | "/preview") {
+    return settle(InvitationGate({ path, children: invitationContent }));
+  }
+
+  it("renders the page for a session carrying an invite", async () => {
+    backendReplies(ok(provisionalSession));
+
+    const element = await gate("/invitation");
+
+    expect(renderToStaticMarkup(element as ReactElement)).toBe(
+      "<p>Invitation content</p>",
+    );
+  });
+
+  it("interrupts the render with a redirect to Campus for a full-access session without an invite", async () => {
+    backendReplies(ok(fullAccessSession));
+
+    const interrupt = await gate("/preview");
+
+    expect(isRedirectError(interrupt)).toBe(true);
+    if (!isRedirectError(interrupt)) return;
+    expect(getURLFromRedirectError(interrupt)).toBe("/campus");
+  });
+
+  it("renders the retry state inside the auth layout's landmark during an outage", async () => {
+    backendReplies(status(503), status(503), status(503));
+
+    const markup = renderToStaticMarkup(
+      (await gate("/preview")) as ReactElement,
+    );
+
+    expect(markup).not.toContain("Invitation content");
+    expect(markup).toContain('role="alert"');
+    expect(markup).toContain('href="/preview"');
+    expect(markup).not.toContain("<main");
+  });
+});
+
+describe("logsOutFromRail", () => {
+  const asSession = (body: object) =>
+    body as Parameters<typeof logsOutFromRail>[0];
+
+  it("puts log out in the rail for a member with one cohort, who never sees the chooser", () => {
+    expect(logsOutFromRail(asSession(fullAccess("user", [COHORT_A])))).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    ["a member with several cohorts", fullAccess("user", [COHORT_A, COHORT_B])],
+    ["an admin with no cohort place", fullAccess("admin", [])],
+    ["an admin with one cohort place", fullAccess("admin", [COHORT_A])],
+  ])("leaves log out to the campus chooser for %s", (_, session) => {
+    expect(logsOutFromRail(asSession(session))).toBe(false);
   });
 });
