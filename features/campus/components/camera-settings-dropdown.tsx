@@ -30,7 +30,9 @@ export function CameraSettingsDropdown({
       groups={[
         {
           devices: camera.devices,
-          emptyMessage: "No cameras found",
+          emptyMessage: camera.devicesRequirePermission
+            ? "Turn on your camera to choose one"
+            : "No cameras found",
           id: "cameras",
           label: "Camera",
         },

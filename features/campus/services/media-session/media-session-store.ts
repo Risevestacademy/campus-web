@@ -31,6 +31,14 @@ type SelectableAudioOutputMediaDevices = MediaDevices &
 
 type MediaActionFailure = Promise<MediaSessionErrorCode | null>;
 
+// A remembered selection may name a device that is gone or was never real, so
+// it is only preferred: `exact` would reject before the permission prompt.
+// `exact` is reserved for switching to a device the user picked from the list.
+type DeviceRequest = Readonly<{
+  deviceId: string;
+  match: "exact" | "ideal";
+}>;
+
 export type MediaSessionState = Readonly<{
   camera: CaptureSourceState;
   chooseAudioOutput: () => MediaActionFailure;
@@ -65,6 +73,7 @@ function createInitialCaptureState(
   return {
     desiredEnabled,
     devices: [],
+    devicesRequirePermission: false,
     error: null,
     selectedDeviceId,
     status: desiredEnabled ? "idle" : "disabled",
@@ -96,11 +105,19 @@ function getFailureStatus(errorCode: MediaSessionErrorCode) {
   return "failed" as const;
 }
 
+function getDeviceConstraint(request?: DeviceRequest) {
+  if (!request?.deviceId) return undefined;
+
+  return request.match === "exact"
+    ? { exact: request.deviceId }
+    : { ideal: request.deviceId };
+}
+
 function getConstraints(
   source: CaptureSource,
-  deviceId?: string,
+  request?: DeviceRequest,
 ): MediaStreamConstraints {
-  const deviceConstraint = deviceId ? { exact: deviceId } : undefined;
+  const deviceConstraint = getDeviceConstraint(request);
 
   if (source === "camera") {
     return {
@@ -144,6 +161,7 @@ function supportsAudioOutputSelection(mediaDevices: MediaDevices | undefined) {
 function withDiscoveredDevices(
   source: CaptureSourceState,
   devices: readonly MediaDeviceOption[],
+  devicesRequirePermission: boolean,
 ): CaptureSourceState {
   const canRecover =
     !source.track &&
@@ -151,7 +169,7 @@ function withDiscoveredDevices(
     source.error === "device-unavailable" &&
     devices.length > 0;
 
-  if (!canRecover) return { ...source, devices };
+  if (!canRecover) return { ...source, devices, devicesRequirePermission };
 
   const isSelectedDeviceListed = devices.some(
     (device) => device.id === source.selectedDeviceId,
@@ -160,6 +178,7 @@ function withDiscoveredDevices(
   return {
     ...source,
     devices,
+    devicesRequirePermission,
     error: null,
     selectedDeviceId: isSelectedDeviceListed ? source.selectedDeviceId : "",
     status: "disabled",
@@ -319,11 +338,16 @@ export function createMediaSessionStore(
             );
 
           return {
-            camera: withDiscoveredDevices(state.camera, devices.cameras),
+            camera: withDiscoveredDevices(
+              state.camera,
+              devices.cameras,
+              devices.permissionRequired.cameras,
+            ),
             deviceDiscoveryStatus: "ready",
             microphone: withDiscoveredDevices(
               state.microphone,
               devices.microphones,
+              devices.permissionRequired.microphones,
             ),
             output: {
               ...state.output,
@@ -344,7 +368,10 @@ export function createMediaSessionStore(
       }
     }
 
-    async function acquireSource(source: CaptureSource, deviceId?: string) {
+    async function acquireSource(
+      source: CaptureSource,
+      request?: DeviceRequest,
+    ) {
       const operationVersion = ++operationVersions[source];
       const currentSource = get()[source];
       updateSource(source, { error: null, status: "requesting" });
@@ -360,7 +387,7 @@ export function createMediaSessionStore(
 
       try {
         const acquiredStream = await mediaDevices.getUserMedia(
-          getConstraints(source, deviceId),
+          getConstraints(source, request),
         );
         const track = getTrack(acquiredStream, source);
 
@@ -420,7 +447,7 @@ export function createMediaSessionStore(
 
         const selectedDeviceId =
           track.getSettings().deviceId ??
-          deviceId ??
+          request?.deviceId ??
           currentSource.selectedDeviceId;
         persistInputDevicePreference(source, selectedDeviceId);
 
@@ -541,7 +568,7 @@ export function createMediaSessionStore(
           return null;
         }
 
-        await acquireSource(source, deviceId);
+        await acquireSource(source, { deviceId, match: "exact" });
         return get()[source].error;
       },
       selectOutputDevice(deviceId) {
@@ -647,10 +674,10 @@ export function createMediaSessionStore(
 
         if (!sourceState.track) {
           updateSource(source, { desiredEnabled: true });
-          await acquireSource(
-            source,
-            sourceState.selectedDeviceId || undefined,
-          );
+          await acquireSource(source, {
+            deviceId: sourceState.selectedDeviceId,
+            match: "ideal",
+          });
           return get()[source].error;
         }
 

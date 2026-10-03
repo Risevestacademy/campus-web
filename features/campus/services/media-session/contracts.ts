@@ -29,6 +29,11 @@ export type MediaDeviceOption = Readonly<{
 export type MediaDeviceCatalog = Readonly<{
   cameras: readonly MediaDeviceOption[];
   microphones: readonly MediaDeviceOption[];
+  permissionRequired: Readonly<{
+    cameras: boolean;
+    microphones: boolean;
+    speakers: boolean;
+  }>;
   speakers: readonly MediaDeviceOption[];
 }>;
 
@@ -62,6 +67,7 @@ export type DeviceCatalogSnapshot =
 export type CaptureSourceState = Readonly<{
   desiredEnabled: boolean;
   devices: readonly MediaDeviceOption[];
+  devicesRequirePermission: boolean;
   error: MediaSessionErrorCode | null;
   selectedDeviceId: string;
   status: CaptureStatus;

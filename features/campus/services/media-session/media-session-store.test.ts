@@ -62,6 +62,20 @@ function createMediaDevices(
   }) as unknown as MediaDevices;
 }
 
+function hasExactDeviceConstraint(constraints: MediaStreamConstraints) {
+  const { deviceId } = (constraints.video ||
+    constraints.audio) as MediaTrackConstraints;
+  return typeof deviceId === "object" && "exact" in deviceId;
+}
+
+function createPermissionPlaceholders() {
+  return [
+    createDevice("", "audioinput", ""),
+    createDevice("", "videoinput", ""),
+    createDevice("", "audiooutput", ""),
+  ];
+}
+
 function storeMediaControlPreferences(
   cameraEnabled: boolean,
   microphoneEnabled: boolean,
@@ -294,7 +308,7 @@ describe("media session store", () => {
     expect(mediaDevices.getUserMedia).toHaveBeenCalledTimes(2);
     expect(mediaDevices.getUserMedia).toHaveBeenLastCalledWith({
       audio: expect.objectContaining({
-        deviceId: { exact: "microphone-1" },
+        deviceId: { ideal: "microphone-1" },
       }),
       video: false,
     });
@@ -306,6 +320,116 @@ describe("media session store", () => {
       publication: { track: secondMicrophone },
       type: "added",
     });
+  });
+
+  it("prefers a remembered microphone so a missing one cannot block the permission prompt", async () => {
+    window.localStorage.setItem(
+      "campus-media-device-preferences",
+      JSON.stringify({ microphoneDeviceId: "unplugged-microphone" }),
+    );
+    const microphone = createTrack("audio", "microphone-1");
+    const mediaDevices = createMediaDevices(async (constraints) => {
+      if (hasExactDeviceConstraint(constraints)) {
+        throw new DOMException("missing", "OverconstrainedError");
+      }
+      return createStream([microphone]);
+    });
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+    });
+    await store.getState().start();
+
+    expect(await store.getState().toggleSource("microphone")).toBeNull();
+
+    expect(mediaDevices.getUserMedia).toHaveBeenCalledWith({
+      audio: expect.objectContaining({
+        deviceId: { ideal: "unplugged-microphone" },
+      }),
+      video: false,
+    });
+    expect(store.getState().microphone).toMatchObject({
+      error: null,
+      selectedDeviceId: "microphone-1",
+      status: "ready",
+      track: microphone,
+    });
+  });
+
+  it("switches a live microphone to the exact device picked from the list", async () => {
+    const microphones = [
+      createTrack("audio", "microphone-1"),
+      createTrack("audio", "microphone-2"),
+    ];
+    const mediaDevices = createMediaDevices(async () =>
+      createStream([microphones.shift()!]),
+    );
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+    });
+    await store.getState().start();
+    await store.getState().toggleSource("microphone");
+
+    await store.getState().selectInputDevice("microphone", "microphone-2");
+
+    expect(mediaDevices.getUserMedia).toHaveBeenLastCalledWith({
+      audio: expect.objectContaining({
+        deviceId: { exact: "microphone-2" },
+      }),
+      video: false,
+    });
+    expect(store.getState().microphone.selectedDeviceId).toBe("microphone-2");
+  });
+
+  it("offers no device until permission reveals real ones", async () => {
+    const microphone = createTrack("audio", "microphone-1");
+    const mediaDevices = createMediaDevices(async () =>
+      createStream([microphone]),
+    );
+    const enumerateDevices = vi.mocked(mediaDevices.enumerateDevices);
+    enumerateDevices.mockResolvedValue(createPermissionPlaceholders());
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+    });
+    await store.getState().start();
+
+    await store.getState().refreshDevices();
+
+    expect(store.getState().microphone).toMatchObject({
+      devices: [],
+      devicesRequirePermission: true,
+      selectedDeviceId: "",
+    });
+    expect(store.getState().camera.devicesRequirePermission).toBe(true);
+    expect(store.getState().output).toMatchObject({
+      devices: [],
+      selectedDeviceId: "",
+    });
+
+    enumerateDevices.mockResolvedValue([
+      createDevice("microphone-1", "audioinput", "Studio Microphone"),
+      createDevice("", "videoinput", ""),
+      createDevice("speaker-1", "audiooutput", "Studio Speakers"),
+    ]);
+
+    expect(await store.getState().toggleSource("microphone")).toBeNull();
+
+    expect(mediaDevices.getUserMedia).toHaveBeenCalledWith({
+      audio: expect.objectContaining({ deviceId: undefined }),
+      video: false,
+    });
+    expect(store.getState().microphone).toMatchObject({
+      devices: [
+        { id: "microphone-1", isDefault: false, label: "Studio Microphone" },
+      ],
+      devicesRequirePermission: false,
+      selectedDeviceId: "microphone-1",
+      status: "ready",
+    });
+    expect(store.getState().camera.devicesRequirePermission).toBe(true);
+    expect(store.getState().output.selectedDeviceId).toBe("speaker-1");
   });
 
   it("releases a camera acquired after it was switched off while pending", async () => {
@@ -472,13 +596,15 @@ describe("media session store", () => {
 
   it("drops a stale camera selection when an unavailable camera recovers", async () => {
     const camera = createTrack("video", "camera-1");
-    const mediaDevices = createMediaDevices(async (constraints) => {
-      const requestedId = (constraints.video as MediaTrackConstraints).deviceId;
-      if (requestedId) {
-        throw new DOMException("missing", "OverconstrainedError");
+    let isCameraConnected = false;
+    const mediaDevices = createMediaDevices(async () => {
+      if (!isCameraConnected) {
+        throw new DOMException("missing", "NotFoundError");
       }
       return createStream([camera]);
     });
+    const enumerateDevices = vi.mocked(mediaDevices.enumerateDevices);
+    enumerateDevices.mockResolvedValue([]);
     const store = createMediaSessionStore({
       createMediaStream: () => createStream(),
       mediaDevices,
@@ -489,6 +615,11 @@ describe("media session store", () => {
     expect(await store.getState().toggleSource("camera")).toBe(
       "device-unavailable",
     );
+
+    isCameraConnected = true;
+    enumerateDevices.mockResolvedValue([
+      createDevice("camera-1", "videoinput", "Studio Camera"),
+    ]);
     await store.getState().refreshDevices();
 
     expect(store.getState().camera).toMatchObject({

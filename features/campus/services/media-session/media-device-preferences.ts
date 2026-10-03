@@ -13,8 +13,15 @@ export const DEFAULT_MEDIA_DEVICE_PREFERENCES: MediaDevicePreferences = {
   speakerDeviceId: "",
 };
 
+// Earlier builds saved ids invented for permission placeholders, such as
+// "audioinput-1". No browser issues ids in that shape, so restoring one would
+// select a device that does not exist.
+const INVENTED_PLACEHOLDER_ID = /^(?:audioinput|videoinput|audiooutput)-\d+$/;
+
 function readDeviceId(value: unknown) {
-  return typeof value === "string" ? value : "";
+  return typeof value === "string" && !INVENTED_PLACEHOLDER_ID.test(value)
+    ? value
+    : "";
 }
 
 export function loadMediaDevicePreferences(): MediaDevicePreferences {

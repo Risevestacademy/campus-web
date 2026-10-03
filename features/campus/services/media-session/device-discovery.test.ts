@@ -42,9 +42,66 @@ describe("discoverMediaDevices", () => {
           label: "MacBook Microphone",
         },
       ],
+      permissionRequired: {
+        cameras: false,
+        microphones: false,
+        speakers: false,
+      },
       speakers: [
         { id: "speaker-1", isDefault: false, label: "Studio Speakers" },
       ],
+    });
+  });
+
+  it("offers no browser permission placeholder as a selectable device", async () => {
+    const mediaDevices = {
+      enumerateDevices: vi
+        .fn()
+        .mockResolvedValue([
+          createDevice("", "audioinput", ""),
+          createDevice("", "videoinput", ""),
+          createDevice("", "audiooutput", ""),
+        ]),
+    } as unknown as MediaDevices;
+
+    await expect(discoverMediaDevices(mediaDevices)).resolves.toEqual({
+      cameras: [],
+      microphones: [],
+      permissionRequired: {
+        cameras: true,
+        microphones: true,
+        speakers: true,
+      },
+      speakers: [],
+    });
+  });
+
+  it("requires permission only for kinds the browser still hides", async () => {
+    const mediaDevices = {
+      enumerateDevices: vi
+        .fn()
+        .mockResolvedValue([
+          createDevice("microphone-1", "audioinput", "Studio Microphone"),
+          createDevice("", "videoinput", ""),
+        ]),
+    } as unknown as MediaDevices;
+
+    await expect(discoverMediaDevices(mediaDevices)).resolves.toMatchObject({
+      cameras: [],
+      microphones: [{ id: "microphone-1", label: "Studio Microphone" }],
+      permissionRequired: { cameras: true, microphones: false },
+    });
+  });
+
+  it("labels an unnamed real device without inventing its id", async () => {
+    const mediaDevices = {
+      enumerateDevices: vi
+        .fn()
+        .mockResolvedValue([createDevice("microphone-1", "audioinput", "")]),
+    } as unknown as MediaDevices;
+
+    await expect(discoverMediaDevices(mediaDevices)).resolves.toMatchObject({
+      microphones: [{ id: "microphone-1", label: "Microphone 1" }],
     });
   });
 
@@ -239,6 +296,11 @@ describe("discoverMediaDevices", () => {
               },
             ],
             microphones: [],
+            permissionRequired: {
+              cameras: false,
+              microphones: false,
+              speakers: false,
+            },
             speakers: [],
           },
           error: null,

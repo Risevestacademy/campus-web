@@ -50,7 +50,9 @@ export function AudioSettingsDropdown({
       groups={[
         {
           devices: microphone.devices,
-          emptyMessage: "No microphones found",
+          emptyMessage: microphone.devicesRequirePermission
+            ? "Turn on your microphone to choose one"
+            : "No microphones found",
           id: "microphones",
           label: "Microphone",
         },

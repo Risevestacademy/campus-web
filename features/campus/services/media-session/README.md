@@ -45,7 +45,13 @@ Tests that need controlled state may inject a store through
 - Every route session starts camera and microphone capture off.
 - Missing, malformed, or inaccessible device preferences use system defaults.
 - Camera and microphone off stop and remove their track and local publication.
-- Re-enabling a source reacquires its remembered device.
+- Re-enabling a source prefers its remembered device with an `ideal`
+  constraint, so a device that is gone falls back to the system default
+  instead of failing before the permission prompt. Only switching a live
+  source to a device picked from the list uses `exact`.
+- Browser permission placeholders (entries with an empty `deviceId`) are never
+  offered or remembered. Until access is granted the source reports
+  `devicesRequirePermission`, and settings ask the user to turn it on.
 - Camera and microphone acquisition fail independently.
 - Input replacement retains the current track until its replacement succeeds.
 - A source that failed with `device-unavailable` becomes retryable again as

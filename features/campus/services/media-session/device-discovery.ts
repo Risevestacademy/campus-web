@@ -28,18 +28,35 @@ function getDeviceLabel(
   return normalizedLabel || `${fallbackLabel} ${index + 1}`;
 }
 
+// Until access is granted, browsers expose one placeholder per kind with an
+// empty deviceId. It names no real device, so it is never offered as a choice.
+function isPermissionPlaceholder(device: MediaDeviceInfo) {
+  return device.deviceId === "";
+}
+
 function mapDevices(
   devices: readonly MediaDeviceInfo[],
   kind: MediaDeviceKind,
   fallbackLabel: string,
 ): readonly MediaDeviceOption[] {
   return devices
-    .filter((device) => device.kind === kind)
+    .filter(
+      (device) => device.kind === kind && !isPermissionPlaceholder(device),
+    )
     .map((device, index) => ({
-      id: device.deviceId || `${kind}-${index + 1}`,
+      id: device.deviceId,
       isDefault: device.deviceId === "default",
       label: getDeviceLabel(device, fallbackLabel, index),
     }));
+}
+
+function requiresPermission(
+  devices: readonly MediaDeviceInfo[],
+  kind: MediaDeviceKind,
+) {
+  return devices.some(
+    (device) => device.kind === kind && isPermissionPlaceholder(device),
+  );
 }
 
 export async function discoverMediaDevices(
@@ -50,6 +67,11 @@ export async function discoverMediaDevices(
   return {
     cameras: mapDevices(devices, "videoinput", "Camera"),
     microphones: mapDevices(devices, "audioinput", "Microphone"),
+    permissionRequired: {
+      cameras: requiresPermission(devices, "videoinput"),
+      microphones: requiresPermission(devices, "audioinput"),
+      speakers: requiresPermission(devices, "audiooutput"),
+    },
     speakers: mapDevices(devices, "audiooutput", "Speaker"),
   };
 }
