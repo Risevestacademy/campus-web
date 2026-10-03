@@ -212,8 +212,10 @@ project had no environments besides `production` and `staging`.
 
 ### Staging cost baseline
 
-| Date | Target | Cold load | Warm load | Gate |
-| ---- | ------ | --------- | --------- | ---- |
+| Date       | Target      | Cold load | Warm load | Gate |
+| ---------- | ----------- | --------- | --------- | ---- |
+| 2026-10-03 | web /       | 200 2.31s | 200 0.76s | pass |
+| 2026-10-03 | storybook / | 200 2.59s | 200 0.51s | pass |
 
 | Date       | Service          | Label  | 24h average | 24h peak |
 | ---------- | ---------------- | ------ | ----------- | -------- |
