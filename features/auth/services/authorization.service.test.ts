@@ -24,6 +24,7 @@ import { inOrder, type Reply } from "@/tests/fixtures/mock-api";
 import {
   authorizeRoute,
   CampusShellGate,
+  CohortGate,
   requireRouteAccess,
   type RouteAuthorizationRequest,
 } from "../index";
@@ -135,6 +136,10 @@ function proxySignals(signals: { returnTo?: string; refreshAttempted?: true }) {
 
 const campusShell: RouteAuthorizationRequest = { kind: "campus-shell" };
 const campusIndex: RouteAuthorizationRequest = { kind: "campus-index" };
+const cohort = (cohortId: string): RouteAuthorizationRequest => ({
+  kind: "cohort",
+  cohortId,
+});
 
 const COHORT_A = {
   cohortId: "11111111-1111-4111-8111-111111111111",
@@ -516,6 +521,70 @@ describe("authorizeRoute: campus index membership routing", () => {
   });
 });
 
+describe("authorizeRoute: cohort membership", () => {
+  it("lets a member into their own cohort", async () => {
+    const session = fullAccess("user", [COHORT_A, COHORT_B]);
+    backendReplies(ok(session));
+
+    await expect(authorize(cohort(COHORT_B.cohortId))).resolves.toEqual({
+      kind: "allow",
+      session,
+    });
+  });
+
+  it("forbids a member from a cohort they do not belong to", async () => {
+    backendReplies(ok(fullAccess("user", [COHORT_A])));
+
+    await expect(authorize(cohort(COHORT_B.cohortId))).resolves.toEqual({
+      kind: "forbidden",
+    });
+  });
+
+  it("forbids a member with no cohort at all", async () => {
+    backendReplies(ok(fullAccess("user", [])));
+
+    await expect(authorize(cohort(COHORT_A.cohortId))).resolves.toEqual({
+      kind: "forbidden",
+    });
+  });
+
+  it("lets an admin with no cohort place into any cohort", async () => {
+    const session = fullAccess("admin", []);
+    backendReplies(ok(session));
+
+    await expect(authorize(cohort("any-cohort"))).resolves.toEqual({
+      kind: "allow",
+      session,
+    });
+  });
+
+  it("sends a provisional session to its invitation before checking membership", async () => {
+    backendReplies(ok(provisionalSession));
+
+    await expect(authorize(cohort(COHORT_A.cohortId))).resolves.toEqual({
+      kind: "redirect",
+      href: "/invitation",
+    });
+  });
+
+  it("sends an unauthenticated visitor through refresh", async () => {
+    backendReplies(status(401));
+
+    await expect(authorize(cohort(COHORT_A.cohortId))).resolves.toEqual({
+      kind: "redirect",
+      href: `/session/refresh?returnTo=${encodeURIComponent(RETURN_TO)}`,
+    });
+  });
+
+  it("fails closed during an outage", async () => {
+    backendReplies(status(503), status(503), status(503));
+
+    await expect(authorize(cohort(COHORT_A.cohortId))).resolves.toEqual(
+      UNAVAILABLE,
+    );
+  });
+});
+
 async function settle<T>(pending: Promise<T>): Promise<T | unknown> {
   const outcome = pending.catch((error: unknown) => error);
   await vi.runAllTimersAsync();
@@ -586,5 +655,46 @@ describe("CampusShellGate", () => {
     expect(markup).not.toContain("Campus content");
     expect(markup).toContain('role="alert"');
     expect(markup).toContain(`href="${RETURN_TO}"`);
+  });
+});
+
+describe("CohortGate", () => {
+  const cohortContent = createElement("p", null, "Cohort content");
+
+  beforeEach(() => {
+    vi.stubEnv("__NEXT_EXPERIMENTAL_AUTH_INTERRUPTS", "true");
+  });
+
+  function gate(cohortId: string) {
+    return settle(CohortGate({ cohortId, children: cohortContent }));
+  }
+
+  it("renders the cohort's route for a member", async () => {
+    backendReplies(ok(fullAccess("user", [COHORT_A])));
+
+    const element = await gate(COHORT_A.cohortId);
+
+    expect(renderToStaticMarkup(element as ReactElement)).toBe(
+      "<p>Cohort content</p>",
+    );
+  });
+
+  it("interrupts the render with a 403 for a non-member", async () => {
+    backendReplies(ok(fullAccess("user", [COHORT_A])));
+
+    const interrupt = await gate(COHORT_B.cohortId);
+
+    expect(getAccessFallbackHTTPStatus(interrupt as never)).toBe(403);
+  });
+
+  it("renders the retry state instead of the route during an outage", async () => {
+    backendReplies(status(503), status(503), status(503));
+
+    const markup = renderToStaticMarkup(
+      (await gate(COHORT_A.cohortId)) as ReactElement,
+    );
+
+    expect(markup).not.toContain("Cohort content");
+    expect(markup).toContain('role="alert"');
   });
 });

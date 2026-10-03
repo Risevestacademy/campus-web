@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import ActiveCampusLayout from "@/app/(app)/campus/[id]/(active-campus)/layout";
@@ -16,6 +16,7 @@ vi.mock("@/features/auth", () => ({
       kind: "allow",
       session: { user: { systemRole: "user" }, memberships: [] },
     }),
+  CohortGate: ({ children }: { children: ReactNode }) => children,
   SessionUnavailable: () => null,
 }));
 vi.mock("@/core/api/client/server", () => ({
@@ -50,13 +51,14 @@ const structuralComponents: ReadonlyArray<{
   },
   {
     name: "active-campus layout",
-    element: (
-      <CampusLayout>
+    element: await CampusLayout({
+      params: Promise.resolve({ id: "c-1" }),
+      children: (
         <ActiveCampusLayout>
           <div />
         </ActiveCampusLayout>
-      </CampusLayout>
-    ),
+      ),
+    }),
   },
 ];
 

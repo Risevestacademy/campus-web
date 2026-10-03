@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { normalizeCampusReturnTo, parseCampusReturnTo } from "../index";
+import {
+  normalizeCampusReturnTo,
+  normalizeCohortReturnTo,
+  parseCampusReturnTo,
+} from "../index";
 
 vi.mock("server-only", () => ({}));
 
@@ -118,5 +122,40 @@ describe("normalizeCampusReturnTo", () => {
     "/campus/../admin",
   ])("falls back to the campus index for %j", (value) => {
     expect(normalizeCampusReturnTo(value)).toBe("/campus");
+  });
+});
+
+describe("normalizeCohortReturnTo", () => {
+  it.each([
+    ["the cohort's campus", "/campus/c-3", "/campus/c-3"],
+    ["a trailing slash", "/campus/c-3/", "/campus/c-3/"],
+    [
+      "a deep link with a query",
+      "/campus/c-3/meeting?tab=people#row",
+      "/campus/c-3/meeting?tab=people",
+    ],
+  ])("keeps %s", (_, value, expected) => {
+    expect(normalizeCohortReturnTo("c-3", value)).toBe(expected);
+  });
+
+  it.each([
+    ["no value", undefined],
+    ["another cohort", "/campus/c-4/meeting"],
+    ["the cohort's pre-join screen", "/campus/c-3/join?returnTo=%2Fcampus"],
+    ["an encoded pre-join segment", "/campus/c-3/%6Aoin"],
+    ["the campus index", "/campus"],
+    ["an off-site URL", "https://attacker.example/campus/c-3"],
+    ["a protocol-relative URL", "//attacker.example/campus/c-3"],
+    ["a traversal into another cohort", "/campus/c-3/../c-4"],
+    ["a cohort prefix lookalike", "/campus/c-33"],
+  ])("falls back to the cohort's campus for %s", (_, value) => {
+    expect(normalizeCohortReturnTo("c-3", value)).toBe("/campus/c-3");
+  });
+
+  it("matches a cohort ID that needs encoding", () => {
+    expect(normalizeCohortReturnTo("a b", "/campus/a%20b/meeting")).toBe(
+      "/campus/a%20b/meeting",
+    );
+    expect(normalizeCohortReturnTo("a b", "/campus/c-3")).toBe("/campus/a%20b");
   });
 });

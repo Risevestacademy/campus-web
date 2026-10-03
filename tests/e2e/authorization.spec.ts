@@ -1,5 +1,6 @@
 import { type BrowserContext, expect, type Page } from "@playwright/test";
 
+import { enterCampus, joinLink, preJoinUrl } from "./support/campus-entry";
 import {
   cohortsPage,
   membership,
@@ -13,7 +14,8 @@ test.skip(
   "Needs the local fake auth API started by playwright.config.ts.",
 );
 
-const DESTINATION = "/campus/42?tab=people";
+const DESTINATION = "/campus/c-3?tab=people";
+const DESTINATION_PRE_JOIN = preJoinUrl(DESTINATION);
 const SUCCESS = { status: 200 };
 const COHORT_3 = membership("c-3", "Cohort 3");
 const COHORT_4 = membership("c-4", "Cohort 4");
@@ -183,7 +185,7 @@ test.describe("campus route protection", () => {
     await page.goto(DESTINATION);
 
     await expect(page).toHaveURL(
-      withReturnTo("/sign-in", DESTINATION, "session_expired"),
+      withReturnTo("/sign-in", DESTINATION_PRE_JOIN, "session_expired"),
     );
     expect(await fakeApi.refreshPosts()).toHaveLength(1);
     expect(await fakeApi.sessionReads()).toEqual([]);
@@ -199,8 +201,8 @@ test.describe("campus route protection", () => {
 
     await page.goto(DESTINATION);
 
-    await expect(page).toHaveURL(DESTINATION);
-    await expect(campusMap(page)).toBeVisible();
+    await expect(page).toHaveURL(DESTINATION_PRE_JOIN);
+    await expect(joinLink(page)).toHaveAttribute("href", DESTINATION);
     expect(await fakeApi.refreshPosts()).toHaveLength(1);
     expect(
       await cookieNamed(context, "campus_refresh_attempted"),
@@ -217,7 +219,9 @@ test.describe("campus route protection", () => {
 
     await page.goto(DESTINATION);
 
-    await expect(page).toHaveURL(withReturnTo("/sign-in", DESTINATION));
+    await expect(page).toHaveURL(
+      withReturnTo("/sign-in", DESTINATION_PRE_JOIN),
+    );
     expect(await fakeApi.refreshPosts()).toHaveLength(1);
     expect(await fakeApi.sessionReads()).toHaveLength(1);
     expect(
@@ -253,10 +257,14 @@ test.describe("campus route protection", () => {
         : route.continue(),
     );
 
-    await page.goto(DESTINATION);
+    await page.goto(DESTINATION_PRE_JOIN);
+    await expect(joinLink(page)).toBeVisible();
+    expect(await fakeApi.sessionReads()).toHaveLength(1);
+
+    await joinLink(page).click();
 
     await expect(campusMap(page)).toBeVisible();
-    expect(await fakeApi.sessionReads()).toHaveLength(1);
+    expect(await fakeApi.sessionReads()).toHaveLength(2);
   });
 
   test("a session outage renders retry UI instead of a sign-in loop", async ({
@@ -275,9 +283,9 @@ test.describe("campus route protection", () => {
     ).toBeVisible();
     await expect(page.getByRole("link", { name: "Try again" })).toHaveAttribute(
       "href",
-      DESTINATION,
+      DESTINATION_PRE_JOIN,
     );
-    await expect(page).toHaveURL(DESTINATION);
+    await expect(page).toHaveURL(DESTINATION_PRE_JOIN);
     await expect(campusMap(page)).toHaveCount(0);
     expect(await fakeApi.sessionReads()).toHaveLength(3);
     expect(await fakeApi.refreshPosts()).toEqual([]);
@@ -349,7 +357,7 @@ test.describe("campus index", () => {
     await page.goto("/campus");
 
     await expect(page).toHaveURL("/campus/c-3/join");
-    await expect(page.getByRole("link", { name: "Join" })).toBeVisible();
+    await expect(joinLink(page)).toBeVisible();
   });
 
   test("a member with several cohorts chooses from their own memberships", async ({
@@ -410,4 +418,104 @@ test.describe("campus index", () => {
       (await fakeApi.cohortReads()).map((request) => request.search),
     ).toEqual(["?page=1"]);
   });
+});
+
+test.describe("cohort pre-join", () => {
+  const MEETING = "/campus/c-3/meeting?tab=people";
+
+  function meetingHeading(page: Page) {
+    return page.getByRole("heading", { name: "ActiveCampusMeetingPage" });
+  }
+
+  test.beforeEach(async ({ context, baseURL, fakeApi }) => {
+    await signIn(context, baseURL);
+    await fakeApi.scriptSession(sessions.member(COHORT_3));
+  });
+
+  test("a hard load of an active route stops at pre-join with its deep link", async ({
+    page,
+  }) => {
+    await page.goto(MEETING);
+
+    await expect(page).toHaveURL(preJoinUrl(MEETING));
+    await expect(joinLink(page)).toHaveAttribute("href", MEETING);
+  });
+
+  test("joining reaches the deep link without another pre-join", async ({
+    page,
+    fakeApi,
+  }) => {
+    await page.goto(preJoinUrl(MEETING));
+    await expect(joinLink(page)).toBeVisible();
+    const readsBeforeJoin = (await fakeApi.sessionReads()).length;
+
+    await joinLink(page).click();
+
+    await expect(page).toHaveURL(MEETING);
+    await expect(meetingHeading(page)).toBeVisible();
+    expect(await fakeApi.sessionReads()).toHaveLength(readsBeforeJoin + 1);
+  });
+
+  test("a reload after entering requires pre-join again", async ({ page }) => {
+    await enterCampus(page, MEETING);
+
+    await page.reload();
+
+    await expect(page).toHaveURL(preJoinUrl(MEETING));
+  });
+
+  test("router requests inside an entered campus are never sent to pre-join", async ({
+    page,
+  }) => {
+    await enterCampus(page, MEETING);
+
+    const status = await page.evaluate(async () => {
+      const response = await fetch("/campus/c-3", {
+        headers: { RSC: "1" },
+        redirect: "manual",
+      });
+      return response.status;
+    });
+
+    expect(status).toBe(200);
+  });
+
+  test("a member gets the 403 page for a cohort they do not belong to", async ({
+    page,
+  }) => {
+    const preJoin = await page.goto("/campus/c-4/join");
+    expect(preJoin?.status()).toBe(403);
+    await expect(joinLink(page)).toHaveCount(0);
+
+    const active = await page.goto("/campus/c-4/meeting");
+    expect(active?.status()).toBe(403);
+    await expect(meetingHeading(page)).toHaveCount(0);
+  });
+
+  test("an admin with no cohort place enters any cohort", async ({
+    page,
+    fakeApi,
+  }) => {
+    await fakeApi.scriptSession(sessions.admin());
+
+    await enterCampus(page, "/campus/any-cohort");
+
+    await expect(campusMap(page)).toBeVisible();
+  });
+
+  for (const returnTo of [
+    "/campus/c-4/meeting",
+    "/campus/c-3/join",
+    "https://attacker.example/campus/c-3",
+  ]) {
+    test(`pre-join points Join at the cohort's campus instead of ${returnTo}`, async ({
+      page,
+    }) => {
+      const search = new URLSearchParams({ returnTo });
+
+      await page.goto(`/campus/c-3/join?${search.toString()}`);
+
+      await expect(joinLink(page)).toHaveAttribute("href", "/campus/c-3");
+    });
+  }
 });

@@ -1,7 +1,15 @@
+import { CohortGate } from "@/features/auth";
 import { CampusMediaSessionProvider } from "@/features/campus";
 
-export default function CampusLayout({
+export default async function CampusLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
-  return <CampusMediaSessionProvider>{children}</CampusMediaSessionProvider>;
+  params,
+}: Readonly<{ children: React.ReactNode; params: Promise<{ id: string }> }>) {
+  const { id } = await params;
+
+  return (
+    <CohortGate cohortId={id}>
+      <CampusMediaSessionProvider>{children}</CampusMediaSessionProvider>
+    </CohortGate>
+  );
 }
