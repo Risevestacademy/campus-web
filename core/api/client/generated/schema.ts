@@ -75,6 +75,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/auth/google/token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Sign in from a native app
+     * @description For a client that cannot keep cookies. The app signs the user in with Google's own SDK and posts the id_token it receives; the API makes the same decision the browser callback makes and answers with the session in the body instead of a redirect and cookies. Send `accessToken` as a bearer token from then on, and keep `refreshToken` for POST /v1/auth/refresh. `inviteId` set means there is an invite to answer first.
+     */
+    post: operations["AuthController_tokenSignIn"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/auth/me": {
     parameters: {
       query?: never;
@@ -106,7 +126,7 @@ export interface paths {
     put?: never;
     /**
      * Refresh the access session
-     * @description Rotates both cookies and issues a new full-access session. The body says when the new tokens lapse, so the next refresh can be scheduled rather than guessed; the tokens themselves stay in the cookies.
+     * @description Rotates both cookies and issues a new full-access session. The body says when the new tokens lapse, so the next refresh can be scheduled rather than guessed; the tokens themselves stay in the cookies. A client that holds its own tokens sends `refreshToken` in the body instead, and gets the new pair back in the body with no cookies set.
      */
     post: operations["AuthController_refresh"];
     delete?: never;
@@ -126,7 +146,7 @@ export interface paths {
     put?: never;
     /**
      * Revoke the refresh session
-     * @description Revokes the refresh cookie and clears both session cookies.
+     * @description Revokes the refresh cookie and clears both session cookies. A client that holds its own tokens sends `refreshToken` in the body instead.
      */
     post: operations["AuthController_logout"];
     delete?: never;
@@ -206,7 +226,7 @@ export interface paths {
     put?: never;
     /**
      * Accept or decline the invite the signed-in account has
-     * @description Answers the invite identified by the signed-in session and request. A provisional session already identifies the invite it was issued for, so `inviteId` may be omitted; when supplied, it must match the session. A full-access session (a member invited to another cohort) must supply the `inviteId` returned by validate-user-invite. This ensures the server answers the invite the member saw rather than a replacement created afterward. Accept enrols the invitee (or revives a membership they previously left) and applies the invite's systemRole; a provisional cookie is replaced with a full-access one. Decline closes the invite; a provisional cookie is cleared, leaving the account row in place. A full-access session keeps its cookies either way: accepting only adds a membership, which never shortens access. An invite that already carries an answer is a 409 — branch on error.code to decide where the caller goes next.
+     * @description Answers the invite identified by the signed-in session and request. A provisional session already identifies the invite it was issued for, so `inviteId` may be omitted; when supplied, it must match the session. A full-access session (a member invited to another cohort) must supply the `inviteId` returned by validate-user-invite. This ensures the server answers the invite the member saw rather than a replacement created afterward. Accept enrols the invitee (or revives a membership they previously left) and applies the invite's systemRole; a provisional cookie is replaced with a full-access one. Decline closes the invite; a provisional cookie is cleared, leaving the account row in place. A full-access session keeps its cookies either way: accepting only adds a membership, which never shortens access. A caller authenticated with a bearer token rather than the cookie is answered in the body instead: an accept that upgrades a provisional session returns the new tokens in `session`, and no cookie is set or cleared. An invite that already carries an answer is a 409 — branch on error.code to decide where the caller goes next.
      */
     post: operations["InvitesController_decide"];
     delete?: never;
@@ -430,11 +450,40 @@ export interface components {
       /** @description The error envelope. */
       error: components["schemas"]["ApiErrorBodyDto"];
     };
+    GoogleTokenSignInDto: {
+      /** @description The id_token Google's sign-in SDK gave the app, unmodified. It must be addressed to this deployment's web client or to one of its native app clients. */
+      idToken: string;
+    };
     /**
      * @description `full_access` belongs in the campus. `provisional` still has an invite to answer, and every route but onboarding refuses it.
      * @enum {string}
      */
     SessionScope: "provisional" | "full_access";
+    TokenSignInResponseDto: {
+      /** @description `full_access` belongs in the campus. `provisional` still has an invite to answer, and every route but onboarding refuses it. */
+      scope: components["schemas"]["SessionScope"];
+      /** @description Send as `Authorization: Bearer <accessToken>` on every call. */
+      accessToken: string;
+      /**
+       * Format: date-time
+       * @description When the access token lapses. Refresh a little before this.
+       * @example 2026-09-30T12:15:00.000Z
+       */
+      expiresAt: string;
+      /** @description Exchange at POST /v1/auth/refresh for a new pair. Works once: keep the one each refresh returns. Null for a provisional session, which cannot be refreshed. */
+      refreshToken: string | null;
+      /**
+       * Format: date-time
+       * @description When the refresh token lapses. Past this, the user signs in again. Null for a provisional session.
+       * @example 2026-10-30T12:00:00.000Z
+       */
+      refreshExpiresAt: string | null;
+      /**
+       * @description The invite to answer, if any: for a provisional session, the one it was issued for; for a full-access session, a pending invite to another cohort. Load it with GET /v1/invites/validate-user-invite.
+       * @example 66666666-6666-4666-8666-666666666666
+       */
+      inviteId: string | null;
+    };
     /** @enum {string} */
     SystemRole: "user" | "admin";
     SessionUserDto: {
@@ -491,6 +540,10 @@ export interface components {
       /** @description Every cohort this account may enter, most recently joined first — a person can belong to several, in any mix of roles. Empty for a provisional session and for an admin with no cohort place. `membership` is the first entry, kept while clients move to this. */
       memberships: components["schemas"]["SessionCohortPlaceDto"][];
     };
+    RefreshTokenDto: {
+      /** @description The refresh token, for a client that holds its tokens itself. Ignored when the refresh cookie is present. */
+      refreshToken?: string;
+    };
     RefreshResponseDto: {
       /**
        * Format: date-time
@@ -504,6 +557,10 @@ export interface components {
        * @example 2026-10-30T12:00:00.000Z
        */
       refreshExpiresAt: string;
+      /** @description The new access token. Only when the refresh token came in the request body; a cookie refresh answers in cookies. */
+      accessToken?: string;
+      /** @description The new refresh token, replacing the one just spent. Only when the refresh token came in the request body. */
+      refreshToken?: string;
     };
     CreateInviteDto: {
       /**
@@ -804,6 +861,26 @@ export interface components {
        */
       accessExpiresAt?: string | null;
     };
+    SessionTokensDto: {
+      /** @description `full_access` belongs in the campus. `provisional` still has an invite to answer, and every route but onboarding refuses it. */
+      scope: components["schemas"]["SessionScope"];
+      /** @description Send as `Authorization: Bearer <accessToken>` on every call. */
+      accessToken: string;
+      /**
+       * Format: date-time
+       * @description When the access token lapses. Refresh a little before this.
+       * @example 2026-09-30T12:15:00.000Z
+       */
+      expiresAt: string;
+      /** @description Exchange at POST /v1/auth/refresh for a new pair. Works once: keep the one each refresh returns. Null for a provisional session, which cannot be refreshed. */
+      refreshToken: string | null;
+      /**
+       * Format: date-time
+       * @description When the refresh token lapses. Past this, the user signs in again. Null for a provisional session.
+       * @example 2026-10-30T12:00:00.000Z
+       */
+      refreshExpiresAt: string | null;
+    };
     InviteDecisionResponseDto: {
       /** @example 66666666-6666-4666-8666-666666666666 */
       inviteId: string;
@@ -817,6 +894,8 @@ export interface components {
       membership?: components["schemas"]["MembershipGrantedDto"] | null;
       /** @description The account's role after accepting — the invite is the only channel that can grant anything above the default a provisional sign-in gets. Null on decline. */
       systemRole?: components["schemas"]["SystemRole"] | null;
+      /** @description The full-access session an accept upgraded a provisional one to. Present only when the request was authenticated with a bearer token rather than the cookie; replace the provisional token with it. Absent on a decline, and for a full-access caller, who keeps the session they came with. */
+      session?: components["schemas"]["SessionTokensDto"];
     };
     CreateTrackDto: {
       /** @example Software Engineering */
@@ -1088,6 +1167,56 @@ export interface operations {
       };
     };
   };
+  AuthController_tokenSignIn: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GoogleTokenSignInDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TokenSignInResponseDto"];
+        };
+      };
+      /** @description UNAUTHORIZED: the id_token could not be verified, is addressed to a client this deployment does not name, or carries no verified email address. `details.reason` says which: exchange_failed, unverified_email or incomplete_profile. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description INVITE_REQUIRED: nobody invited this address. ACCOUNT_SUSPENDED: the account exists but has been closed. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Google sign-in is switched off on this deployment. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
   AuthController_me: {
     parameters: {
       query?: never;
@@ -1123,7 +1252,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RefreshTokenDto"];
+      };
+    };
     responses: {
       200: {
         headers: {
@@ -1151,7 +1284,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RefreshTokenDto"];
+      };
+    };
     responses: {
       204: {
         headers: {

@@ -35,8 +35,6 @@ return-destination policy stay behind it.
   stored `returnTo` can be lost after Google sign-in.
 - A 403 from `/v1/auth/me` is treated as a suspended account. A member with no
   cohort lands on the same 403 page and has no way to log out there.
-- `/invitation` and `/preview` content is placeholder. Live invite validation
-  and invite states belong to the invitation feature.
 - The rail avatar initial is the placeholder "J"
   (`features/campus-shell/rail-avatar.tsx`); only `/campus` shows the real one.
 
@@ -52,6 +50,7 @@ import {
   InvitationGate,
   redirectSignedInVisitor,
   requireRouteAccess,
+  ResumeInvitation,
   SessionUnavailable,
 } from "@/features/auth";
 
@@ -61,8 +60,11 @@ import {
 // Everything under /campus/[id]: also requires membership of that cohort
 <CohortGate cohortId={id}>{children}</CohortGate>;
 
-// /invitation and /preview: requires a session carrying an invite
-<InvitationGate path="/invitation">{children}</InvitationGate>;
+// /preview: requires a session carrying an invite
+<InvitationGate path="/preview">{children}</InvitationGate>;
+
+// /invitation without the link's token: sends an invite session on to /preview
+<ResumeInvitation />;
 
 // /sign-in: sends a signed-in visitor on before anything renders
 await redirectSignedInVisitor(returnTo);
@@ -104,10 +106,13 @@ re-runs when a soft navigation changes cohort; the pages re-check the session
 on every soft navigation inside one cohort. A new page under `/campus/[id]`
 must wrap its content in `CohortGate` too.
 
-`/invitation` and `/preview` each wrap their content in `InvitationGate`.
-There is no guarding layout: `/invitation` links to `/preview`, a soft
-navigation a layout would not re-run on. During an outage the gate renders
-`SessionUnavailableNotice`, because the auth layout already owns `<main>`.
+`/invitation` has two modes. With `?token=` it is the public invite preview
+(`features/invitation`) and checks no session: the token is the proof. Without
+a token it renders `ResumeInvitation`, because campus-api's OAuth callback
+always lands invitees there; the route policy sends an invite session on to
+`/preview`. `/preview` wraps its content in `InvitationGate`. During an outage
+both render `SessionUnavailableNotice`, because the auth layout already owns
+`<main>`.
 
 `resolveSignIn(returnTo)` returns `render` or `redirect` for `/sign-in`, and
 `redirectSignedInVisitor(returnTo)` turns the redirect into Next's
@@ -197,15 +202,15 @@ refresh per visit, then sign-in. A pending `inviteId` does not block a
 
 Invitation routes (`invitation`, for `/invitation` and `/preview`):
 
-| Session                                         | Decision                                    |
-| ----------------------------------------------- | ------------------------------------------- |
-| `provisional` or `full_access`, with `inviteId` | `allow`                                     |
-| `full_access`, no `inviteId`                    | redirect `/campus`                          |
-| `provisional`, no `inviteId`                    | redirect `/sign-in?error=invite_required`   |
-| none, refresh not yet attempted                 | redirect `/session/refresh?returnTo=<page>` |
-| none, refresh already attempted                 | redirect `/sign-in?returnTo=<page>`         |
-| refused (403)                                   | `forbidden`                                 |
-| outage                                          | `unavailable`, retry `<page>`               |
+| Session                                         | Decision                                                |
+| ----------------------------------------------- | ------------------------------------------------------- |
+| `provisional` or `full_access`, with `inviteId` | `/preview`: `allow`; `/invitation`: redirect `/preview` |
+| `full_access`, no `inviteId`                    | redirect `/campus`                                      |
+| `provisional`, no `inviteId`                    | redirect `/sign-in?error=invite_required`               |
+| none, refresh not yet attempted                 | redirect `/session/refresh?returnTo=<page>`             |
+| none, refresh already attempted                 | redirect `/sign-in?returnTo=<page>`                     |
+| refused (403)                                   | `forbidden`                                             |
+| outage                                          | `unavailable`, retry `<page>`                           |
 
 Sign-in (`decideSignIn`):
 
@@ -346,6 +351,7 @@ RefreshSession -> useSessionRefresh -> useMutation -> createSessionRefresher -> 
 | `components/campus-shell-gate.tsx`   | renders children only when the visitor may enter Campus                        |
 | `components/cohort-gate.tsx`         | renders children only for a member of the cohort (or an admin)                 |
 | `components/invitation-gate.tsx`     | renders children only for a session carrying an invite                         |
+| `components/resume-invitation.tsx`   | no-token `/invitation`: route decision or outage notice, never content         |
 | `components/access-gate.tsx`         | shared gate rendering: allow, retry state, or Next interrupt                   |
 | `components/session-unavailable.tsx` | fail-closed retry state, with or without its own `<main>`                      |
 | `components/refresh-session.tsx`     | refresh page UI                                                                |
