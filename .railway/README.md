@@ -94,8 +94,7 @@ pnpm format:check
 pnpm test
 ```
 
-The Railway eval must report 7/7 passing cases, and the wake-gate tests in
-`.railway/scripts/` must pass.
+The Railway eval must report 7/7 passing cases.
 
 ## Staging
 
@@ -149,41 +148,42 @@ It targets `/`, a static page, so web deploys do not depend on `campus-api`.
 
 ### Runbook
 
-Every step runs through `pnpm railway:verify <step>` and writes evidence to
-the OS temp directory, never to the repo.
+Run from your shell with `.railway` committed and `railway status` showing
+staging. Reject a plan that touches `campus-api`, `campus-world`, databases,
+volumes, domains, or production.
 
 ```bash
-railway link --project campus-by-rise --environment staging
-pnpm railway:verify preflight         # link, environments, services, usage
-pnpm railway:verify drift             # live graph JSON for comparison
-pnpm railway:verify memory before     # baseline memory, last 1d
-pnpm railway:verify plan              # needs .railway committed
-pnpm railway:verify apply             # applies the pinned plan only
-pnpm railway:verify redeploy          # Serverless applies to new containers
-pnpm railway:verify sleep             # after 10+ idle minutes
-pnpm railway:verify wake web
-pnpm railway:verify wake storybook
-pnpm railway:verify memory after      # after a representative session
+railway config plan
+railway config apply   # starts a deploy of each changed service
 ```
 
-`plan` refuses an uncommitted `.railway` because the pinned plan records
-`HEAD:.railway`. `plan` and `apply` both ask you to confirm the linked
-environment is staging.
+After 10+ idle minutes, both services should report `Status: SLEEPING`:
 
-Reject a plan that touches `campus-api`, `campus-world`, databases, volumes,
-domains, or production. If the earlier staging plan below is still pending,
-apply and verify it on its own first, then plan again.
+```bash
+railway service status --service campus-web --environment staging
+railway service status --service campus-storybook --environment staging
+```
 
-### Wake gate
+Then measure a cold load and a warm load:
 
-`wake web` passes when `/` loads in 10 seconds or less. One leading `502` is
-tolerated because Railway documents it while a container boots. The next
-request must return 2xx, and both requests count toward the 10 seconds. Any
-other status, or a second `502`, fails. `/api/v1/health` is recorded for
-information only because it includes the backend's own wake.
+```bash
+curl -o /dev/null -s -w '%{http_code} %{time_total}s\n' https://dev.campusbyrise.com/
+curl -o /dev/null -s -w '%{http_code} %{time_total}s\n' https://dev.campusbyrise.com/
+```
 
-If the gate fails, do not disable Serverless. Read the deployment logs for slow
-boot work first:
+The cold load passes with a 2xx within 10 seconds. One leading `502` is
+tolerated while the container boots, if the next request returns 2xx and both
+together take 10 seconds or less.
+
+After a representative session, record memory:
+
+```bash
+railway metrics --service campus-web --environment staging --memory --since 1d
+railway metrics --service campus-storybook --environment staging --memory --since 1d
+```
+
+If the cold load fails, do not disable Serverless. Read the deployment logs
+for slow boot work first:
 
 ```bash
 railway logs --deployment --service campus-web --environment staging --lines 200
@@ -207,15 +207,13 @@ railway usage limit set --target workspace --soft <amount>
 No memory limit is set yet. Add `deploy.limitOverride` only after a week of
 serverless memory data, above the observed peak with headroom.
 
-Preview or duplicate frontend services found by `preflight` are reported with
-their last deploy and usage. Each one is removed only on explicit approval.
+On 2026-10-03 staging had no preview or duplicate frontend services, and the
+project had no environments besides `production` and `staging`.
 
 ### Staging cost baseline
 
-Paste the rows printed by `wake` and the figures from `memory`.
-
-| Date | Target | Cold load | Wake statuses | Warm median / max | API health | Gate |
-| ---- | ------ | --------- | ------------- | ----------------- | ---------- | ---- |
+| Date | Target | Cold load | Warm load | Gate |
+| ---- | ------ | --------- | --------- | ---- |
 
 | Date       | Service          | Label  | 24h average | 24h peak |
 | ---------- | ---------------- | ------ | ----------- | -------- |

@@ -28,7 +28,6 @@
     "next-env.d.ts",
     ".storybook/**/*.ts",
     ".storybook/**/*.tsx",
-    ".railway/**/*.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
