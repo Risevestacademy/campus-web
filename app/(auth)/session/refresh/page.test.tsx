@@ -67,9 +67,16 @@ describe("SessionRefreshPage", () => {
     ]);
   });
 
+  it.each(["/invitation", "/preview"])(
+    "returns to the invitation page %s the refresh started from",
+    async (returnTo) => {
+      await expect(refreshFrom(returnTo)).resolves.toEqual([[returnTo]]);
+    },
+  );
+
   it.each([
     ["an off-site destination", "//attacker.example/campus"],
-    ["a non-Campus destination", "/invitation"],
+    ["a destination outside Campus and the invitation", "/sign-in"],
     ["a missing destination", undefined],
   ])("returns to the campus index for %s", async (_, returnTo) => {
     await expect(refreshFrom(returnTo)).resolves.toEqual([["/campus"]]);

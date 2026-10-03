@@ -2,17 +2,20 @@
 
 import { ChatCenteredDotsIcon } from "@phosphor-icons/react/dist/ssr/ChatCenteredDots";
 import { GearSixIcon } from "@phosphor-icons/react/dist/ssr/GearSix";
+import { MoonIcon } from "@phosphor-icons/react/dist/ssr/Moon";
+import { SunIcon } from "@phosphor-icons/react/dist/ssr/Sun";
 import { cn } from "cn";
 import Image from "next/image";
-import { useSyncExternalStore } from "react";
+import { type ReactNode, useSyncExternalStore } from "react";
 
 import logoMark from "@/assets/icon-inverse.svg";
-import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { badgeVariants } from "@/shared/ui/badge";
 import { buttonVariants } from "@/shared/ui/button";
 import { Separator } from "@/shared/ui/separator";
+import { useThemeToggle } from "@/shared/ui/theme-toggle/use-theme-toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
+import { RailAvatar } from "./rail-avatar";
 import { railPanelItems } from "./rail-items";
 import {
   getActivePanelSnapshot,
@@ -21,17 +24,17 @@ import {
   subscribeToShell,
 } from "./shell-store";
 
-const CURRENT_USER_INITIAL = "J";
-
 function RailButton({
   label,
   isActive,
+  isPressed,
   badgeCount,
   onClick,
   children,
 }: {
   label: string;
   isActive?: boolean;
+  isPressed?: boolean;
   badgeCount?: number;
   onClick?: () => void;
   children: React.ReactNode;
@@ -41,6 +44,7 @@ function RailButton({
       <TooltipTrigger
         aria-label={label}
         aria-current={isActive ? "page" : undefined}
+        aria-pressed={isPressed}
         onClick={onClick}
         className={cn(
           buttonVariants({ variant: "ghost", size: "icon-lg" }),
@@ -64,7 +68,24 @@ function RailButton({
   );
 }
 
-export function CampusRail() {
+// The route composes what sits in `account` (for example a menu around the
+// avatar), since this feature may not import another feature's components.
+function ThemeRailButton() {
+  const { isDark, label, toggle } = useThemeToggle();
+  const Icon = isDark ? SunIcon : MoonIcon;
+
+  return (
+    <RailButton label={label} isPressed={isDark} onClick={toggle}>
+      <Icon aria-hidden size="1.3rem" weight="bold" />
+    </RailButton>
+  );
+}
+
+export function CampusRail({
+  account = <RailAvatar />,
+}: {
+  account?: ReactNode;
+}) {
   const activePanel = useSyncExternalStore(
     subscribeToShell,
     getActivePanelSnapshot,
@@ -74,6 +95,7 @@ export function CampusRail() {
   return (
     <nav
       aria-label="Campus"
+      data-theme-toggle-host
       className="bg-primary dark:bg-cobalt-900 flex w-16 shrink-0 flex-col items-center justify-between rounded-xl py-4"
     >
       <div className="flex flex-col items-center gap-4">
@@ -108,14 +130,11 @@ export function CampusRail() {
         <RailButton label="Report an issue">
           <ChatCenteredDotsIcon aria-hidden size="1.3rem" weight="bold" />
         </RailButton>
+        <ThemeRailButton />
         <RailButton label="Settings">
           <GearSixIcon aria-hidden size="1.3rem" weight="bold" />
         </RailButton>
-        <Avatar size="lg" className="mt-2">
-          <AvatarFallback className="bg-accent text-accent-foreground font-medium">
-            {CURRENT_USER_INITIAL}
-          </AvatarFallback>
-        </Avatar>
+        <div className="mt-2 flex">{account}</div>
       </div>
     </nav>
   );

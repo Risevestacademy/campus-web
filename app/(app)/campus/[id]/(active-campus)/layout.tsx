@@ -1,6 +1,11 @@
 import type { ReactNode } from "react";
 
 import {
+  AccountMenu,
+  logsOutFromRail,
+  requireRouteAccess,
+} from "@/features/auth";
+import {
   CampusControlBar,
   MeetingHeader,
   MeetingViewControls,
@@ -11,6 +16,7 @@ import {
   closeSidebarForGridView,
   getServerSidebarOpenSnapshot,
   getSidebarOpenSnapshot,
+  RailAvatar,
   railPanelItems,
   SidebarCollapseButton,
   SidebarComingSoonPanel,
@@ -40,17 +46,35 @@ const comingSoonPanels = Object.fromEntries(
     ]),
 ) as Record<Exclude<(typeof railPanelItems)[number]["id"], "map">, ReactNode>;
 
-export default function ActiveCampusLayout({
+// Admins and members of several cohorts log out from the /campus chooser;
+// the rail offers it only to members who never see that page.
+async function railAccount(cohortId: string): Promise<ReactNode> {
+  const access = await requireRouteAccess({ kind: "cohort", cohortId });
+  const avatar = <RailAvatar />;
+
+  return access.kind === "allow" && logsOutFromRail(access.session) ? (
+    <AccountMenu>{avatar}</AccountMenu>
+  ) : (
+    avatar
+  );
+}
+
+export default async function ActiveCampusLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
+  const account = await railAccount(id);
+
   return (
     <main
       data-surface-role="background"
       className="bg-background text-foreground flex h-dvh gap-1.5 p-1.5"
     >
-      <CampusRail />
+      <CampusRail account={account} />
       <CampusSidebar
         panels={{
           ...comingSoonPanels,

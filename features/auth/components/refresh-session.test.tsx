@@ -113,15 +113,15 @@ describe("RefreshSession: automatic refresh", () => {
     expect(navigation.replace.mock.calls).toEqual([[DESTINATION]]);
   });
 
-  it("sends an expired session to sign-in with the destination", async () => {
+  // The refresh API answers 401 alike for a visitor who never signed in, so
+  // sign-in must not claim a session expired.
+  it("sends a rejected refresh to plain sign-in with the destination", async () => {
     refreshReplies(status(401));
     renderRefresh();
     await elapse();
 
     expect(navigation.replace.mock.calls).toEqual([
-      [
-        "/sign-in?error=session_expired&returnTo=%2Fcampus%2F42%2Frooms%3Fseat%3D3",
-      ],
+      ["/sign-in?returnTo=%2Fcampus%2F42%2Frooms%3Fseat%3D3"],
     ]);
   });
 });

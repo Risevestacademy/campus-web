@@ -2,23 +2,14 @@
 
 import { MoonIcon } from "@phosphor-icons/react/dist/ssr/Moon";
 import { SunIcon } from "@phosphor-icons/react/dist/ssr/Sun";
-import { useSyncExternalStore } from "react";
 
-import {
-  getServerThemeSnapshot,
-  getThemeSnapshot,
-  subscribeToTheme,
-  toggleTheme,
-} from "@/shared/theme";
+import { useThemeToggle } from "./use-theme-toggle";
 
+// Hidden wherever a page hosts its own theme switch (an element marked
+// data-theme-toggle-host, such as the campus rail), so it never floats over
+// that page's controls.
 export function ThemeToggle() {
-  const theme = useSyncExternalStore(
-    subscribeToTheme,
-    getThemeSnapshot,
-    getServerThemeSnapshot,
-  );
-  const isDark = theme === "dark";
-  const label = `Switch to ${isDark ? "light" : "dark"} mode`;
+  const { isDark, label, toggle } = useThemeToggle();
 
   return (
     <button
@@ -26,8 +17,8 @@ export function ThemeToggle() {
       aria-label={label}
       aria-pressed={isDark}
       title={label}
-      onClick={toggleTheme}
-      className="bg-surface border-border text-icon hover:bg-surface-hover active:bg-surface-pressed focus-visible:ring-border-focus focus-visible:ring-offset-background fixed bottom-3 left-3 z-50 grid size-10 cursor-pointer place-items-center rounded-full border shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+      onClick={toggle}
+      className="bg-surface border-border text-icon hover:bg-surface-hover active:bg-surface-pressed focus-visible:ring-border-focus focus-visible:ring-offset-background fixed bottom-3 left-3 z-50 grid size-10 cursor-pointer place-items-center rounded-full border shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-offset-2 [:root:has([data-theme-toggle-host])_&]:hidden"
     >
       {isDark ? (
         <SunIcon aria-hidden size={16} weight="regular" />

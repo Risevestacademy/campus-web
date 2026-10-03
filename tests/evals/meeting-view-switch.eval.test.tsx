@@ -1,22 +1,22 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import ActiveCampusLayout from "@/app/(app)/campus/[id]/(active-campus)/layout";
 import { CampusMediaSessionProvider } from "@/features/campus";
+import { activeCampusLayout } from "@/tests/fixtures/active-campus-layout";
 
-function renderActiveCampusLayout() {
+vi.mock("@/features/auth", () => import("@/tests/fixtures/route-access-stub"));
+
+async function renderActiveCampusLayout() {
   return render(
     <CampusMediaSessionProvider>
-      <ActiveCampusLayout>
-        <div />
-      </ActiveCampusLayout>
+      {await activeCampusLayout()}
     </CampusMediaSessionProvider>,
   );
 }
 
 describe("meeting view switch acceptance (required threshold: 3/3)", () => {
-  it("controls the tile layout and backdrop through the active-campus layout", () => {
-    renderActiveCampusLayout();
+  it("controls the tile layout and backdrop through the active-campus layout", async () => {
+    await renderActiveCampusLayout();
 
     const viewSwitch = screen.getByRole("switch", { name: "Use grid view" });
 
@@ -36,8 +36,8 @@ describe("meeting view switch acceptance (required threshold: 3/3)", () => {
     ).toBeInTheDocument();
   });
 
-  it("expands the meeting view when a compact tile is activated", () => {
-    renderActiveCampusLayout();
+  it("expands the meeting view when a compact tile is activated", async () => {
+    await renderActiveCampusLayout();
 
     const viewSwitch = screen.getByRole("switch", { name: "Use grid view" });
     const participantTile = screen.getByRole("button", {
@@ -53,8 +53,8 @@ describe("meeting view switch acceptance (required threshold: 3/3)", () => {
     ).toBeInTheDocument();
   });
 
-  it("promotes an expanded tile and moves the other tile to secondary emphasis", () => {
-    renderActiveCampusLayout();
+  it("promotes an expanded tile and moves the other tile to secondary emphasis", async () => {
+    await renderActiveCampusLayout();
 
     fireEvent.click(screen.getByRole("switch", { name: "Use grid view" }), {
       detail: 1,

@@ -51,20 +51,25 @@ function isCampusRoute(path: string): boolean {
   return path === "/campus" || path.startsWith("/campus/");
 }
 
+function isProtectedRoute(path: string): boolean {
+  return isCampusRoute(path) || path === "/invitation";
+}
+
 function isActiveCampusRoute(path: string): boolean {
   return path.startsWith("/campus/");
 }
 
-// Campus routes are protected; enter them as a member with two cohorts so
-// /campus shows the chooser instead of redirecting to a single cohort.
-async function enterAsCampusMember(
+// Enter protected routes as a member with two cohorts and a pending invite:
+// /campus shows the chooser instead of redirecting to a single cohort, and
+// /invitation renders instead of redirecting to Campus.
+async function enterAsInvitedMember(
   context: BrowserContext,
   baseURL: string | undefined,
   fakeApi: FakeApi,
 ) {
   await signIn(context, baseURL);
   await fakeApi.scriptSession(
-    sessions.member(
+    sessions.invitedMember(
       membership("c-1", "Cohort 1"),
       membership("c-2", "Cohort 2"),
     ),
@@ -113,8 +118,8 @@ async function expectSurfaceHierarchy(
   }
 }
 
-const campusCases = routeCases.filter(({ path }) => isCampusRoute(path));
-const publicCases = routeCases.filter(({ path }) => !isCampusRoute(path));
+const protectedCases = routeCases.filter(({ path }) => isProtectedRoute(path));
+const publicCases = routeCases.filter(({ path }) => !isProtectedRoute(path));
 
 for (const theme of ["light", "dark"] as const) {
   for (const { path, roles } of publicCases) {
@@ -129,15 +134,15 @@ for (const theme of ["light", "dark"] as const) {
 
 // Declared at describe level so the skip happens before the fakeApi fixture
 // tries to reach a fake API that remote runs do not start.
-test.describe("protected campus routes", () => {
-  test.skip(!usesFakeApi, "Campus routes need the local fake auth API.");
+test.describe("protected routes", () => {
+  test.skip(!usesFakeApi, "Protected routes need the local fake auth API.");
 
   test.beforeEach(async ({ context, baseURL, fakeApi }) => {
-    await enterAsCampusMember(context, baseURL, fakeApi);
+    await enterAsInvitedMember(context, baseURL, fakeApi);
   });
 
   for (const theme of ["light", "dark"] as const) {
-    for (const { path, roles } of campusCases) {
+    for (const { path, roles } of protectedCases) {
       test(`${path} resolves the ${theme} surface hierarchy`, async ({
         page,
       }) => {
@@ -157,7 +162,15 @@ test.describe("protected campus routes", () => {
     const lightBox = await controls.boundingBox();
     expect(lightBox).not.toBeNull();
 
-    await page.getByRole("button", { name: "Switch to dark mode" }).click();
+    // The rail hosts the theme switch; the floating one hides on this page.
+    const themeSwitch = page.getByRole("button", {
+      name: "Switch to dark mode",
+    });
+    await expect(themeSwitch).toHaveCount(1);
+    await page
+      .getByRole("navigation", { name: "Campus" })
+      .getByRole("button", { name: "Switch to dark mode" })
+      .click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
     const darkBox = await controls.boundingBox();

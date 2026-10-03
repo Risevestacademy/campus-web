@@ -3,28 +3,25 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { REFRESH_ATTEMPTED_COOKIE, SESSION_COOKIE } from "@/core/api/client";
 
-import {
-  activeCampusCohort,
-  normalizeCampusReturnTo,
-} from "../schemas/return-to";
+import { activeCampusCohort, normalizeReturnTo } from "../schemas/return-to";
 import {
   REFRESH_ATTEMPTED_HEADER,
   RETURN_TO_HEADER,
 } from "./campus-request-headers";
 import {
-  type CampusRequestSignals,
   preJoinRedirect,
+  type RouteRequestSignals,
   signedOutRedirect,
 } from "./route-policy";
 
-const REFRESH_ATTEMPTED_COOKIE_PATH = "/campus";
+const REFRESH_ATTEMPTED_COOKIE_PATH = "/";
 
-type ProxySignals = CampusRequestSignals & { returnTo: string };
+type ProxySignals = RouteRequestSignals & { returnTo: string };
 
 function readSignals(request: NextRequest): ProxySignals {
   const { pathname, search } = request.nextUrl;
   return {
-    returnTo: normalizeCampusReturnTo(`${pathname}${search}`),
+    returnTo: normalizeReturnTo(`${pathname}${search}`),
     refreshAttempted: request.cookies.has(REFRESH_ATTEMPTED_COOKIE),
   };
 }

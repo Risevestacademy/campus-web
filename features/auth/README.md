@@ -1,7 +1,8 @@
 # Auth
 
-Owns the question "may this request render a Campus route?" Route code asks
-one function and branches on the answer. Session transport, retries, and
+Owns the questions "may this request render a Campus or invitation route?"
+and "should sign-in render, or send this visitor on?" Route code asks one
+function and branches on the answer. Session transport, retries, and
 return-destination policy stay behind it.
 
 ## Public interface
@@ -13,6 +14,8 @@ Route code imports from `@/features/auth`. The root `proxy.ts` imports from
 import {
   CampusShellGate,
   CohortGate,
+  InvitationGate,
+  redirectSignedInVisitor,
   requireRouteAccess,
   SessionUnavailable,
 } from "@/features/auth";
@@ -22,6 +25,12 @@ import {
 
 // Everything under /campus/[id]: also requires membership of that cohort
 <CohortGate cohortId={id}>{children}</CohortGate>;
+
+// /invitation and /preview: requires a session carrying an invite
+<InvitationGate path="/invitation">{children}</InvitationGate>;
+
+// /sign-in: sends a signed-in visitor on before anything renders
+await redirectSignedInVisitor(returnTo);
 
 // Pages that need the session
 const access = await requireRouteAccess({ kind: "campus-index" });
@@ -43,9 +52,11 @@ differently:
 | `forbidden`   | backend refused the account (403), or a member with no cohort        | `forbidden()`                                                                          |
 | `unavailable` | session service down after retries, or returned a malformed session  | `SessionUnavailable` linking to `retryHref`; `retryAfterMs` is the backend hint if any |
 
-Requests are `{ kind: "campus-shell" }`, `{ kind: "campus-index" }`, or
-`{ kind: "cohort", cohortId }`. The return destination comes from the root
-proxy, not the caller (layouts cannot see the URL). Everything here is server-only and reads request headers, so any
+Requests are `{ kind: "campus-shell" }`, `{ kind: "campus-index" }`,
+`{ kind: "cohort", cohortId }`, or `{ kind: "invitation", path }`. On Campus
+the return destination comes from the root proxy, not the caller (layouts
+cannot see the URL); invitation requests name their own page, since no proxy
+runs there. Everything here is server-only and reads request headers, so any
 route that uses it renders per request.
 
 Every `/campus/**` page checks access itself as well as the `(app)` layout:
@@ -58,10 +69,45 @@ re-runs when a soft navigation changes cohort; the pages re-check the session
 on every soft navigation inside one cohort. A new page under `/campus/[id]`
 must wrap its content in `CohortGate` too.
 
+`/invitation` and `/preview` each wrap their content in `InvitationGate`.
+There is no guarding layout: `/invitation` links to `/preview`, a soft
+navigation a layout would not re-run on. During an outage the gate renders
+`SessionUnavailableNotice`, because the auth layout already owns `<main>`.
+
+`resolveSignIn(returnTo)` returns `render` or `redirect` for `/sign-in`, and
+`redirectSignedInVisitor(returnTo)` turns the redirect into Next's
+`redirect()`. Sign-in is not a `RouteAuthorizationRequest`: it is the one
+route where "no session" means render, and keeping it out keeps
+`requireRouteAccess` free of an allow-without-session case.
+
+## Log out
+
+`AccountMenu` (client) wraps the caller's avatar in a menu with one item, Log
+out. `useLogOut` posts `/api/v1/auth/logout` through `browserApi`: only the
+browser can, since `campus_refresh` is scoped to `/api/v1/auth`.
+
+| Backend answer          | Result                                                                                 |
+| ----------------------- | -------------------------------------------------------------------------------------- |
+| 2xx, or 401             | capture `auth.logout` (`user_action`), `resetAnalyticsUser()`, full load of `/sign-in` |
+| other status, or thrown | error toast "We couldn't log you out"; nothing else changes and the visitor may retry  |
+
+The full load (`replaceDocument`, `shared/lib/document-navigation.ts`) drops
+the media session and query cache and replaces the history entry. Navigating
+after a failure would be wrong: the cookies survive, so sign-in would send the
+visitor straight back to Campus.
+
+Placement follows the cohort chooser: `logsOutFromRail(session)` is false for
+admins and members of several cohorts, who log out from the `/campus` header,
+and true for everyone else, who never see `/campus` and log out from the
+campus rail. The rail sits in another feature, so
+`app/(app)/campus/[id]/(active-campus)/layout.tsx` composes the menu into
+`CampusRail`'s `account` slot.
+
 ## Session outcomes
 
 `GET /v1/auth/me` is called directly through `getServerApi()`, never through
-the browser `/api` proxy.
+the browser `/api` proxy. A request without a `campus_session` cookie is
+`unauthenticated` without a backend call.
 
 | Backend response                   | Session read      | Retried |
 | ---------------------------------- | ----------------- | ------- |
@@ -114,6 +160,32 @@ The refresh-attempt marker breaks the refresh/redirect loop: one automatic
 refresh per visit, then sign-in. A pending `inviteId` does not block a
 `full_access` member.
 
+Invitation routes (`invitation`, for `/invitation` and `/preview`):
+
+| Session                                         | Decision                                    |
+| ----------------------------------------------- | ------------------------------------------- |
+| `provisional` or `full_access`, with `inviteId` | `allow`                                     |
+| `full_access`, no `inviteId`                    | redirect `/campus`                          |
+| `provisional`, no `inviteId`                    | redirect `/sign-in?error=invite_required`   |
+| none, refresh not yet attempted                 | redirect `/session/refresh?returnTo=<page>` |
+| none, refresh already attempted                 | redirect `/sign-in?returnTo=<page>`         |
+| refused (403)                                   | `forbidden`                                 |
+| outage                                          | `unavailable`, retry `<page>`               |
+
+Sign-in (`decideSignIn`):
+
+| Session                                   | Decision                                    |
+| ----------------------------------------- | ------------------------------------------- |
+| `full_access`                             | redirect to the normalized `returnTo`       |
+| `provisional`, with `inviteId`            | redirect `/invitation` (`returnTo` ignored) |
+| `provisional`, no `inviteId`              | render (the invitation sent it here)        |
+| none, expired, refused, or session outage | render; no refresh, no retry state          |
+
+Sign-in is the way out of every failed state, so it never refreshes and never
+redirects without a usable session. That is what keeps sign-in, refresh,
+invitation, and Campus from forming a loop; `pnpm eval:route-protection`
+walks every entry route and session state to prove it.
+
 ## Root proxy
 
 `guardCampusRequest` (exported from `@/features/auth/proxy`) runs for
@@ -137,11 +209,14 @@ calls the backend:
   | `x-campus-return-to`         | sanitized `pathname + search`                    |
   | `x-campus-refresh-attempted` | `1` when the marker cookie came with the request |
 
-- the marker cookie is deleted on the first `/campus/**` response.
+- the marker cookie (`Path=/`) is deleted on the first `/campus/**` response.
 
 The render reads the marker from the header, not the cookie: Next copies
 cookies the proxy sets or deletes into `cookies()` for the same request, so
 after the deletion the cookie no longer says whether a refresh happened.
+
+Invitation routes have no proxy, so they read the marker cookie itself.
+Nothing deletes it there; it expires after its 60 s `Max-Age`.
 
 `@/features/auth/proxy` exists because `index.ts` also exports client and
 server-only modules, which do not belong in Next's proxy bundle. ESLint
@@ -178,12 +253,14 @@ and their tests pin it.
 
 ## Return destinations
 
-`normalizeCampusReturnTo(value)` returns a same-origin `/campus` or
-`/campus/**` path with its query, or `/campus` when the value is unsafe. It:
+`normalizeReturnTo(value)` returns a same-origin path under `/campus`,
+`/invitation`, or `/preview` with its query, or `/campus` when the value is
+unsafe. It:
 
 - keeps path and query, drops the fragment;
 - percent-encodes the result so it is safe in a `Location` header;
-- rejects absolute, protocol-relative, and non-`/campus` destinations;
+- rejects absolute, protocol-relative, and other destinations (`/sign-in`
+  included, so sign-in can never return to itself);
 - rejects literal or percent-encoded `.`/`..` segments, encoded slashes,
   empty interior segments, backslashes, and control characters (raw or
   encoded);
@@ -193,7 +270,7 @@ and their tests pin it.
 requires an active route of that cohort (not its `/join`); anything else
 becomes `/campus/{cohortId}`. The pre-join page uses it for its Join link.
 
-`parseCampusReturnTo(value)` applies the same rules but returns `undefined`
+`parseReturnTo(value)` applies the same rules but returns `undefined`
 instead of falling back, for callers that must distinguish "no valid
 destination" (the OAuth proxy receives it by injection, since `core` cannot
 import `features`). Client components never import this module: a Server
@@ -205,7 +282,7 @@ silently, so `/campus/42/../43` would otherwise look like a clean Campus path.
 ## Session refresh
 
 `RefreshSession` (client component) renders `/session/refresh`. The route's
-Server Component sanitizes `returnTo` with `normalizeCampusReturnTo` and passes
+Server Component sanitizes `returnTo` with `normalizeReturnTo` and passes
 it as a prop. The component follows the project flow:
 
 ```text
@@ -215,8 +292,9 @@ RefreshSession -> useSessionRefresh -> useMutation -> createSessionRefresher -> 
 - One automatic POST to `/api/v1/auth/refresh` on mount, never retried by
   TanStack Query (`retry: false`).
 - Success replaces history with the destination; 401 replaces it with
-  `/sign-in?error=session_expired&returnTo=...`; anything else shows a
-  fail-closed retry state.
+  `/sign-in?returnTo=...`; anything else shows a fail-closed retry state.
+  The sign-in URL carries no error: refresh answers 401 alike for a visitor
+  who never signed in, so it cannot claim a session expired.
 - Manual retry cooldowns: 1, 2, 4, then 8 seconds. A longer `Retry-After`
   extends a cooldown up to 8 seconds.
 - `createSessionRefresher` shares one in-flight POST between concurrent
@@ -232,20 +310,23 @@ RefreshSession -> useSessionRefresh -> useMutation -> createSessionRefresher -> 
 | `proxy.ts`                           | public interface for the root `proxy.ts`                                       |
 | `components/campus-shell-gate.tsx`   | renders children only when the visitor may enter Campus                        |
 | `components/cohort-gate.tsx`         | renders children only for a member of the cohort (or an admin)                 |
+| `components/invitation-gate.tsx`     | renders children only for a session carrying an invite                         |
 | `components/access-gate.tsx`         | shared gate rendering: allow, retry state, or Next interrupt                   |
-| `components/session-unavailable.tsx` | fail-closed retry state                                                        |
+| `components/session-unavailable.tsx` | fail-closed retry state, with or without its own `<main>`                      |
 | `components/refresh-session.tsx`     | refresh page UI                                                                |
+| `components/account-menu.tsx`        | avatar menu with Log out                                                       |
+| `hooks/use-log-out.ts`               | logout mutation, analytics, full load to sign-in or failure toast              |
 | `hooks/use-session-refresh.ts`       | refresh mutation, outcome handling, cooldown schedule                          |
 | `hooks/use-countdown.ts`             | retry countdown                                                                |
 | `hooks/use-mount-effect.ts`          | the only sanctioned `useEffect` wrapper                                        |
-| `services/authorization.service.ts`  | `authorizeRoute`: server-only, `cache()`, proxy headers                        |
-| `services/route-access.service.ts`   | `requireRouteAccess`: decisions to Next interrupts                             |
+| `services/authorization.service.ts`  | `authorizeRoute`, `resolveSignIn`: server-only, `cache()`, request signals     |
+| `services/route-access.service.ts`   | `requireRouteAccess`, `redirectSignedInVisitor`: decisions to Next interrupts  |
 | `services/route-policy.ts`           | pure route policy, shared with the proxy                                       |
 | `services/campus-proxy.service.ts`   | `guardCampusRequest`: pre-join gate, cookie-presence redirects, render headers |
 | `services/campus-request-headers.ts` | proxy-to-render header names                                                   |
-| `services/session.service.ts`        | `/v1/auth/me` read with retries; single-flight refresh POST                    |
+| `services/session.service.ts`        | `/v1/auth/me` read with retries; single-flight refresh POST; logout POST       |
 | `schemas/session.schema.ts`          | validates the session fields route policies depend on                          |
-| `schemas/return-to.ts`               | Campus return-destination policy, active-campus path rules                     |
+| `schemas/return-to.ts`               | return-destination policy, active-campus path rules                            |
 | `types/auth.types.ts`                | public types                                                                   |
 
 Client modules import siblings directly, never `index.ts`: the entry point
@@ -256,6 +337,7 @@ re-exports server-only modules.
 ```bash
 pnpm vitest run --project unit features/auth ./proxy.test.ts
 pnpm eval:route-protection
+pnpm eval:logout
 pnpm eval:session-read
 pnpm eval:architecture
 ```

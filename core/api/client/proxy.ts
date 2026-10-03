@@ -17,7 +17,7 @@ const OAUTH_RETURN_MAX_AGE_SECONDS = 600;
 const GOOGLE_AUTH_ROUTE = "/v1/auth/google";
 const GOOGLE_CALLBACK_ROUTE = "/v1/auth/google/callback";
 const REFRESH_ROUTE = "/v1/auth/refresh";
-const REFRESH_ATTEMPTED_PATH = "/campus";
+const REFRESH_ATTEMPTED_PATH = "/";
 const REFRESH_ATTEMPTED_MAX_AGE_SECONDS = 60;
 const REQUEST_HEADERS = [
   "accept",
