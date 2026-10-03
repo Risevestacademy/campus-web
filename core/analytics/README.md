@@ -74,29 +74,35 @@ the typed capture function; it does not initialize PostHog itself.
 ## Server example
 
 ```ts
-import type { AuthenticatedActor, RouteExecutionContext } from "@/core/api";
-
 interface ProfileAnalytics {
   profileSetupCompleted(distinctId: string, profile: CompletedProfile): void;
 }
 
+interface ProfileCommandContext {
+  authenticatedUserId: string;
+}
+
 export async function completeProfileSetup(
   input: CompleteProfileSetupInput,
-  context: RouteExecutionContext<AuthenticatedActor>,
+  context: ProfileCommandContext,
   analytics: ProfileAnalytics,
 ) {
-  const profile = await profileRepository.complete(input, context.actor.id);
+  const profile = await profileRepository.complete(
+    input,
+    context.authenticatedUserId,
+  );
 
-  analytics.profileSetupCompleted(context.actor.id, profile);
+  analytics.profileSetupCompleted(context.authenticatedUserId, profile);
 
   return profile;
 }
 ```
 
-The repository operation completes before the event is scheduled. The distinct
-ID comes from the verified actor, while event properties come from trusted
-service results. The feature-specific adapter maps `CompletedProfile` to the
-canonical typed event properties.
+The repository operation completes before the event is scheduled. The
+composition root constructs the command context from the verified Campus
+session; request input never supplies the authenticated user ID. Event
+properties come from trusted service results. The feature-specific adapter maps
+`CompletedProfile` to the canonical typed event properties.
 
 `captureServerAnalyticsEvent` is disabled when the PostHog project token is
 absent and catches delivery errors when PostHog is unavailable. It must not be

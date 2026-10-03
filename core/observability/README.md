@@ -10,8 +10,8 @@ only after the deployment target and observability backend are selected.
 
 ## Usage
 
-Create the default logger at the Route Handler composition boundary and inject
-it into the API handler:
+Create the default logger at the Route Handler composition seam and inject it
+into the browser proxy:
 
 ```ts
 import { createJsonLogger } from "@/core/observability";
@@ -19,14 +19,15 @@ import { createJsonLogger } from "@/core/observability";
 const logger = createJsonLogger();
 ```
 
-`createPublicRoute` and `createAuthenticatedRoute` write exactly one terminal
-record for each handled request. Successful records go to standard output;
-rejected and failed records go to standard error.
+`createApiProxy` writes one terminal `api.proxy.completed`,
+`api.proxy.rejected`, or `api.proxy.failed` record for each handled request.
+Successful records go to standard output; rejected and failed records go to
+standard error.
 
 ```json
 {
   "durationMs": 4,
-  "event": "api.request.completed",
+  "event": "api.proxy.completed",
   "level": "info",
   "method": "POST",
   "requestId": "019...",
