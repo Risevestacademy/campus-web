@@ -34,6 +34,7 @@
     "eval:route-protection": "vitest run --project=unit tests/evals/campus-route-protection.eval.test.ts",
     "eval:logout": "vitest run --project=unit tests/evals/logout.eval.test.tsx",
     "eval:invitation": "vitest run --project=unit tests/evals/invitation.eval.test.tsx",
+    "eval:cohort-create": "vitest run --project=unit tests/evals/cohort-create.eval.test.tsx",
     "eval:component-stories": "vitest run --project=unit tests/evals/component-story-coverage.eval.test.ts",
     "eval:icons": "vitest run --project=unit tests/evals/icon-imports.eval.test.ts",
     "eval:theme": "vitest run --project=unit tests/evals/theme.eval.test.ts",
