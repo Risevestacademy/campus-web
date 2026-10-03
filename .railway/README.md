@@ -67,6 +67,12 @@ IaC for every environment instead of maintaining it only in the dashboard.
 - `NEXT_PUBLIC_POSTHOG_HOST`
 - `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`
 
+In staging only, `campus-web` also owns:
+
+```text
+NEXT_TELEMETRY_DISABLED=1
+```
+
 `campus-storybook` owns only:
 
 ```text
@@ -88,7 +94,8 @@ pnpm format:check
 pnpm test
 ```
 
-The Railway eval must report 5/5 passing cases.
+The Railway eval must report 7/7 passing cases, and the wake-gate tests in
+`.railway/scripts/` must pass.
 
 ## Staging
 
@@ -121,7 +128,111 @@ After an approved apply:
 2. Verify its generated Railway URL after deployment.
 3. Run `railway config plan` again and require no unintended changes.
 
+## Staging serverless
+
+Staging `campus-web` and `campus-storybook` sleep after sustained inactivity
+and wake on the next request. Production stays always-on; the eval proves its
+output is unchanged.
+
+- `campus-web`: `sleepApplication`, `startCommand: pnpm start`,
+  `healthcheck: /`, `NEXT_TELEMETRY_DISABLED=1`.
+- `campus-storybook`: `sleepApplication`. Railpack already serves
+  `storybook-static` through Caddy, never `storybook dev`.
+
+Railway decides inactivity from outbound packets. Anything that calls out on a
+timer keeps the container awake. The web server has no timers today:
+`posthog-node` sends per request (`flushInterval: 0`) and has no personal API
+key, so it never polls feature flags. Keep it that way.
+
+The healthcheck runs only at deploy time and does not keep the service awake.
+It targets `/`, a static page, so web deploys do not depend on `campus-api`.
+
+### Runbook
+
+Every step runs through `pnpm railway:verify <step>` and writes evidence to
+the OS temp directory, never to the repo.
+
+```bash
+railway link --project campus-by-rise --environment staging
+pnpm railway:verify preflight         # link, environments, services, usage
+pnpm railway:verify drift             # live graph JSON for comparison
+pnpm railway:verify memory before     # baseline memory, last 1d
+pnpm railway:verify plan              # needs .railway committed
+pnpm railway:verify apply             # applies the pinned plan only
+pnpm railway:verify redeploy          # Serverless applies to new containers
+pnpm railway:verify sleep             # after 10+ idle minutes
+pnpm railway:verify wake web
+pnpm railway:verify wake storybook
+pnpm railway:verify memory after      # after a representative session
+```
+
+`plan` refuses an uncommitted `.railway` because the pinned plan records
+`HEAD:.railway`. `plan` and `apply` both ask you to confirm the linked
+environment is staging.
+
+Reject a plan that touches `campus-api`, `campus-world`, databases, volumes,
+domains, or production. If the earlier staging plan below is still pending,
+apply and verify it on its own first, then plan again.
+
+### Wake gate
+
+`wake web` passes when `/` loads in 10 seconds or less. One leading `502` is
+tolerated because Railway documents it while a container boots. The next
+request must return 2xx, and both requests count toward the 10 seconds. Any
+other status, or a second `502`, fails. `/api/v1/health` is recorded for
+information only because it includes the backend's own wake.
+
+If the gate fails, do not disable Serverless. Read the deployment logs for slow
+boot work first:
+
+```bash
+railway logs --deployment --service campus-web --environment staging --lines 200
+```
+
+If a service never sleeps, inspect its outbound traffic:
+
+```bash
+railway logs --network --service campus-web --environment staging --since 30m
+```
+
+### Cost controls
+
+Set a soft workspace usage alert only. A hard limit takes every workspace
+service offline, backend included.
+
+```bash
+railway usage limit set --target workspace --soft <amount>
+```
+
+No memory limit is set yet. Add `deploy.limitOverride` only after a week of
+serverless memory data, above the observed peak with headroom.
+
+Preview or duplicate frontend services found by `preflight` are reported with
+their last deploy and usage. Each one is removed only on explicit approval.
+
+### Staging cost baseline
+
+Paste the rows printed by `wake` and the figures from `memory`.
+
+| Date | Target | Cold load | Wake statuses | Warm median / max | API health | Gate |
+| ---- | ------ | --------- | ------------- | ----------------- | ---------- | ---- |
+
+| Date       | Service          | Label  | 24h average | 24h peak |
+| ---------- | ---------------- | ------ | ----------- | -------- |
+| 2026-10-03 | campus-web       | before | 229 MB      | 563 MB   |
+| 2026-10-03 | campus-storybook | before | 40 MB       | 81 MB    |
+
+Cost before the change (billing period 2026-09-08 to 2026-10-08, read
+2026-10-03): `campus-by-rise` $7.46, workspace $11.58, workspace estimate
+$14.26.
+
+Soft usage alert: not set yet.
+
 ## Production
+
+Production stays always-on. Serverless, the pinned start command, the web
+healthcheck, and `NEXT_TELEMETRY_DISABLED` are staging-only until production
+gets its own cost review.
 
 Production currently has no `campus-storybook` service. First review:
 
