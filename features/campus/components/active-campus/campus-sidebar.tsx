@@ -3,16 +3,9 @@
 import { cn } from "cn";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
-import { useSyncExternalStore } from "react";
 
-import type { SidebarPanelId } from "./shell-preferences";
-import {
-  getActivePanelSnapshot,
-  getServerActivePanelSnapshot,
-  getServerSidebarOpenSnapshot,
-  getSidebarOpenSnapshot,
-  subscribeToShell,
-} from "./shell-store";
+import { useActivePanel, useSidebarOpen } from "../../hooks/use-shell-state";
+import type { SidebarPanelId } from "../../store/shell-preferences";
 
 const SIDEBAR_WIDTH = 312;
 const SIDEBAR_TRANSITION = {
@@ -30,16 +23,8 @@ type CampusSidebarProps = {
 };
 
 export function CampusSidebar({ panels }: CampusSidebarProps) {
-  const isOpen = useSyncExternalStore(
-    subscribeToShell,
-    getSidebarOpenSnapshot,
-    getServerSidebarOpenSnapshot,
-  );
-  const activePanel = useSyncExternalStore(
-    subscribeToShell,
-    getActivePanelSnapshot,
-    getServerActivePanelSnapshot,
-  );
+  const isOpen = useSidebarOpen();
+  const activePanel = useActivePanel();
 
   return (
     <motion.div

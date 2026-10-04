@@ -42,9 +42,14 @@ The exact campus join page to visit after a successful OAuth Attempt.
 _Avoid_: Redirect URL, callback URL
 
 **Join Gate**:
-The required media-setup step before a user enters an active campus experience.
+The required media-setup step before a user enters the Active Campus.
 Code and tests call it pre-join (`/campus/{id}/join`).
 _Avoid_: Join page, onboarding redirect
+
+**Active Campus**:
+A cohort's live campus that a member enters after the Join Gate: the map or
+meeting view, the sidebar panels, and the campus controls.
+_Avoid_: Campus shell, campus room, main campus
 
 **Route Access Decision**:
 The answer to whether a session may render a route: allow, redirect, forbidden,

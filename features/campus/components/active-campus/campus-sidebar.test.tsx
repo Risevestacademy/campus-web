@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
+import { setSidebarOpen } from "../../store/shell-store";
 import { CampusSidebar } from "./campus-sidebar";
-import { setSidebarOpen } from "./shell-store";
 import { SidebarCollapseButton } from "./sidebar-collapse-button";
 
 beforeEach(() => {

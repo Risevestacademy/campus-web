@@ -65,10 +65,6 @@ export function toggleSidebar(): void {
   setSidebarOpen(!getSidebarOpenSnapshot());
 }
 
-export function closeSidebarForGridView(view: "map" | "grid"): void {
-  if (view === "grid") setSidebarOpen(false);
-}
-
 export function subscribeToShell(onStoreChange: () => void): () => void {
   function handleStorage(event: StorageEvent): void {
     if (event.key !== null && event.key !== SHELL_STORAGE_KEY) return;

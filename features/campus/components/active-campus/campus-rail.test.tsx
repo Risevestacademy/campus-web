@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
+import { SHELL_STORAGE_KEY } from "../../store/shell-preferences";
 import { CampusRail } from "./campus-rail";
-import { SHELL_STORAGE_KEY } from "./shell-preferences";
 
 beforeEach(() => {
   document.documentElement.dataset.theme = "light";

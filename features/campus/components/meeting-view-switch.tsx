@@ -2,8 +2,10 @@
 
 import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 import { SquaresFourIcon } from "@phosphor-icons/react/dist/ssr/SquaresFour";
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 
+import { useSidebarOpen } from "../hooks/use-shell-state";
+import { setSidebarOpen } from "../store/shell-store";
 import type { MeetingParticipant } from "./meeting-header";
 import {
   type MeetingTileLayout,
@@ -33,14 +35,7 @@ interface MeetingViewControlsProps {
   localParticipantId: MeetingParticipant["id"];
   motionConfig?: MeetingTileMotionConfig;
   participants: readonly MeetingParticipant[];
-  onViewChange?: (view: MeetingView) => void;
-  subscribeToSidebarOpen?: (onStoreChange: () => void) => () => void;
-  getSidebarOpenSnapshot?: () => boolean;
-  getServerSidebarOpenSnapshot?: () => boolean;
 }
-
-const noSidebarSubscription = () => () => {};
-const assumeSidebarOpen = () => true;
 
 function MeetingViewIconPair() {
   return (
@@ -93,21 +88,13 @@ export function MeetingViewControls({
   localParticipantId,
   motionConfig,
   participants,
-  onViewChange,
-  subscribeToSidebarOpen = noSidebarSubscription,
-  getSidebarOpenSnapshot = assumeSidebarOpen,
-  getServerSidebarOpenSnapshot = assumeSidebarOpen,
 }: MeetingViewControlsProps) {
   const [viewState, setViewState] = useState<MeetingViewState>(
     INITIAL_MEETING_VIEW_STATE,
   );
   const activeView = viewState.layout.mode === "compact" ? "map" : "grid";
 
-  const isSidebarOpen = useSyncExternalStore(
-    subscribeToSidebarOpen,
-    getSidebarOpenSnapshot,
-    getServerSidebarOpenSnapshot,
-  );
+  const isSidebarOpen = useSidebarOpen();
   const [sidebarOpenAtLastRender, setSidebarOpenAtLastRender] =
     useState(isSidebarOpen);
 
@@ -127,7 +114,7 @@ export function MeetingViewControls({
           : { mode: "expanded", focusedTileId: null },
       shouldAnimate: animateViewChange,
     });
-    onViewChange?.(nextView);
+    if (nextView === "grid") setSidebarOpen(false);
   }
 
   function activateParticipantTile(
@@ -153,7 +140,7 @@ export function MeetingViewControls({
         shouldAnimate: animateViewChange,
       };
     });
-    onViewChange?.("grid");
+    setSidebarOpen(false);
   }
 
   return (

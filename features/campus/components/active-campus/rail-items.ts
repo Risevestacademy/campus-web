@@ -5,7 +5,7 @@ import { ListChecksIcon } from "@phosphor-icons/react/dist/ssr/ListChecks";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/ssr/MagnifyingGlass";
 import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 
-import type { SidebarPanelId } from "./shell-preferences";
+import type { SidebarPanelId } from "../../store/shell-preferences";
 
 export type RailPanelItem = {
   id: SidebarPanelId;

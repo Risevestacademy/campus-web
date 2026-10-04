@@ -6,7 +6,7 @@ import { MoonIcon } from "@phosphor-icons/react/dist/ssr/Moon";
 import { SunIcon } from "@phosphor-icons/react/dist/ssr/Sun";
 import { cn } from "cn";
 import Image from "next/image";
-import { type ReactNode, useSyncExternalStore } from "react";
+import type { ReactNode } from "react";
 
 import logoMark from "@/assets/icon-inverse.svg";
 import { badgeVariants } from "@/shared/ui/badge";
@@ -15,14 +15,10 @@ import { Separator } from "@/shared/ui/separator";
 import { useThemeToggle } from "@/shared/ui/theme-toggle/use-theme-toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
+import { useActivePanel } from "../../hooks/use-shell-state";
+import { setActivePanel } from "../../store/shell-store";
 import { RailAvatar } from "./rail-avatar";
 import { railPanelItems } from "./rail-items";
-import {
-  getActivePanelSnapshot,
-  getServerActivePanelSnapshot,
-  setActivePanel,
-  subscribeToShell,
-} from "./shell-store";
 
 function RailButton({
   label,
@@ -68,8 +64,6 @@ function RailButton({
   );
 }
 
-// The route composes what sits in `account` (for example a menu around the
-// avatar), since this feature may not import another feature's components.
 function ThemeRailButton() {
   const { isDark, label, toggle } = useThemeToggle();
   const Icon = isDark ? SunIcon : MoonIcon;
@@ -86,11 +80,7 @@ export function CampusRail({
 }: {
   account?: ReactNode;
 }) {
-  const activePanel = useSyncExternalStore(
-    subscribeToShell,
-    getActivePanelSnapshot,
-    getServerActivePanelSnapshot,
-  );
+  const activePanel = useActivePanel();
 
   return (
     <nav

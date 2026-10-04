@@ -24,9 +24,9 @@ return-destination policy stay behind it.
   active route ([Pre-join](#pre-join)).
 - Client modules import auth siblings directly, never `@/features/auth`: the
   entry point re-exports server-only modules.
-- `features/campus-shell` does not import auth. The rail's Log out menu is
-  composed in `app/(app)/campus/[id]/(active-campus)/layout.tsx` through
-  `CampusRail`'s `account` slot.
+- `features/campus` does not import auth. The rail's Log out menu is composed
+  in `app/(app)/campus/[id]/(active-campus)/layout.tsx` through
+  `ActiveCampus`'s `AccountMenu` prop.
 - Navigation that must drop the media session and query cache uses
   `replaceDocument` (`shared/lib/document-navigation.ts`), not the router.
 
@@ -38,7 +38,8 @@ return-destination policy stay behind it.
 - A 403 from `/v1/auth/me` is treated as a suspended account. A member with no
   cohort lands on the same 403 page and has no way to log out there.
 - The rail avatar initial is the placeholder "J"
-  (`features/campus-shell/rail-avatar.tsx`); only `/campus` shows the real one.
+  (`features/campus/components/active-campus/rail-avatar.tsx`); only `/campus`
+  shows the real one.
 
 ## Public interface
 
@@ -138,8 +139,8 @@ Placement follows the cohort chooser: `logsOutFromRail(session)` is false for
 admins and members of several cohorts, who log out from the `/campus` header,
 and true for everyone else, who never see `/campus` and log out from the
 campus rail. The rail sits in another feature, so
-`app/(app)/campus/[id]/(active-campus)/layout.tsx` composes the menu into
-`CampusRail`'s `account` slot.
+`app/(app)/campus/[id]/(active-campus)/layout.tsx` hands the menu to
+`ActiveCampus` as its `AccountMenu` prop.
 
 ## Session outcomes
 
