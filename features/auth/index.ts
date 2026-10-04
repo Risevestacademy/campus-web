@@ -1,5 +1,4 @@
 export { AccountMenu } from "./components/account-menu";
-export { CampusShellGate } from "./components/campus-shell-gate";
 export { CohortGate } from "./components/cohort-gate";
 export { InvitationGate } from "./components/invitation-gate";
 export { RefreshSession } from "./components/refresh-session";

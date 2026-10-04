@@ -73,12 +73,12 @@ interface Journey {
   expected: string;
 }
 
-const SHELL: RouteAuthorizationRequest = { kind: "campus-shell" };
 const INDEX: RouteAuthorizationRequest = { kind: "campus-index" };
 const cohort = (cohortId: string): RouteAuthorizationRequest => ({
   kind: "cohort",
   cohortId,
 });
+const DEEP_LINK_COHORT = cohort("42");
 const SIGN_IN: Destination = { kind: "sign-in" };
 const INVITATION: RouteAuthorizationRequest = {
   kind: "invitation",
@@ -98,62 +98,62 @@ const JOURNEYS: Journey[] = [
   {
     shape: "no access cookie",
     cookies: {},
-    route: SHELL,
+    route: DEEP_LINK_COHORT,
     expected: refreshThenReturn,
   },
   {
     shape: "no access cookie after a refresh",
     cookies: MARKER,
-    route: SHELL,
+    route: DEEP_LINK_COHORT,
     expected: signInThenReturn,
   },
   {
     shape: "expired access cookie",
     cookies: SESSION,
     backend: status(401),
-    route: SHELL,
+    route: DEEP_LINK_COHORT,
     expected: refreshThenReturn,
   },
   {
     shape: "expired access cookie after a refresh",
     cookies: { ...SESSION, ...MARKER },
     backend: status(401),
-    route: SHELL,
+    route: DEEP_LINK_COHORT,
     expected: signInThenReturn,
   },
   {
     shape: "provisional session",
     cookies: SESSION,
     backend: session("provisional", "user", []),
-    route: SHELL,
+    route: DEEP_LINK_COHORT,
     expected: "redirect /invitation",
   },
   {
     shape: "full-access member",
     cookies: SESSION,
-    backend: session("full_access", "user", [place("c-1")]),
-    route: SHELL,
+    backend: session("full_access", "user", [place("42")]),
+    route: DEEP_LINK_COHORT,
     expected: "allow",
   },
   {
-    shape: "full-access member with no cohort at the shell",
+    shape: "full-access member with no cohort opens a cohort",
     cookies: SESSION,
     backend: session("full_access", "user", []),
-    route: SHELL,
-    expected: "allow",
+    route: DEEP_LINK_COHORT,
+    expected: "forbidden",
   },
   {
     shape: "suspended account",
     cookies: SESSION,
     backend: status(403),
-    route: SHELL,
+    route: DEEP_LINK_COHORT,
     expected: "forbidden",
   },
   {
     shape: "session service outage",
     cookies: SESSION,
     backend: status(503),
-    route: SHELL,
+    route: DEEP_LINK_COHORT,
     expected: `unavailable retry ${DEEP_LINK}`,
   },
   {
@@ -163,7 +163,7 @@ const JOURNEYS: Journey[] = [
       new Response("<html>", {
         headers: { "content-type": "application/json" },
       }),
-    route: SHELL,
+    route: DEEP_LINK_COHORT,
     expected: `unavailable retry ${DEEP_LINK}`,
   },
   {

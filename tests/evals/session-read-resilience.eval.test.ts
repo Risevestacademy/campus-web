@@ -71,7 +71,7 @@ function visitor(clientAddress: string) {
 }
 
 async function renderCampusRoute() {
-  const decision = authorizeRoute({ kind: "campus-shell" });
+  const decision = authorizeRoute({ kind: "cohort", cohortId: "cohort-1" });
   await vi.runAllTimersAsync();
   return decision;
 }

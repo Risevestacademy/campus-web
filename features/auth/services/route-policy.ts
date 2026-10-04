@@ -83,8 +83,6 @@ function decideFullAccess(
       return decideCampusIndex(session);
     case "cohort":
       return decideCohort(session, request.cohortId);
-    case "campus-shell":
-      return { kind: "allow", session };
   }
 }
 
