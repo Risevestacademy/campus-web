@@ -112,7 +112,6 @@ shadcn CLI. Colocate tests and stories by basename:
 ```text
 shared/ui/
 ├── button.tsx
-├── button.test.tsx
 └── button.stories.tsx
 ```
 

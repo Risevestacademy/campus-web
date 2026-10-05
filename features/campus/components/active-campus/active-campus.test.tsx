@@ -69,13 +69,27 @@ describe("ActiveCampus", () => {
   it("shows every other rail panel as coming soon", () => {
     renderActiveCampus();
 
-    fireEvent.click(within(campusRail()).getByRole("button", { name: "Chat" }));
+    const chat = within(campusRail()).getByRole("button", { name: "Chat" });
 
+    fireEvent.click(chat);
+
+    expect(chat).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { name: "Chat" })).toBeInTheDocument();
     expect(screen.getByText("Coming soon.")).toBeInTheDocument();
     expect(
       screen.queryByRole("region", { name: "Overview panel" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("switches the theme from the rail", () => {
+    document.documentElement.dataset.theme = "light";
+    renderActiveCampus();
+
+    fireEvent.click(
+      within(campusRail()).getByRole("button", { name: "Switch to dark mode" }),
+    );
+
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
   });
 
   it("wraps the rail avatar in the account menu when given one", () => {

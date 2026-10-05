@@ -376,8 +376,6 @@ re-exports server-only modules.
 ```bash
 pnpm vitest run --project unit features/auth ./proxy.test.ts
 pnpm eval:route-protection
-pnpm eval:logout
-pnpm eval:session-read
 pnpm eval:architecture
 ```
 
