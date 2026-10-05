@@ -27,7 +27,10 @@
       "partialMatch": false
     }
   ],
-  "files": [{ "category": "root-proxy", "pattern": "proxy.ts" }],
+  "files": [
+    { "category": "root-proxy", "pattern": "proxy.ts" },
+    { "category": "root-layout", "pattern": "app/layout.tsx" }
+  ],
   "dependencyRule": {
     "default": "disallow",
     "policies": [
@@ -79,6 +82,25 @@
         "allow": {
           "to": {
             "element": { "type": "feature", "fileInternalPath": "proxy.ts" }
+          }
+        }
+      },
+      {
+        "from": { "file": { "categories": ["root-layout"] } },
+        "allow": {
+          "to": {
+            "element": { "type": "feature", "fileInternalPath": "document.ts" }
+          }
+        }
+      },
+      {
+        "from": { "file": { "categories": ["root-layout"] } },
+        "disallow": {
+          "to": {
+            "element": {
+              "type": "feature",
+              "fileInternalPath": "index.{ts,tsx}"
+            }
           }
         }
       }

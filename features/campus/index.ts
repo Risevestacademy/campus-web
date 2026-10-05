@@ -7,8 +7,5 @@ export { VisualsDisplay } from "./components/visuals-display";
 // Services
 export { CampusMediaSessionProvider } from "./services/media-session/media-session-provider";
 
-// Store
-export { shellInitializerScript } from "./store/shell-preferences";
-
 // Types
 export type { CohortSummary, CohortViewer } from "./types/cohort.types";

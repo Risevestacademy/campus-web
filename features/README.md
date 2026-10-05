@@ -30,6 +30,13 @@ Create a feature directory only when implementation starts. Colocate its
 components, hooks, services, schemas, state, types, and tests. Expose consumers
 through `index.ts`; do not deep-import another feature or import feature-to-feature.
 
-The one other entry point is `proxy.ts`, for code the root `proxy.ts` runs.
-Next bundles the proxy separately, so that entry must not pull in React,
-client components, or `server-only` modules. Only `auth` has one today.
+Two other entry points exist, each enforced by
+`config/architecture-boundaries.json`:
+
+- `proxy.ts`, for code the root `proxy.ts` runs. Next bundles the proxy
+  separately, so that entry must not pull in React, client components, or
+  `server-only` modules. Only `auth` has one today.
+- `document.ts`, for code the root `app/layout.tsx` needs before hydration.
+  Every client module reachable from an import in the root layout ships on
+  every page, so the root layout may not import a feature's `index.ts`. Only
+  `campus` has one today.

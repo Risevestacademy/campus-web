@@ -97,7 +97,8 @@ may not import `auth` or `roster`.
 
 The sidebar state (open, active panel) lives in `store/shell-store.ts`,
 persisted under `campus-shell-ui` in `localStorage` and mirrored on
-`<html data-sidebar-open>` so the root layout's `shellInitializerScript` can
+`<html data-sidebar-open>` so the root layout's `shellInitializerScript`
+(imported from `@/features/campus/document`, never the barrel) can
 size the sidebar before hydration. Components read it through
 `hooks/use-shell-state.ts`.
 
