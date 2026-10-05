@@ -1,12 +1,13 @@
 import type { ComponentType, ReactNode } from "react";
 
+import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
+
 import type { SidebarPanelId } from "../../store/shell-preferences";
 import { CampusControlBar } from "../campus-control-bar";
 import { MeetingHeader } from "../meeting-header";
 import { MeetingViewControls } from "../meeting-view-switch";
 import { CampusRail } from "./campus-rail";
 import { CampusSidebar } from "./campus-sidebar";
-import { RailAvatar } from "./rail-avatar";
 import { railPanelItems } from "./rail-items";
 import { SidebarCollapseButton } from "./sidebar-collapse-button";
 import { SidebarComingSoonPanel } from "./sidebar-coming-soon-panel";
@@ -25,6 +26,8 @@ const meetingParticipants = [
   { id: "participant-j", initials: "J", name: "Participant J" },
 ] as const;
 
+const CURRENT_USER_INITIAL = "J";
+
 const collapseButton = <SidebarCollapseButton />;
 
 const comingSoonPanels = Object.fromEntries(
@@ -40,6 +43,16 @@ const comingSoonPanels = Object.fromEntries(
       />,
     ]),
 ) as Record<Exclude<SidebarPanelId, "map">, ReactNode>;
+
+function RailAvatar() {
+  return (
+    <Avatar size="lg">
+      <AvatarFallback className="bg-accent text-accent-foreground font-medium">
+        {CURRENT_USER_INITIAL}
+      </AvatarFallback>
+    </Avatar>
+  );
+}
 
 export function ActiveCampus({
   AccountMenu,

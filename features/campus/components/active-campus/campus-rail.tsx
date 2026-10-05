@@ -17,7 +17,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
 import { useActivePanel } from "../../hooks/use-shell-state";
 import { setActivePanel } from "../../store/shell-store";
-import { RailAvatar } from "./rail-avatar";
 import { railPanelItems } from "./rail-items";
 
 function RailButton({
@@ -75,11 +74,7 @@ function ThemeRailButton() {
   );
 }
 
-export function CampusRail({
-  account = <RailAvatar />,
-}: {
-  account?: ReactNode;
-}) {
+export function CampusRail({ account }: { account: ReactNode }) {
   const activePanel = useActivePanel();
 
   return (

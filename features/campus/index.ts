@@ -1,5 +1,5 @@
 // Components
-export { ActiveCampus } from "./components/active-campus";
+export { ActiveCampus } from "./components/active-campus/active-campus";
 export { CohortCard } from "./components/cohort-card";
 export { CohortChooser } from "./components/cohort-chooser";
 export { VisualsDisplay } from "./components/visuals-display";

@@ -72,7 +72,7 @@ CSS transitions only, so an interrupted open reverses smoothly.
 
 ## Active Campus
 
-`app/(app)/campus/[id]/(active-campus)/layout.tsx` composes one module:
+`app/campus/[id]/(active-campus)/layout.tsx` composes one module:
 
 ```tsx
 import { ActiveCampus } from "@/features/campus";
