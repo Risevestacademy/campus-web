@@ -59,6 +59,10 @@ Tests that need controlled state may inject a store through
   listed is dropped, so the retry uses the system default.
 - Permission, unreadable, and unsupported failures are not cleared by
   discovery. Only a new user action clears them.
+- Device discovery runs one enumeration at a time; a refresh requested
+  meanwhile runs after it, so the newest device list always wins.
+- An enumeration that answers after the session stopped is discarded.
+- A failed enumeration keeps the last good device lists.
 - Browser tracks remain client-owned and route-scoped.
 - Publications have stable IDs and are indexed by participant and source.
 - A `screen` publication can coexist with a `camera` publication.
@@ -75,8 +79,8 @@ publication events without owning browser capture or preferences.
 tests can exercise the same interface as production callers.
 
 `createDeviceCatalog` implements serialized refresh, stale-result protection,
-last-good retention, and reset invalidation. The production store does not yet
-use this coordinator and still calls `discoverMediaDevices` directly.
+last-good retention, and reset invalidation. The store routes every refresh
+through it and resets it in `stop()`.
 
 ## Progress
 
@@ -94,14 +98,14 @@ Implemented:
 - Permission recovery: per-source failure codes, settings-based retry, and
   device-unavailable recovery on discovery
   (`docs/media-permission-recovery-plan.md`).
+- Device discovery through `createDeviceCatalog`.
 
 Remaining:
 
 1. Reset disconnected selections even when their capture source is off.
 2. Prove camera and screen publication coexistence in registry coverage.
-3. Migrate the production store to `createDeviceCatalog`.
-4. Add the signaling/SFU transport adapter.
-5. Add screen capture as a separate module in a future worktree.
+3. Add the signaling/SFU transport adapter.
+4. Add screen capture as a separate module in a future worktree.
 
 ## Worktree ownership
 
@@ -110,8 +114,6 @@ should modify it at a time.
 
 - Preference correctness should stay within
   `media-device-preferences.ts` and its store-level behavior tests.
-- Device-catalog migration owns `device-discovery.ts`,
-  `media-session-store.ts`, device menus, and their acceptance coverage.
 - Publication coexistence should remain localized to
   `publication-registry.ts` and registry behavior tests.
 - A backend worktree should add a transport adapter at the existing seam.
