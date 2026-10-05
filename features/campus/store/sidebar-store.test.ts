@@ -1,21 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SHELL_STORAGE_KEY } from "./shell-preferences";
+import { SIDEBAR_STORAGE_KEY } from "./sidebar-preferences";
 import {
   getActivePanelSnapshot,
   getSidebarOpenSnapshot,
   setActivePanel,
   setSidebarOpen,
-  subscribeToShell,
+  subscribeToSidebar,
   toggleSidebar,
-} from "./shell-store";
+} from "./sidebar-store";
 
 beforeEach(() => {
   window.localStorage.clear();
   Reflect.deleteProperty(document.documentElement.dataset, "sidebarOpen");
 });
 
-describe("shell store", () => {
+describe("sidebar store", () => {
   it("defaults to the map panel open", () => {
     expect(getActivePanelSnapshot()).toBe("map");
     expect(getSidebarOpenSnapshot()).toBe(true);
@@ -29,7 +29,7 @@ describe("shell store", () => {
     expect(getActivePanelSnapshot()).toBe("chat");
     expect(getSidebarOpenSnapshot()).toBe(true);
     expect(
-      JSON.parse(window.localStorage.getItem(SHELL_STORAGE_KEY) ?? "{}"),
+      JSON.parse(window.localStorage.getItem(SIDEBAR_STORAGE_KEY) ?? "{}"),
     ).toMatchObject({ activePanel: "chat", sidebarOpen: true });
   });
 
@@ -44,7 +44,7 @@ describe("shell store", () => {
   });
 
   it("ignores a corrupted value stored for another key", () => {
-    window.localStorage.setItem(SHELL_STORAGE_KEY, "not json");
+    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, "not json");
 
     expect(getActivePanelSnapshot()).toBe("map");
     expect(getSidebarOpenSnapshot()).toBe(true);
@@ -52,11 +52,11 @@ describe("shell store", () => {
 
   it("synchronizes preference changes received from another browser tab", () => {
     const onStoreChange = vi.fn();
-    const unsubscribe = subscribeToShell(onStoreChange);
+    const unsubscribe = subscribeToSidebar(onStoreChange);
 
     window.dispatchEvent(
       new StorageEvent("storage", {
-        key: SHELL_STORAGE_KEY,
+        key: SIDEBAR_STORAGE_KEY,
         newValue: JSON.stringify({ activePanel: "tasks", sidebarOpen: true }),
       }),
     );
@@ -67,7 +67,7 @@ describe("shell store", () => {
 
     window.dispatchEvent(
       new StorageEvent("storage", {
-        key: SHELL_STORAGE_KEY,
+        key: SIDEBAR_STORAGE_KEY,
         newValue: JSON.stringify({
           activePanel: "calendar",
           sidebarOpen: true,

@@ -15,21 +15,21 @@ export function isSidebarPanelId(value: unknown): value is SidebarPanelId {
   );
 }
 
-export const SHELL_STORAGE_KEY = "campus-shell-ui";
-export const SHELL_CHANGE_EVENT = "campus-shell-change";
+export const SIDEBAR_STORAGE_KEY = "campus-sidebar";
+export const SIDEBAR_CHANGE_EVENT = "campus-sidebar-change";
 
 export const DEFAULT_ACTIVE_PANEL: SidebarPanelId = "map";
 export const DEFAULT_SIDEBAR_OPEN = true;
 
-type StoredShellPreferences = {
+type StoredSidebarPreferences = {
   activePanel: SidebarPanelId;
   sidebarOpen: boolean;
 };
 
-export function parseStoredShellPreferences(
+export function parseStoredSidebarPreferences(
   raw: string | null,
-): StoredShellPreferences {
-  const fallback: StoredShellPreferences = {
+): StoredSidebarPreferences {
+  const fallback: StoredSidebarPreferences = {
     activePanel: DEFAULT_ACTIVE_PANEL,
     sidebarOpen: DEFAULT_SIDEBAR_OPEN,
   };
@@ -55,12 +55,12 @@ export function parseStoredShellPreferences(
   }
 }
 
-export const shellInitializerScript = String.raw`
+export const sidebarInitializerScript = String.raw`
 (() => {
   let sidebarOpen = ${DEFAULT_SIDEBAR_OPEN};
 
   try {
-    const raw = window.localStorage.getItem("${SHELL_STORAGE_KEY}");
+    const raw = window.localStorage.getItem("${SIDEBAR_STORAGE_KEY}");
     const stored = raw ? JSON.parse(raw) : null;
 
     if (stored && typeof stored.sidebarOpen === "boolean") {

@@ -2,7 +2,7 @@ import type { ComponentType, ReactNode } from "react";
 
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 
-import type { SidebarPanelId } from "../../store/shell-preferences";
+import type { SidebarPanelId } from "../../store/sidebar-preferences";
 import { CampusControlBar } from "../campus-control-bar";
 import { MeetingHeader } from "../meeting-header";
 import { MeetingViewControls } from "../meeting-view-switch";

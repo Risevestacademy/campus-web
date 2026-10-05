@@ -3,7 +3,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Script from "next/script";
 
-import { shellInitializerScript } from "@/features/campus/document";
+import { sidebarInitializerScript } from "@/features/campus/document";
 import { fontVariableClasses } from "@/shared/styles/fonts";
 import { themeInitializerScript } from "@/shared/theme";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
@@ -34,8 +34,8 @@ export default function RootLayout({
         <Script id="theme-initializer" strategy="beforeInteractive">
           {themeInitializerScript}
         </Script>
-        <Script id="campus-shell-initializer" strategy="beforeInteractive">
-          {shellInitializerScript}
+        <Script id="sidebar-initializer" strategy="beforeInteractive">
+          {sidebarInitializerScript}
         </Script>
         <ThemeToggle />
         <Providers>

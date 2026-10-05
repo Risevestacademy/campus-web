@@ -15,8 +15,8 @@ import { Separator } from "@/shared/ui/separator";
 import { useThemeToggle } from "@/shared/ui/theme-toggle/use-theme-toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
-import { useActivePanel } from "../../hooks/use-shell-state";
-import { setActivePanel } from "../../store/shell-store";
+import { useActivePanel } from "../../hooks/use-sidebar-state";
+import { setActivePanel } from "../../store/sidebar-store";
 import { railPanelItems } from "./rail-items";
 
 function RailButton({

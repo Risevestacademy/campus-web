@@ -1,17 +1,17 @@
 import { useSyncExternalStore } from "react";
 
-import type { SidebarPanelId } from "../store/shell-preferences";
+import type { SidebarPanelId } from "../store/sidebar-preferences";
 import {
   getActivePanelSnapshot,
   getServerActivePanelSnapshot,
   getServerSidebarOpenSnapshot,
   getSidebarOpenSnapshot,
-  subscribeToShell,
-} from "../store/shell-store";
+  subscribeToSidebar,
+} from "../store/sidebar-store";
 
 export function useSidebarOpen(): boolean {
   return useSyncExternalStore(
-    subscribeToShell,
+    subscribeToSidebar,
     getSidebarOpenSnapshot,
     getServerSidebarOpenSnapshot,
   );
@@ -19,7 +19,7 @@ export function useSidebarOpen(): boolean {
 
 export function useActivePanel(): SidebarPanelId {
   return useSyncExternalStore(
-    subscribeToShell,
+    subscribeToSidebar,
     getActivePanelSnapshot,
     getServerActivePanelSnapshot,
   );

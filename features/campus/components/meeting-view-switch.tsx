@@ -4,8 +4,8 @@ import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 import { SquaresFourIcon } from "@phosphor-icons/react/dist/ssr/SquaresFour";
 import { useState } from "react";
 
-import { useSidebarOpen } from "../hooks/use-shell-state";
-import { setSidebarOpen } from "../store/shell-store";
+import { useSidebarOpen } from "../hooks/use-sidebar-state";
+import { setSidebarOpen } from "../store/sidebar-store";
 import type { MeetingParticipant } from "./meeting-header";
 import {
   type MeetingTileLayout,

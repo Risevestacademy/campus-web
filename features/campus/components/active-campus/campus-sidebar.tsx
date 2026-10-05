@@ -4,8 +4,8 @@ import { cn } from "cn";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 
-import { useActivePanel, useSidebarOpen } from "../../hooks/use-shell-state";
-import type { SidebarPanelId } from "../../store/shell-preferences";
+import { useActivePanel, useSidebarOpen } from "../../hooks/use-sidebar-state";
+import type { SidebarPanelId } from "../../store/sidebar-preferences";
 
 const SIDEBAR_WIDTH = 312;
 const SIDEBAR_TRANSITION = {

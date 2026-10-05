@@ -17,13 +17,13 @@ function boundaryErrors(source: string): Promise<string[]> {
 }
 
 function layoutImporting(specifier: string): string {
-  return `import { shellInitializerScript } from "${specifier}";
+  return `import { sidebarInitializerScript } from "${specifier}";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <script>{shellInitializerScript}</script>
+        <script>{sidebarInitializerScript}</script>
         {children}
       </body>
     </html>
@@ -50,7 +50,7 @@ describe("Root layout entry boundary eval (threshold: every case holds)", () => 
       "the campus barrel, which ships every campus client module on every page",
       "@/features/campus",
     ],
-    ["a campus internal", "@/features/campus/store/shell-preferences"],
+    ["a campus internal", "@/features/campus/store/sidebar-preferences"],
   ])("rejects %s", async (_, specifier) => {
     await expect(
       boundaryErrors(layoutImporting(specifier)),

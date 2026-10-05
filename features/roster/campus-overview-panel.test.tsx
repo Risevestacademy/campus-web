@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { CampusOverviewPanel } from "./campus-overview-panel";
 
 describe("CampusOverviewPanel", () => {
-  it("renders the collapse button passed in by the shell", () => {
+  it("renders the collapse button passed in by the sidebar", () => {
     render(<CampusOverviewPanel collapseButton={<button>Collapse</button>} />);
 
     expect(screen.getByRole("button", { name: "Collapse" })).toBeVisible();

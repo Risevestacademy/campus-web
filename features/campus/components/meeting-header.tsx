@@ -8,7 +8,7 @@ import { useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 
-import { toggleSidebar } from "../store/shell-store";
+import { toggleSidebar } from "../store/sidebar-store";
 
 const participantToneClassNames = [
   "bg-cobalt-200 dark:bg-cobalt-800",

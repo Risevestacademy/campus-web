@@ -6,7 +6,7 @@ import { cn } from "cn";
 import { buttonVariants } from "@/shared/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
-import { setSidebarOpen } from "../../store/shell-store";
+import { setSidebarOpen } from "../../store/sidebar-store";
 
 export function SidebarCollapseButton() {
   return (

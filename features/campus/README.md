@@ -95,12 +95,12 @@ import { ActiveCampus } from "@/features/campus";
 cross into a client component. The route supplies them because this feature
 may not import `auth` or `roster`.
 
-The sidebar state (open, active panel) lives in `store/shell-store.ts`,
-persisted under `campus-shell-ui` in `localStorage` and mirrored on
-`<html data-sidebar-open>` so the root layout's `shellInitializerScript`
-(imported from `@/features/campus/document`, never the barrel) can
-size the sidebar before hydration. Components read it through
-`hooks/use-shell-state.ts`.
+The sidebar state (open, active panel) lives in `store/sidebar-store.ts`,
+persisted under `campus-sidebar` in `localStorage` and mirrored on
+`<html data-sidebar-open>` so the root layout's `sidebarInitializerScript`
+(imported from `@/features/campus/document`, never the barrel) can size the
+sidebar before hydration. Components read it through
+`hooks/use-sidebar-state.ts`.
 
 | Interaction                      | Effect                                   |
 | -------------------------------- | ---------------------------------------- |

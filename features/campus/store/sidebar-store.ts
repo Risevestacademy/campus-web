@@ -3,19 +3,19 @@
 import {
   DEFAULT_ACTIVE_PANEL,
   DEFAULT_SIDEBAR_OPEN,
-  parseStoredShellPreferences,
-  SHELL_CHANGE_EVENT,
-  SHELL_STORAGE_KEY,
+  parseStoredSidebarPreferences,
+  SIDEBAR_CHANGE_EVENT,
+  SIDEBAR_STORAGE_KEY,
   type SidebarPanelId,
-} from "./shell-preferences";
+} from "./sidebar-preferences";
 
 function readStoredPreferences() {
   try {
-    return parseStoredShellPreferences(
-      window.localStorage.getItem(SHELL_STORAGE_KEY),
+    return parseStoredSidebarPreferences(
+      window.localStorage.getItem(SIDEBAR_STORAGE_KEY),
     );
   } catch {
-    return parseStoredShellPreferences(null);
+    return parseStoredSidebarPreferences(null);
   }
 }
 
@@ -27,10 +27,13 @@ function writeStoredPreferences(
   );
 
   try {
-    window.localStorage.setItem(SHELL_STORAGE_KEY, JSON.stringify(preferences));
+    window.localStorage.setItem(
+      SIDEBAR_STORAGE_KEY,
+      JSON.stringify(preferences),
+    );
   } catch {}
 
-  window.dispatchEvent(new Event(SHELL_CHANGE_EVENT));
+  window.dispatchEvent(new Event(SIDEBAR_CHANGE_EVENT));
 }
 
 export function getActivePanelSnapshot(): SidebarPanelId {
@@ -65,18 +68,18 @@ export function toggleSidebar(): void {
   setSidebarOpen(!getSidebarOpenSnapshot());
 }
 
-export function subscribeToShell(onStoreChange: () => void): () => void {
+export function subscribeToSidebar(onStoreChange: () => void): () => void {
   function handleStorage(event: StorageEvent): void {
-    if (event.key !== null && event.key !== SHELL_STORAGE_KEY) return;
+    if (event.key !== null && event.key !== SIDEBAR_STORAGE_KEY) return;
 
     onStoreChange();
   }
 
-  window.addEventListener(SHELL_CHANGE_EVENT, onStoreChange);
+  window.addEventListener(SIDEBAR_CHANGE_EVENT, onStoreChange);
   window.addEventListener("storage", handleStorage);
 
   return () => {
-    window.removeEventListener(SHELL_CHANGE_EVENT, onStoreChange);
+    window.removeEventListener(SIDEBAR_CHANGE_EVENT, onStoreChange);
     window.removeEventListener("storage", handleStorage);
   };
 }

@@ -1,1 +1,1 @@
-export { shellInitializerScript } from "./store/shell-preferences";
+export { sidebarInitializerScript } from "./store/sidebar-preferences";
