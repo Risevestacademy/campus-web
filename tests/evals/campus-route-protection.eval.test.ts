@@ -356,12 +356,21 @@ const JOURNEYS: Journey[] = [
     expected: "allow",
   },
   {
+    shape:
+      "provisional session with an invite back from Google at the invitation",
+    path: "/invitation",
+    cookies: SESSION,
+    backend: session("provisional", "user", [], INVITE_ID),
+    route: INVITATION,
+    expected: "redirect /preview",
+  },
+  {
     shape: "full-access member with an invite at the invitation",
     path: "/invitation",
     cookies: SESSION,
     backend: session("full_access", "user", [place("c-1")], INVITE_ID),
     route: INVITATION,
-    expected: "allow",
+    expected: "redirect /preview",
   },
   {
     shape: "full-access member without an invite at the invitation",

@@ -10,6 +10,7 @@ export const ANALYTICS_EVENTS = {
   AUTH_SIGNUP_SUCCEEDED: "auth.signup_succeeded",
   AUTH_VERIFICATION_COMPLETED: "auth.verification_completed",
   AUTH_VERIFICATION_SENT: "auth.verification_sent",
+  COHORT_CREATED: "cohort.created",
   IDENTITY_PROFILE_SETUP_COMPLETED: "identity.profile_setup_completed",
   IDENTITY_PROFILE_SETUP_STARTED: "identity.profile_setup_started",
 } as const;
@@ -87,6 +88,9 @@ export interface AnalyticsEventMap {
   [ANALYTICS_EVENTS.AUTH_PASSWORD_RESET_COMPLETED]: Record<string, never>;
   [ANALYTICS_EVENTS.AUTH_LOGOUT]: {
     logout_source: "admin_action" | "session_expired" | "user_action";
+  };
+  [ANALYTICS_EVENTS.COHORT_CREATED]: {
+    cohort_status: "active" | "completed" | "upcoming";
   };
   [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_STARTED]: {
     cohort_id?: string;

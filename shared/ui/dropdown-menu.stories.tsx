@@ -49,7 +49,7 @@ export const Basic: Story = {
     await userEvent.click(trigger);
 
     const page = within(canvasElement.ownerDocument.body);
-    const menu = page.getByRole("menu");
+    const menu = await page.findByRole("menu");
 
     await waitFor(() => expect(menu).toBeVisible());
     await expect(window.getComputedStyle(menu).fontFamily).toBe(

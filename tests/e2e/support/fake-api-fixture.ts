@@ -17,6 +17,7 @@ export interface LoggedRequest {
   path: string;
   search: string;
   cookie: string | null;
+  body: string;
 }
 
 interface MembershipFixture {
@@ -74,6 +75,38 @@ export const sessions = {
   }),
 };
 
+export const invites = {
+  preview: (cohortName = "Cohort 3"): ScriptedReply => ({
+    status: 200,
+    body: {
+      email: "ada@campus.local",
+      cohort: { name: cohortName, code: "C3" },
+      track: { name: "Backend Engineering", code: "BE" },
+      cohortRole: "student",
+      systemRole: "user",
+      invitedBy: { firstName: "Ejemen", lastName: "Iboi" },
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      guestAccessExpiresAt: null,
+    },
+  }),
+  accepted: (cohortId: string | null): ScriptedReply => ({
+    status: 200,
+    body: {
+      inviteId: INVITE_ID,
+      status: "accepted",
+      decidedAt: "2026-10-03T12:00:00.000Z",
+      membership: cohortId
+        ? { cohortId, role: "student", joinedAt: "2026-10-03T12:00:00.000Z" }
+        : null,
+      systemRole: "user",
+    },
+  }),
+  failure: (status: number, code: string): ScriptedReply => ({
+    status,
+    body: { error: { code, message: "scripted" } },
+  }),
+};
+
 export function cohortsPage(page: number, totalPages: number, names: string[]) {
   return {
     items: names.map((name) => ({
@@ -122,6 +155,22 @@ export class FakeApi {
     await this.scenario({ cohorts: pages });
   }
 
+  async scriptInvitePreview(reply: ScriptedReply): Promise<void> {
+    await this.scenario({ preview: reply });
+  }
+
+  async scriptPendingInvite(reply: ScriptedReply): Promise<void> {
+    await this.scenario({ pendingInvite: reply });
+  }
+
+  // sessionAfterAccept replaces the session read once an accept succeeds.
+  async scriptDecision(
+    replies: ScriptedReply[],
+    sessionAfterAccept?: ScriptedReply,
+  ): Promise<void> {
+    await this.scenario({ decision: replies, sessionAfterAccept });
+  }
+
   async refreshPosts(): Promise<LoggedRequest[]> {
     return this.requestsTo("POST", "/v1/auth/refresh");
   }
@@ -136,6 +185,18 @@ export class FakeApi {
 
   async cohortReads(): Promise<LoggedRequest[]> {
     return this.requestsTo("GET", "/v1/cohorts");
+  }
+
+  async previewPosts(): Promise<LoggedRequest[]> {
+    return this.requestsTo("POST", "/v1/invites/preview");
+  }
+
+  async pendingInviteReads(): Promise<LoggedRequest[]> {
+    return this.requestsTo("GET", "/v1/invites/validate-user-invite");
+  }
+
+  async decisionPosts(): Promise<LoggedRequest[]> {
+    return this.requestsTo("POST", "/v1/invites/decision");
   }
 
   private async scenario(scenario: Record<string, unknown>): Promise<void> {

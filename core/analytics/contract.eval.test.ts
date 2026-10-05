@@ -4,10 +4,10 @@ import { validateBuildEnvironment } from "../../config/environment/validation";
 import { ANALYTICS_EVENTS } from "./events";
 
 describe("analytics contract evaluation", () => {
-  it("passes when all 13 events are unique canonical object.action names", () => {
+  it("passes when all 14 events are unique canonical object.action names", () => {
     const eventNames = Object.values(ANALYTICS_EVENTS);
 
-    expect(eventNames).toHaveLength(13);
+    expect(eventNames).toHaveLength(14);
     expect(new Set(eventNames).size).toBe(eventNames.length);
 
     for (const eventName of eventNames) {

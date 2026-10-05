@@ -1,51 +1,24 @@
-import { cn } from "cn";
-import Link from "next/link";
+import type { Metadata } from "next";
 
-import { InvitationGate } from "@/features/auth";
-import { buttonVariants } from "@/shared/ui/button";
+import { getServerApi } from "@/core/api/client/server";
+import { ResumeInvitation } from "@/features/auth";
+import { InvitationOffer } from "@/features/invitation";
+import { firstSearchParameter } from "@/shared/lib/search-params";
 
-const inviteDetails = {
-  invited_by: "Jerry",
-  role: "student",
-  cohort: "Product Design 2026",
-};
+// The invite token rides in the query string; never pass it on as a Referer.
+export const metadata: Metadata = { referrer: "no-referrer" };
 
-export default function InvitationPage() {
-  return (
-    <InvitationGate path="/invitation">
-      <div className="grid gap-6">
-        <span className="text-foreground-secondary font-semibold tracking-wide uppercase">
-          Campus Invitation
-        </span>
-        <h1 className="font-display text-3xl font-bold">
-          You&apos;re invited to join Product Design Cohort 2026
-        </h1>
-        <p className="text-foreground-secondary text-lg leading-[160%] xl:pr-8">
-          Campus by Rise is a shared virtual space for your cohort classes,
-          mentor sessions and resources all live in one place. This invitation
-          gives you a Student seat in this cohort; you&apos;ll set up your
-          account on the next step.
-        </p>
+interface InvitationPageProps {
+  searchParams: Promise<{ token?: string | string[] }>;
+}
 
-        <ul className="flex flex-wrap gap-4">
-          {Object.entries(inviteDetails).map(([detail, value]) => (
-            <li
-              key={detail}
-              className="flex h-8 w-fit min-w-40 items-center justify-center gap-1 rounded-full border px-3.5 text-sm font-medium tracking-wide capitalize"
-            >
-              {detail.replace("_", " ")} <span className="mx-0.5">•</span>
-              {value}
-            </li>
-          ))}
-        </ul>
+export default async function InvitationPage({
+  searchParams,
+}: InvitationPageProps) {
+  const token = firstSearchParameter((await searchParams).token);
+  if (!token) return <ResumeInvitation />;
 
-        <Link
-          href="/preview"
-          className={cn(buttonVariants({ size: "lg" }), "mt-6 max-w-60")}
-        >
-          Continue
-        </Link>
-      </div>
-    </InvitationGate>
-  );
+  // The preview needs no session, but campus-api rate-limits per client
+  // address and only the default server client forwards X-Forwarded-For.
+  return <InvitationOffer api={await getServerApi()} token={token} />;
 }

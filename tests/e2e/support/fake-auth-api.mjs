@@ -18,10 +18,43 @@ const CLEARED_COOKIES = [
   "campus_refresh=; Path=/v1/auth; HttpOnly; Max-Age=0",
 ];
 
+// Unscripted invite reads answer with this live invite, so tests that only
+// need /preview to render do not have to script it.
+const PENDING_INVITE = {
+  id: "66666666-6666-4666-8666-666666666666",
+  cohort: { id: "c-3", name: "Cohort 3", code: "C3", status: "active" },
+  cohortTrack: null,
+  track: null,
+  cohortRole: "student",
+  systemRole: "user",
+  status: "pending",
+  expiresAt: "2099-01-01T00:00:00.000Z",
+  guestAccessExpiresAt: null,
+  invitedBy: { id: "inviter-1", firstName: "Ejemen", lastName: "Iboi" },
+  createdAt: "2026-09-30T19:58:13.565Z",
+  user: {
+    id: "55555555-5555-4555-8555-555555555555",
+    email: "ada@campus.local",
+    firstName: "Ada",
+    lastName: "Lovelace",
+    displayName: "Ada Lovelace",
+    systemRole: "user",
+    status: "active",
+  },
+};
+const FULL_ACCESS_COOKIES = [
+  "campus_session=full-access-session; Path=/; HttpOnly",
+  "campus_refresh=full-access-refresh; Path=/v1/auth; HttpOnly",
+];
+
 let refreshReplies = [];
 let logoutReplies = [];
 let sessionReply;
 let cohortPages = {};
+let previewReply;
+let pendingInviteReply;
+let decisionReplies = [];
+let sessionAfterAccept;
 let requests = [];
 
 function sendJson(response, status, body, headers = {}) {
@@ -103,13 +136,59 @@ function replyToCohorts(url, response) {
   sendJson(response, 200, page);
 }
 
+function replyToPreview(response) {
+  if (!previewReply) {
+    sendJson(response, 503, { error: { code: "UNSCRIPTED_PREVIEW" } });
+    return;
+  }
+  sendScripted(response, previewReply);
+}
+
+function replyToPendingInvite(request, response) {
+  if (!hasSessionCookie(request)) {
+    sendJson(response, 401, { error: { code: "UNAUTHORIZED" } });
+    return;
+  }
+  sendScripted(
+    response,
+    pendingInviteReply ?? { status: 200, body: PENDING_INVITE },
+  );
+}
+
+// A successful accept upgrades the session, as campus-api does: full-access
+// cookies, and from then on the session read answers with sessionAfterAccept.
+function replyToDecision(response) {
+  const reply = decisionReplies.shift();
+  if (!reply) {
+    sendJson(response, 500, { error: { code: "UNSCRIPTED_DECISION" } });
+    return;
+  }
+  if (reply.status !== 200) {
+    sendScripted(response, reply);
+    return;
+  }
+
+  if (sessionAfterAccept) sessionReply = sessionAfterAccept;
+  response.writeHead(200, {
+    "content-type": "application/json",
+    "set-cookie": FULL_ACCESS_COOKIES,
+  });
+  response.end(JSON.stringify(reply.body));
+}
+
 // Each key present in the body replaces that part of the scenario, so tests
-// can script the refresh, session, and cohort replies independently.
+// can script the refresh, session, cohort, and invite replies independently.
 function applyScenario(scenario) {
   if ("refresh" in scenario) refreshReplies = scenario.refresh;
   if ("logout" in scenario) logoutReplies = scenario.logout;
   if ("session" in scenario) sessionReply = scenario.session;
   if ("cohorts" in scenario) cohortPages = scenario.cohorts;
+  if ("preview" in scenario) previewReply = scenario.preview;
+  if ("pendingInvite" in scenario) pendingInviteReply = scenario.pendingInvite;
+  if ("decision" in scenario) decisionReplies = scenario.decision;
+  if ("sessionAfterAccept" in scenario) {
+    sessionAfterAccept = scenario.sessionAfterAccept;
+  }
 }
 
 async function handleControl(request, response, path) {
@@ -120,6 +199,10 @@ async function handleControl(request, response, path) {
     logoutReplies = [];
     sessionReply = undefined;
     cohortPages = {};
+    previewReply = undefined;
+    pendingInviteReply = undefined;
+    decisionReplies = [];
+    sessionAfterAccept = undefined;
     requests = [];
     return sendJson(response, 204);
   }
@@ -144,6 +227,7 @@ const server = createServer(async (request, response) => {
     path,
     search: url.search,
     cookie: request.headers.cookie ?? null,
+    body: request.method === "POST" ? await readBody(request) : "",
   });
 
   if (request.method === "POST" && path === "/v1/auth/refresh") {
@@ -163,6 +247,21 @@ const server = createServer(async (request, response) => {
 
   if (request.method === "GET" && path === "/v1/cohorts") {
     replyToCohorts(url, response);
+    return;
+  }
+
+  if (request.method === "POST" && path === "/v1/invites/preview") {
+    replyToPreview(response);
+    return;
+  }
+
+  if (request.method === "GET" && path === "/v1/invites/validate-user-invite") {
+    replyToPendingInvite(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && path === "/v1/invites/decision") {
+    replyToDecision(response);
     return;
   }
 

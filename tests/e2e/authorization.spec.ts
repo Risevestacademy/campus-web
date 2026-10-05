@@ -252,7 +252,7 @@ test.describe("campus route protection", () => {
     ).toBeUndefined();
   });
 
-  test("a provisional session is sent to its invitation", async ({
+  test("a provisional session is sent to answer its invitation", async ({
     page,
     context,
     baseURL,
@@ -263,8 +263,8 @@ test.describe("campus route protection", () => {
 
     await page.goto(DESTINATION);
 
-    await expect(page).toHaveURL("/invitation");
-    await expect(invitationHeading(page)).toBeVisible();
+    await expect(page).toHaveURL("/preview");
+    await expect(previewHeading(page)).toBeVisible();
   });
 
   test("a full-access session renders Campus with one session read per navigation", async ({
@@ -552,7 +552,7 @@ test.describe("sign-in", () => {
     expect(await fakeApi.sessionReads()).toEqual([]);
   });
 
-  test("a provisional session with an invite is sent to its invitation", async ({
+  test("a provisional session with an invite is sent to answer it", async ({
     page,
     context,
     baseURL,
@@ -563,8 +563,8 @@ test.describe("sign-in", () => {
 
     await page.goto(withReturnTo("/sign-in", "/preview"));
 
-    await expect(page).toHaveURL("/invitation");
-    await expect(invitationHeading(page)).toBeVisible();
+    await expect(page).toHaveURL("/preview");
+    await expect(previewHeading(page)).toBeVisible();
   });
 
   test("a full-access session leaves for its safe destination", async ({
@@ -648,7 +648,7 @@ test.describe("invitation routes", () => {
     });
   }
 
-  test("an invited member continues from the invitation to the preview", async ({
+  test("an invited member landing on the invitation without a token is sent to the preview", async ({
     page,
     context,
     baseURL,
@@ -658,33 +658,12 @@ test.describe("invitation routes", () => {
     await fakeApi.scriptSession(sessions.invitedMember(COHORT_3));
 
     await page.goto("/invitation");
-    await page.getByRole("link", { name: "Continue" }).click();
 
     await expect(page).toHaveURL("/preview");
     await expect(previewHeading(page)).toBeVisible();
   });
 
-  test("a session lost before the preview is caught on the soft navigation", async ({
-    page,
-    context,
-    baseURL,
-    fakeApi,
-  }) => {
-    await signIn(context, baseURL);
-    await fakeApi.scriptSession(sessions.provisional());
-    await fakeApi.scriptRefresh({ status: 401 });
-    await skipPrefetches(page);
-    await page.goto("/invitation");
-    await expect(invitationHeading(page)).toBeVisible();
-
-    await fakeApi.scriptSession({ status: 401 });
-    await page.getByRole("link", { name: "Continue" }).click();
-
-    await expect(page).toHaveURL(withReturnTo("/sign-in", "/preview"));
-    await expect(previewHeading(page)).toHaveCount(0);
-  });
-
-  test("an expired invitation session that refreshes returns to the invitation", async ({
+  test("an expired invitation session that refreshes goes on to answer the invite", async ({
     page,
     fakeApi,
   }) => {
@@ -693,8 +672,8 @@ test.describe("invitation routes", () => {
 
     await page.goto("/invitation");
 
-    await expect(page).toHaveURL("/invitation");
-    await expect(invitationHeading(page)).toBeVisible();
+    await expect(page).toHaveURL("/preview");
+    await expect(previewHeading(page)).toBeVisible();
     expect(await fakeApi.refreshPosts()).toHaveLength(1);
   });
 

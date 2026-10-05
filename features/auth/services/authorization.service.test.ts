@@ -615,10 +615,10 @@ describe("authorizeRoute: invitation routes", () => {
   };
   const uninvitedProvisional = { ...provisionalSession, inviteId: null };
 
-  it("lets a provisional session with an invite in", async () => {
+  it("lets a provisional session with an invite answer it on the preview", async () => {
     backendReplies(ok(provisionalSession));
 
-    await expect(authorize(invitation)).resolves.toEqual({
+    await expect(authorize(preview)).resolves.toEqual({
       kind: "allow",
       session: provisionalSession,
     });
@@ -928,7 +928,7 @@ describe("InvitationGate", () => {
   it("renders the page for a session carrying an invite", async () => {
     backendReplies(ok(provisionalSession));
 
-    const element = await gate("/invitation");
+    const element = await gate("/preview");
 
     expect(renderToStaticMarkup(element as ReactElement)).toBe(
       "<p>Invitation content</p>",
