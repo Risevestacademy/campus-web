@@ -2,6 +2,9 @@
   "name": "campus-by-rise",
   "version": "0.1.0",
   "private": true,
+  "sideEffects": [
+    "*.css"
+  ],
   "type": "module",
   "engines": {
     "node": ">=22.22.0"

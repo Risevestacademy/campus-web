@@ -41,6 +41,10 @@ Two other entry points exist, each enforced by
   every page, so the root layout may not import a feature's `index.ts`. Only
   `campus` has one today.
 
+`package.json` marks every module except CSS as free of import-time side
+effects, so the bundler drops barrel exports a page does not use. Keep it
+true: a module must not need to be imported only for what it does at load.
+
 Client providers live with the routes that use them, not in the root layout:
 `app/providers.tsx` (query client and toasts) wraps `app/campus/layout.tsx`,
 `/preview` and `/session/refresh`; `ActiveCampus` owns its `TooltipProvider`.
