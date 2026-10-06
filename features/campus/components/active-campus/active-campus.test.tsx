@@ -2,8 +2,6 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { TooltipProvider } from "@/shared/ui/tooltip";
-
 import { MediaSessionProvider } from "../../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../../services/media-session/media-session-store";
 import { ActiveCampus } from "./active-campus";
@@ -24,16 +22,11 @@ function renderActiveCampus(AccountMenu?: typeof AccountMenuStub) {
   const store = createMediaSessionStore({ mediaDevices: null });
 
   return render(
-    <TooltipProvider>
-      <MediaSessionProvider store={store}>
-        <ActiveCampus
-          AccountMenu={AccountMenu}
-          OverviewPanel={OverviewPanelStub}
-        >
-          <p>Route content</p>
-        </ActiveCampus>
-      </MediaSessionProvider>
-    </TooltipProvider>,
+    <MediaSessionProvider store={store}>
+      <ActiveCampus AccountMenu={AccountMenu} OverviewPanel={OverviewPanelStub}>
+        <p>Route content</p>
+      </ActiveCampus>
+    </MediaSessionProvider>,
   );
 }
 

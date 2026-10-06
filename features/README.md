@@ -40,3 +40,9 @@ Two other entry points exist, each enforced by
   Every client module reachable from an import in the root layout ships on
   every page, so the root layout may not import a feature's `index.ts`. Only
   `campus` has one today.
+
+Client providers live with the routes that use them, not in the root layout:
+`app/providers.tsx` (query client and toasts) wraps `app/campus/layout.tsx`,
+`/preview` and `/session/refresh`; `ActiveCampus` owns its `TooltipProvider`.
+The root layout keeps only theme behaviour, so `/` and `/sign-in` ship none of
+it.
