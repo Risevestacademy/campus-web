@@ -68,8 +68,10 @@ captureBrowserAnalyticsEvent(ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED, {
 });
 ```
 
-`instrumentation-client.ts` initializes browser analytics. Feature code calls
-the typed capture function; it does not initialize PostHog itself.
+`instrumentation-client.ts` starts loading PostHog as its own chunk, so the
+SDK stays off the hydration path. Calls made before it loads are delivered
+once it does, in call order. Feature code calls the typed capture function; it
+does not initialize PostHog itself.
 
 ## Server example
 
