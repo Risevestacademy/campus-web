@@ -62,6 +62,40 @@ The sanitized same-origin Campus or invitation path a visitor goes back to
 after refresh, sign-in, or the Join Gate. Unsafe values fall back to `/campus`.
 _Avoid_: Redirect URL, next URL
 
+## Campus Administration
+
+This context describes system-administrator operations for scheduled learning
+intakes, reusable learning paths, and invitations.
+
+### Language
+
+**System Administrator**:
+A full-access user whose system role permits administration across Cohorts.
+Backend authorization remains authoritative for every operation.
+_Avoid_: Cohort administrator, programme administrator
+
+**Cohort**:
+A scheduled learning intake with its own dates, status, members, and attached
+Programme Tracks.
+_Avoid_: Campus, Programme Track, batch
+
+**Programme Track**:
+A reusable catalogue entry describing a learning path that may be attached to
+multiple Cohorts. In code, use the full name where “track” could be confused
+with a browser media track.
+_Avoid_: Cohort Track, media track
+
+**Cohort Track**:
+The association between one Cohort and one Programme Track. Detaching it
+removes only the association; it never deletes the Programme Track.
+_Avoid_: Programme Track, cohort course
+
+**Invitation**:
+A lifecycle record inviting a person to a Cohort. It may be pending, accepted,
+declined, expired, or revoked. Resending or revoking changes the lifecycle; it
+is not generic CRUD.
+_Avoid_: Invite Link, invitation token
+
 ## Campus Media
 
 The language used for browser-owned media in a campus session.
