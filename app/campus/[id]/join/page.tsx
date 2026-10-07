@@ -1,8 +1,7 @@
 import { cn } from "cn";
 import type { Route } from "next";
-import Link from "next/link";
 
-import { CohortGate, normalizeCohortReturnTo } from "@/features/auth";
+import { CampusEntryLink, normalizeCohortReturnTo } from "@/features/auth";
 import { VisualsDisplay } from "@/features/campus";
 import { firstSearchParameter } from "@/shared/lib/search-params";
 import { buttonVariants } from "@/shared/ui/button";
@@ -23,17 +22,16 @@ export default async function JoinPage({
   ) as Route;
 
   return (
-    <CohortGate cohortId={id}>
-      <main className="grid h-dvh content-center gap-6">
-        <VisualsDisplay />
+    <main className="grid h-dvh content-center gap-6">
+      <VisualsDisplay />
 
-        <Link
-          href={destination}
-          className={cn(buttonVariants({ size: "lg" }), "mx-auto min-w-40")}
-        >
-          Join
-        </Link>
-      </main>
-    </CohortGate>
+      <CampusEntryLink
+        cohortId={id}
+        href={destination}
+        className={cn(buttonVariants({ size: "lg" }), "mx-auto min-w-40")}
+      >
+        Join
+      </CampusEntryLink>
+    </main>
   );
 }

@@ -119,6 +119,8 @@ function browserCookies(values: Record<string, string>) {
   nextHeaders.cookies.mockResolvedValue({
     get: (name: string) =>
       values[name] === undefined ? undefined : { name, value: values[name] },
+    getAll: () =>
+      Object.entries(values).map(([name, value]) => ({ name, value })),
     has: (name: string) => values[name] !== undefined,
   });
 }
@@ -484,12 +486,25 @@ describe("authorizeRoute: campus index membership routing", () => {
     });
   });
 
-  it("sends a member with one cohort straight to its pre-join screen", async () => {
+  it("sends a member with one unentered cohort to its pre-join screen", async () => {
     backendReplies(ok(fullAccess("user", [COHORT_A])));
 
     await expect(authorize(campusIndex)).resolves.toEqual({
       kind: "redirect",
       href: "/campus/11111111-1111-4111-8111-111111111111/join",
+    });
+  });
+
+  it("sends a member with one entered cohort straight to its campus", async () => {
+    browserCookies({
+      "campus_entry_11111111-1111-4111-8111-111111111111": "1",
+      campus_session: "session-token",
+    });
+    backendReplies(ok(fullAccess("user", [COHORT_A])));
+
+    await expect(authorize(campusIndex)).resolves.toEqual({
+      kind: "redirect",
+      href: "/campus/11111111-1111-4111-8111-111111111111",
     });
   });
 

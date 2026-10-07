@@ -14,7 +14,8 @@ campus-api callback   → /invitation (no token)         hard-coded in campus-ap
 auth route policy     → /preview                       ResumeInvitation
 /preview              GET /v1/invites/validate-user-invite
   Go to Campus        POST /v1/invites/decision         browser, through /api
-full load             → /campus/{cohortId}/join, or /campus without a cohort
+full load             → /campus/{cohortId}, or /campus without a cohort
+campus proxy          → pre-join only when that cohort lacks an entry marker
 ```
 
 ## Public interface

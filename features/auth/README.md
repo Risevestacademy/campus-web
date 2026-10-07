@@ -11,7 +11,7 @@ return-destination policy stay behind it.
 | --- | ----------------------------------------------------------- | ---------------------------- |
 | 1   | session read, `/session/refresh`                            | merged (#21)                 |
 | 2   | `CampusShellGate`, `/campus` routing by membership          | merged (#22)                 |
-| 3   | `CohortGate`, hard loads through `/campus/{id}/join`        | merged (#24)                 |
+| 3   | `CohortGate`, session-scoped pre-join per campus            | merged (#24), refined here   |
 | 4   | sign-in redirect, `InvitationGate`, log out (`AccountMenu`) | `feat/auth-route-completion` |
 
 ## Rules for other features
@@ -20,8 +20,8 @@ return-destination policy stay behind it.
   gate); no layout above `/campus` gates access.
 - A new page under `/campus/[id]` wraps its content in `CohortGate`
   ([Public interface](#public-interface)).
-- Links into a cohort from outside it target `/campus/{id}/join`, never an
-  active route ([Pre-join](#pre-join)).
+- Links into a cohort target `/campus/{id}`; the proxy decides whether that
+  browser session still needs pre-join ([Pre-join](#pre-join)).
 - Client modules import auth siblings directly, never `@/features/auth`: the
   entry point re-exports server-only modules.
 - `features/campus` does not import auth. The rail's Log out menu is composed
@@ -185,15 +185,15 @@ state or the Next Data Cache.
 `services/route-policy.ts` holds the policy as pure functions shared by the
 root proxy and `authorizeRoute`.
 
-| Session                             | `campus-index` (`/campus`)             | `cohort` (`/campus/[id]/**`)                |
-| ----------------------------------- | -------------------------------------- | ------------------------------------------- |
-| `full_access`, system admin         | `allow` (admin chooser)                | `allow`, any cohort ID                      |
-| `full_access`, 2+ memberships       | `allow` (membership chooser)           | `allow` for their cohorts, else `forbidden` |
-| `full_access`, exactly 1 membership | redirect `/campus/{cohortId}/join`     | `allow` for their cohort, else `forbidden`  |
-| `full_access`, no memberships       | `forbidden`                            | `forbidden`                                 |
-| `provisional`                       | redirect `/invitation`                 | redirect `/invitation`                      |
-| none, refresh not yet attempted     | redirect `/session/refresh?returnTo=…` | same                                        |
-| none, refresh already attempted     | redirect `/sign-in?returnTo=…`         | same                                        |
+| Session                             | `campus-index` (`/campus`)               | `cohort` (`/campus/[id]/**`)                |
+| ----------------------------------- | ---------------------------------------- | ------------------------------------------- |
+| `full_access`, system admin         | `allow` (admin chooser)                  | `allow`, any cohort ID                      |
+| `full_access`, 2+ memberships       | `allow` (membership chooser)             | `allow` for their cohorts, else `forbidden` |
+| `full_access`, exactly 1 membership | redirect active if entered, else `/join` | `allow` for their cohort, else `forbidden`  |
+| `full_access`, no memberships       | `forbidden`                              | `forbidden`                                 |
+| `provisional`                       | redirect `/invitation`                   | redirect `/invitation`                      |
+| none, refresh not yet attempted     | redirect `/session/refresh?returnTo=…`   | same                                        |
+| none, refresh already attempted     | redirect `/sign-in?returnTo=…`           | same                                        |
 
 The refresh-attempt marker breaks the refresh/redirect loop: one automatic
 refresh per visit, then sign-in. A pending `inviteId` does not block a
@@ -231,30 +231,35 @@ walks every entry route and session state to prove it.
 `/campus/**` from the root `proxy.ts`. It checks cookie presence only and never
 calls the backend:
 
-- a hard load (`GET` with `Sec-Fetch-Dest: document`) of an active campus,
-  meaning `/campus/{id}` or anything under it except `/campus/{id}/join`:
-  redirect to `/campus/{id}/join?returnTo=…`. This runs before the session
-  check, so a refresh or sign-in round trip comes back through pre-join, and
-  it leaves the refresh marker for that `/join` request;
-
+- a `GET` for an active campus, meaning `/campus/{id}` or anything under it
+  except `/campus/{id}/join`, without that campus's entry marker
+  (`campus_entry_{cohortId}`): redirect to
+  `/campus/{id}/join?returnTo=…`. This applies equally to document and router
+  navigation and runs before the session check;
+- the entry marker is present: continue to the session check. Unlike the
+  one-visit refresh-attempt marker, it is cohort-specific and lasts for the
+  browser session;
 - no `campus_session`: redirect through refresh, or to sign-in once
   `campus_refresh_attempted` is present;
 - `campus_session` present: pass through, writing two request headers the
   render reads (`services/campus-request-headers.ts`). Client-supplied values
   are overwritten or removed:
 
-  | Header                       | Value                                            |
-  | ---------------------------- | ------------------------------------------------ |
-  | `x-campus-return-to`         | sanitized `pathname + search`                    |
-  | `x-campus-refresh-attempted` | `1` when the marker cookie came with the request |
+  | Header                       | Value                                          |
+  | ---------------------------- | ---------------------------------------------- |
+  | `x-campus-return-to`         | sanitized `pathname + search`                  |
+  | `x-campus-refresh-attempted` | `1` when the refresh-attempt cookie came along |
 
-- the marker cookie (`Path=/`) is deleted on the first `/campus/**` response.
+- the refresh-attempt marker (`campus_refresh_attempted`, `Path=/`) is deleted
+  on the first `/campus/**` response.
 
-The render reads the marker from the header, not the cookie: Next copies
-cookies the proxy sets or deletes into `cookies()` for the same request, so
-after the deletion the cookie no longer says whether a refresh happened.
+The render reads the refresh-attempt marker from the header, not the cookie:
+Next copies cookies the proxy sets or deletes into `cookies()` for the same
+request, so after the deletion the cookie no longer says whether a refresh
+happened.
 
-Invitation routes have no proxy, so they read the marker cookie itself.
+Invitation routes have no proxy, so they read the refresh-attempt cookie
+itself.
 Nothing deletes it there; it expires after its 60 s `Max-Age`.
 
 `@/features/auth/proxy` exists because `index.ts` also exports client and
@@ -265,30 +270,34 @@ enforces it: the root `proxy.ts` carries the `root-proxy` file category
 
 ## Pre-join
 
-Every hard load of an active campus passes through `/campus/{id}/join`; soft
-navigation never does. Join is a `<Link>` to the preserved destination, so
-entry is a soft navigation and the media session in the `[id]` layout keeps
-the camera and microphone chosen on the pre-join screen. Nothing is stored:
-the browser's own `Sec-Fetch-Dest` header tells a hard load (`document`) from
-a router fetch, prefetch, or Server Action call (`empty`).
+An active campus passes through `/campus/{id}/join` until the visitor presses
+Join for that cohort. The Join link synchronously records a `SameSite=Lax`
+session cookie, then soft-navigates to the preserved destination. The media
+session in the `[id]` layout therefore keeps the camera and microphone chosen
+on pre-join.
 
-A marker cookie would not work here. Next renders a Server Action's redirect
-target through an internal request and drops every `Set-Cookie` from it, so a
-one-request marker would live for its whole `Max-Age`; and `router.refresh()`
-re-runs layouts, so a layout-level check would bounce visitors mid-visit.
+The entry cookie is host-only, scoped to `Path=/campus`, and cohort-specific.
+It is shared across tabs and has no persistent expiry. A successful logout
+removes every entry marker at both `/campus` and the legacy `/` path; a failed
+logout leaves them intact. Document loads, reloads, deep links, and router
+navigation use the same proxy decision; an explicit `/campus/{id}/join` URL
+remains available. The Join link disables prefetch, because its destination
+redirects to pre-join until the click records the marker.
+
+The marker is client-writable because it represents a UX acknowledgement, not
+authority. Creating one manually can skip media preview but cannot bypass
+`CohortGate`, which checks membership on every rendered campus route.
 
 Limits, by design (the gate is UX, membership is enforced on every request):
 
-- browsers without Fetch Metadata (before Safari 16.4, Firefox 90) skip
-  pre-join on hard loads;
-- without JavaScript the active campus cannot be entered;
-- after a deploy, a Join click can fall back to a full page load and land on
-  pre-join once more.
+- browsers that reject or evict the marker show pre-join again;
+- without JavaScript, entry cannot complete: Join cannot record the marker,
+  so its destination redirects back to pre-join;
+- browser session recovery may restore session cookies after a crash.
 
-Links into a cohort from outside it must target `/campus/{id}/join`, never an
-active route: a soft navigation from `/campus` or another cohort would
-otherwise skip pre-join. `CohortCard` and the `/campus` redirect follow this,
-and their tests pin it.
+Links into a cohort target `/campus/{id}`. `CohortCard`, the `/campus`
+single-membership redirect, and invitation acceptance follow this contract;
+the proxy alone decides whether the destination first needs pre-join.
 
 ## Return destinations
 
@@ -343,30 +352,33 @@ RefreshSession -> useSessionRefresh -> useMutation -> createSessionRefresher -> 
 
 ## Layout
 
-| Path                                 | Role                                                                           |
-| ------------------------------------ | ------------------------------------------------------------------------------ |
-| `index.ts`                           | public interface for routes                                                    |
-| `proxy.ts`                           | public interface for the root `proxy.ts`                                       |
-| `components/cohort-gate.tsx`         | renders children only for a member of the cohort (or an admin)                 |
-| `components/invitation-gate.tsx`     | renders children only for a session carrying an invite                         |
-| `components/resume-invitation.tsx`   | no-token `/invitation`: route decision or outage notice, never content         |
-| `components/access-gate.tsx`         | shared gate rendering: allow, retry state, or Next interrupt                   |
-| `components/session-unavailable.tsx` | fail-closed retry state, with or without its own `<main>`                      |
-| `components/refresh-session.tsx`     | refresh page UI                                                                |
-| `components/account-menu.tsx`        | avatar menu with Log out                                                       |
-| `hooks/use-log-out.ts`               | logout mutation, analytics, full load to sign-in or failure toast              |
-| `hooks/use-session-refresh.ts`       | refresh mutation, outcome handling, cooldown schedule                          |
-| `hooks/use-countdown.ts`             | retry countdown                                                                |
-| `hooks/use-mount-effect.ts`          | the only sanctioned `useEffect` wrapper                                        |
-| `services/authorization.service.ts`  | `authorizeRoute`, `resolveSignIn`: server-only, `cache()`, request signals     |
-| `services/route-access.service.ts`   | `requireRouteAccess`, `redirectSignedInVisitor`: decisions to Next interrupts  |
-| `services/route-policy.ts`           | pure route policy, shared with the proxy                                       |
-| `services/campus-proxy.service.ts`   | `guardCampusRequest`: pre-join gate, cookie-presence redirects, render headers |
-| `services/campus-request-headers.ts` | proxy-to-render header names                                                   |
-| `services/session.service.ts`        | `/v1/auth/me` read with retries; single-flight refresh POST; logout POST       |
-| `schemas/session.schema.ts`          | validates the session fields route policies depend on                          |
-| `schemas/return-to.ts`               | return-destination policy, active-campus path rules                            |
-| `types/auth.types.ts`                | public types                                                                   |
+| Path                                      | Role                                                                           |
+| ----------------------------------------- | ------------------------------------------------------------------------------ |
+| `index.ts`                                | public interface for routes                                                    |
+| `proxy.ts`                                | public interface for the root `proxy.ts`                                       |
+| `components/cohort-gate.tsx`              | renders children only for a member of the cohort (or an admin)                 |
+| `components/invitation-gate.tsx`          | renders children only for a session carrying an invite                         |
+| `components/resume-invitation.tsx`        | no-token `/invitation`: route decision or outage notice, never content         |
+| `components/access-gate.tsx`              | shared gate rendering: allow, retry state, or Next interrupt                   |
+| `components/session-unavailable.tsx`      | fail-closed retry state, with or without its own `<main>`                      |
+| `components/refresh-session.tsx`          | refresh page UI                                                                |
+| `components/account-menu.tsx`             | avatar menu with Log out                                                       |
+| `components/campus-entry-link.tsx`        | Join link that records browser-session entry before soft navigation            |
+| `hooks/use-log-out.ts`                    | logout mutation, analytics, full load to sign-in or failure toast              |
+| `hooks/use-session-refresh.ts`            | refresh mutation, outcome handling, cooldown schedule                          |
+| `hooks/use-countdown.ts`                  | retry countdown                                                                |
+| `hooks/use-mount-effect.ts`               | the only sanctioned `useEffect` wrapper                                        |
+| `services/authorization.service.ts`       | `authorizeRoute`, `resolveSignIn`: server-only, `cache()`, request signals     |
+| `services/route-access.service.ts`        | `requireRouteAccess`, `redirectSignedInVisitor`: decisions to Next interrupts  |
+| `services/route-policy.ts`                | pure route policy, shared with the proxy                                       |
+| `services/campus-proxy.service.ts`        | `guardCampusRequest`: pre-join gate, cookie-presence redirects, render headers |
+| `services/campus-entry-session.ts`        | shared campus-entry cookie naming, reading, and serialization contract         |
+| `services/campus-entry-session.client.ts` | browser marker creation and successful-logout cleanup                          |
+| `services/campus-request-headers.ts`      | proxy-to-render header names                                                   |
+| `services/session.service.ts`             | `/v1/auth/me` read with retries; single-flight refresh POST; logout POST       |
+| `schemas/session.schema.ts`               | validates the session fields route policies depend on                          |
+| `schemas/return-to.ts`                    | return-destination policy, active-campus path rules                            |
+| `types/auth.types.ts`                     | public types                                                                   |
 
 Client modules import siblings directly, never `index.ts`: the entry point
 re-exports server-only modules.
@@ -398,9 +410,9 @@ pnpm build
 pnpm playwright test tests/e2e/authorization.spec.ts tests/e2e/pre-join-media.spec.ts
 ```
 
-E2E tests enter an active campus the way a visitor does, through
-`enterCampus` (`tests/e2e/support/campus-entry.ts`): a direct `page.goto` of
-an active route stops at pre-join.
+E2E tests enter an unmarked campus the way a visitor does, through
+`enterCampus` (`tests/e2e/support/campus-entry.ts`). They verify the marker
+survives reloads and spans tabs, remains cohort-specific, and clears on logout.
 
 React `cache()` is a pass-through outside a server render, so the one
 `/v1/auth/me` read per navigation is asserted by the Playwright suite (fake API

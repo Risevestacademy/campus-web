@@ -118,12 +118,8 @@ describe("acceptInvite", () => {
   });
 
   it.each([
-    ["a cohort place to its pre-join screen", "c-1", "/campus/c-1/join"],
-    [
-      "a cohort ID as one path segment",
-      "a/b c?d",
-      "/campus/a%2Fb%20c%3Fd/join",
-    ],
+    ["a cohort place to its campus entry", "c-1", "/campus/c-1"],
+    ["a cohort ID as one path segment", "a/b c?d", "/campus/a%2Fb%20c%3Fd"],
     ["an admin invite with no cohort place to Campus", null, "/campus"],
   ])("sends %s", async (_, cohortId, destination) => {
     mockApi.server.use(

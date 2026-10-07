@@ -240,6 +240,12 @@ const SESSION_STATES: SessionState[] = [
     refresh: "rejected",
   },
   {
+    shape: "full access after campus entry",
+    cookies: { ...SESSION, "campus_entry_c-1": "1" },
+    backend: session("full_access", "user", ONE_COHORT),
+    refresh: "rejected",
+  },
+  {
     shape: "suspended",
     cookies: SESSION,
     backend: status(403),
@@ -271,6 +277,12 @@ function destinationOf(pathname: string): Destination | "refresh" {
 
   const [, , cohortSegment = ""] = pathname.split("/");
   return cohort(decodeURIComponent(cohortSegment));
+}
+
+function stateShaped(shape: string): SessionState {
+  const state = SESSION_STATES.find((candidate) => candidate.shape === shape);
+  if (!state) throw new Error(`missing session state: ${shape}`);
+  return state;
 }
 
 interface Chain {
@@ -362,12 +374,10 @@ describe(`Auth redirect chain eval (threshold: 0 chains over ${MAX_REDIRECTS} re
   });
 
   it("sends an expired invitation session through refresh exactly once before sign-in", async () => {
-    const state = SESSION_STATES.find(
-      ({ shape }) => shape === "expired, refreshed but still signed out",
+    const { steps } = await walk(
+      "/invitation",
+      stateShaped("expired, refreshed but still signed out"),
     );
-    if (!state) throw new Error("missing session state");
-
-    const { steps } = await walk("/invitation", state);
 
     expect(steps).toEqual([
       "/invitation",
@@ -376,6 +386,15 @@ describe(`Auth redirect chain eval (threshold: 0 chains over ${MAX_REDIRECTS} re
       "/sign-in?returnTo=%2Finvitation",
       "render",
     ]);
+  });
+
+  it("sends a single-cohort member who already entered straight to their campus", async () => {
+    const { steps } = await walk(
+      "/campus",
+      stateShaped("full access after campus entry"),
+    );
+
+    expect(steps).toEqual(["/campus", "/campus/c-1", "allow"]);
   });
 });
 

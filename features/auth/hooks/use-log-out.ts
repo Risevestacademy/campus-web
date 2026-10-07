@@ -9,6 +9,7 @@ import { browserApi } from "@/core/api/client/browser";
 import { replaceDocument } from "@/shared/lib/document-navigation";
 import { toast } from "@/shared/ui/toast";
 
+import { clearCampusEntrySession } from "../services/campus-entry-session.client";
 import { endSession, type SessionEnd } from "../services/session.service";
 
 const SIGN_IN_PATH = "/sign-in";
@@ -18,6 +19,7 @@ function leaveCampus() {
     logout_source: "user_action",
   });
   resetAnalyticsUser();
+  clearCampusEntrySession();
   replaceDocument(SIGN_IN_PATH);
 }
 

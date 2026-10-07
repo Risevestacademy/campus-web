@@ -184,7 +184,7 @@ describe("InviteConfirmation: accepting", () => {
     pendingInviteReplies(json(pendingInvite()));
   });
 
-  it("accepts through the browser proxy, records it, then loads the cohort's pre-join screen", async () => {
+  it("accepts through the browser proxy, records it, then loads the cohort entry", async () => {
     decisionReplies(json(acceptedDecision("c-1")));
     await renderConfirmation();
 
@@ -193,7 +193,7 @@ describe("InviteConfirmation: accepting", () => {
     await waitFor(() => {
       expect(sideEffects).toEqual([
         'capture auth.verification_completed {"verification_type":"invite"}',
-        "replace document /campus/c-1/join",
+        "replace document /campus/c-1",
       ]);
     });
     expect(decisionPosts()).toHaveLength(1);
@@ -217,7 +217,7 @@ describe("InviteConfirmation: accepting", () => {
     goToCampus();
 
     await waitFor(() => {
-      expect(sideEffects).toContain("replace document /campus/c-1/join");
+      expect(sideEffects).toContain("replace document /campus/c-1");
     });
     expect(
       screen.getByRole("button", { name: "Joining Campus…" }),
@@ -242,7 +242,7 @@ describe("InviteConfirmation: accepting", () => {
       goToCampus();
 
       await waitFor(() => {
-        expect(sideEffects).toContain("replace document /campus/c-1/join");
+        expect(sideEffects).toContain("replace document /campus/c-1");
       });
       expect(decisionPosts()).toHaveLength(2);
     },

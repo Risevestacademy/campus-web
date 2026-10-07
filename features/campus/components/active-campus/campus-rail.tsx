@@ -43,7 +43,7 @@ function RailButton({
         onClick={onClick}
         className={cn(
           buttonVariants({ variant: "ghost", size: "icon-lg" }),
-          "text-primary-foreground/70 not-aria-[current=page]:hover:bg-primary-foreground/10 not-aria-[current=page]:hover:text-primary-foreground aria-[current=page]:bg-cobalt-700 dark:aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground relative",
+          "text-primary-foreground/70 not-aria-[current=page]:hover:bg-primary-foreground/10 not-aria-[current=page]:hover:text-primary-foreground aria-[current=page]:bg-cobalt-700 dark:aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground relative [&_svg:not([class*='size-'])]:size-5.5",
         )}
       >
         {children}
@@ -103,8 +103,7 @@ export function CampusRail({ account }: { account: ReactNode }) {
             >
               <item.Icon
                 aria-hidden
-                size="1.3rem"
-                weight={activePanel === item.id ? "fill" : "bold"}
+                // weight={activePanel === item.id ? "fill" : "bold"}
               />
             </RailButton>
           ))}

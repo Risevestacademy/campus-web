@@ -64,7 +64,7 @@ async function renderChooser(viewer: CohortViewer, page?: string) {
 function cohortLinks() {
   return screen
     .getAllByRole("link")
-    .filter((link) => link.getAttribute("href")?.endsWith("/join"))
+    .filter((link) => /^\/campus\/[^?]+$/.test(link.getAttribute("href") ?? ""))
     .map((link) => [link.textContent, link.getAttribute("href")]);
 }
 
@@ -83,8 +83,8 @@ describe("CohortChooser: members", () => {
     await renderChooser(member);
 
     expect(cohortLinks()).toEqual([
-      ["Cohort 3C3", "/campus/c-3/join"],
-      ["Cohort 4C4", "/campus/c-4/join"],
+      ["Cohort 3C3", "/campus/c-3"],
+      ["Cohort 4C4", "/campus/c-4"],
     ]);
     expect(sent).toEqual([]);
   });
@@ -122,8 +122,8 @@ describe("CohortChooser: admins", () => {
     await renderChooser(admin, "2");
 
     expect(cohortLinks()).toEqual([
-      ["GammaGAMMA", "/campus/id-Gamma/join"],
-      ["DeltaDELTA", "/campus/id-Delta/join"],
+      ["GammaGAMMA", "/campus/id-Gamma"],
+      ["DeltaDELTA", "/campus/id-Delta"],
     ]);
     expect(sent.map((request) => request.url)).toEqual([
       `${COHORTS_URL}?page=2`,

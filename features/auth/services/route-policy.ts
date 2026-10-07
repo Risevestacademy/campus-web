@@ -19,16 +19,22 @@ const SESSION_REFRESH_PATH = "/session/refresh";
 const SIGN_IN_PATH = "/sign-in";
 
 export interface RouteRequestSignals {
+  enteredCampusIds: readonly string[];
   returnTo: string | undefined;
   refreshAttempted: boolean;
 }
+
+export type SignedOutSignals = Pick<
+  RouteRequestSignals,
+  "returnTo" | "refreshAttempted"
+>;
 
 // One automatic refresh per visit, then sign-in: the refresh-attempt marker is
 // what stops a refresh/redirect loop.
 export function signedOutRedirect({
   returnTo,
   refreshAttempted,
-}: RouteRequestSignals): Route {
+}: SignedOutSignals): Route {
   const path = refreshAttempted ? SIGN_IN_PATH : SESSION_REFRESH_PATH;
   const search = new URLSearchParams({
     returnTo: normalizeReturnTo(returnTo),
@@ -36,8 +42,12 @@ export function signedOutRedirect({
   return `${path}?${search.toString()}` as Route;
 }
 
+function campusPath(cohortId: string): Route {
+  return `/campus/${encodeURIComponent(cohortId)}` as Route;
+}
+
 function preJoinPath(cohortId: string): Route {
-  return `/campus/${encodeURIComponent(cohortId)}/join` as Route;
+  return `${campusPath(cohortId)}/join` as Route;
 }
 
 export function preJoinRedirect(cohortId: string, returnTo: string): Route {
@@ -55,13 +65,22 @@ export function logsOutFromRail(session: Session): boolean {
   return !usesCohortChooser(session);
 }
 
-function decideCampusIndex(session: Session): RouteAuthorizationDecision {
+function decideCampusIndex(
+  session: Session,
+  enteredCampusIds: readonly string[],
+): RouteAuthorizationDecision {
   if (usesCohortChooser(session)) return { kind: "allow", session };
 
   const [onlyMembership] = session.memberships;
-  return onlyMembership
-    ? { kind: "redirect", href: preJoinPath(onlyMembership.cohortId) }
-    : { kind: "forbidden" };
+  if (!onlyMembership) return { kind: "forbidden" };
+
+  const { cohortId } = onlyMembership;
+  return {
+    kind: "redirect",
+    href: enteredCampusIds.includes(cohortId)
+      ? campusPath(cohortId)
+      : preJoinPath(cohortId),
+  };
 }
 
 function decideCohort(
@@ -77,10 +96,11 @@ function decideCohort(
 function decideFullAccess(
   request: CampusRouteRequest,
   session: Session,
+  signals: RouteRequestSignals,
 ): RouteAuthorizationDecision {
   switch (request.kind) {
     case "campus-index":
-      return decideCampusIndex(session);
+      return decideCampusIndex(session, signals.enteredCampusIds);
     case "cohort":
       return decideCohort(session, request.cohortId);
   }
@@ -89,9 +109,10 @@ function decideFullAccess(
 function decideCampus(
   request: CampusRouteRequest,
   session: Session,
+  signals: RouteRequestSignals,
 ): RouteAuthorizationDecision {
   return session.scope === "full_access"
-    ? decideFullAccess(request, session)
+    ? decideFullAccess(request, session, signals)
     : { kind: "redirect", href: INVITATION_PATH };
 }
 
@@ -115,10 +136,11 @@ function decideInvitation(
 function decideSignedIn(
   request: RouteAuthorizationRequest,
   session: Session,
+  signals: RouteRequestSignals,
 ): RouteAuthorizationDecision {
   return request.kind === "invitation"
     ? decideInvitation(request.path, session)
-    : decideCampus(request, session);
+    : decideCampus(request, session, signals);
 }
 
 export function decideRoute(
@@ -128,7 +150,7 @@ export function decideRoute(
 ): RouteAuthorizationDecision {
   switch (sessionRead.kind) {
     case "authenticated":
-      return decideSignedIn(request, sessionRead.session);
+      return decideSignedIn(request, sessionRead.session, signals);
 
     case "unauthenticated":
       return { kind: "redirect", href: signedOutRedirect(signals) };

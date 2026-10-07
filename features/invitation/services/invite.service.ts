@@ -88,7 +88,7 @@ export function readPendingInvite(
 
 function campusDestination(cohortId: string | null): string {
   return cohortId
-    ? `/campus/${encodeURIComponent(cohortId)}/join`
+    ? `/campus/${encodeURIComponent(cohortId)}`
     : CAMPUS_HOME_PATH;
 }
 
