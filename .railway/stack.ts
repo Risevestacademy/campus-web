@@ -1,10 +1,38 @@
-import { github, preserve, project, service } from "railway/iac";
+import {
+  github,
+  type IntentServiceConfig,
+  preserve,
+  project,
+  service,
+} from "railway/iac";
 
 type RailwayEnvironment = "production" | "staging";
 
 const branchByEnvironment: Record<RailwayEnvironment, string> = {
   production: "main",
   staging: "dev",
+};
+
+// Production stays always-on until it gets its own cost review.
+const sleepsWhenIdleByEnvironment: Record<RailwayEnvironment, boolean> = {
+  production: false,
+  staging: true,
+};
+
+const idleSleep = {
+  deploy: { sleepApplication: true },
+} satisfies IntentServiceConfig;
+
+// Railway judges inactivity by outbound packets, so Next.js telemetry would
+// keep the container awake; `next dev` must never be the inferred start.
+const sleepFriendlyWebRuntime = {
+  ...idleSleep,
+  startCommand: "pnpm start",
+  healthcheck: "/",
+} satisfies IntentServiceConfig;
+
+const sleepFriendlyWebEnvironment = {
+  NEXT_TELEMETRY_DISABLED: "1",
 };
 
 const campusStorybookWatchPatterns = [
@@ -42,11 +70,13 @@ const campusWebWatchPatterns = [
 ];
 
 export function createFrontendProject(environment: RailwayEnvironment) {
+  const sleepsWhenIdle = sleepsWhenIdleByEnvironment[environment];
   const frontendSource = github("Risevestacademy/campus-web", {
     branch: branchByEnvironment[environment],
     checkSuites: true,
   });
   const campusStorybook = service("campus-storybook", {
+    ...(sleepsWhenIdle ? idleSleep : {}),
     source: frontendSource,
     build: {
       buildCommand: "pnpm storybook:build",
@@ -61,6 +91,7 @@ export function createFrontendProject(environment: RailwayEnvironment) {
     },
   });
   const campusWeb = service("campus-web", {
+    ...(sleepsWhenIdle ? sleepFriendlyWebRuntime : {}),
     source: frontendSource,
     build: {
       buildEnvironment: "V3",
@@ -73,6 +104,7 @@ export function createFrontendProject(environment: RailwayEnvironment) {
         "http://${{campus-api.RAILWAY_PRIVATE_DOMAIN}}:${{campus-api.PORT}}",
       NEXT_PUBLIC_POSTHOG_HOST: preserve(),
       NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: preserve(),
+      ...(sleepsWhenIdle ? sleepFriendlyWebEnvironment : {}),
     },
   });
 
