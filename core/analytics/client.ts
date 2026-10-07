@@ -1,4 +1,4 @@
-import posthog from "posthog-js";
+import type { PostHog } from "posthog-js";
 
 import { readAnalyticsConfiguration } from "./configuration";
 import type {
@@ -7,31 +7,17 @@ import type {
   AnalyticsIdentity,
 } from "./events";
 
-let isInitialized = false;
+let browserAnalytics: Promise<PostHog | null> | null = null;
 
-function safelyRunBrowserAnalytics(
-  failureMessage: string,
-  operation: () => void,
-): void {
-  try {
-    operation();
-  } catch (error) {
-    console.error(failureMessage, error);
-  }
-}
-
-export function initializeBrowserAnalytics(): boolean {
-  if (isInitialized) {
-    return true;
-  }
-
+async function loadBrowserAnalytics(): Promise<PostHog | null> {
   const configuration = readAnalyticsConfiguration();
 
   if (!configuration) {
-    return false;
+    return null;
   }
 
   try {
+    const { default: posthog } = await import("posthog-js");
     posthog.init(configuration.projectToken, {
       api_host: configuration.host,
       autocapture: false,
@@ -41,28 +27,47 @@ export function initializeBrowserAnalytics(): boolean {
       disable_session_recording: true,
       person_profiles: "identified_only",
     });
-    isInitialized = true;
-    return true;
+    return posthog;
   } catch (error) {
     console.error("PostHog browser initialization failed.", error);
-    return false;
+    return null;
   }
+}
+
+// The SDK loads as its own chunk, off the hydration path. Calls made while it
+// loads chain onto the same promise, so they run afterwards in call order.
+export function initializeBrowserAnalytics(): Promise<boolean> {
+  browserAnalytics ??= loadBrowserAnalytics();
+  return browserAnalytics.then((posthog) => posthog !== null);
+}
+
+function withBrowserAnalytics(
+  failureMessage: string,
+  operation: (posthog: PostHog) => void,
+): void {
+  void browserAnalytics?.then((posthog) => {
+    if (!posthog) {
+      return;
+    }
+
+    try {
+      operation(posthog);
+    } catch (error) {
+      console.error(failureMessage, error);
+    }
+  });
 }
 
 export function captureBrowserAnalyticsEvent<
   EventName extends AnalyticsEventName,
 >(eventName: EventName, properties: AnalyticsEventMap[EventName]): void {
-  if (!isInitialized) {
-    return;
-  }
-
-  safelyRunBrowserAnalytics("PostHog browser event capture failed.", () =>
+  withBrowserAnalytics("PostHog browser event capture failed.", (posthog) =>
     posthog.capture(eventName, properties),
   );
 }
 
 export function identifyAnalyticsUser(identity: AnalyticsIdentity): void {
-  if (!isInitialized) {
+  if (!browserAnalytics) {
     return;
   }
 
@@ -73,20 +78,18 @@ export function identifyAnalyticsUser(identity: AnalyticsIdentity): void {
     return;
   }
 
-  safelyRunBrowserAnalytics("PostHog browser identification failed.", () => {
+  withBrowserAnalytics("PostHog browser identification failed.", (posthog) =>
     posthog.identify(distinctId, {
       account_status: identity.accountStatus,
       cohort_id: identity.cohortId,
       role: identity.role,
       track_id: identity.trackId,
-    });
-  });
+    }),
+  );
 }
 
 export function resetAnalyticsUser(): void {
-  if (isInitialized) {
-    safelyRunBrowserAnalytics("PostHog browser identity reset failed.", () =>
-      posthog.reset(),
-    );
-  }
+  withBrowserAnalytics("PostHog browser identity reset failed.", (posthog) =>
+    posthog.reset(),
+  );
 }

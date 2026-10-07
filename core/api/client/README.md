@@ -1,7 +1,7 @@
 # API client
 
-This directory owns the typed outbound connection to the Campus backend. It is
-separate from the inbound Route Handler contracts in the parent directory.
+This directory owns the typed outbound connection to Campus API and the
+browser-facing Next.js proxy.
 
 `createApiClient` is the only client factory. Runtime composition supplies its
 base URL and request defaults:
@@ -196,8 +196,8 @@ network hop and complicates cookie forwarding and caching.
 - enforces `HttpOnly`, `SameSite=Lax`, and `Secure` on HTTPS;
 - forces authenticated responses to `Cache-Control: private, no-store`.
 
-The proxy preserves backend success and error documents. It does not wrap them
-in the inbound API foundation's `{ data, meta }` or problem contracts.
+The proxy preserves backend success and error documents without introducing a
+second frontend-owned response contract.
 
 ## Google OAuth
 

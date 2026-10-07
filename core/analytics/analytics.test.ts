@@ -49,7 +49,7 @@ describe("browser analytics", () => {
 
     const analytics = await import("./client");
 
-    expect(analytics.initializeBrowserAnalytics()).toBe(false);
+    expect(await analytics.initializeBrowserAnalytics()).toBe(false);
 
     analytics.captureBrowserAnalyticsEvent(
       ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED,
@@ -58,9 +58,34 @@ describe("browser analytics", () => {
         platform: "web",
       },
     );
+    await analytics.initializeBrowserAnalytics();
 
     expect(analyticsMocks.browser.init).not.toHaveBeenCalled();
     expect(analyticsMocks.browser.capture).not.toHaveBeenCalled();
+  });
+
+  it("starts PostHog off the startup path and delivers events captured while it loads", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    const properties = {
+      auth_method: "email" as const,
+      platform: "web" as const,
+    };
+
+    const loading = analytics.initializeBrowserAnalytics();
+    analytics.captureBrowserAnalyticsEvent(
+      ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED,
+      properties,
+    );
+
+    expect(analyticsMocks.browser.init).not.toHaveBeenCalled();
+    expect(analyticsMocks.browser.capture).not.toHaveBeenCalled();
+
+    await expect(loading).resolves.toBe(true);
+    expect(analyticsMocks.browser.capture).toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED,
+      properties,
+    );
   });
 
   it("initializes once with the privacy-minimal configuration", async () => {
@@ -69,8 +94,8 @@ describe("browser analytics", () => {
 
     const analytics = await import("./client");
 
-    expect(analytics.initializeBrowserAnalytics()).toBe(true);
-    expect(analytics.initializeBrowserAnalytics()).toBe(true);
+    expect(await analytics.initializeBrowserAnalytics()).toBe(true);
+    expect(await analytics.initializeBrowserAnalytics()).toBe(true);
     expect(analyticsMocks.browser.init).toHaveBeenCalledTimes(1);
     expect(analyticsMocks.browser.init).toHaveBeenCalledWith(
       "phc_non_production",
@@ -90,7 +115,7 @@ describe("browser analytics", () => {
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
 
     const analytics = await import("./client");
-    analytics.initializeBrowserAnalytics();
+    await analytics.initializeBrowserAnalytics();
 
     const properties = {
       auth_method: "rise_sso" as const,
@@ -108,6 +133,7 @@ describe("browser analytics", () => {
       trackId: "track-1",
     });
     analytics.resetAnalyticsUser();
+    await analytics.initializeBrowserAnalytics();
 
     expect(analyticsMocks.browser.capture).toHaveBeenCalledWith(
       ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED,
@@ -133,7 +159,7 @@ describe("browser analytics", () => {
 
     const analytics = await import("./client");
 
-    expect(analytics.initializeBrowserAnalytics()).toBe(false);
+    expect(await analytics.initializeBrowserAnalytics()).toBe(false);
     expect(consoleError).toHaveBeenCalledOnce();
   });
 
@@ -141,7 +167,7 @@ describe("browser analytics", () => {
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
 
     const analytics = await import("./client");
-    analytics.initializeBrowserAnalytics();
+    await analytics.initializeBrowserAnalytics();
 
     const sdkFailure = new Error("browser SDK failed");
     analyticsMocks.browser.capture.mockImplementationOnce(() => {
@@ -173,6 +199,7 @@ describe("browser analytics", () => {
       }),
     ).not.toThrow();
     expect(() => analytics.resetAnalyticsUser()).not.toThrow();
+    await analytics.initializeBrowserAnalytics();
     expect(consoleError).toHaveBeenCalledTimes(3);
   });
 
@@ -181,7 +208,9 @@ describe("browser analytics", () => {
 
     await import("../../instrumentation-client");
 
-    expect(analyticsMocks.browser.init).toHaveBeenCalledOnce();
+    await vi.waitFor(() => {
+      expect(analyticsMocks.browser.init).toHaveBeenCalledOnce();
+    });
   });
 });
 

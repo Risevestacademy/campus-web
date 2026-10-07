@@ -55,7 +55,7 @@ const eslintConfig = defineConfig([
         },
       ],
       "unicorn/prefer-node-protocol": "off",
-      "unicorn/filename-case": "off",
+      "unicorn/filename-case": ["error", { case: "kebabCase" }],
       "unicorn/no-array-method-this-argument": "off",
       "unicorn/prefer-spread": "off",
       "simple-import-sort/exports": "error",

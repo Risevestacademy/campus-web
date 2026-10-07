@@ -7,9 +7,7 @@ export type Session = components["schemas"]["SessionResponseDto"];
 export type InvitationPath = "/invitation" | "/preview";
 
 export type CampusRouteRequest =
-  | { kind: "campus-shell" }
-  | { kind: "campus-index" }
-  | { kind: "cohort"; cohortId: string };
+  { kind: "campus-index" } | { kind: "cohort"; cohortId: string };
 
 export type RouteAuthorizationRequest =
   CampusRouteRequest | { kind: "invitation"; path: InvitationPath };

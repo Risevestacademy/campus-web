@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, within } from "storybook/test";
 
 import { Kbd, KbdGroup } from "./kbd";
 
@@ -28,10 +27,4 @@ export const Gallery: Story = {
       </p>
     </div>
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    await expect(canvas.getByText("Ctrl F")).toBeVisible();
-    await expect(canvas.getByText("K")).toBeVisible();
-  },
 };

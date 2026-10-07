@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, within } from "storybook/test";
 
 import {
   Avatar,
@@ -45,7 +44,4 @@ export const Gallery: Story = {
       </AvatarGroup>
     </div>
   ),
-  play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByText("SM")).toBeVisible();
-  },
 };

@@ -2,6 +2,9 @@
   "name": "campus-by-rise",
   "version": "0.1.0",
   "private": true,
+  "sideEffects": [
+    "*.css"
+  ],
   "type": "module",
   "engines": {
     "node": ">=22.22.0"
@@ -26,19 +29,14 @@
     "test:storybook": "vitest run --project=storybook",
     "test:e2e": "pnpm build && playwright test",
     "test:e2e:ui": "pnpm build && playwright test --ui",
-    "eval:api": "vitest run tests/evals/api-foundation.eval.test.ts",
     "eval:analytics": "vitest run core/analytics/contract.eval.test.ts",
-    "eval:architecture": "eslint . --max-warnings=0 && vitest run --project=unit tests/evals/proxy-entry-boundary.eval.test.ts",
+    "eval:architecture": "eslint . --max-warnings=0 && vitest run --project=unit tests/evals/proxy-entry-boundary.eval.test.ts tests/evals/root-layout-entry-boundary.eval.test.ts",
     "eval:api-client": "vitest run tests/evals/api-client-foundation.eval.test.ts",
-    "eval:session-read": "vitest run --project=unit tests/evals/session-read-resilience.eval.test.ts",
     "eval:route-protection": "vitest run --project=unit tests/evals/campus-route-protection.eval.test.ts",
-    "eval:logout": "vitest run --project=unit tests/evals/logout.eval.test.tsx",
     "eval:invitation": "vitest run --project=unit tests/evals/invitation.eval.test.tsx",
     "eval:cohort-create": "vitest run --project=unit tests/evals/cohort-create.eval.test.tsx",
     "eval:component-stories": "vitest run --project=unit tests/evals/component-story-coverage.eval.test.ts",
-    "eval:icons": "vitest run --project=unit tests/evals/icon-imports.eval.test.ts",
     "eval:theme": "vitest run --project=unit tests/evals/theme.eval.test.ts",
-    "eval:theme-surfaces": "vitest run --project=unit tests/evals/theme-surfaces.eval.test.ts tests/evals/theme-surface-components.eval.test.tsx",
     "eval:railway": "vitest run --project=unit tests/evals/railway-iac.eval.test.ts",
     "eval:storybook": "pnpm test:storybook && pnpm storybook:build",
     "check": "pnpm lint && pnpm typecheck && pnpm format:check && pnpm test && pnpm eval:storybook && pnpm build",

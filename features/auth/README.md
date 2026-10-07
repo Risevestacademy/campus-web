@@ -16,15 +16,17 @@ return-destination policy stay behind it.
 
 ## Rules for other features
 
+- Every page under `app/campus` authorizes itself (`requireRouteAccess` or a
+  gate); no layout above `/campus` gates access.
 - A new page under `/campus/[id]` wraps its content in `CohortGate`
   ([Public interface](#public-interface)).
 - Links into a cohort from outside it target `/campus/{id}/join`, never an
   active route ([Pre-join](#pre-join)).
 - Client modules import auth siblings directly, never `@/features/auth`: the
   entry point re-exports server-only modules.
-- `features/campus-shell` does not import auth. The rail's Log out menu is
-  composed in `app/(app)/campus/[id]/(active-campus)/layout.tsx` through
-  `CampusRail`'s `account` slot.
+- `features/campus` does not import auth. The rail's Log out menu is composed
+  in `app/campus/[id]/(active-campus)/layout.tsx` through
+  `ActiveCampus`'s `AccountMenu` prop.
 - Navigation that must drop the media session and query cache uses
   `replaceDocument` (`shared/lib/document-navigation.ts`), not the router.
 
@@ -36,7 +38,8 @@ return-destination policy stay behind it.
 - A 403 from `/v1/auth/me` is treated as a suspended account. A member with no
   cohort lands on the same 403 page and has no way to log out there.
 - The rail avatar initial is the placeholder "J"
-  (`features/campus-shell/rail-avatar.tsx`); only `/campus` shows the real one.
+  (`features/campus/components/active-campus/active-campus.tsx`); only
+  `/campus` shows the real one.
 
 ## Public interface
 
@@ -45,7 +48,6 @@ Route code imports from `@/features/auth`. The root `proxy.ts` imports from
 
 ```tsx
 import {
-  CampusShellGate,
   CohortGate,
   InvitationGate,
   redirectSignedInVisitor,
@@ -54,10 +56,7 @@ import {
   SessionUnavailable,
 } from "@/features/auth";
 
-// Layouts and pages that only need "may this render?"
-<CampusShellGate>{children}</CampusShellGate>;
-
-// Everything under /campus/[id]: also requires membership of that cohort
+// Everything under /campus/[id]: requires membership of that cohort
 <CohortGate cohortId={id}>{children}</CohortGate>;
 
 // /preview: requires a session carrying an invite
@@ -89,16 +88,16 @@ differently:
 | `forbidden`   | backend refused the account (403), or a member with no cohort        | `forbidden()`                                                                          |
 | `unavailable` | session service down after retries, or returned a malformed session  | `SessionUnavailable` linking to `retryHref`; `retryAfterMs` is the backend hint if any |
 
-Requests are `{ kind: "campus-shell" }`, `{ kind: "campus-index" }`,
-`{ kind: "cohort", cohortId }`, or `{ kind: "invitation", path }`. On Campus
+Requests are `{ kind: "campus-index" }`, `{ kind: "cohort", cohortId }`, or
+`{ kind: "invitation", path }`. On Campus
 the return destination comes from the root proxy, not the caller (layouts
 cannot see the URL); invitation requests name their own page, since no proxy
 runs there. Everything here is server-only and reads request headers, so any
 route that uses it renders per request.
 
-Every `/campus/**` page checks access itself as well as the `(app)` layout:
-layouts keep their state across soft navigation and would not run again.
-`cache()` keeps that to one `GET /v1/auth/me` per request.
+Every `/campus/**` page checks access itself: layouts keep their state across
+soft navigation and would not run again. `cache()` keeps that to one
+`GET /v1/auth/me` per request.
 
 Under `/campus/[id]`, the `[id]` layout and every page use `CohortGate`. The
 layout refuses a non-member before the media session provider mounts, and
@@ -140,8 +139,8 @@ Placement follows the cohort chooser: `logsOutFromRail(session)` is false for
 admins and members of several cohorts, who log out from the `/campus` header,
 and true for everyone else, who never see `/campus` and log out from the
 campus rail. The rail sits in another feature, so
-`app/(app)/campus/[id]/(active-campus)/layout.tsx` composes the menu into
-`CampusRail`'s `account` slot.
+`app/campus/[id]/(active-campus)/layout.tsx` hands the menu to
+`ActiveCampus` as its `AccountMenu` prop.
 
 ## Session outcomes
 
@@ -186,15 +185,15 @@ state or the Next Data Cache.
 `services/route-policy.ts` holds the policy as pure functions shared by the
 root proxy and `authorizeRoute`.
 
-| Session                             | `campus-shell`                         | `campus-index` (`/campus`)         | `cohort` (`/campus/[id]/**`)                |
-| ----------------------------------- | -------------------------------------- | ---------------------------------- | ------------------------------------------- |
-| `full_access`, system admin         | `allow`                                | `allow` (admin chooser)            | `allow`, any cohort ID                      |
-| `full_access`, 2+ memberships       | `allow`                                | `allow` (membership chooser)       | `allow` for their cohorts, else `forbidden` |
-| `full_access`, exactly 1 membership | `allow`                                | redirect `/campus/{cohortId}/join` | `allow` for their cohort, else `forbidden`  |
-| `full_access`, no memberships       | `allow`                                | `forbidden`                        | `forbidden`                                 |
-| `provisional`                       | redirect `/invitation`                 | redirect `/invitation`             | redirect `/invitation`                      |
-| none, refresh not yet attempted     | redirect `/session/refresh?returnTo=…` | same                               | same                                        |
-| none, refresh already attempted     | redirect `/sign-in?returnTo=…`         | same                               | same                                        |
+| Session                             | `campus-index` (`/campus`)             | `cohort` (`/campus/[id]/**`)                |
+| ----------------------------------- | -------------------------------------- | ------------------------------------------- |
+| `full_access`, system admin         | `allow` (admin chooser)                | `allow`, any cohort ID                      |
+| `full_access`, 2+ memberships       | `allow` (membership chooser)           | `allow` for their cohorts, else `forbidden` |
+| `full_access`, exactly 1 membership | redirect `/campus/{cohortId}/join`     | `allow` for their cohort, else `forbidden`  |
+| `full_access`, no memberships       | `forbidden`                            | `forbidden`                                 |
+| `provisional`                       | redirect `/invitation`                 | redirect `/invitation`                      |
+| none, refresh not yet attempted     | redirect `/session/refresh?returnTo=…` | same                                        |
+| none, refresh already attempted     | redirect `/sign-in?returnTo=…`         | same                                        |
 
 The refresh-attempt marker breaks the refresh/redirect loop: one automatic
 refresh per visit, then sign-in. A pending `inviteId` does not block a
@@ -348,7 +347,6 @@ RefreshSession -> useSessionRefresh -> useMutation -> createSessionRefresher -> 
 | ------------------------------------ | ------------------------------------------------------------------------------ |
 | `index.ts`                           | public interface for routes                                                    |
 | `proxy.ts`                           | public interface for the root `proxy.ts`                                       |
-| `components/campus-shell-gate.tsx`   | renders children only when the visitor may enter Campus                        |
 | `components/cohort-gate.tsx`         | renders children only for a member of the cohort (or an admin)                 |
 | `components/invitation-gate.tsx`     | renders children only for a session carrying an invite                         |
 | `components/resume-invitation.tsx`   | no-token `/invitation`: route decision or outage notice, never content         |
@@ -378,8 +376,6 @@ re-exports server-only modules.
 ```bash
 pnpm vitest run --project unit features/auth ./proxy.test.ts
 pnpm eval:route-protection
-pnpm eval:logout
-pnpm eval:session-read
 pnpm eval:architecture
 ```
 

@@ -6,8 +6,8 @@ Implemented concerns:
 
 - `analytics`: typed browser and server product analytics. See
   `analytics/README.md`.
-- `api`: inbound HTTP contracts plus the generated, typed Campus backend client
-  and browser proxy. See `api/README.md`.
+- `api/client`: generated typed Campus API client, direct server composition,
+  and the policy-enforcing browser proxy. See `api/client/README.md`.
 - `observability`: structured application logging. See
   `observability/README.md`.
 

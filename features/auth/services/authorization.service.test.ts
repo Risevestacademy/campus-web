@@ -23,7 +23,6 @@ import { inOrder, type Reply } from "@/tests/fixtures/mock-api";
 
 import {
   authorizeRoute,
-  CampusShellGate,
   CohortGate,
   InvitationGate,
   logsOutFromRail,
@@ -138,7 +137,6 @@ function proxySignals(signals: { returnTo?: string; refreshAttempted?: true }) {
   nextHeaders.headers.mockResolvedValue(headers);
 }
 
-const campusShell: RouteAuthorizationRequest = { kind: "campus-shell" };
 const campusIndex: RouteAuthorizationRequest = { kind: "campus-index" };
 const cohort = (cohortId: string): RouteAuthorizationRequest => ({
   kind: "cohort",
@@ -163,6 +161,7 @@ const COHORT_B = {
   role: "mentor",
   cohort: { name: "Cohort 4", code: "C4" },
 };
+const ownCohort = cohort(COHORT_A.cohortId);
 
 function fullAccess(
   systemRole: "user" | "admin",
@@ -176,7 +175,7 @@ function fullAccess(
   };
 }
 
-async function authorize(request = campusShell) {
+async function authorize(request = ownCohort) {
   const decision = authorizeRoute(request);
   await vi.runAllTimersAsync();
   return decision;
@@ -532,16 +531,6 @@ describe("authorizeRoute: campus index membership routing", () => {
       session,
     });
   });
-
-  it("keeps membership routing out of the campus shell", async () => {
-    const session = fullAccess("user", []);
-    backendReplies(ok(session));
-
-    await expect(authorize(campusShell)).resolves.toEqual({
-      kind: "allow",
-      session,
-    });
-  });
 });
 
 describe("authorizeRoute: cohort membership", () => {
@@ -814,7 +803,7 @@ describe("requireRouteAccess", () => {
   it("returns the session for a visitor who may render the route", async () => {
     backendReplies(ok(fullAccessSession));
 
-    await expect(settle(requireRouteAccess(campusShell))).resolves.toEqual({
+    await expect(settle(requireRouteAccess(ownCohort))).resolves.toEqual({
       kind: "allow",
       session: fullAccessSession,
     });
@@ -823,7 +812,7 @@ describe("requireRouteAccess", () => {
   it("interrupts the render with a temporary redirect to the decided destination", async () => {
     backendReplies(ok(provisionalSession));
 
-    const interrupt = await settle(requireRouteAccess(campusShell));
+    const interrupt = await settle(requireRouteAccess(ownCohort));
 
     expect(isRedirectError(interrupt)).toBe(true);
     if (!isRedirectError(interrupt)) return;
@@ -834,7 +823,7 @@ describe("requireRouteAccess", () => {
   it("interrupts the render with a 403 for a refused account", async () => {
     backendReplies(status(403));
 
-    const interrupt = await settle(requireRouteAccess(campusShell));
+    const interrupt = await settle(requireRouteAccess(ownCohort));
 
     expect(getAccessFallbackHTTPStatus(interrupt as never)).toBe(403);
   });
@@ -842,34 +831,9 @@ describe("requireRouteAccess", () => {
   it("returns the retry destination when the session service is down", async () => {
     backendReplies(status(503), status(503), status(503));
 
-    await expect(settle(requireRouteAccess(campusShell))).resolves.toEqual(
+    await expect(settle(requireRouteAccess(ownCohort))).resolves.toEqual(
       UNAVAILABLE,
     );
-  });
-});
-
-describe("CampusShellGate", () => {
-  const campusContent = createElement("p", null, "Campus content");
-
-  async function renderGate() {
-    const element = await settle(CampusShellGate({ children: campusContent }));
-    return renderToStaticMarkup(element as ReactElement);
-  }
-
-  it("renders the route for a full-access visitor", async () => {
-    backendReplies(ok(fullAccessSession));
-
-    await expect(renderGate()).resolves.toBe("<p>Campus content</p>");
-  });
-
-  it("renders the retry state instead of the route during an outage", async () => {
-    backendReplies(status(503), status(503), status(503));
-
-    const markup = await renderGate();
-
-    expect(markup).not.toContain("Campus content");
-    expect(markup).toContain('role="alert"');
-    expect(markup).toContain(`href="${RETURN_TO}"`);
   });
 });
 
@@ -911,6 +875,7 @@ describe("CohortGate", () => {
 
     expect(markup).not.toContain("Cohort content");
     expect(markup).toContain('role="alert"');
+    expect(markup).toContain(`href="${RETURN_TO}"`);
   });
 });
 
