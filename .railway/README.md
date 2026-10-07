@@ -221,12 +221,15 @@ project had no environments besides `production` and `staging`.
 | ---------- | ---------------- | ------ | ----------- | -------- |
 | 2026-10-03 | campus-web       | before | 229 MB      | 563 MB   |
 | 2026-10-03 | campus-storybook | before | 40 MB       | 81 MB    |
+| 2026-10-04 | campus-web       | demo   | 379 MB      | 699 MB   |
+| 2026-10-04 | campus-storybook | demo   | 54 MB       | 67 MB    |
 
-Cost before the change (billing period 2026-09-08 to 2026-10-08, read
-2026-10-03): `campus-by-rise` $7.46, workspace $11.58, workspace estimate
-$14.26.
+The 2026-10-04 rows cover a live demo day, so they show load, not idle
+savings. Size any future memory limit from the 699 MB peak.
 
-Soft usage alert: not set yet.
+Idle days after the change cut project spend by about 31%. Check cost in the
+Railway dashboard or with `railway usage projects --project campus-by-rise`;
+billing figures stay out of this public repository.
 
 ## Production
 
