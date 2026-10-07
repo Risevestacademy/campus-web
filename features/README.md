@@ -4,6 +4,7 @@ Business behavior is organized by product domain.
 
 Planned domains:
 
+- admin
 - auth
 - campus
 - campus-world
@@ -19,12 +20,13 @@ Planned domains:
 - stage
 - profile
 
-`campus` owns the cohort chooser and the Active Campus, including the rail and
-sidebar chrome around it (navigation, panel switching, the collapse/reopen
-state) — not a class or mentorship session, which is a distinct, later
-concept. `roster` owns the participant directory UI (search, filters, the
-online/offline lists); once real-time status lands, it will consume it from
-`presence` rather than own it.
+`admin` owns System Administrator catalogues and mutations under the `/campus`
+route hierarchy. `campus` owns the member-facing Cohort chooser and the Active
+Campus, including the rail and sidebar chrome around it (navigation, panel
+switching, and collapse/reopen state) — not a class or mentorship session,
+which is a distinct, later concept. `roster` owns the participant directory UI
+(search, filters, and online/offline lists); once real-time status lands, it
+will consume that status from `presence` rather than own it.
 
 Create a feature directory only when implementation starts. Colocate its
 components, hooks, services, schemas, state, types, and tests. Expose consumers

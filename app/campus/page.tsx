@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { getServerApi } from "@/core/api/client/server";
+import { CohortCatalogue } from "@/features/admin";
 import {
   AccountMenu,
   requireRouteAccess,
@@ -21,15 +21,21 @@ interface CampusPageProps {
 }
 
 export default async function CampusPage({ searchParams }: CampusPageProps) {
-  const [access, { page }, api] = await Promise.all([
+  const [access, { page }] = await Promise.all([
     requireRouteAccess({ kind: "campus-index" }),
     searchParams,
-    getServerApi(),
   ]);
 
   if (access.kind === "unavailable") {
     return <SessionUnavailable retryHref={access.retryHref} />;
   }
+
+  const cohortSelection =
+    access.session.user.systemRole === "admin" ? (
+      <CohortCatalogue page={firstSearchParameter(page)} />
+    ) : (
+      <CohortChooser viewer={access.session} />
+    );
 
   return (
     <div data-surface-role="background" className="bg-background space-y-8">
@@ -50,13 +56,7 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
         </AccountMenu>
       </header>
 
-      <div className="px-10">
-        <CohortChooser
-          viewer={access.session}
-          page={firstSearchParameter(page)}
-          api={api}
-        />
-      </div>
+      <div className="px-10">{cohortSelection}</div>
     </div>
   );
 }

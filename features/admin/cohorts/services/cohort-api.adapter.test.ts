@@ -6,7 +6,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { createApiClient } from "@/core/api/client";
 import type { Reply } from "@/tests/fixtures/mock-api";
 
-import { createCohort, listCohorts } from "./cohort.service";
+import { createCohort, listCohorts } from "./cohort-api.adapter";
 
 const mockApi = await vi.hoisted(async () => {
   const { startMockApi } = await import("@/tests/fixtures/mock-api");

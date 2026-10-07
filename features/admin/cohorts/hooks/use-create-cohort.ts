@@ -8,7 +8,7 @@ import { browserApi } from "@/core/api/client/browser";
 import { replaceDocument } from "@/shared/lib/document-navigation";
 import { toast } from "@/shared/ui/toast";
 
-import { createCohort } from "../services/cohort.service";
+import { createCohort } from "../services/cohort-api.adapter";
 import type {
   CohortCreation,
   CohortCreationProblem,

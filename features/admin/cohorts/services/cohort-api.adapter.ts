@@ -4,12 +4,9 @@ import { parseCohortList } from "../schemas/cohort.schema";
 import type {
   CohortCreation,
   CohortCreationProblem,
-  CohortPage,
+  CohortListRead,
   NewCohort,
 } from "../types/cohort.types";
-
-export type CohortListRead =
-  ({ kind: "loaded" } & CohortPage) | { kind: "unavailable" };
 
 const UNAVAILABLE: CohortListRead = { kind: "unavailable" };
 

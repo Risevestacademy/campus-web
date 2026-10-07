@@ -1,9 +1,16 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
-import { createApiClient } from "@/core/api/client";
-import { CohortChooser, type CohortViewer } from "@/features/campus";
+import { CohortCatalogue } from "@/features/admin";
 import { toast, Toaster } from "@/shared/ui/toast";
 import {
   fillNewCohort,
@@ -27,6 +34,11 @@ vi.mock("next/navigation", () => ({
     refresh: () => navigations.push("refresh"),
   }),
 }));
+vi.mock("next/headers", () => ({
+  cookies: () => Promise.resolve({ get: () => undefined }),
+  headers: () => Promise.resolve(new Headers()),
+}));
+vi.mock("server-only", () => ({}));
 vi.mock("@/core/analytics/client", () => ({
   captureBrowserAnalyticsEvent: () => {},
 }));
@@ -40,8 +52,6 @@ const CREATE_URL = `${TEST_ORIGIN}/api/v1/cohorts`;
 const CREATED = "Cohort created";
 const FAILED = "We couldn't create the cohort";
 
-const serverApi = createApiClient({ baseUrl: API_ORIGIN });
-const admin: CohortViewer = { user: { systemRole: "admin" }, memberships: [] };
 const VALID: NewCohortInput = { name: "Cohort 1", code: "c1" };
 
 const json =
@@ -92,13 +102,7 @@ async function observeCreate(
   );
   render(
     <>
-      {withQueryClient(
-        await CohortChooser({
-          viewer: admin,
-          page: String(page),
-          api: serverApi,
-        }),
-      )}
+      {withQueryClient(await CohortCatalogue({ page: String(page) }))}
       <Toaster />
     </>,
   );
@@ -136,7 +140,14 @@ function settleRun() {
   navigations.length = 0;
 }
 
-afterEach(settleRun);
+beforeEach(() => {
+  vi.stubEnv("API_BASE_URL", API_ORIGIN);
+});
+
+afterEach(() => {
+  settleRun();
+  vi.unstubAllEnvs();
+});
 
 afterAll(() => {
   mockApi.close();
