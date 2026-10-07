@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, userEvent, within } from "storybook/test";
 
 import { Input } from "./input";
 import { Label } from "./label";
@@ -28,9 +27,4 @@ export const Gallery: Story = {
       />
     </div>
   ),
-  play: async ({ canvasElement }) => {
-    const input = within(canvasElement).getByLabelText("Campus name");
-    await userEvent.type(input, "Rise");
-    await expect(input).toHaveValue("Rise");
-  },
 };

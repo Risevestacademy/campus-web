@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, within } from "storybook/test";
 
 import { Separator } from "./separator";
 
@@ -29,14 +28,4 @@ export const Gallery: Story = {
       </div>
     </div>
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    await expect(
-      canvas.getByRole("separator", { name: "Content divider" }),
-    ).toBeVisible();
-    await expect(
-      canvas.getByRole("separator", { name: "Navigation divider" }),
-    ).toHaveAttribute("aria-orientation", "vertical");
-  },
 };

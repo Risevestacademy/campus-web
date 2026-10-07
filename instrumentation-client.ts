@@ -1,3 +1,3 @@
 import { initializeBrowserAnalytics } from "./core/analytics/client";
 
-initializeBrowserAnalytics();
+void initializeBrowserAnalytics();

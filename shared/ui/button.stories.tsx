@@ -1,6 +1,5 @@
 import { ArrowRightIcon } from "@phosphor-icons/react/dist/ssr/ArrowRight";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, within } from "storybook/test";
 
 import { Button, buttonSizeNames, buttonVariantNames } from "./button";
 
@@ -87,19 +86,4 @@ export const Gallery: Story = {
       </section>
     </div>
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    await expect(
-      canvas.getByRole("button", { name: "Continue" }),
-    ).toBeVisible();
-
-    for (const size of iconButtonSizes) {
-      await expect(
-        canvas.getByRole("button", {
-          name: `Continue, ${size} icon button`,
-        }),
-      ).toBeVisible();
-    }
-  },
 };

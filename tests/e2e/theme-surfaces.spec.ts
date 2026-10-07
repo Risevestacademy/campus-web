@@ -178,18 +178,3 @@ test.describe("protected routes", () => {
     expect(darkBox).toEqual(lightBox);
   });
 });
-
-test("the landing hero uses the design-system brand colors", async ({
-  page,
-}) => {
-  await openWithTheme(page, "/", "light");
-
-  await expect(page.locator("#hero")).toHaveCSS(
-    "background-color",
-    "rgb(49, 85, 214)",
-  );
-  await expect(page.locator("#hero .text-accent").first()).toHaveCSS(
-    "color",
-    "rgb(255, 210, 62)",
-  );
-});

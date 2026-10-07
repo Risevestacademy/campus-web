@@ -68,6 +68,31 @@ function hasExactDeviceConstraint(constraints: MediaStreamConstraints) {
   return typeof deviceId === "object" && "exact" in deviceId;
 }
 
+// The browser answers each enumeration with the devices connected when it was
+// asked; the test decides when, so answers can arrive out of order.
+function answerEnumerationsOnDemand(mediaDevices: MediaDevices) {
+  const pending: Array<() => void> = [];
+  let connected: readonly MediaDeviceInfo[] = [];
+  vi.mocked(mediaDevices.enumerateDevices).mockImplementation(() => {
+    const devicesAtCall = connected;
+    return new Promise((resolve) => {
+      pending.push(() => resolve([...devicesAtCall]));
+    });
+  });
+
+  return {
+    connect(devices: readonly MediaDeviceInfo[]) {
+      connected = devices;
+    },
+    async answerNewestFirst() {
+      while (pending.length > 0) {
+        pending.pop()?.();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    },
+  };
+}
+
 function createPermissionPlaceholders() {
   return [
     createDevice("", "audioinput", ""),
@@ -647,6 +672,73 @@ describe("media session store", () => {
       error: "permission-denied",
       status: "denied",
     });
+  });
+
+  it("shows the newest camera list when an older enumeration answers last", async () => {
+    const mediaDevices = createMediaDevices(async () => createStream());
+    const enumerations = answerEnumerationsOnDemand(mediaDevices);
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+    });
+    await store.getState().start();
+    const studioCamera = createDevice(
+      "camera-1",
+      "videoinput",
+      "Studio Camera",
+    );
+    const deskCamera = createDevice("camera-2", "videoinput", "Desk Camera");
+
+    enumerations.connect([studioCamera]);
+    const olderRefresh = store.getState().refreshDevices();
+    enumerations.connect([studioCamera, deskCamera]);
+    const newerRefresh = store.getState().refreshDevices();
+    await enumerations.answerNewestFirst();
+    await Promise.all([olderRefresh, newerRefresh]);
+
+    const cameraIds = store.getState().camera.devices.map(({ id }) => id);
+    expect(cameraIds).toEqual(["camera-1", "camera-2"]);
+  });
+
+  it("ignores an enumeration that answers after the session stopped", async () => {
+    const mediaDevices = createMediaDevices(async () => createStream());
+    const enumerations = answerEnumerationsOnDemand(mediaDevices);
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+    });
+    await store.getState().start();
+    enumerations.connect([
+      createDevice("camera-1", "videoinput", "Studio Camera"),
+    ]);
+
+    const refresh = store.getState().refreshDevices();
+    store.getState().stop();
+    await enumerations.answerNewestFirst();
+    await refresh;
+
+    expect(store.getState().camera.devices).toEqual([]);
+    expect(store.getState().deviceDiscoveryStatus).toBe("idle");
+  });
+
+  it("keeps the last listed devices when a later enumeration fails", async () => {
+    const mediaDevices = createMediaDevices(async () => createStream());
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+    });
+    await store.getState().start();
+    await store.getState().refreshDevices();
+
+    vi.mocked(mediaDevices.enumerateDevices).mockRejectedValue(
+      new DOMException("blocked", "NotAllowedError"),
+    );
+    await store.getState().refreshDevices();
+
+    expect(store.getState().deviceDiscoveryStatus).toBe("failed");
+    expect(store.getState().camera.devices).toEqual([
+      { id: "camera-1", isDefault: false, label: "Studio Camera" },
+    ]);
   });
 
   it("reports whether choosing a speaker failed", async () => {

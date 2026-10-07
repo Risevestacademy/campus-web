@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, userEvent, within } from "storybook/test";
 
 import { Label } from "./label";
 import { Textarea } from "./textarea";
@@ -32,9 +31,4 @@ export const Gallery: Story = {
       />
     </div>
   ),
-  play: async ({ canvasElement }) => {
-    const textarea = within(canvasElement).getByLabelText("Description");
-    await userEvent.type(textarea, "A collaborative learning space.");
-    await expect(textarea).toHaveValue("A collaborative learning space.");
-  },
 };

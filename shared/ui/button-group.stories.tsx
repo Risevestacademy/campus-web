@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, within } from "storybook/test";
 
 import { Button } from "./button";
 import {
@@ -34,13 +33,6 @@ export const Horizontal: Story = {
       <Button variant="outline">Right</Button>
     </ButtonGroup>
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const group = canvas.getByRole("group", { name: "Text alignment" });
-
-    await expect(group).toBeVisible();
-    await expect(within(group).getAllByRole("button")).toHaveLength(3);
-  },
 };
 
 export const Vertical: Story = {

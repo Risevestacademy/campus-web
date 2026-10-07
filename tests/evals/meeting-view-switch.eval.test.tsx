@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CampusMediaSessionProvider } from "@/features/campus";
 import { activeCampusLayout } from "@/tests/fixtures/active-campus-layout";
@@ -14,7 +14,12 @@ async function renderActiveCampusLayout() {
   );
 }
 
-describe("meeting view switch acceptance (required threshold: 3/3)", () => {
+afterEach(() => {
+  window.localStorage.clear();
+  Reflect.deleteProperty(document.documentElement.dataset, "sidebarOpen");
+});
+
+describe("meeting view switch acceptance (required threshold: 4/4)", () => {
   it("controls the tile layout and backdrop through the active-campus layout", async () => {
     await renderActiveCampusLayout();
 
@@ -53,7 +58,7 @@ describe("meeting view switch acceptance (required threshold: 3/3)", () => {
     ).toBeInTheDocument();
   });
 
-  it("promotes an expanded tile and moves the other tile to secondary emphasis", async () => {
+  it("promotes, swaps, and restores an expanded tile", async () => {
     await renderActiveCampusLayout();
 
     fireEvent.click(screen.getByRole("switch", { name: "Use grid view" }), {
@@ -78,5 +83,25 @@ describe("meeting view switch acceptance (required threshold: 3/3)", () => {
     expect(participantA).toHaveAttribute("aria-pressed", "false");
     expect(participantJ).toHaveAttribute("aria-pressed", "true");
     expect(participantJ).toHaveAccessibleName("Restore equal meeting view");
+
+    fireEvent.click(participantJ, { detail: 1 });
+
+    expect(participantJ).toHaveAttribute("aria-pressed", "false");
+    expect(participantJ).toHaveAccessibleName("Focus Participant J");
+  });
+
+  it("collapses the sidebar for grid view and returns to the map when it reopens", async () => {
+    await renderActiveCampusLayout();
+
+    const viewSwitch = screen.getByRole("switch", { name: "Use grid view" });
+
+    fireEvent.click(viewSwitch, { detail: 1 });
+
+    expect(document.documentElement.dataset.sidebarOpen).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Open sidebar" }));
+
+    expect(document.documentElement.dataset.sidebarOpen).toBe("true");
+    expect(viewSwitch).toHaveAttribute("aria-checked", "false");
   });
 });

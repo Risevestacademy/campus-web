@@ -485,16 +485,9 @@ Initial frontend domains should include:
 
 # API Architecture
 
-Global HTTP configuration belongs in:
-
-core/api/
-
-Example:
-
-core/api/  
-├── api-client.ts  
-├── api-error.ts  
-└── api.types.ts
+Shared HTTP transport belongs in `core/api/client/`. It contains the generated
+Campus API contract, one client factory, direct server composition, and the
+policy-enforcing browser proxy.
 
 Feature endpoints remain within their features.
 
@@ -502,19 +495,16 @@ Example:
 
 features/classroom/services/classroom.service.ts
 
-Application flow:
+Application flows:
 
-Component  
-↓  
-Hook  
-↓  
-TanStack Query  
-↓  
-Feature Service  
-↓  
-API Client  
-↓  
-Backend
+Server Component → Feature gateway → Direct server client → Campus API
+
+Client island → Feature gateway → Browser client → Next proxy → Campus API
+
+Realtime client → Authorized WebSocket/WebRTC provider
+
+Do not add a Next-owned endpoint when the operation belongs to Campus API.
+Dedicated Next Route Handlers require a concrete frontend-owned HTTP contract.
 
 # Import Rules
 

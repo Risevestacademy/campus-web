@@ -3,19 +3,17 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
 
-const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
-const ROOT_PROXY = path.join(PROJECT_ROOT, "proxy.ts");
-const BOUNDARY_RULE = "boundaries/dependencies";
+import {
+  boundaryErrors as lintBoundaries,
+  PROJECT_ROOT,
+} from "@/tests/fixtures/boundary-lint";
 
-async function boundaryErrors(source: string): Promise<string[]> {
-  const eslint = new ESLint({ cwd: PROJECT_ROOT });
-  const [result] = await eslint.lintText(source, { filePath: ROOT_PROXY });
-  return (result?.messages ?? [])
-    .filter((message) => message.ruleId === BOUNDARY_RULE)
-    .map((message) => message.message);
+const ROOT_PROXY = path.join(PROJECT_ROOT, "proxy.ts");
+
+function boundaryErrors(source: string): Promise<string[]> {
+  return lintBoundaries(source, ROOT_PROXY);
 }
 
 function proxyImporting(specifier: string): string {

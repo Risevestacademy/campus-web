@@ -9,24 +9,25 @@ features/home/
 ├── index.ts
 ├── README.md
 └── sections/
-    └── hero/
-        └── hero-section.tsx
+    ├── cta.tsx           # a section is one file…
+    ├── faqs.tsx
+    └── hero/             # …until it needs a folder
+        ├── hero-section.tsx
+        ├── hero-mobile-menu.tsx
+        └── hero-mobile-menu.test.tsx
 ```
-
-`sections/hero/` is the reference implementation for future landing-page
-sections.
 
 ## Section contract
 
 Each landing-page section:
 
-- lives in its own `sections/<name>/` directory;
-- uses `<name>-section.tsx` as its entry component;
-- uses a named `<Name>Section` export;
+- is one file, `sections/<name>.tsx`, with a named `<Name>Section` export;
+- moves to `sections/<name>/`, with `<name>-section.tsx` as its entry, only
+  once it has a client leaf, a test, or several files;
 - remains a Server Component unless a focused interactive leaf requires
   `"use client"`;
 - renders a semantic section with a stable `id` and accessible heading;
-- colocates its components, assets, styles, and helpers in its directory;
+- keeps one-caller helpers as private functions in its own file or folder;
 - may import from `core` and `shared`, but never from another feature; and
 - must not import another home section directly.
 

@@ -4,15 +4,17 @@ import type {
   AudioOutputState,
   CaptureSource,
   CaptureSourceState,
+  DeviceCatalogSnapshot,
   DeviceDiscoveryStatus,
   LocalMediaPublication,
+  MediaDeviceCatalog,
   MediaDeviceOption,
   MediaSessionErrorCode,
   MeetingMediaTransport,
   PublicationSource,
   RemotePublicationRegistry,
 } from "./contracts";
-import { discoverMediaDevices } from "./device-discovery";
+import { createDeviceCatalog } from "./device-discovery";
 import {
   DEFAULT_MEDIA_DEVICE_PREFERENCES,
   loadMediaDevicePreferences,
@@ -298,8 +300,70 @@ export function createMediaSessionStore(
       });
     }
 
+    function applyDeviceCatalog(devices: MediaDeviceCatalog) {
+      set((state) => {
+        const defaultOutputDeviceId =
+          devices.speakers.find((device) => device.isDefault)?.id ??
+          devices.speakers[0]?.id ??
+          "";
+        const selectedOutputStillExists =
+          !state.output.selectedDeviceId ||
+          devices.speakers.some(
+            (device) => device.id === state.output.selectedDeviceId,
+          );
+
+        return {
+          camera: withDiscoveredDevices(
+            state.camera,
+            devices.cameras,
+            devices.permissionRequired.cameras,
+          ),
+          deviceDiscoveryStatus: "ready",
+          microphone: withDiscoveredDevices(
+            state.microphone,
+            devices.microphones,
+            devices.permissionRequired.microphones,
+          ),
+          output: {
+            ...state.output,
+            devices: devices.speakers,
+            error: null,
+            selectedDeviceId: selectedOutputStillExists
+              ? state.output.selectedDeviceId || defaultOutputDeviceId
+              : defaultOutputDeviceId,
+            status: state.output.supportsSelection ? "ready" : "unsupported",
+          },
+        };
+      });
+    }
+
+    // A failed refresh keeps the last good device lists on screen.
+    function applyCatalogSnapshot(snapshot: DeviceCatalogSnapshot) {
+      switch (snapshot.status) {
+        case "idle":
+          set({ deviceDiscoveryStatus: "idle" });
+          return;
+        case "refreshing":
+          set({ deviceDiscoveryStatus: "loading" });
+          return;
+        case "ready":
+          applyDeviceCatalog(snapshot.catalog);
+          return;
+        case "stale":
+        case "failed":
+          set((state) => ({
+            deviceDiscoveryStatus: "failed",
+            output: { ...state.output, error: "unknown", status: "failed" },
+          }));
+      }
+    }
+
+    const deviceCatalog = mediaDevices
+      ? createDeviceCatalog({ mediaDevices, onSnapshot: applyCatalogSnapshot })
+      : null;
+
     async function refreshDevices() {
-      if (!mediaDevices) {
+      if (!deviceCatalog) {
         set((state) => ({
           camera: {
             ...state.camera,
@@ -321,51 +385,7 @@ export function createMediaSessionStore(
         return;
       }
 
-      set({ deviceDiscoveryStatus: "loading" });
-
-      try {
-        const devices = await discoverMediaDevices(mediaDevices);
-
-        set((state) => {
-          const defaultOutputDeviceId =
-            devices.speakers.find((device) => device.isDefault)?.id ??
-            devices.speakers[0]?.id ??
-            "";
-          const selectedOutputStillExists =
-            !state.output.selectedDeviceId ||
-            devices.speakers.some(
-              (device) => device.id === state.output.selectedDeviceId,
-            );
-
-          return {
-            camera: withDiscoveredDevices(
-              state.camera,
-              devices.cameras,
-              devices.permissionRequired.cameras,
-            ),
-            deviceDiscoveryStatus: "ready",
-            microphone: withDiscoveredDevices(
-              state.microphone,
-              devices.microphones,
-              devices.permissionRequired.microphones,
-            ),
-            output: {
-              ...state.output,
-              devices: devices.speakers,
-              error: null,
-              selectedDeviceId: selectedOutputStillExists
-                ? state.output.selectedDeviceId || defaultOutputDeviceId
-                : defaultOutputDeviceId,
-              status: state.output.supportsSelection ? "ready" : "unsupported",
-            },
-          };
-        });
-      } catch {
-        set((state) => ({
-          deviceDiscoveryStatus: "failed",
-          output: { ...state.output, error: "unknown", status: "failed" },
-        }));
-      }
+      await deviceCatalog.refresh();
     }
 
     async function acquireSource(
@@ -630,6 +650,7 @@ export function createMediaSessionStore(
         started = false;
         operationVersions.camera += 1;
         operationVersions.microphone += 1;
+        deviceCatalog?.reset();
         removeDeviceChangeListener?.();
         removeDeviceChangeListener = undefined;
         unsubscribeRemotePublications?.();
