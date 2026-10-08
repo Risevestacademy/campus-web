@@ -108,14 +108,14 @@ describe("CohortCatalogue", () => {
   });
 
   it.each([
-    [1, 3, [], ["Next page", "/campus?page=2"]],
+    [1, 3, [], ["Next page", "/campus?view=cohorts&page=2"]],
     [
       2,
       3,
-      ["Previous page", "/campus?page=1"],
-      ["Next page", "/campus?page=3"],
+      ["Previous page", "/campus?view=cohorts&page=1"],
+      ["Next page", "/campus?view=cohorts&page=3"],
     ],
-    [3, 3, ["Previous page", "/campus?page=2"], []],
+    [3, 3, ["Previous page", "/campus?view=cohorts&page=2"], []],
   ])(
     "links page %i of %i to its neighbours",
     async (page, totalPages, previous, next) => {
@@ -176,7 +176,7 @@ describe("CohortCatalogue", () => {
     );
     expect(screen.getByRole("link", { name: "Try again" })).toHaveAttribute(
       "href",
-      "/campus?page=2",
+      "/campus?view=cohorts&page=2",
     );
     expect(
       screen.queryByRole("button", { name: "Create cohort" }),

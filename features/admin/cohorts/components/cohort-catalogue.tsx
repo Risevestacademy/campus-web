@@ -16,7 +16,10 @@ const EMPTY_CATALOGUE =
   "No cohorts yet. Create the first one, then add its tracks before inviting students.";
 
 function catalogueHref(page: number) {
-  return { pathname: "/campus", query: { page: String(page) } } as const;
+  return {
+    pathname: "/campus",
+    query: { view: "cohorts", page: String(page) },
+  } as const;
 }
 
 function CohortGrid({
@@ -86,7 +89,7 @@ function CohortsUnavailable({ page }: { page: number }) {
     <div className="grid justify-items-start gap-4">
       <p role="alert">We couldn&apos;t load the cohorts. Please try again.</p>
       <a
-        href={`/campus?page=${page}`}
+        href={`/campus?view=cohorts&page=${page}`}
         className={cn(buttonVariants({ variant: "outline" }))}
       >
         Try again

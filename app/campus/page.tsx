@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { CohortCatalogue } from "@/features/admin";
+import { AdministrationCatalogue } from "@/features/admin";
 import {
   AccountMenu,
   requireRouteAccess,
@@ -17,11 +17,11 @@ function initialOf({ displayName, email }: Viewer): string {
 }
 
 interface CampusPageProps {
-  searchParams: Promise<{ page?: string | string[] }>;
+  searchParams: Promise<{ view?: string | string[]; page?: string | string[] }>;
 }
 
 export default async function CampusPage({ searchParams }: CampusPageProps) {
-  const [access, { page }] = await Promise.all([
+  const [access, { view, page }] = await Promise.all([
     requireRouteAccess({ kind: "campus-index" }),
     searchParams,
   ]);
@@ -32,7 +32,10 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
 
   const cohortSelection =
     access.session.user.systemRole === "admin" ? (
-      <CohortCatalogue page={firstSearchParameter(page)} />
+      <AdministrationCatalogue
+        view={firstSearchParameter(view)}
+        page={firstSearchParameter(page)}
+      />
     ) : (
       <CohortChooser viewer={access.session} />
     );

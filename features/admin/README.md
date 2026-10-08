@@ -1,8 +1,8 @@
 # Administration
 
 Owns System Administrator workflows under the `/campus` route hierarchy.
-The Cohort module provides catalogue, create, edit, and guarded-delete
-workflows.
+The Cohort and Programme Track modules provide catalogue, create, edit, and
+guarded-delete workflows.
 
 ## Public interface
 
@@ -11,6 +11,10 @@ import { CohortCatalogue } from "@/features/admin";
 
 <CohortCatalogue page={page} />;
 ```
+
+`AdministrationCatalogue` is the `/campus` composition boundary. It accepts
+the URL-backed `view` (`cohorts` or `tracks`) and page, resets page to 1 when
+switching tabs, and falls back to Cohorts page 1 for invalid values.
 
 The interface accepts the requested page and hides transport clients, response
 validation, domain outcomes, mutation policy, analytics, and navigation.
@@ -102,6 +106,17 @@ requests. The backend remains authoritative for whether the Cohort is empty.
 
 Both mutations use `retry: false` and a synchronous in-flight gate, so repeated
 submission sends at most one request.
+
+## Programme Track catalogue
+
+The Track catalogue reads `GET /v1/tracks?page=N` in a Server Component. Track
+forms trim names and descriptions, uppercase codes, omit empty descriptions on
+create, and send only changed fields on edit. Clearing an existing description
+sends `null`.
+
+Track deletion sends only `DELETE /v1/tracks/{id}`. A `409` means the Track is
+still attached to a Cohort; the dialog remains open and no cascade or detach
+request is attempted.
 
 ## Internal transport
 
