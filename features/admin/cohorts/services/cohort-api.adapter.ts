@@ -4,7 +4,11 @@ import { parseCohortList } from "../schemas/cohort.schema";
 import type {
   CohortCreation,
   CohortCreationProblem,
+  CohortDeletion,
+  CohortEdit,
   CohortListRead,
+  CohortMutationProblem,
+  CohortPatch,
   NewCohort,
 } from "../types/cohort.types";
 
@@ -51,5 +55,53 @@ export async function createCohort(
       : creationProblem(CREATION_PROBLEMS[response.status] ?? "unavailable");
   } catch {
     return creationProblem("unavailable");
+  }
+}
+
+const MUTATION_PROBLEMS: Readonly<
+  Partial<Record<number, CohortMutationProblem>>
+> = {
+  400: "invalid",
+  401: "signed-out",
+  403: "forbidden",
+  404: "missing",
+  409: "conflict",
+};
+
+function mutationProblem(status: number): CohortMutationProblem {
+  return MUTATION_PROBLEMS[status] ?? "unavailable";
+}
+
+export async function editCohort(
+  api: ApiClient,
+  id: string,
+  changes: CohortPatch,
+): Promise<CohortEdit> {
+  try {
+    const { response } = await api.PATCH("/v1/cohorts/{id}", {
+      params: { path: { id } },
+      body: changes,
+    });
+    return response.ok
+      ? { kind: "updated" }
+      : { kind: "problem", problem: mutationProblem(response.status) };
+  } catch {
+    return { kind: "problem", problem: "unavailable" };
+  }
+}
+
+export async function deleteCohort(
+  api: ApiClient,
+  id: string,
+): Promise<CohortDeletion> {
+  try {
+    const { response } = await api.DELETE("/v1/cohorts/{id}", {
+      params: { path: { id } },
+    });
+    return response.ok
+      ? { kind: "deleted" }
+      : { kind: "problem", problem: mutationProblem(response.status) };
+  } catch {
+    return { kind: "problem", problem: "unavailable" };
   }
 }

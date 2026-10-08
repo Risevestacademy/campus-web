@@ -1,10 +1,13 @@
 import { z } from "zod";
 
 import type {
+  CohortEditRead,
+  CohortFieldErrors,
   CohortPage,
+  CohortPatch,
   CohortStatus,
+  CohortSummary,
   NewCohort,
-  NewCohortErrors,
   NewCohortRead,
 } from "../types/cohort.types";
 
@@ -23,6 +26,9 @@ const cohortListSchema = z.object({
       id: z.string().min(1),
       name: z.string(),
       code: z.string(),
+      startDate: z.iso.date().nullable(),
+      endDate: z.iso.date().nullable(),
+      status: z.enum(COHORT_STATUSES),
     }),
   ),
   meta: z.object({
@@ -34,7 +40,7 @@ const cohortListSchema = z.object({
 const cohortDate = z.iso.date("Enter a valid date.").optional();
 
 // YYYY-MM-DD strings sort as dates, so no Date (and no timezone) is involved.
-const newCohortSchema = z
+const cohortFieldsSchema = z
   .object({
     name: z.string().trim().min(1, "Enter a cohort name."),
     code: z
@@ -54,18 +60,30 @@ const newCohortSchema = z
     },
   );
 
-// An empty input means "not set", so it is left out rather than sent as "".
-function filledEntries(form: FormData): Record<string, string> {
-  return Object.fromEntries(
-    [...form.entries()].filter(
-      (entry): entry is [string, string] =>
-        typeof entry[1] === "string" && entry[1] !== "",
-    ),
-  );
+function formText(form: FormData, field: string): string {
+  const value = form.get(field);
+  return typeof value === "string" ? value : "";
 }
 
-function firstErrorPerField(issues: z.ZodError["issues"]): NewCohortErrors {
-  const errors: NewCohortErrors = {};
+function optionalFormText(form: FormData, field: string): string | undefined {
+  return formText(form, field) || undefined;
+}
+
+function readCohortFields(form: FormData) {
+  const startDate = optionalFormText(form, "startDate");
+  const endDate = optionalFormText(form, "endDate");
+
+  return cohortFieldsSchema.safeParse({
+    name: formText(form, "name"),
+    code: formText(form, "code"),
+    ...(startDate ? { startDate } : {}),
+    ...(endDate ? { endDate } : {}),
+    status: formText(form, "status"),
+  });
+}
+
+function firstErrorPerField(issues: z.ZodError["issues"]): CohortFieldErrors {
+  const errors: CohortFieldErrors = {};
   for (const { path, message } of issues) {
     const field = path[0] as keyof NewCohort;
     errors[field] ??= message;
@@ -86,17 +104,53 @@ export function parseCohortList(body: unknown): CohortPage | undefined {
 
   const { items, meta } = parsed.data;
   return {
-    cohorts: items.map(({ id, name, code }) => ({ id, name, code })),
+    cohorts: items.map(({ id, name, code, startDate, endDate, status }) => ({
+      id,
+      name,
+      code,
+      startDate,
+      endDate,
+      status,
+    })),
     page: meta.page,
     totalPages: meta.totalPages,
   };
 }
 
 export function parseNewCohort(form: FormData): NewCohortRead {
-  const { name = "", code = "", ...optional } = filledEntries(form);
-  const parsed = newCohortSchema.safeParse({ name, code, ...optional });
+  const parsed = readCohortFields(form);
 
   return parsed.success
     ? { kind: "valid", cohort: parsed.data }
     : { kind: "invalid", errors: firstErrorPerField(parsed.error.issues) };
+}
+
+export function parseCohortEdit(
+  form: FormData,
+  cohort: CohortSummary,
+): CohortEditRead {
+  const parsed = readCohortFields(form);
+  if (!parsed.success) {
+    return {
+      kind: "invalid",
+      errors: firstErrorPerField(parsed.error.issues),
+    };
+  }
+
+  const values = parsed.data;
+  const changes: CohortPatch = {};
+
+  if (values.name !== cohort.name) changes.name = values.name;
+  if (values.code !== cohort.code) changes.code = values.code;
+  if ((values.startDate ?? null) !== cohort.startDate) {
+    changes.startDate = values.startDate ?? null;
+  }
+  if ((values.endDate ?? null) !== cohort.endDate) {
+    changes.endDate = values.endDate ?? null;
+  }
+  if (values.status !== cohort.status) changes.status = values.status;
+
+  return Object.keys(changes).length === 0
+    ? { kind: "unchanged" }
+    : { kind: "valid", changes };
 }

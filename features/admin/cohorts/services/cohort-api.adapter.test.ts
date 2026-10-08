@@ -6,7 +6,12 @@ import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { createApiClient } from "@/core/api/client";
 import type { Reply } from "@/tests/fixtures/mock-api";
 
-import { createCohort, listCohorts } from "./cohort-api.adapter";
+import {
+  createCohort,
+  deleteCohort,
+  editCohort,
+  listCohorts,
+} from "./cohort-api.adapter";
 
 const mockApi = await vi.hoisted(async () => {
   const { startMockApi } = await import("@/tests/fixtures/mock-api");
@@ -67,8 +72,22 @@ describe("listCohorts", () => {
     await expect(listCohorts(api, 2)).resolves.toEqual({
       kind: "loaded",
       cohorts: [
-        { id: "c-9", name: "Cohort 9", code: "C9" },
-        { id: "c-8", name: "Cohort 8", code: "C8" },
+        {
+          id: "c-9",
+          name: "Cohort 9",
+          code: "C9",
+          startDate: "2026-09-01",
+          endDate: null,
+          status: "active",
+        },
+        {
+          id: "c-8",
+          name: "Cohort 8",
+          code: "C8",
+          startDate: "2026-09-01",
+          endDate: null,
+          status: "active",
+        },
       ],
       page: 2,
       totalPages: 3,
@@ -164,6 +183,98 @@ describe("createCohort", () => {
     backendAnswersCreate(() => HttpResponse.error());
 
     await expect(createCohort(api, newCohort)).resolves.toEqual({
+      kind: "problem",
+      problem: "unavailable",
+    });
+  });
+});
+
+describe("editCohort", () => {
+  const cohortUrl = `${API_ORIGIN}/v1/cohorts/cohort-1`;
+
+  it("PATCHes only the supplied changes", async () => {
+    const bodies: unknown[] = [];
+    mockApi.server.use(
+      http.patch(cohortUrl, async ({ request }) => {
+        bodies.push(await request.json());
+        return Response.json(cohortDto("cohort-1", "Renamed", "C2"));
+      }),
+    );
+
+    await expect(
+      editCohort(api, "cohort-1", {
+        name: "Renamed",
+        code: "C2",
+        endDate: null,
+      }),
+    ).resolves.toEqual({ kind: "updated" });
+    expect(bodies).toEqual([{ name: "Renamed", code: "C2", endDate: null }]);
+  });
+
+  it.each([
+    [400, "invalid"],
+    [401, "signed-out"],
+    [403, "forbidden"],
+    [404, "missing"],
+    [409, "conflict"],
+    [500, "unavailable"],
+  ])("maps PATCH HTTP %i to %s", async (status, problem) => {
+    mockApi.server.use(
+      http.patch(cohortUrl, () => new Response(null, { status })),
+    );
+
+    await expect(
+      editCohort(api, "cohort-1", { name: "Renamed" }),
+    ).resolves.toEqual({ kind: "problem", problem });
+  });
+
+  it("maps a PATCH network failure to unavailable", async () => {
+    mockApi.server.use(http.patch(cohortUrl, () => HttpResponse.error()));
+
+    await expect(
+      editCohort(api, "cohort-1", { name: "Renamed" }),
+    ).resolves.toEqual({ kind: "problem", problem: "unavailable" });
+  });
+});
+
+describe("deleteCohort", () => {
+  const cohortUrl = `${API_ORIGIN}/v1/cohorts/cohort-1`;
+
+  it("DELETEs only the named Cohort", async () => {
+    mockApi.server.use(
+      http.delete(cohortUrl, () => new Response(null, { status: 204 })),
+    );
+
+    await expect(deleteCohort(api, "cohort-1")).resolves.toEqual({
+      kind: "deleted",
+    });
+    expect(mockApi.requests.map(({ method, url }) => [method, url])).toEqual([
+      ["DELETE", cohortUrl],
+    ]);
+  });
+
+  it.each([
+    [400, "invalid"],
+    [401, "signed-out"],
+    [403, "forbidden"],
+    [404, "missing"],
+    [409, "conflict"],
+    [500, "unavailable"],
+  ])("maps DELETE HTTP %i to %s", async (status, problem) => {
+    mockApi.server.use(
+      http.delete(cohortUrl, () => new Response(null, { status })),
+    );
+
+    await expect(deleteCohort(api, "cohort-1")).resolves.toEqual({
+      kind: "problem",
+      problem,
+    });
+  });
+
+  it("maps a DELETE network failure to unavailable", async () => {
+    mockApi.server.use(http.delete(cohortUrl, () => HttpResponse.error()));
+
+    await expect(deleteCohort(api, "cohort-1")).resolves.toEqual({
       kind: "problem",
       problem: "unavailable",
     });

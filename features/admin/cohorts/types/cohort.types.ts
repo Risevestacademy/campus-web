@@ -1,9 +1,22 @@
 import type { components } from "@/core/api/client";
 
+export type CohortStatus = components["schemas"]["CohortStatus"];
+
+export interface CohortFieldValues {
+  name: string;
+  code: string;
+  startDate?: string;
+  endDate?: string;
+  status: CohortStatus;
+}
+
 export interface CohortSummary {
   id: string;
   name: string;
-  code?: string;
+  code: string;
+  startDate: string | null;
+  endDate: string | null;
+  status: CohortStatus;
 }
 
 export interface CohortPage {
@@ -15,17 +28,11 @@ export interface CohortPage {
 export type CohortListRead =
   ({ kind: "loaded" } & CohortPage) | { kind: "unavailable" };
 
-export type CohortStatus = components["schemas"]["CohortStatus"];
-
-export interface NewCohort {
-  name: string;
-  code: string;
-  startDate?: string;
-  endDate?: string;
-  status: CohortStatus;
-}
-
-export type NewCohortErrors = Partial<Record<keyof NewCohort, string>>;
+export type NewCohort = CohortFieldValues;
+export type CohortFieldErrors = Partial<
+  Record<keyof CohortFieldValues, string>
+>;
+export type NewCohortErrors = CohortFieldErrors;
 
 export type NewCohortRead =
   | { kind: "valid"; cohort: NewCohort }
@@ -36,3 +43,24 @@ export type CohortCreationProblem =
 
 export type CohortCreation =
   { kind: "created" } | { kind: "problem"; problem: CohortCreationProblem };
+
+export type CohortPatch = components["schemas"]["UpdateCohortDto"];
+
+export type CohortEditRead =
+  | { kind: "valid"; changes: CohortPatch }
+  | { kind: "invalid"; errors: CohortFieldErrors }
+  | { kind: "unchanged" };
+
+export type CohortMutationProblem =
+  | "invalid"
+  | "signed-out"
+  | "forbidden"
+  | "missing"
+  | "conflict"
+  | "unavailable";
+
+export type CohortEdit =
+  { kind: "updated" } | { kind: "problem"; problem: CohortMutationProblem };
+
+export type CohortDeletion =
+  { kind: "deleted" } | { kind: "problem"; problem: CohortMutationProblem };

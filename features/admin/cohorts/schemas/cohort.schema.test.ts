@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseChooserPage, parseNewCohort } from "./cohort.schema";
+import {
+  parseChooserPage,
+  parseCohortEdit,
+  parseNewCohort,
+} from "./cohort.schema";
 
 describe("parseChooserPage", () => {
   it.each([
@@ -124,6 +128,83 @@ describe("parseNewCohort", () => {
     expect(parseNewCohort(cohortForm({ status }))).toEqual({
       kind: "invalid",
       errors: { status: "Choose a status." },
+    });
+  });
+});
+
+const cohort = {
+  id: "cohort-1",
+  name: "Cohort 1",
+  code: "C1",
+  startDate: "2026-09-01",
+  endDate: "2027-06-30",
+  status: "upcoming" as const,
+};
+
+describe("parseCohortEdit", () => {
+  it("returns only normalized fields that changed", () => {
+    expect(
+      parseCohortEdit(
+        cohortForm({
+          name: " Renamed cohort ",
+          code: " c2 ",
+          startDate: "2026-09-01",
+          endDate: "2027-06-30",
+          status: "active",
+        }),
+        cohort,
+      ),
+    ).toEqual({
+      kind: "valid",
+      changes: {
+        name: "Renamed cohort",
+        code: "C2",
+        status: "active",
+      },
+    });
+  });
+
+  it("uses null to clear an optional date", () => {
+    expect(
+      parseCohortEdit(
+        cohortForm({
+          startDate: "2026-09-01",
+          endDate: "",
+        }),
+        cohort,
+      ),
+    ).toEqual({
+      kind: "valid",
+      changes: { endDate: null },
+    });
+  });
+
+  it("does not produce a mutation when normalized values are unchanged", () => {
+    expect(
+      parseCohortEdit(
+        cohortForm({
+          name: " Cohort 1 ",
+          code: " c1 ",
+          startDate: "2026-09-01",
+          endDate: "2027-06-30",
+        }),
+        cohort,
+      ),
+    ).toEqual({ kind: "unchanged" });
+  });
+
+  it("validates the complete edited date range", () => {
+    expect(
+      parseCohortEdit(
+        cohortForm({
+          startDate: "2027-07-01",
+          endDate: "2027-06-30",
+        }),
+        cohort,
+      ),
+    ).toEqual({
+      kind: "invalid",
+      errors: { endDate: "End date must be on or after the start date." },
     });
   });
 });
