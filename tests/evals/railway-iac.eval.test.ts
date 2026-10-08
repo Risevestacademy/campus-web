@@ -36,7 +36,22 @@ function findService(
   return resource;
 }
 
-describe("Railway IaC eval (required threshold: 4/4)", () => {
+const alwaysOnRegions = {
+  multiRegionConfig: {
+    ams: { numReplicas: 1 },
+  },
+};
+
+const campusWebBaseVariables = {
+  API_BASE_URL: {
+    type: "literal",
+    value: "http://${{campus-api.RAILWAY_PRIVATE_DOMAIN}}:${{campus-api.PORT}}",
+  },
+  NEXT_PUBLIC_POSTHOG_HOST: { type: "preserve" },
+  NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: { type: "preserve" },
+};
+
+describe("Railway IaC eval (required threshold: 7/7)", () => {
   it("owns only the two frontend services through one stable partial", async () => {
     const definitions = await Promise.all([
       evaluateRailwayDefinition(stagingDefinition),
@@ -93,15 +108,9 @@ describe("Railway IaC eval (required threshold: 4/4)", () => {
     ]);
 
     for (const definition of definitions) {
-      expect(findService(definition, "campus-web").variables).toEqual({
-        API_BASE_URL: {
-          type: "literal",
-          value:
-            "http://${{campus-api.RAILWAY_PRIVATE_DOMAIN}}:${{campus-api.PORT}}",
-        },
-        NEXT_PUBLIC_POSTHOG_HOST: { type: "preserve" },
-        NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: { type: "preserve" },
-      });
+      expect(findService(definition, "campus-web").variables).toMatchObject(
+        campusWebBaseVariables,
+      );
     }
   });
 
@@ -119,5 +128,97 @@ describe("Railway IaC eval (required threshold: 4/4)", () => {
         },
       });
     }
+  });
+
+  it("renders the imported build and watch settings in both environments", async () => {
+    const definitions = await Promise.all([
+      evaluateRailwayDefinition(stagingDefinition),
+      evaluateRailwayDefinition(productionDefinition),
+    ]);
+    const expectedStorybookBuild = {
+      buildCommand: "pnpm storybook:build",
+      buildEnvironment: "V3",
+      builder: "RAILPACK",
+      watchPatterns: [
+        "/.storybook/**",
+        "/app/globals.css",
+        "/assets/**",
+        "/config/**",
+        "/core/**",
+        "/design-system/**",
+        "/features/**",
+        "/shared/**",
+        "/next.config.ts",
+        "/package.json",
+        "/pnpm-lock.yaml",
+        "/pnpm-workspace.yaml",
+        "/postcss.config.mjs",
+        "/tsconfig.json",
+      ],
+    };
+    const expectedWebBuild = {
+      buildEnvironment: "V3",
+      builder: "RAILPACK",
+      watchPatterns: [
+        "/app/**",
+        "/assets/**",
+        "/config/**",
+        "/core/**",
+        "/features/**",
+        "/public/**",
+        "/shared/**",
+        "/instrumentation-client.ts",
+        "/next.config.ts",
+        "/package.json",
+        "/pnpm-lock.yaml",
+        "/pnpm-workspace.yaml",
+        "/postcss.config.mjs",
+        "/tsconfig.json",
+      ],
+    };
+
+    for (const definition of definitions) {
+      expect(findService(definition, "campus-storybook").build).toEqual(
+        expectedStorybookBuild,
+      );
+      expect(findService(definition, "campus-web").build).toEqual(
+        expectedWebBuild,
+      );
+    }
+  });
+
+  it("lets staging frontends sleep when idle, serving production builds that cannot keep themselves awake", async () => {
+    const staging = await evaluateRailwayDefinition(stagingDefinition);
+
+    expect(findService(staging, "campus-storybook").deploy).toEqual({
+      ...alwaysOnRegions,
+      healthcheckPath: "/",
+      sleepApplication: true,
+    });
+    expect(findService(staging, "campus-web").deploy).toEqual({
+      ...alwaysOnRegions,
+      healthcheckPath: "/",
+      sleepApplication: true,
+      startCommand: "pnpm start",
+    });
+    expect(findService(staging, "campus-web").variables).toEqual({
+      ...campusWebBaseVariables,
+      NEXT_TELEMETRY_DISABLED: { type: "literal", value: "1" },
+    });
+  });
+
+  it("keeps production frontends always-on and byte-identical to the imported configuration", async () => {
+    const production = await evaluateRailwayDefinition(productionDefinition);
+
+    expect(findService(production, "campus-storybook").deploy).toEqual({
+      ...alwaysOnRegions,
+      healthcheckPath: "/",
+    });
+    expect(findService(production, "campus-web").deploy).toEqual(
+      alwaysOnRegions,
+    );
+    expect(findService(production, "campus-web").variables).toEqual(
+      campusWebBaseVariables,
+    );
   });
 });
