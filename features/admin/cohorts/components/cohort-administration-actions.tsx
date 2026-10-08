@@ -1,6 +1,7 @@
 "use client";
 
 import { DotsThreeVerticalIcon } from "@phosphor-icons/react/dist/ssr/DotsThreeVertical";
+import Link from "next/link";
 import { useState } from "react";
 
 import { Button } from "@/shared/ui/button";
@@ -43,6 +44,13 @@ export function CohortAdministrationActions({
           align="end"
           aria-label={`${cohort.name} administration`}
         >
+          <DropdownMenuItem
+            render={
+              <Link href={`/campus/${encodeURIComponent(cohort.id)}/tracks`} />
+            }
+          >
+            Programme Tracks
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setAction("edit")}>
             Edit
           </DropdownMenuItem>

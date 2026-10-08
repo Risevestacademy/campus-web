@@ -2,7 +2,8 @@
 
 Owns System Administrator workflows under the `/campus` route hierarchy.
 The Cohort and Programme Track modules provide catalogue, create, edit, and
-guarded-delete workflows.
+guarded-delete workflows. Cohort administration also owns explicit Programme
+Track attachment and detachment.
 
 ## Public interface
 
@@ -117,6 +118,24 @@ sends `null`.
 Track deletion sends only `DELETE /v1/tracks/{id}`. A `409` means the Track is
 still attached to a Cohort; the dialog remains open and no cascade or detach
 request is attempted.
+
+## Cohort Programme Tracks
+
+`CohortTrackAdministration` is the public interface for
+`/campus/[id]/tracks`. The route requires a full-access System Administrator
+before rendering it and lives outside the Active Campus media layout.
+
+The Server Component reads attached Tracks from `GET /v1/cohorts/{id}` and a
+paginated catalogue page from `GET /v1/tracks`. Tracks already attached to the
+Cohort are removed from the attachment choices on that page.
+
+Attachment sends only `POST /v1/cohorts/{id}/tracks`. Detachment sends only
+`DELETE /v1/cohorts/{id}/tracks/{trackId}` and never calls Programme Track
+deletion. A detach conflict leaves the dialog open because students or
+Invitations still reference the association.
+
+Both mutations use `retry: false`, a synchronous in-flight gate, no optimistic
+update, and one server refresh after success.
 
 ## Internal transport
 

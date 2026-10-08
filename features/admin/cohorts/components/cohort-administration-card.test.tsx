@@ -87,6 +87,16 @@ describe("CohortAdministrationCard", () => {
     ).toBeInTheDocument();
   });
 
+  it("links Programme Track administration from the Cohort menu", async () => {
+    renderCard();
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage Cohort 1" }));
+
+    expect(
+      await screen.findByRole("menuitem", { name: "Programme Tracks" }),
+    ).toHaveAttribute("href", "/campus/cohort-1/tracks");
+  });
+
   it("PATCHes normalized changed fields once, then closes and refreshes", async () => {
     const bodies: unknown[] = [];
     mockApi.server.use(

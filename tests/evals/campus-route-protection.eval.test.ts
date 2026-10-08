@@ -40,7 +40,7 @@ const INVITE_ID = "invite-1";
 
 function session(
   scope: "provisional" | "full_access",
-  systemRole: "user" | "admin",
+  systemRole: "user" | "admin" | "super_admin",
   memberships: Membership[],
   inviteId: string | null = null,
 ): Backend {
@@ -63,6 +63,7 @@ type FetchDestination = "document" | "empty";
 type Destination = RouteAuthorizationRequest | { kind: "sign-in" };
 
 const INDEX: RouteAuthorizationRequest = { kind: "campus-index" };
+const SYSTEM_ADMIN: RouteAuthorizationRequest = { kind: "system-admin" };
 const cohort = (cohortId: string): RouteAuthorizationRequest => ({
   kind: "cohort",
   cohortId,
@@ -246,6 +247,18 @@ const SESSION_STATES: SessionState[] = [
     refresh: "rejected",
   },
   {
+    shape: "full-access administrator",
+    cookies: SESSION,
+    backend: session("full_access", "admin", []),
+    refresh: "rejected",
+  },
+  {
+    shape: "full-access Super Administrator",
+    cookies: SESSION,
+    backend: session("full_access", "super_admin", []),
+    refresh: "rejected",
+  },
+  {
     shape: "suspended",
     cookies: SESSION,
     backend: status(403),
@@ -262,6 +275,7 @@ const SESSION_STATES: SessionState[] = [
 const ENTRY_URLS = [
   "/campus",
   "/campus/c-1/meeting",
+  "/campus/c-1/tracks",
   "/invitation",
   "/preview",
   "/sign-in?returnTo=%2Finvitation",
@@ -275,7 +289,8 @@ function destinationOf(pathname: string): Destination | "refresh" {
   if (pathname === "/preview") return PREVIEW;
   if (pathname === "/campus") return INDEX;
 
-  const [, , cohortSegment = ""] = pathname.split("/");
+  const [, , cohortSegment = "", section] = pathname.split("/");
+  if (section === "tracks") return SYSTEM_ADMIN;
   return cohort(decodeURIComponent(cohortSegment));
 }
 
@@ -396,6 +411,24 @@ describe(`Auth redirect chain eval (threshold: 0 chains over ${MAX_REDIRECTS} re
 
     expect(steps).toEqual(["/campus", "/campus/c-1", "allow"]);
   });
+
+  it("forbids an ordinary member from Cohort Track administration", async () => {
+    const { steps } = await walk(
+      "/campus/c-1/tracks",
+      stateShaped("full access without an invite"),
+    );
+
+    expect(steps).toEqual(["/campus/c-1/tracks", "forbidden"]);
+  });
+
+  it.each(["full-access administrator", "full-access Super Administrator"])(
+    "allows a %s into Cohort Track administration",
+    async (shape) => {
+      const { steps } = await walk("/campus/c-1/tracks", stateShaped(shape));
+
+      expect(steps).toEqual(["/campus/c-1/tracks", "allow"]);
+    },
+  );
 });
 
 beforeEach(() => {

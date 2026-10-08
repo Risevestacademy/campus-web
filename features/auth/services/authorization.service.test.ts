@@ -164,6 +164,9 @@ const COHORT_B = {
   cohort: { name: "Cohort 4", code: "C4" },
 };
 const ownCohort = cohort(COHORT_A.cohortId);
+const systemAdministrator = {
+  kind: "system-admin",
+} as unknown as RouteAuthorizationRequest;
 
 function fullAccess(
   systemRole: "user" | "admin" | "super_admin",
@@ -616,6 +619,38 @@ describe("authorizeRoute: cohort membership", () => {
       UNAVAILABLE,
     );
   });
+});
+
+describe("authorizeRoute: System Administrator routes", () => {
+  it("forbids a full-access member", async () => {
+    backendReplies(ok(fullAccess("user", [COHORT_A])));
+
+    await expect(authorize(systemAdministrator)).resolves.toEqual({
+      kind: "forbidden",
+    });
+  });
+
+  it("sends a provisional session to its invitation flow", async () => {
+    backendReplies(ok(provisionalSession));
+
+    await expect(authorize(systemAdministrator)).resolves.toEqual({
+      kind: "redirect",
+      href: "/invitation",
+    });
+  });
+
+  it.each(["admin", "super_admin"] as const)(
+    "allows a full-access %s",
+    async (systemRole) => {
+      const session = fullAccess(systemRole, []);
+      backendReplies(ok(session));
+
+      await expect(authorize(systemAdministrator)).resolves.toEqual({
+        kind: "allow",
+        session,
+      });
+    },
+  );
 });
 
 describe("authorizeRoute: invitation routes", () => {

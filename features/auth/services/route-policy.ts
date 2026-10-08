@@ -107,6 +107,10 @@ function decideFullAccess(
       return decideCampusIndex(session, signals.enteredCampusIds);
     case "cohort":
       return decideCohort(session, request.cohortId);
+    case "system-admin":
+      return isSystemAdministrator(session.user.systemRole)
+        ? { kind: "allow", session }
+        : { kind: "forbidden" };
   }
 }
 

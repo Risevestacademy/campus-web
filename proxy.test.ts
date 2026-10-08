@@ -72,12 +72,15 @@ afterEach(() => {
 });
 
 describe("proxy matcher", () => {
-  it.each(["/campus", "/campus/42", "/campus/42/meeting", "/campus/42/join"])(
-    "runs for %s",
-    (url) => {
-      expect(unstable_doesMiddlewareMatch({ config, url })).toBe(true);
-    },
-  );
+  it.each([
+    "/campus",
+    "/campus/42",
+    "/campus/42/meeting",
+    "/campus/42/join",
+    "/campus/42/tracks",
+  ])("runs for %s", (url) => {
+    expect(unstable_doesMiddlewareMatch({ config, url })).toBe(true);
+  });
 
   it.each([
     "/",
@@ -292,6 +295,8 @@ describe("proxy: pre-join once per campus browser session", () => {
   it.each([
     "/campus/c-3/join",
     "/campus/c-3/join?returnTo=%2Fcampus",
+    "/campus/c-3/tracks",
+    "/campus/c-3/tracks?page=2",
     "/campus",
   ])("does not gate %s", (path) => {
     const response = visit(path, { cookies: signedIn, headers: hardLoad });

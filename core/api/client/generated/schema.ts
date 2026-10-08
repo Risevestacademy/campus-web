@@ -164,7 +164,7 @@ export interface paths {
     };
     /**
      * List invites
-     * @description Every invite the system has, newest first, paginated. Filter with `status` — `pending` for the open offers, `revoked` to see who cancelled what.
+     * @description Every invite the system has, newest first, paginated. Filter with `status` — `pending` for the open offers, `revoked` to see who cancelled what — and narrow to one intake with `cohortId`, `trackId`, or both.
      *
      *     This is the only place a revoked invite stays visible: sign-in cannot find one, so without this route "who revoked that address" would have no answer at all.
      *
@@ -508,6 +508,30 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/cohorts/{id}/tracks/{trackId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Detach a track from a cohort (admin only)
+     * @description Stops the cohort running a track: the reverse of POST /v1/cohorts/{id}/tracks, named by the same `trackId`. The track itself stays in the catalogue.
+     *
+     *     Refused with a 409 while anything in the cohort is still on the track — a student placed on it, or an invite that names it, whether pending or already settled. Nothing is moved or removed for you.
+     *
+     *     A cohort has to have its tracks detached before it can be deleted.
+     */
+    delete: operations["CohortsController_detachTrack"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/cohorts/{cohortId}/members/{userId}": {
     parameters: {
       query?: never;
@@ -552,33 +576,6 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
-    trace?: never;
-  };
-  "/v1/users/{id}/system-role": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Grant or revoke the admin role (admin only)
-     * @description Send `admin` to make somebody an admin, `user` to make them an ordinary user again. Any admin may do either. It takes effect on the person’s next request, and revoking the role also signs them out everywhere.
-     *
-     *     Two people are off limits, both answered with a 409:
-     *
-     *     - **A super admin.** Their role cannot be changed through the API in either direction. Super admins are the accounts in `DEFAULT_ADMIN_EMAIL`, set by the seed.
-     *     - **Yourself.** Ask another admin, so nobody locks themselves out by a slip.
-     *
-     *     Setting the role somebody already has succeeds and changes nothing. `super_admin` is not an accepted value.
-     */
-    patch: operations["UsersController_setSystemRole"];
     trace?: never;
   };
   "/v1/users/me": {
@@ -794,7 +791,7 @@ export interface components {
       inviteId: string | null;
     };
     /** @enum {string} */
-    SystemRole: "user" | "admin" | "super_admin";
+    SystemRole: "user" | "admin";
     SessionUserDto: {
       /** @example 55555555-5555-4555-8555-555555555555 */
       id: string;
@@ -898,11 +895,10 @@ export interface components {
        */
       mentorshipGroupId?: string;
       /**
-       * @description Defaults to 'user'. Admin invites pass 'admin' with no cohort fields. An invite cannot make a super admin: only the seed does.
+       * @description Defaults to 'user'. Admin invites pass 'admin' with no cohort fields.
        * @example user
-       * @enum {string}
        */
-      systemRole?: "user" | "admin";
+      systemRole?: components["schemas"]["SystemRole"];
       /**
        * @description Defaults to now + INVITE_TTL_DAYS. Must be in the future.
        * @example 2026-10-01T00:00:00.000Z
@@ -1741,21 +1737,6 @@ export interface components {
        */
       memberships: components["schemas"]["UserMembershipDto"][];
     };
-    SetSystemRoleDto: {
-      /**
-       * @description `admin` to grant the admin role, `user` to revoke it. `super_admin` is not accepted: only the seed grants it.
-       * @example admin
-       * @enum {string}
-       */
-      systemRole: "user" | "admin";
-    };
-    UserSystemRoleDto: {
-      /** @example 22222222-2222-4222-8222-222222222222 */
-      id: string;
-      /** @example ada@campus.local */
-      email: string;
-      systemRole: components["schemas"]["SystemRole"];
-    };
     OwnProfileDto: {
       /** @example 22222222-2222-4222-8222-222222222222 */
       id: string;
@@ -2082,6 +2063,10 @@ export interface operations {
         status?: components["schemas"]["InviteStatus"];
         /** @description `true` for the invites an invitee has flagged as wrong, `false` for the ones nobody has. Omit for both. Combine with `status=pending` for the flags still worth acting on. */
         flagged?: boolean;
+        /** @description Invites to this cohort. An admin invite names no cohort, so it never matches. A cohort that does not exist matches nothing: an empty page, not a 404. */
+        cohortId?: string;
+        /** @description Invites placed on this track, in whichever cohort runs it: the catalogue track id, as the roster takes it. Add `cohortId` for one cohort’s intake on the track. */
+        trackId?: string;
       };
       header?: never;
       path?: never;
@@ -3303,6 +3288,73 @@ export interface operations {
       };
     };
   };
+  CohortsController_detachTrack: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+        /** @description The track, as attached: the same id POST took as trackId. */
+        trackId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The track was detached. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description id or trackId is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No cohort has this id, or the cohort does not run this track. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Students or invites in the cohort are still on the track. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
   CohortsController_extendVisit: {
     parameters: {
       query?: never;
@@ -3430,76 +3482,6 @@ export interface operations {
       };
       /** @description Signed in, but not an admin. */
       403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ApiErrorResponseDto"];
-        };
-      };
-    };
-  };
-  UsersController_setSystemRole: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SetSystemRoleDto"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["UserSystemRoleDto"];
-        };
-      };
-      /** @description The id is not a UUID, or systemRole is not `user` or `admin`. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ApiErrorResponseDto"];
-        };
-      };
-      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ApiErrorResponseDto"];
-        };
-      };
-      /** @description Signed in, but not an admin. */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ApiErrorResponseDto"];
-        };
-      };
-      /** @description No user has this id. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ApiErrorResponseDto"];
-        };
-      };
-      /** @description The target is a super admin, or is the caller. */
-      409: {
         headers: {
           [name: string]: unknown;
         };

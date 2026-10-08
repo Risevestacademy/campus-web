@@ -1,11 +1,15 @@
 import type { components } from "@/core/api/client";
+import type {
+  InvitePreview,
+  PendingInvite,
+} from "@/features/invitation/types/invite.types";
 
 type Schemas = components["schemas"];
 
 // Shapes copied from campus-api responses for /v1/invites/*.
 export function invitePreview(
-  overrides: Partial<Schemas["InvitePreviewResponseDto"]> = {},
-): Schemas["InvitePreviewResponseDto"] {
+  overrides: Partial<InvitePreview> = {},
+): InvitePreview {
   return {
     email: "ada@campus.local",
     cohort: {
@@ -25,8 +29,8 @@ export function invitePreview(
 }
 
 export function pendingInvite(
-  overrides: Partial<Schemas["InviteOnboardingResponseDto"]> = {},
-): Schemas["InviteOnboardingResponseDto"] {
+  overrides: Partial<PendingInvite> = {},
+): PendingInvite {
   return {
     id: "2b339f4a-d1e1-4763-a68e-5bfe0480b7fd",
     cohort: {

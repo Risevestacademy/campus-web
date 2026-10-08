@@ -2,12 +2,23 @@ import type { Route } from "next";
 
 import type { components } from "@/core/api/client";
 
-export type Session = components["schemas"]["SessionResponseDto"];
+type GeneratedSession = components["schemas"]["SessionResponseDto"];
+type GeneratedSessionUser = GeneratedSession["user"];
+
+export type SystemRole = components["schemas"]["SystemRole"] | "super_admin";
+
+export type Session = Omit<GeneratedSession, "user"> & {
+  user: Omit<GeneratedSessionUser, "systemRole"> & {
+    systemRole: SystemRole;
+  };
+};
 
 export type InvitationPath = "/invitation" | "/preview";
 
 export type CampusRouteRequest =
-  { kind: "campus-index" } | { kind: "cohort"; cohortId: string };
+  | { kind: "campus-index" }
+  | { kind: "cohort"; cohortId: string }
+  | { kind: "system-admin" };
 
 export type RouteAuthorizationRequest =
   CampusRouteRequest | { kind: "invitation"; path: InvitationPath };

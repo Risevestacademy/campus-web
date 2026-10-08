@@ -163,6 +163,8 @@ describe("normalizeCohortReturnTo", () => {
     ["another cohort", "/campus/c-4/meeting"],
     ["the cohort's pre-join screen", "/campus/c-3/join?returnTo=%2Fcampus"],
     ["an encoded pre-join segment", "/campus/c-3/%6Aoin"],
+    ["the Cohort Track administration route", "/campus/c-3/tracks"],
+    ["an encoded administration segment", "/campus/c-3/%74racks"],
     ["the campus index", "/campus"],
     ["an off-site URL", "https://attacker.example/campus/c-3"],
     ["a protocol-relative URL", "//attacker.example/campus/c-3"],

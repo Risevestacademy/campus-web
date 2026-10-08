@@ -1,9 +1,12 @@
 import type { components } from "@/core/api/client";
 
-import type { InvitePreview, PendingInvite } from "../types/invite.types";
+import type {
+  InvitePreview,
+  PendingInvite,
+  SystemRole,
+} from "../types/invite.types";
 
-type Role =
-  components["schemas"]["CohortRole"] | components["schemas"]["SystemRole"];
+type Role = components["schemas"]["CohortRole"] | SystemRole;
 
 export interface InviteDetail {
   label: string;
