@@ -9,7 +9,7 @@ const sessionSchema = z.looseObject({
   user: z.looseObject({
     id: z.string().min(1),
     email: z.string().min(1),
-    systemRole: z.enum(["user", "admin"]),
+    systemRole: z.enum(["user", "admin", "super_admin"]),
   }),
   memberships: z.array(
     z.looseObject({

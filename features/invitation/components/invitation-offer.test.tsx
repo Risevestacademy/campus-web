@@ -107,20 +107,26 @@ describe("InvitationOffer: a live invitation", () => {
     ).toHaveAttribute("href", "/api/v1/auth/google");
   });
 
-  it("describes an admin invite, which joins no cohort", async () => {
-    previewReplies(() =>
-      Response.json(
-        invitePreview({ cohort: null, cohortRole: null, systemRole: "admin" }),
-      ),
-    );
+  it.each([
+    ["admin", "Admin"],
+    ["super_admin", "Super Admin"],
+  ] as const)(
+    "describes a %s system role when the backend returns it",
+    async (systemRole, label) => {
+      previewReplies(() =>
+        Response.json(
+          invitePreview({ cohort: null, cohortRole: null, systemRole }),
+        ),
+      );
 
-    await renderOffer();
+      await renderOffer();
 
-    expect(
-      screen.getByRole("heading", { name: "You're invited to Campus" }),
-    ).toBeVisible();
-    expect(chips()).toEqual(["Invited by • Ejemen Iboi", "Role • Admin"]);
-  });
+      expect(
+        screen.getByRole("heading", { name: "You're invited to Campus" }),
+      ).toBeVisible();
+      expect(chips()).toEqual(["Invited by • Ejemen Iboi", `Role • ${label}`]);
+    },
+  );
 
   it("leaves out the inviter when the invitation carries no name", async () => {
     previewReplies(() =>

@@ -166,7 +166,7 @@ const COHORT_B = {
 const ownCohort = cohort(COHORT_A.cohortId);
 
 function fullAccess(
-  systemRole: "user" | "admin",
+  systemRole: "user" | "admin" | "super_admin",
   memberships: readonly object[],
 ) {
   return {
@@ -527,15 +527,18 @@ describe("authorizeRoute: campus index membership routing", () => {
     });
   });
 
-  it("lets an admin with no cohort place choose from every cohort", async () => {
-    const session = fullAccess("admin", []);
-    backendReplies(ok(session));
+  it.each(["admin", "super_admin"] as const)(
+    "lets a %s with no cohort place choose from every cohort",
+    async (systemRole) => {
+      const session = fullAccess(systemRole, []);
+      backendReplies(ok(session));
 
-    await expect(authorize(campusIndex)).resolves.toEqual({
-      kind: "allow",
-      session,
-    });
-  });
+      await expect(authorize(campusIndex)).resolves.toEqual({
+        kind: "allow",
+        session,
+      });
+    },
+  );
 
   it("does not redirect an admin who holds a single cohort place", async () => {
     const session = fullAccess("admin", [COHORT_A]);
@@ -575,15 +578,18 @@ describe("authorizeRoute: cohort membership", () => {
     });
   });
 
-  it("lets an admin with no cohort place into any cohort", async () => {
-    const session = fullAccess("admin", []);
-    backendReplies(ok(session));
+  it.each(["admin", "super_admin"] as const)(
+    "lets a %s with no cohort place into any cohort",
+    async (systemRole) => {
+      const session = fullAccess(systemRole, []);
+      backendReplies(ok(session));
 
-    await expect(authorize(cohort("any-cohort"))).resolves.toEqual({
-      kind: "allow",
-      session,
-    });
-  });
+      await expect(authorize(cohort("any-cohort"))).resolves.toEqual({
+        kind: "allow",
+        session,
+      });
+    },
+  );
 
   it("sends a provisional session to its invitation before checking membership", async () => {
     backendReplies(ok(provisionalSession));
@@ -953,6 +959,14 @@ describe("logsOutFromRail", () => {
     ["a member with several cohorts", fullAccess("user", [COHORT_A, COHORT_B])],
     ["an admin with no cohort place", fullAccess("admin", [])],
     ["an admin with one cohort place", fullAccess("admin", [COHORT_A])],
+    [
+      "a Super Administrator with no cohort place",
+      fullAccess("super_admin", []),
+    ],
+    [
+      "a Super Administrator with one cohort place",
+      fullAccess("super_admin", [COHORT_A]),
+    ],
   ])("leaves log out to the campus chooser for %s", (_, session) => {
     expect(logsOutFromRail(asSession(session))).toBe(false);
   });

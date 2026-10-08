@@ -14,8 +14,15 @@ const administratorTransport = vi.hoisted(() => ({
 vi.mock("@/core/api/client/server", () => ({
   getServerApi: administratorTransport.getServerApi,
 }));
+vi.mock("@/features/admin", () => ({
+  AdministrationCatalogue: () => (
+    <nav aria-label="Campus catalogues">Administration</nav>
+  ),
+}));
 vi.mock("@/features/auth", () => ({
   AccountMenu: ({ children }: { children: ReactNode }) => children,
+  isSystemAdministrator: (role: string) =>
+    role === "admin" || role === "super_admin",
   requireRouteAccess: routeAccess.requireRouteAccess,
   SessionUnavailable: () => null,
 }));
@@ -67,5 +74,22 @@ describe("CampusPage", () => {
       "/campus/cohort-3",
     );
     expect(administratorTransport.getServerApi).not.toHaveBeenCalled();
+  });
+
+  it("renders the administration catalogue for a Super Administrator", async () => {
+    routeAccess.requireRouteAccess.mockResolvedValue({
+      kind: "allow",
+      session: {
+        ...memberSession,
+        user: { ...memberSession.user, systemRole: "super_admin" },
+        memberships: [],
+      },
+    });
+
+    render(await CampusPage({ searchParams: Promise.resolve({}) }));
+
+    expect(
+      screen.getByRole("navigation", { name: "Campus catalogues" }),
+    ).toBeInTheDocument();
   });
 });

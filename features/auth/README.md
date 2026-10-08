@@ -136,9 +136,10 @@ after a failure would be wrong: the cookies survive, so sign-in would send the
 visitor straight back to Campus.
 
 Placement follows the cohort chooser: `logsOutFromRail(session)` is false for
-admins and members of several cohorts, who log out from the `/campus` header,
-and true for everyone else, who never see `/campus` and log out from the
-campus rail. The rail sits in another feature, so
+System Administrators (`admin` and `super_admin`) and members of several
+cohorts, who log out from the `/campus` header, and true for everyone else,
+who never see `/campus` and log out from the campus rail. The rail sits in
+another feature, so
 `app/campus/[id]/(active-campus)/layout.tsx` hands the menu to
 `ActiveCampus` as its `AccountMenu` prop.
 
@@ -184,6 +185,9 @@ state or the Next Data Cache.
 
 `services/route-policy.ts` holds the policy as pure functions shared by the
 root proxy and `authorizeRoute`.
+
+Both `admin` and `super_admin` are System Administrators. The latter is
+seed-only in campus-api but has the same Campus administration access.
 
 | Session                             | `campus-index` (`/campus`)               | `cohort` (`/campus/[id]/**`)                |
 | ----------------------------------- | ---------------------------------------- | ------------------------------------------- |

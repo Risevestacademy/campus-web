@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AdministrationCatalogue } from "@/features/admin";
 import {
   AccountMenu,
+  isSystemAdministrator,
   requireRouteAccess,
   SessionUnavailable,
 } from "@/features/auth";
@@ -30,15 +31,16 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
     return <SessionUnavailable retryHref={access.retryHref} />;
   }
 
-  const cohortSelection =
-    access.session.user.systemRole === "admin" ? (
-      <AdministrationCatalogue
-        view={firstSearchParameter(view)}
-        page={firstSearchParameter(page)}
-      />
-    ) : (
-      <CohortChooser viewer={access.session} />
-    );
+  const cohortSelection = isSystemAdministrator(
+    access.session.user.systemRole,
+  ) ? (
+    <AdministrationCatalogue
+      view={firstSearchParameter(view)}
+      page={firstSearchParameter(page)}
+    />
+  ) : (
+    <CohortChooser viewer={access.session} />
+  );
 
   return (
     <div data-surface-role="background" className="bg-background space-y-8">

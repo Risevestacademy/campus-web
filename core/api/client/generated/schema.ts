@@ -508,6 +508,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/cohorts/{cohortId}/members/{userId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Extend a guest's visit (admin only)
+     * @description Moves when a guest membership ends. The new end must be in the future and later than the end it already has. The guest needs no sign-in: their next refresh reads the new end from the membership. A visit that has already ended is refused with a 409 — send a new invite instead.
+     */
+    patch: operations["CohortsController_extendVisit"];
+    trace?: never;
+  };
   "/v1/users": {
     parameters: {
       query?: never;
@@ -532,6 +552,33 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  "/v1/users/{id}/system-role": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Grant or revoke the admin role (admin only)
+     * @description Send `admin` to make somebody an admin, `user` to make them an ordinary user again. Any admin may do either. It takes effect on the person’s next request, and revoking the role also signs them out everywhere.
+     *
+     *     Two people are off limits, both answered with a 409:
+     *
+     *     - **A super admin.** Their role cannot be changed through the API in either direction. Super admins are the accounts in `DEFAULT_ADMIN_EMAIL`, set by the seed.
+     *     - **Yourself.** Ask another admin, so nobody locks themselves out by a slip.
+     *
+     *     Setting the role somebody already has succeeds and changes nothing. `super_admin` is not an accepted value.
+     */
+    patch: operations["UsersController_setSystemRole"];
     trace?: never;
   };
   "/v1/users/me": {
@@ -747,7 +794,7 @@ export interface components {
       inviteId: string | null;
     };
     /** @enum {string} */
-    SystemRole: "user" | "admin";
+    SystemRole: "user" | "admin" | "super_admin";
     SessionUserDto: {
       /** @example 55555555-5555-4555-8555-555555555555 */
       id: string;
@@ -851,10 +898,11 @@ export interface components {
        */
       mentorshipGroupId?: string;
       /**
-       * @description Defaults to 'user'. Admin invites pass 'admin' with no cohort fields.
+       * @description Defaults to 'user'. Admin invites pass 'admin' with no cohort fields. An invite cannot make a super admin: only the seed does.
        * @example user
+       * @enum {string}
        */
-      systemRole?: components["schemas"]["SystemRole"];
+      systemRole?: "user" | "admin";
       /**
        * @description Defaults to now + INVITE_TTL_DAYS. Must be in the future.
        * @example 2026-10-01T00:00:00.000Z
@@ -1577,6 +1625,32 @@ export interface components {
        */
       trackId: string;
     };
+    ExtendGuestVisitDto: {
+      /**
+       * Format: date-time
+       * @description When the visit now ends: in the future, and later than the end it already has.
+       * @example 2026-10-20T12:00:00.000Z
+       */
+      accessExpiresAt: string;
+    };
+    CohortMemberResponseDto: {
+      /**
+       * @description The membership's own id.
+       * @example 55555555-5555-4555-8555-555555555555
+       */
+      id: string;
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId: string;
+      /** @example 44444444-4444-4444-8444-444444444444 */
+      userId: string;
+      role: components["schemas"]["CohortRole"];
+      /**
+       * Format: date-time
+       * @description When the visit now ends.
+       * @example 2026-10-20T12:00:00.000Z
+       */
+      accessExpiresAt: string;
+    };
     UpdateCohortDto: {
       /** @example Cohort 1 */
       name?: string;
@@ -1666,6 +1740,21 @@ export interface components {
        *     This is the roster, not access. A suspended account keeps its memberships and is listed with them, so an admin can see where the person belongs, but it cannot sign in: read `status` for that.
        */
       memberships: components["schemas"]["UserMembershipDto"][];
+    };
+    SetSystemRoleDto: {
+      /**
+       * @description `admin` to grant the admin role, `user` to revoke it. `super_admin` is not accepted: only the seed grants it.
+       * @example admin
+       * @enum {string}
+       */
+      systemRole: "user" | "admin";
+    };
+    UserSystemRoleDto: {
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      id: string;
+      /** @example ada@campus.local */
+      email: string;
+      systemRole: components["schemas"]["SystemRole"];
     };
     OwnProfileDto: {
       /** @example 22222222-2222-4222-8222-222222222222 */
@@ -3214,6 +3303,77 @@ export interface operations {
       };
     };
   };
+  CohortsController_extendVisit: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExtendGuestVisitDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CohortMemberResponseDto"];
+        };
+      };
+      /** @description cohortId or userId is not a UUID, accessExpiresAt is not a date, is not in the future, or is not later than the current end. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nobody in that cohort has this membership. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The membership has left, is not a guest, or the visit has ended. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
   UsersController_list: {
     parameters: {
       query?: {
@@ -3270,6 +3430,76 @@ export interface operations {
       };
       /** @description Signed in, but not an admin. */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  UsersController_setSystemRole: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetSystemRoleDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserSystemRoleDto"];
+        };
+      };
+      /** @description The id is not a UUID, or systemRole is not `user` or `admin`. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No user has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The target is a super admin, or is the caller. */
+      409: {
         headers: {
           [name: string]: unknown;
         };

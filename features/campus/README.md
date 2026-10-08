@@ -17,7 +17,8 @@ import { CohortChooser } from "@/features/campus";
 | none        | explanation directing the member to an Invitation |
 
 The chooser never requests the System Administrator Cohort catalogue. The
-`/campus` route composes the separate Admin catalogue for administrators.
+`/campus` route composes the separate Admin catalogue for `admin` and
+`super_admin` sessions.
 
 ## Active Campus
 

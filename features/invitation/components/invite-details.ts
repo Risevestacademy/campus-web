@@ -16,6 +16,7 @@ const ROLE_LABELS: Readonly<Record<Role, string>> = {
   mentor: "Mentor",
   guest: "Guest",
   admin: "Admin",
+  super_admin: "Super Admin",
   user: "Member",
 };
 

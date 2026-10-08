@@ -10,6 +10,7 @@ import type {
   SignInDecision,
 } from "../types/auth.types";
 import type { SessionRead } from "./session.service";
+import { isSystemAdministrator } from "./system-role";
 
 const CAMPUS_HOME_PATH: Route = "/campus";
 const INVITATION_PATH: Route = "/invitation";
@@ -58,7 +59,10 @@ export function preJoinRedirect(cohortId: string, returnTo: string): Route {
 // Admins and members of several cohorts choose at /campus; everyone else is
 // sent straight into their one cohort and never sees the chooser.
 function usesCohortChooser(session: Session): boolean {
-  return session.user.systemRole === "admin" || session.memberships.length > 1;
+  return (
+    isSystemAdministrator(session.user.systemRole) ||
+    session.memberships.length > 1
+  );
 }
 
 export function logsOutFromRail(session: Session): boolean {
@@ -88,7 +92,7 @@ function decideCohort(
   cohortId: string,
 ): RouteAuthorizationDecision {
   const mayEnter =
-    session.user.systemRole === "admin" ||
+    isSystemAdministrator(session.user.systemRole) ||
     session.memberships.some((membership) => membership.cohortId === cohortId);
   return mayEnter ? { kind: "allow", session } : { kind: "forbidden" };
 }

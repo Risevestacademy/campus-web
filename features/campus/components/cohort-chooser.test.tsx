@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import { CohortChooser, type CohortViewer } from "../index";
 
 const member: CohortViewer = {
-  user: { systemRole: "user" },
   memberships: [
     { cohortId: "c-3", cohort: { name: "Cohort 3", code: "C3" } },
     { cohortId: "c-4", cohort: { name: "Cohort 4", code: "C4" } },
