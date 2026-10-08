@@ -1,6 +1,11 @@
 const CAMPUS_HOME_PATH = "/campus";
 const RETURN_ROOTS = [CAMPUS_HOME_PATH, "/invitation", "/preview"] as const;
-const NON_ACTIVE_CAMPUS_SEGMENTS = new Set(["join", "tracks"]);
+const NON_ACTIVE_CAMPUS_SEGMENTS = new Set([
+  "join",
+  "overview",
+  "tracks",
+  "invitations",
+]);
 const MAX_RETURN_TO_LENGTH = 2048;
 // Only used to serialize a path that already passed validation.
 const PARSING_ORIGIN = "https://campus.invalid";
@@ -60,7 +65,7 @@ export function normalizeReturnTo(value: string | undefined): string {
   return parseReturnTo(value) ?? CAMPUS_HOME_PATH;
 }
 
-// Pre-join and administration routes do not enter Active Campus.
+// Pre-join and administration routes do not require the Campus entry gate.
 export function activeCampusCohort(pathname: string): string | undefined {
   const [root, campus, cohortSegment, section] = pathname.split("/");
   if (root !== "" || `/${campus}` !== CAMPUS_HOME_PATH || !cohortSegment) {

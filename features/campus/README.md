@@ -22,30 +22,36 @@ The chooser never requests the System Administrator Cohort catalogue. The
 
 ## Active Campus
 
-`app/campus/[id]/(active-campus)/layout.tsx` composes one module:
+`app/campus/[id]/(active-campus)/layout.tsx` composes the shared Campus shell
+around the Active Campus media surface:
 
 ```tsx
-import { ActiveCampus } from "@/features/campus";
+import { ActiveCampus, CampusShell } from "@/features/campus";
 
-<ActiveCampus
+<CampusShell
   AccountMenu={logsOutHere ? AccountMenu : undefined}
+  AdministrationPanel={adminSidebar}
   OverviewPanel={CampusOverviewPanel}
+  cohortId={id}
 >
-  {children}
-</ActiveCampus>;
+  <ActiveCampus>{children}</ActiveCampus>
+</CampusShell>;
 ```
 
-| Prop            | Meaning                                                              |
-| --------------- | -------------------------------------------------------------------- |
-| `AccountMenu`   | optional; wraps the rail avatar (auth's Log out menu)                |
-| `OverviewPanel` | fills the map panel; receives `collapseButton`. Others "Coming soon" |
-| `children`      | the route's map or meeting content                                   |
+`CampusShell` owns the rail, sidebar, and persisted sidebar mode. Active
+Campus owns only meeting/media controls and route content. Administration
+routes reuse the shell without mounting the media surface.
 
-`ActiveCampus` is a Server Component: both props are components, which cannot
-cross into a client component. The route supplies them because this feature
-may not import `auth` or `roster`.
+System Administrators receive an Administration rail control. It switches the
+sidebar to the Admin-owned navigation panel. Selecting a normal rail panel
+returns to Campus mode. Ordinary members never receive the admin panel or its
+rail control. The route supplies Auth-, Admin-, and Roster-owned UI because
+the Campus feature may not import those features.
 
-The sidebar state (open, active panel) lives in `store/sidebar-store.ts`,
+Administration routes always open in Administration mode. The Active Campus
+route may restore the administrator's last selected sidebar mode.
+
+The sidebar state (open, active panel, mode) lives in `store/sidebar-store.ts`,
 persisted under `campus-sidebar` in `localStorage` and mirrored on
 `<html data-sidebar-open>` so the root layout's `sidebarInitializerScript`
 (imported from `@/features/campus/document`, never the barrel) can size the

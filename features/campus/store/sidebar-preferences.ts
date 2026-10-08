@@ -1,4 +1,5 @@
 export type SidebarPanelId = "search" | "map" | "chat" | "tasks" | "calendar";
+export type SidebarMode = "campus" | "admin";
 
 export const SIDEBAR_PANEL_IDS: readonly SidebarPanelId[] = [
   "search",
@@ -15,6 +16,10 @@ export function isSidebarPanelId(value: unknown): value is SidebarPanelId {
   );
 }
 
+export function isSidebarMode(value: unknown): value is SidebarMode {
+  return value === "campus" || value === "admin";
+}
+
 export const SIDEBAR_STORAGE_KEY = "campus-sidebar";
 export const SIDEBAR_CHANGE_EVENT = "campus-sidebar-change";
 
@@ -23,6 +28,7 @@ export const DEFAULT_SIDEBAR_OPEN = true;
 
 type StoredSidebarPreferences = {
   activePanel: SidebarPanelId;
+  sidebarMode: SidebarMode | undefined;
   sidebarOpen: boolean;
 };
 
@@ -31,6 +37,7 @@ export function parseStoredSidebarPreferences(
 ): StoredSidebarPreferences {
   const fallback: StoredSidebarPreferences = {
     activePanel: DEFAULT_ACTIVE_PANEL,
+    sidebarMode: undefined,
     sidebarOpen: DEFAULT_SIDEBAR_OPEN,
   };
 
@@ -41,12 +48,16 @@ export function parseStoredSidebarPreferences(
 
     if (typeof parsed !== "object" || parsed === null) return fallback;
 
-    const { activePanel, sidebarOpen } = parsed as Record<string, unknown>;
+    const { activePanel, sidebarMode, sidebarOpen } = parsed as Record<
+      string,
+      unknown
+    >;
 
     return {
       activePanel: isSidebarPanelId(activePanel)
         ? activePanel
         : fallback.activePanel,
+      sidebarMode: isSidebarMode(sidebarMode) ? sidebarMode : undefined,
       sidebarOpen:
         typeof sidebarOpen === "boolean" ? sidebarOpen : fallback.sidebarOpen,
     };

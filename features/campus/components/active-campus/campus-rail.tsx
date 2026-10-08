@@ -3,9 +3,12 @@
 import { ChatCenteredDotsIcon } from "@phosphor-icons/react/dist/ssr/ChatCenteredDots";
 import { GearSixIcon } from "@phosphor-icons/react/dist/ssr/GearSix";
 import { MoonIcon } from "@phosphor-icons/react/dist/ssr/Moon";
+import { SquaresFourIcon } from "@phosphor-icons/react/dist/ssr/SquaresFour";
 import { SunIcon } from "@phosphor-icons/react/dist/ssr/Sun";
 import { cn } from "cn";
+import type { Route } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import logoMark from "@/assets/icon-inverse.svg";
@@ -15,8 +18,9 @@ import { Separator } from "@/shared/ui/separator";
 import { useThemeToggle } from "@/shared/ui/theme-toggle/use-theme-toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
-import { useActivePanel } from "../../hooks/use-sidebar-state";
-import { setActivePanel } from "../../store/sidebar-store";
+import { useActivePanel, useSidebarMode } from "../../hooks/use-sidebar-state";
+import type { SidebarMode } from "../../store/sidebar-preferences";
+import { setActivePanel, setSidebarMode } from "../../store/sidebar-store";
 import { railPanelItems } from "./rail-items";
 
 function RailButton({
@@ -24,6 +28,7 @@ function RailButton({
   isActive,
   isPressed,
   badgeCount,
+  href,
   onClick,
   children,
 }: {
@@ -31,12 +36,14 @@ function RailButton({
   isActive?: boolean;
   isPressed?: boolean;
   badgeCount?: number;
+  href?: Route;
   onClick?: () => void;
   children: React.ReactNode;
 }) {
   return (
     <Tooltip>
       <TooltipTrigger
+        render={href ? <Link href={href} /> : undefined}
         aria-label={label}
         aria-current={isActive ? "page" : undefined}
         aria-pressed={isPressed}
@@ -74,8 +81,20 @@ function ThemeRailButton() {
   );
 }
 
-export function CampusRail({ account }: { account: ReactNode }) {
+export function CampusRail({
+  account,
+  cohortId,
+  hasAdministration = false,
+  initialSidebarMode = "campus",
+}: {
+  account: ReactNode;
+  cohortId: string;
+  hasAdministration?: boolean;
+  initialSidebarMode?: SidebarMode;
+}) {
   const activePanel = useActivePanel();
+  const sidebarMode = useSidebarMode(initialSidebarMode, hasAdministration);
+  const campusHref = `/campus/${encodeURIComponent(cohortId)}` as Route;
 
   return (
     <nav
@@ -93,12 +112,22 @@ export function CampusRail({ account }: { account: ReactNode }) {
         />
         <Separator className="bg-primary-foreground/15 w-8" />
         <div className="flex flex-col items-center gap-1">
+          {hasAdministration ? (
+            <RailButton
+              label="Administration"
+              isActive={sidebarMode === "admin"}
+              onClick={() => setSidebarMode("admin")}
+            >
+              <SquaresFourIcon aria-hidden />
+            </RailButton>
+          ) : null}
           {railPanelItems.map((item) => (
             <RailButton
               key={item.id}
               label={item.label}
-              isActive={activePanel === item.id}
+              isActive={sidebarMode === "campus" && activePanel === item.id}
               badgeCount={item.badgeCount}
+              href={item.id === "map" ? campusHref : undefined}
               onClick={() => setActivePanel(item.id)}
             >
               <item.Icon

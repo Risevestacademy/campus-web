@@ -6,6 +6,7 @@ import {
   parseStoredSidebarPreferences,
   SIDEBAR_CHANGE_EVENT,
   SIDEBAR_STORAGE_KEY,
+  type SidebarMode,
   type SidebarPanelId,
 } from "./sidebar-preferences";
 
@@ -44,6 +45,14 @@ export function getServerActivePanelSnapshot(): SidebarPanelId {
   return DEFAULT_ACTIVE_PANEL;
 }
 
+export function getSidebarModeSnapshot(): SidebarMode | undefined {
+  return readStoredPreferences().sidebarMode;
+}
+
+export function getServerSidebarModeSnapshot(): undefined {
+  return undefined;
+}
+
 export function getSidebarOpenSnapshot(): boolean {
   return readStoredPreferences().sidebarOpen;
 }
@@ -56,6 +65,15 @@ export function setActivePanel(activePanel: SidebarPanelId): void {
   writeStoredPreferences({
     ...readStoredPreferences(),
     activePanel,
+    sidebarMode: "campus",
+    sidebarOpen: true,
+  });
+}
+
+export function setSidebarMode(sidebarMode: SidebarMode): void {
+  writeStoredPreferences({
+    ...readStoredPreferences(),
+    sidebarMode,
     sidebarOpen: true,
   });
 }

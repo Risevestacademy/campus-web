@@ -34,12 +34,12 @@ export async function CohortTrackAdministration({
 
   if (cohortRead.kind === "missing") {
     return (
-      <main className="grid gap-4 p-10">
+      <section className="grid gap-4 p-10">
         <p role="alert">This Cohort no longer exists.</p>
         <Link href="/campus" className={buttonVariants({ variant: "outline" })}>
           Back to Cohorts
         </Link>
-      </main>
+      </section>
     );
   }
 
@@ -48,7 +48,7 @@ export async function CohortTrackAdministration({
     catalogueRead.kind === "unavailable"
   ) {
     return (
-      <main className="grid justify-items-start gap-4 p-10">
+      <section className="grid justify-items-start gap-4 p-10">
         <p role="alert">
           We couldn&apos;t load this Cohort&apos;s Programme Tracks.
         </p>
@@ -58,7 +58,7 @@ export async function CohortTrackAdministration({
         >
           Try again
         </a>
-      </main>
+      </section>
     );
   }
 
@@ -71,7 +71,7 @@ export async function CohortTrackAdministration({
   const attachmentKey = availableTracks.map(({ id }) => id).join(":");
 
   return (
-    <main className="grid gap-10 p-10">
+    <section className="grid gap-10 p-10">
       <header className="grid justify-items-start gap-3">
         <Link href="/campus">Back to Cohorts</Link>
         <div>
@@ -155,6 +155,6 @@ export async function CohortTrackAdministration({
           </nav>
         ) : null}
       </section>
-    </main>
+    </section>
   );
 }

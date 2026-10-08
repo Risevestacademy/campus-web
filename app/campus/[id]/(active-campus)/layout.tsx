@@ -1,10 +1,17 @@
+import { AdminSidebar } from "@/features/admin";
 import {
   AccountMenu,
+  isSystemAdministrator,
   logsOutFromRail,
   requireRouteAccess,
   SessionUnavailable,
 } from "@/features/auth";
-import { ActiveCampus, CampusMediaSessionProvider } from "@/features/campus";
+import {
+  ActiveCampus,
+  CampusMediaSessionProvider,
+  CampusShell,
+  SidebarCollapseButton,
+} from "@/features/campus";
 import { CampusOverviewPanel } from "@/features/roster";
 
 export default async function ActiveCampusLayout({
@@ -24,15 +31,25 @@ export default async function ActiveCampusLayout({
   // Admins and members of several cohorts log out from the /campus chooser;
   // the rail offers it only to members who never see that page.
   const logsOutHere = logsOutFromRail(access.session);
+  const isAdministrator = isSystemAdministrator(access.session.user.systemRole);
 
   return (
-    <CampusMediaSessionProvider>
-      <ActiveCampus
-        AccountMenu={logsOutHere ? AccountMenu : undefined}
-        OverviewPanel={CampusOverviewPanel}
-      >
-        {children}
-      </ActiveCampus>
-    </CampusMediaSessionProvider>
+    <CampusShell
+      AccountMenu={logsOutHere ? AccountMenu : undefined}
+      AdministrationPanel={
+        isAdministrator ? (
+          <AdminSidebar
+            cohortId={id}
+            collapseButton={<SidebarCollapseButton />}
+          />
+        ) : undefined
+      }
+      OverviewPanel={CampusOverviewPanel}
+      cohortId={id}
+    >
+      <CampusMediaSessionProvider>
+        <ActiveCampus>{children}</ActiveCampus>
+      </CampusMediaSessionProvider>
+    </CampusShell>
   );
 }

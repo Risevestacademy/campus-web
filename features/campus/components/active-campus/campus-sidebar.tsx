@@ -4,8 +4,15 @@ import { cn } from "cn";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 
-import { useActivePanel, useSidebarOpen } from "../../hooks/use-sidebar-state";
-import type { SidebarPanelId } from "../../store/sidebar-preferences";
+import {
+  useActivePanel,
+  useSidebarMode,
+  useSidebarOpen,
+} from "../../hooks/use-sidebar-state";
+import type {
+  SidebarMode,
+  SidebarPanelId,
+} from "../../store/sidebar-preferences";
 
 const SIDEBAR_WIDTH = 312;
 const SIDEBAR_TRANSITION = {
@@ -19,12 +26,22 @@ const SIDEBAR_CONTENT_TRANSITION = {
 } as const;
 
 type CampusSidebarProps = {
+  administrationPanel?: ReactNode;
+  initialMode?: SidebarMode;
   panels: Record<SidebarPanelId, ReactNode>;
 };
 
-export function CampusSidebar({ panels }: CampusSidebarProps) {
+export function CampusSidebar({
+  administrationPanel,
+  initialMode = "campus",
+  panels,
+}: CampusSidebarProps) {
   const isOpen = useSidebarOpen();
   const activePanel = useActivePanel();
+  const sidebarMode = useSidebarMode(
+    initialMode,
+    administrationPanel !== undefined,
+  );
 
   return (
     <motion.div
@@ -41,7 +58,9 @@ export function CampusSidebar({ panels }: CampusSidebarProps) {
         style={{ width: SIDEBAR_WIDTH }}
         className={cn("flex h-full flex-col", !isOpen && "pointer-events-none")}
       >
-        {panels[activePanel]}
+        {sidebarMode === "admin" && administrationPanel
+          ? administrationPanel
+          : panels[activePanel]}
       </motion.div>
     </motion.div>
   );

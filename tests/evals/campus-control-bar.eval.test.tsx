@@ -5,6 +5,7 @@ import { CampusMediaSessionProvider } from "@/features/campus";
 import { activeCampusLayout } from "@/tests/fixtures/active-campus-layout";
 
 vi.mock("@/features/auth", () => import("@/tests/fixtures/route-access-stub"));
+vi.mock("server-only", () => ({}));
 
 describe("campus control bar acceptance (required threshold: 1/1)", () => {
   it("exposes the complete desktop control bar through the active-campus layout", async () => {

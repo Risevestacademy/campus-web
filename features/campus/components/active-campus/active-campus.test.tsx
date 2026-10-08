@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { MediaSessionProvider } from "../../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../../services/media-session/media-session-store";
 import { ActiveCampus } from "./active-campus";
+import { CampusShell } from "./campus-shell";
 
 function OverviewPanelStub({ collapseButton }: { collapseButton: ReactNode }) {
   return <section aria-label="Overview panel">{collapseButton}</section>;
@@ -22,11 +23,17 @@ function renderActiveCampus(AccountMenu?: typeof AccountMenuStub) {
   const store = createMediaSessionStore({ mediaDevices: null });
 
   return render(
-    <MediaSessionProvider store={store}>
-      <ActiveCampus AccountMenu={AccountMenu} OverviewPanel={OverviewPanelStub}>
-        <p>Route content</p>
-      </ActiveCampus>
-    </MediaSessionProvider>,
+    <CampusShell
+      AccountMenu={AccountMenu}
+      OverviewPanel={OverviewPanelStub}
+      cohortId="c-1"
+    >
+      <MediaSessionProvider store={store}>
+        <ActiveCampus>
+          <p>Route content</p>
+        </ActiveCampus>
+      </MediaSessionProvider>
+    </CampusShell>,
   );
 }
 
@@ -44,6 +51,9 @@ describe("ActiveCampus", () => {
     renderActiveCampus();
 
     expect(screen.getByText("Route content")).toBeInTheDocument();
+    expect(
+      within(campusRail()).queryByRole("button", { name: "Administration" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("complementary", { name: "Campus controls" }),
     ).toBeInTheDocument();

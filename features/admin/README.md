@@ -123,7 +123,13 @@ request is attempted.
 
 `CohortTrackAdministration` is the public interface for
 `/campus/[id]/tracks`. The route requires a full-access System Administrator
-before rendering it and lives outside the Active Campus media layout.
+before rendering it. It reuses the Campus rail/sidebar shell but remains
+outside the Active Campus media layout, so it mounts no meeting controls or
+media session.
+
+The Administration rail control is available only to System Administrators.
+It exposes working links to `/campus/[id]/overview` and
+`/campus/[id]/tracks`; ordinary members retain the original Campus sidebar.
 
 The Server Component reads attached Tracks from `GET /v1/cohorts/{id}` and a
 paginated catalogue page from `GET /v1/tracks`. Tracks already attached to the

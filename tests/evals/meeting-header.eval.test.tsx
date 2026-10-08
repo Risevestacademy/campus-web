@@ -5,6 +5,7 @@ import { CampusMediaSessionProvider } from "@/features/campus";
 import { activeCampusLayout } from "@/tests/fixtures/active-campus-layout";
 
 vi.mock("@/features/auth", () => import("@/tests/fixtures/route-access-stub"));
+vi.mock("server-only", () => ({}));
 
 async function renderActiveCampusLayout() {
   return render(

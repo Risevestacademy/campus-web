@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SIDEBAR_STORAGE_KEY } from "./sidebar-preferences";
 import {
   getActivePanelSnapshot,
+  getSidebarModeSnapshot,
   getSidebarOpenSnapshot,
   setActivePanel,
+  setSidebarMode,
   setSidebarOpen,
   subscribeToSidebar,
   toggleSidebar,
@@ -18,7 +20,20 @@ beforeEach(() => {
 describe("sidebar store", () => {
   it("defaults to the map panel open", () => {
     expect(getActivePanelSnapshot()).toBe("map");
+    expect(getSidebarModeSnapshot()).toBeUndefined();
     expect(getSidebarOpenSnapshot()).toBe(true);
+  });
+
+  it("persists administration mode and returns to Campus for a panel", () => {
+    setSidebarMode("admin");
+
+    expect(getSidebarModeSnapshot()).toBe("admin");
+    expect(getSidebarOpenSnapshot()).toBe(true);
+
+    setActivePanel("chat");
+
+    expect(getSidebarModeSnapshot()).toBe("campus");
+    expect(getActivePanelSnapshot()).toBe("chat");
   });
 
   it("persists the active panel and reopens the sidebar", () => {
