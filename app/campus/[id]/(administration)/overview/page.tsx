@@ -1,4 +1,4 @@
-import { AdminOverview } from "@/features/admin";
+import { CohortAdministrationOverview } from "@/features/admin";
 import { requireRouteAccess, SessionUnavailable } from "@/features/auth";
 
 export default async function AdministrationOverviewPage({
@@ -15,5 +15,5 @@ export default async function AdministrationOverviewPage({
     return <SessionUnavailable retryHref={access.retryHref} />;
   }
 
-  return <AdminOverview cohortId={id} />;
+  return <CohortAdministrationOverview cohortId={id} />;
 }

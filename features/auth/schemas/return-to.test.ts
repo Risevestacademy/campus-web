@@ -167,8 +167,6 @@ describe("normalizeCohortReturnTo", () => {
     ["an encoded overview segment", "/campus/c-3/%6Fverview"],
     ["the Cohort Track administration route", "/campus/c-3/tracks"],
     ["an encoded administration segment", "/campus/c-3/%74racks"],
-    ["the Invitations administration route", "/campus/c-3/invitations"],
-    ["an encoded Invitations segment", "/campus/c-3/%69nvitations"],
     ["the campus index", "/campus"],
     ["an off-site URL", "https://attacker.example/campus/c-3"],
     ["a protocol-relative URL", "//attacker.example/campus/c-3"],

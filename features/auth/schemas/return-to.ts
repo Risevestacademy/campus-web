@@ -1,11 +1,6 @@
 const CAMPUS_HOME_PATH = "/campus";
 const RETURN_ROOTS = [CAMPUS_HOME_PATH, "/invitation", "/preview"] as const;
-const NON_ACTIVE_CAMPUS_SEGMENTS = new Set([
-  "join",
-  "overview",
-  "tracks",
-  "invitations",
-]);
+const NON_ACTIVE_CAMPUS_SEGMENTS = new Set(["join", "overview", "tracks"]);
 const MAX_RETURN_TO_LENGTH = 2048;
 // Only used to serialize a path that already passed validation.
 const PARSING_ORIGIN = "https://campus.invalid";

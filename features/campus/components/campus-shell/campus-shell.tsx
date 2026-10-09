@@ -15,7 +15,7 @@ import { SidebarComingSoonPanel } from "./sidebar-coming-soon-panel";
 
 type CampusShellProps = Readonly<{
   AccountMenu?: ComponentType<{ children: ReactNode }>;
-  AdministrationPanel?: ReactNode;
+  administrationPanel?: ReactNode;
   OverviewPanel: ComponentType<{ collapseButton: ReactNode }>;
   children: ReactNode;
   cohortId: string;
@@ -51,11 +51,11 @@ function RailAvatar() {
 
 export function CampusShell({
   AccountMenu,
-  AdministrationPanel,
+  administrationPanel,
   OverviewPanel,
   children,
   cohortId,
-  initialSidebarMode = "campus",
+  initialSidebarMode,
 }: CampusShellProps) {
   const avatar = <RailAvatar />;
 
@@ -68,11 +68,11 @@ export function CampusShell({
         <CampusRail
           account={AccountMenu ? <AccountMenu>{avatar}</AccountMenu> : avatar}
           cohortId={cohortId}
-          hasAdministration={AdministrationPanel !== undefined}
+          hasAdministration={administrationPanel !== undefined}
           initialSidebarMode={initialSidebarMode}
         />
         <CampusSidebar
-          administrationPanel={AdministrationPanel}
+          administrationPanel={administrationPanel}
           initialMode={initialSidebarMode}
           panels={{
             ...comingSoonPanels,

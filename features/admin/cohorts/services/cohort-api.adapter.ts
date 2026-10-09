@@ -35,6 +35,7 @@ export async function listCohorts(
 const CREATION_PROBLEMS: Readonly<Record<number, CohortCreationProblem>> = {
   400: "rejected",
   401: "signed-out",
+  403: "forbidden",
   409: "duplicate-code",
 };
 

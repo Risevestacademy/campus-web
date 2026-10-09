@@ -20,26 +20,35 @@ import {
   useAttachCohortTrack,
   useDetachCohortTrack,
 } from "../hooks/use-cohort-track-mutations";
-import type { CohortTrackMutationProblem } from "../types/cohort-track.types";
+import type {
+  CohortTrackAttachmentProblem,
+  CohortTrackDetachmentProblem,
+} from "../types/cohort-track.types";
 
-const ATTACHMENT_PROBLEMS: Partial<Record<CohortTrackMutationProblem, string>> =
-  {
-    invalid: "The Cohort or Programme Track identifier is invalid.",
-    forbidden: "You no longer have permission to attach Programme Tracks.",
-    missing: "The Cohort or Programme Track no longer exists.",
-    "already-attached": "This Programme Track is already attached.",
-    unavailable: "We couldn't attach this Programme Track. Try again.",
-  };
+const ATTACHMENT_PROBLEMS: Record<
+  CohortTrackAttachmentProblem,
+  string | undefined
+> = {
+  invalid: "The Cohort or Programme Track identifier is invalid.",
+  "signed-out": undefined,
+  forbidden: "You no longer have permission to attach Programme Tracks.",
+  missing: "The Cohort or Programme Track no longer exists.",
+  "already-attached": "This Programme Track is already attached.",
+  unavailable: "We couldn't attach this Programme Track. Try again.",
+};
 
-const DETACHMENT_PROBLEMS: Partial<Record<CohortTrackMutationProblem, string>> =
-  {
-    invalid: "The Cohort or Programme Track identifier is invalid.",
-    forbidden: "You no longer have permission to detach Programme Tracks.",
-    missing: "This Cohort Track association no longer exists.",
-    "in-use":
-      "Students or Invitations still reference this Programme Track. Move or remove those references before detaching it.",
-    unavailable: "We couldn't detach this Programme Track. Try again.",
-  };
+const DETACHMENT_PROBLEMS: Record<
+  CohortTrackDetachmentProblem,
+  string | undefined
+> = {
+  invalid: "The Cohort or Programme Track identifier is invalid.",
+  "signed-out": undefined,
+  forbidden: "You no longer have permission to detach Programme Tracks.",
+  missing: "This Cohort Track association no longer exists.",
+  "in-use":
+    "Students or Invitations still reference this Programme Track. Move or remove those references before detaching it.",
+  unavailable: "We couldn't detach this Programme Track. Try again.",
+};
 
 export function AttachCohortTrackForm({
   cohortId,

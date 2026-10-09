@@ -1,32 +1,25 @@
 "use client";
 
 import { GaugeIcon } from "@phosphor-icons/react/dist/ssr/Gauge";
-import { PaperPlaneTiltIcon } from "@phosphor-icons/react/dist/ssr/PaperPlaneTilt";
 import { StackIcon } from "@phosphor-icons/react/dist/ssr/Stack";
 import { cn } from "cn";
-import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-function navigationItems(cohortId: string) {
-  const campusHref = `/campus/${encodeURIComponent(cohortId)}`;
+import { cohortAdministrationHref } from "./cohort-administration-href";
 
+function navigationItems(cohortId: string) {
   return [
     {
-      href: `${campusHref}/overview` as Route,
+      href: cohortAdministrationHref(cohortId, "overview"),
       label: "Overview",
       Icon: GaugeIcon,
     },
     {
-      href: `${campusHref}/tracks` as Route,
-      label: "Tracks",
+      href: cohortAdministrationHref(cohortId, "tracks"),
+      label: "Programme Tracks",
       Icon: StackIcon,
-    },
-    {
-      href: `${campusHref}/invitations` as Route,
-      label: "Invitations",
-      Icon: PaperPlaneTiltIcon,
     },
   ] as const;
 }

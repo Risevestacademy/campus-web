@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
-import { CampusControlBar } from "../campus-control-bar";
-import { MeetingHeader } from "../meeting-header";
-import { MeetingViewControls } from "../meeting-view-switch";
+import { CampusControlBar } from "./campus-control-bar";
+import { MeetingHeader } from "./meeting-header";
+import { MeetingViewControls } from "./meeting-view-switch";
 
 const meetingParticipants = [
   { id: "participant-a", initials: "A", name: "Participant A" },

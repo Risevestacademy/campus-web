@@ -107,4 +107,22 @@ describe("track API adapter", () => {
     });
     expect(calls).toBe(1);
   });
+
+  it("reports an edit conflict as a duplicate code", async () => {
+    let calls = 0;
+    mockApi.server.use(
+      http.patch(`${TRACKS_URL}/track-1`, () => {
+        calls += 1;
+        return new Response(null, { status: 409 });
+      }),
+    );
+
+    await expect(
+      editTrack(api, "track-1", { code: "DUPLICATE" }),
+    ).resolves.toEqual({
+      kind: "problem",
+      problem: "duplicate-code",
+    });
+    expect(calls).toBe(1);
+  });
 });

@@ -4,8 +4,8 @@ import { parseCohortTrackCollection } from "../schemas/cohort-track.schema";
 import type {
   CohortTrackAttachment,
   CohortTrackDetachment,
-  CohortTrackMutationProblem,
   CohortTrackRead,
+  CohortTrackRecordProblem,
 } from "../types/cohort-track.types";
 
 export async function readCohortTracks(
@@ -29,7 +29,7 @@ export async function readCohortTracks(
 }
 
 const COMMON_PROBLEMS: Readonly<
-  Partial<Record<number, CohortTrackMutationProblem>>
+  Partial<Record<number, CohortTrackRecordProblem>>
 > = {
   400: "invalid",
   401: "signed-out",
@@ -37,7 +37,7 @@ const COMMON_PROBLEMS: Readonly<
   404: "missing",
 };
 
-function commonProblem(status: number): CohortTrackMutationProblem {
+function commonProblem(status: number): CohortTrackRecordProblem {
   return COMMON_PROBLEMS[status] ?? "unavailable";
 }
 

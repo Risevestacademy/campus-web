@@ -7,11 +7,21 @@ import { DialogClose, DialogFooter } from "@/shared/ui/dialog";
 
 import type { CohortCreationControls } from "../hooks/use-create-cohort";
 import { parseNewCohort } from "../schemas/cohort.schema";
-import type { NewCohortErrors } from "../types/cohort.types";
+import type {
+  CohortCreationProblem,
+  NewCohortErrors,
+} from "../types/cohort.types";
 import { CohortFormFields } from "./cohort-form-fields";
+
 const DUPLICATE_CODE = "Another cohort already uses this code.";
-const REJECTED =
-  "campus-api rejected these details. Check the dates and try again.";
+const PROBLEM_MESSAGES: Record<CohortCreationProblem, string | undefined> = {
+  "duplicate-code": undefined,
+  "signed-out": undefined,
+  rejected: "campus-api rejected these details. Check the dates and try again.",
+  forbidden: "You no longer have permission to create Cohorts.",
+  unavailable:
+    "We couldn't create the cohort. Nothing was saved. Check your connection and try again.",
+};
 
 export function CreateCohortForm({
   creation,
@@ -22,6 +32,7 @@ export function CreateCohortForm({
   const { isPending, problem } = creation;
   const codeError =
     errors.code ?? (problem === "duplicate-code" ? DUPLICATE_CODE : undefined);
+  const problemMessage = problem ? PROBLEM_MESSAGES[problem] : undefined;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,9 +44,9 @@ export function CreateCohortForm({
 
   return (
     <form noValidate onSubmit={submit} className="grid gap-6">
-      {problem === "rejected" ? (
+      {problemMessage ? (
         <p role="alert" className="text-destructive text-sm">
-          {REJECTED}
+          {problemMessage}
         </p>
       ) : null}
       <CohortFormFields

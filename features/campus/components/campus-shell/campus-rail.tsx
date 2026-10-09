@@ -85,7 +85,7 @@ export function CampusRail({
   account,
   cohortId,
   hasAdministration = false,
-  initialSidebarMode = "campus",
+  initialSidebarMode,
 }: {
   account: ReactNode;
   cohortId: string;

@@ -32,15 +32,11 @@ export type TrackCreationProblem =
   "duplicate-code" | "rejected" | "signed-out" | "forbidden" | "unavailable";
 export type TrackCreation =
   { kind: "created" } | { kind: "problem"; problem: TrackCreationProblem };
-export type TrackMutationProblem =
-  | "invalid"
-  | "signed-out"
-  | "forbidden"
-  | "missing"
-  | "duplicate-code"
-  | "attached"
-  | "unavailable";
+export type TrackRecordProblem =
+  "invalid" | "signed-out" | "forbidden" | "missing" | "unavailable";
+export type TrackEditProblem = TrackRecordProblem | "duplicate-code";
+export type TrackDeletionProblem = TrackRecordProblem | "attached";
 export type TrackEdit =
-  { kind: "updated" } | { kind: "problem"; problem: TrackMutationProblem };
+  { kind: "updated" } | { kind: "problem"; problem: TrackEditProblem };
 export type TrackDeletion =
-  { kind: "deleted" } | { kind: "problem"; problem: TrackMutationProblem };
+  { kind: "deleted" } | { kind: "problem"; problem: TrackDeletionProblem };

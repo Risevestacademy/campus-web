@@ -36,7 +36,7 @@ export default async function ActiveCampusLayout({
   return (
     <CampusShell
       AccountMenu={logsOutHere ? AccountMenu : undefined}
-      AdministrationPanel={
+      administrationPanel={
         isAdministrator ? (
           <AdminSidebar
             cohortId={id}

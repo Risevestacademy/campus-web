@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -55,4 +55,25 @@ describe("administration Campus layout", () => {
       screen.queryByRole("complementary", { name: "Campus controls" }),
     ).not.toBeInTheDocument();
   });
+
+  it.each(["Search", "Chat", "Tasks", "Calendar"])(
+    "%s restores Campus sidebar mode",
+    async (panel) => {
+      setSidebarMode("campus");
+      render(await administrationLayout(<p>Administration content</p>));
+      const campusRail = screen.getByRole("navigation", { name: "Campus" });
+
+      fireEvent.click(within(campusRail).getByRole("button", { name: panel }));
+
+      expect(
+        screen.queryByRole("navigation", {
+          name: "Administration pages",
+        }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: panel })).toBeInTheDocument();
+      expect(
+        within(campusRail).getByRole("button", { name: panel }),
+      ).toHaveAttribute("aria-current", "page");
+    },
+  );
 });

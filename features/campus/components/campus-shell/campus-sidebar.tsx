@@ -33,7 +33,7 @@ type CampusSidebarProps = {
 
 export function CampusSidebar({
   administrationPanel,
-  initialMode = "campus",
+  initialMode,
   panels,
 }: CampusSidebarProps) {
   const isOpen = useSidebarOpen();

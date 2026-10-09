@@ -1,11 +1,13 @@
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 import type { SidebarMode, SidebarPanelId } from "../store/sidebar-preferences";
 import {
   getActivePanelSnapshot,
   getServerActivePanelSnapshot,
+  getServerSidebarModeRevisionSnapshot,
   getServerSidebarModeSnapshot,
   getServerSidebarOpenSnapshot,
+  getSidebarModeRevisionSnapshot,
   getSidebarModeSnapshot,
   getSidebarOpenSnapshot,
   subscribeToSidebar,
@@ -28,7 +30,7 @@ export function useActivePanel(): SidebarPanelId {
 }
 
 export function useSidebarMode(
-  initialMode: SidebarMode,
+  routeMode: SidebarMode | undefined,
   hasAdministration: boolean,
 ): SidebarMode {
   const storedMode = useSyncExternalStore(
@@ -36,8 +38,14 @@ export function useSidebarMode(
     getSidebarModeSnapshot,
     getServerSidebarModeSnapshot,
   );
+  const modeRevision = useSyncExternalStore(
+    subscribeToSidebar,
+    getSidebarModeRevisionSnapshot,
+    getServerSidebarModeRevisionSnapshot,
+  );
+  const [entryRevision] = useState(modeRevision);
 
   if (!hasAdministration) return "campus";
-  if (initialMode === "admin") return "admin";
+  if (routeMode && modeRevision === entryRevision) return routeMode;
   return storedMode ?? "campus";
 }

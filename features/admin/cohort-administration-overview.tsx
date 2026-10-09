@@ -1,10 +1,13 @@
 import { StackIcon } from "@phosphor-icons/react/dist/ssr/Stack";
-import type { Route } from "next";
 import Link from "next/link";
 
-export function AdminOverview({ cohortId }: { cohortId: string }) {
-  const tracksHref = `/campus/${encodeURIComponent(cohortId)}/tracks` as Route;
+import { cohortAdministrationHref } from "./cohort-administration-href";
 
+export function CohortAdministrationOverview({
+  cohortId,
+}: {
+  cohortId: string;
+}) {
   return (
     <section
       aria-labelledby="administration-overview-heading"
@@ -18,18 +21,18 @@ export function AdminOverview({ cohortId }: { cohortId: string }) {
           Administration overview
         </h1>
         <p className="text-foreground-secondary">
-          Manage this Campus without leaving the Campus workspace.
+          Manage this Cohort without leaving the Campus Shell.
         </p>
       </header>
 
       <nav aria-label="Administration areas">
         <Link
-          href={tracksHref}
+          href={cohortAdministrationHref(cohortId, "tracks")}
           className="border-border hover:bg-accent grid max-w-md grid-cols-[auto_1fr] gap-3 rounded-xl border p-5 transition-colors duration-150"
         >
           <StackIcon aria-hidden size={22} />
           <span className="grid gap-1">
-            <span className="font-medium">Cohorts &amp; tracks</span>
+            <span className="font-medium">Programme Tracks</span>
             <span className="text-foreground-secondary text-sm">
               Inspect, attach, and detach Programme Tracks.
             </span>

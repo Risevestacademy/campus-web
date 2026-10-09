@@ -22,11 +22,15 @@ import type {
 } from "../types/cohort.types";
 import { CohortFormFields } from "./cohort-form-fields";
 
-const PROBLEM_MESSAGES: Partial<Record<CohortMutationProblem, string>> = {
+const PROBLEM_MESSAGES: Record<CohortMutationProblem, string | undefined> = {
+  conflict: undefined,
+  "signed-out": undefined,
   invalid:
     "campus-api rejected these changes. Review the fields and try again.",
   forbidden: "You no longer have permission to edit Cohorts.",
   missing: "This Cohort no longer exists. Refresh the catalogue.",
+  unavailable:
+    "We couldn't update this Cohort. Nothing was changed. Check your connection and try again.",
 };
 
 export function EditCohortDialog({

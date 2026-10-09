@@ -73,6 +73,58 @@ describe("TrackAdministrationCard", () => {
     expect(sideEffects).toEqual(["refresh"]);
   });
 
+  it("keeps an edit conflict open and identifies the duplicate code", async () => {
+    mockApi.server.use(
+      http.patch(trackUrl, () => new Response(null, { status: 409 })),
+    );
+    renderCard();
+    await openAction("Edit");
+    const dialog = await screen.findByRole("dialog", {
+      name: "Edit Computer Science",
+    });
+    fireEvent.change(within(dialog).getByLabelText("Code"), {
+      target: { value: "duplicate" },
+    });
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save changes" }),
+    );
+
+    expect(
+      await within(dialog).findByText(
+        "Another Programme Track already uses this code.",
+      ),
+    ).toBeVisible();
+    expect(within(dialog).getByLabelText("Code")).toHaveValue("duplicate");
+    expect(sideEffects).toEqual([]);
+  });
+
+  it.each([
+    [400, /review the fields/i],
+    [403, /permission to edit/i],
+    [404, /no longer exists/i],
+    [503, /connection and try again/i],
+  ])("explains edit failure HTTP %i", async (status, expectedMessage) => {
+    mockApi.server.use(
+      http.patch(trackUrl, () => new Response(null, { status })),
+    );
+    renderCard();
+    await openAction("Edit");
+    const dialog = await screen.findByRole("dialog", {
+      name: "Edit Computer Science",
+    });
+    fireEvent.change(within(dialog).getByLabelText("Name"), {
+      target: { value: "Data Science" },
+    });
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save changes" }),
+    );
+
+    expect(await within(dialog).findByText(expectedMessage)).toBeVisible();
+    expect(within(dialog).getByLabelText("Name")).toHaveValue("Data Science");
+  });
+
   it("does not cascade when deletion is blocked by an attachment", async () => {
     let calls = 0;
     mockApi.server.use(
@@ -89,4 +141,74 @@ describe("TrackAdministrationCard", () => {
     expect(await screen.findByText(/still attached/i)).toBeInTheDocument();
     expect(calls).toBe(1);
   });
+
+  it.each([
+    [400, /identifier is invalid/i],
+    [403, /permission to delete/i],
+    [404, /no longer exists/i],
+    [503, /connection and try again/i],
+  ])("explains deletion failure HTTP %i", async (status, expectedMessage) => {
+    mockApi.server.use(
+      http.delete(trackUrl, () => new Response(null, { status })),
+    );
+    renderCard();
+    await openAction("Delete");
+    const dialog = await screen.findByRole("dialog", {
+      name: "Delete Computer Science?",
+    });
+
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: "Delete programme track",
+      }),
+    );
+
+    expect(await within(dialog).findByText(expectedMessage)).toBeVisible();
+    expect(dialog).toBeInTheDocument();
+  });
+
+  it.each(["Edit", "Delete"] as const)(
+    "keeps the %s dialog open while its request is pending",
+    async (action) => {
+      mockApi.server.use(
+        http.patch(trackUrl, () => new Promise<Response>(() => {})),
+        http.delete(trackUrl, () => new Promise<Response>(() => {})),
+      );
+      renderCard();
+      await openAction(action);
+      const dialog = await screen.findByRole("dialog", {
+        name:
+          action === "Edit"
+            ? "Edit Computer Science"
+            : "Delete Computer Science?",
+      });
+
+      if (action === "Edit") {
+        fireEvent.change(within(dialog).getByLabelText("Name"), {
+          target: { value: "Data Science" },
+        });
+        fireEvent.click(
+          within(dialog).getByRole("button", { name: "Save changes" }),
+        );
+        expect(
+          await within(dialog).findByRole("button", { name: "Saving…" }),
+        ).toBeDisabled();
+      } else {
+        fireEvent.click(
+          within(dialog).getByRole("button", {
+            name: "Delete programme track",
+          }),
+        );
+        expect(
+          await within(dialog).findByRole("button", { name: "Deleting…" }),
+        ).toBeDisabled();
+      }
+
+      fireEvent.keyDown(document.activeElement ?? document.body, {
+        key: "Escape",
+      });
+
+      expect(dialog).toBeInTheDocument();
+    },
+  );
 });

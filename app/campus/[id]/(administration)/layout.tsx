@@ -26,7 +26,7 @@ export default async function AdministrationLayout({
   return (
     <CampusShell
       AccountMenu={AccountMenu}
-      AdministrationPanel={
+      administrationPanel={
         <AdminSidebar
           cohortId={id}
           collapseButton={<SidebarCollapseButton />}

@@ -49,7 +49,12 @@ _Avoid_: Join page, onboarding redirect
 **Active Campus**:
 A cohort's live campus that a member enters after the Join Gate: the map or
 meeting view, the sidebar panels, and the campus controls.
-_Avoid_: Campus shell, campus room, main campus
+_Avoid_: Campus room, main campus
+
+**Campus Shell**:
+The rail and sidebar frame around every page of one Cohort. Active Campus and
+Cohort Administration both render inside it.
+_Avoid_: Layout, chrome
 
 **Route Access Decision**:
 The answer to whether a session may render a route: allow, redirect, forbidden,
@@ -81,14 +86,18 @@ _Avoid_: Campus, Programme Track, batch
 
 **Programme Track**:
 A reusable catalogue entry describing a learning path that may be attached to
-multiple Cohorts. In code, use the full name where “track” could be confused
-with a browser media track.
+multiple Cohorts.
 _Avoid_: Cohort Track, media track
 
 **Cohort Track**:
 The association between one Cohort and one Programme Track. Detaching it
 removes only the association; it never deletes the Programme Track.
 _Avoid_: Programme Track, cohort course
+
+**Cohort Administration**:
+The System Administrator pages for one Cohort. They sit outside Active Campus
+and the Join Gate; entering them leaves Active Campus.
+_Avoid_: Admin panel, admin dashboard
 
 **Invitation**:
 A lifecycle record inviting a person to a Cohort. It may be pending, accepted,

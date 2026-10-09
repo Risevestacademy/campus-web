@@ -2,10 +2,10 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { MediaSessionProvider } from "../../services/media-session/media-session-provider";
-import { createMediaSessionStore } from "../../services/media-session/media-session-store";
+import { MediaSessionProvider } from "../services/media-session/media-session-provider";
+import { createMediaSessionStore } from "../services/media-session/media-session-store";
 import { ActiveCampus } from "./active-campus";
-import { CampusShell } from "./campus-shell";
+import { CampusShell } from "./campus-shell/campus-shell";
 
 function OverviewPanelStub({ collapseButton }: { collapseButton: ReactNode }) {
   return <section aria-label="Overview panel">{collapseButton}</section>;

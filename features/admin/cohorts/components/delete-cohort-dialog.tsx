@@ -17,12 +17,15 @@ import type {
   CohortSummary,
 } from "../types/cohort.types";
 
-const PROBLEM_MESSAGES: Partial<Record<CohortMutationProblem, string>> = {
+const PROBLEM_MESSAGES: Record<CohortMutationProblem, string | undefined> = {
+  "signed-out": undefined,
   invalid: "The Cohort identifier is invalid.",
   forbidden: "You no longer have permission to delete Cohorts.",
   missing: "This Cohort no longer exists. Refresh the catalogue.",
   conflict:
     "This Cohort still has Programme Tracks, members, or Invitations. Remove those associations before deleting it.",
+  unavailable:
+    "We couldn't delete this Cohort. Nothing was deleted. Check your connection and try again.",
 };
 
 export function DeleteCohortDialog({

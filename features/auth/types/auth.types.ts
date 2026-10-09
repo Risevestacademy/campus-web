@@ -2,16 +2,7 @@ import type { Route } from "next";
 
 import type { components } from "@/core/api/client";
 
-type GeneratedSession = components["schemas"]["SessionResponseDto"];
-type GeneratedSessionUser = GeneratedSession["user"];
-
-export type SystemRole = components["schemas"]["SystemRole"] | "super_admin";
-
-export type Session = Omit<GeneratedSession, "user"> & {
-  user: Omit<GeneratedSessionUser, "systemRole"> & {
-    systemRole: SystemRole;
-  };
-};
+export type Session = components["schemas"]["SessionResponseDto"];
 
 export type InvitationPath = "/invitation" | "/preview";
 

@@ -16,8 +16,15 @@ import { CreateTrackForm } from "./create-track-form";
 export function CreateTrackTile() {
   const [open, setOpen] = useState(false);
   const creation = useCreateTrack({ onCreated: () => setOpen(false) });
+
+  function changeOpen(next: boolean) {
+    if (!next && creation.isPending) return;
+    if (next) creation.reset();
+    setOpen(next);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={changeOpen}>
       <DialogTrigger
         render={
           <button

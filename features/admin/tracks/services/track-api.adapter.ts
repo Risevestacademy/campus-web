@@ -9,6 +9,7 @@ import type {
   TrackEdit,
   TrackListRead,
   TrackPatch,
+  TrackRecordProblem,
 } from "../types/track.types";
 
 export async function listTracks(
@@ -47,16 +48,17 @@ export async function createTrack(
     return { kind: "problem", problem: "unavailable" };
   }
 }
-const mutationProblems: Record<
-  number,
-  import("../types/track.types").TrackMutationProblem
-> = {
+const recordProblems: Record<number, TrackRecordProblem> = {
   400: "invalid",
   401: "signed-out",
   403: "forbidden",
   404: "missing",
-  409: "attached",
 };
+
+function recordProblem(status: number): TrackRecordProblem {
+  return recordProblems[status] ?? "unavailable";
+}
+
 export async function editTrack(
   api: ApiClient,
   id: string,
@@ -71,7 +73,10 @@ export async function editTrack(
       ? { kind: "updated" }
       : {
           kind: "problem",
-          problem: mutationProblems[response.status] ?? "unavailable",
+          problem:
+            response.status === 409
+              ? "duplicate-code"
+              : recordProblem(response.status),
         };
   } catch {
     return { kind: "problem", problem: "unavailable" };
@@ -92,7 +97,7 @@ export async function deleteTrack(
           problem:
             response.status === 409
               ? "attached"
-              : (mutationProblems[response.status] ?? "unavailable"),
+              : recordProblem(response.status),
         };
   } catch {
     return { kind: "problem", problem: "unavailable" };

@@ -10,6 +10,8 @@ import {
   type SidebarPanelId,
 } from "./sidebar-preferences";
 
+let sidebarModeRevision = 0;
+
 function readStoredPreferences() {
   try {
     return parseStoredSidebarPreferences(
@@ -53,6 +55,14 @@ export function getServerSidebarModeSnapshot(): undefined {
   return undefined;
 }
 
+export function getSidebarModeRevisionSnapshot(): number {
+  return sidebarModeRevision;
+}
+
+export function getServerSidebarModeRevisionSnapshot(): number {
+  return 0;
+}
+
 export function getSidebarOpenSnapshot(): boolean {
   return readStoredPreferences().sidebarOpen;
 }
@@ -62,6 +72,7 @@ export function getServerSidebarOpenSnapshot(): boolean {
 }
 
 export function setActivePanel(activePanel: SidebarPanelId): void {
+  sidebarModeRevision += 1;
   writeStoredPreferences({
     ...readStoredPreferences(),
     activePanel,
@@ -71,6 +82,7 @@ export function setActivePanel(activePanel: SidebarPanelId): void {
 }
 
 export function setSidebarMode(sidebarMode: SidebarMode): void {
+  sidebarModeRevision += 1;
   writeStoredPreferences({
     ...readStoredPreferences(),
     sidebarMode,

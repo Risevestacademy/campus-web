@@ -162,7 +162,7 @@ describe("createCohort", () => {
   it.each([
     [400, "rejected"],
     [401, "signed-out"],
-    [403, "unavailable"],
+    [403, "forbidden"],
     [409, "duplicate-code"],
     [500, "unavailable"],
   ])("reports HTTP %i as %s", async (status, problem) => {

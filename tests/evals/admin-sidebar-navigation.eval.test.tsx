@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { setSidebarMode } from "@/features/campus/store/sidebar-store";
 import { activeCampusLayout } from "@/tests/fixtures/active-campus-layout";
 
 vi.mock("@/features/auth", () => ({
@@ -55,8 +56,20 @@ describe("administrator sidebar navigation", () => {
     ).toHaveAttribute("href", "/campus/c-1/overview");
     expect(
       within(administration).getByRole("link", {
-        name: /tracks/i,
+        name: "Programme Tracks",
       }),
     ).toHaveAttribute("href", "/campus/c-1/tracks");
+    expect(within(administration).getAllByRole("link")).toHaveLength(2);
+  });
+
+  it("restores Administration mode when an administrator re-enters Active Campus", async () => {
+    setSidebarMode("admin");
+
+    render(await activeCampusLayout(<p>Campus route content</p>));
+
+    expect(
+      screen.getByRole("navigation", { name: "Administration pages" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Campus route content")).toBeInTheDocument();
   });
 });

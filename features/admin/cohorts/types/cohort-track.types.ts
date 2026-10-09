@@ -15,19 +15,16 @@ export type CohortTrackRead =
   | { kind: "missing" }
   | { kind: "unavailable" };
 
-export type CohortTrackMutationProblem =
-  | "invalid"
-  | "signed-out"
-  | "forbidden"
-  | "missing"
-  | "already-attached"
-  | "in-use"
-  | "unavailable";
+export type CohortTrackRecordProblem =
+  "invalid" | "signed-out" | "forbidden" | "missing" | "unavailable";
+export type CohortTrackAttachmentProblem =
+  CohortTrackRecordProblem | "already-attached";
+export type CohortTrackDetachmentProblem = CohortTrackRecordProblem | "in-use";
 
 export type CohortTrackAttachment =
   | { kind: "attached" }
-  | { kind: "problem"; problem: CohortTrackMutationProblem };
+  | { kind: "problem"; problem: CohortTrackAttachmentProblem };
 
 export type CohortTrackDetachment =
   | { kind: "detached" }
-  | { kind: "problem"; problem: CohortTrackMutationProblem };
+  | { kind: "problem"; problem: CohortTrackDetachmentProblem };

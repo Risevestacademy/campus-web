@@ -1,5 +1,8 @@
 // @vitest-environment node
 
+import { readdirSync } from "node:fs";
+import { resolve } from "node:path";
+
 import {
   getRedirectUrl,
   unstable_doesMiddlewareMatch,
@@ -272,12 +275,19 @@ const SESSION_STATES: SessionState[] = [
   },
 ];
 
+// Read from disk so every administration page is walked through the real
+// proxy; one missing from return-to's segment list is sent to /join.
+const ADMINISTRATION_PAGES = readdirSync(
+  resolve(import.meta.dirname, "../../app/campus/[id]/(administration)"),
+  { withFileTypes: true },
+)
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name);
+
 const ENTRY_URLS = [
   "/campus",
   "/campus/c-1/meeting",
-  "/campus/c-1/overview",
-  "/campus/c-1/tracks",
-  "/campus/c-1/invitations",
+  ...ADMINISTRATION_PAGES.map((page) => `/campus/c-1/${page}`),
   "/invitation",
   "/preview",
   "/sign-in?returnTo=%2Finvitation",
@@ -292,11 +302,7 @@ function destinationOf(pathname: string): Destination | "refresh" {
   if (pathname === "/campus") return INDEX;
 
   const [, , cohortSegment = "", section] = pathname.split("/");
-  if (
-    section === "overview" ||
-    section === "tracks" ||
-    section === "invitations"
-  ) {
+  if (section !== undefined && ADMINISTRATION_PAGES.includes(section)) {
     return SYSTEM_ADMIN;
   }
   return cohort(decodeURIComponent(cohortSegment));
@@ -420,7 +426,7 @@ describe(`Auth redirect chain eval (threshold: 0 chains over ${MAX_REDIRECTS} re
     expect(steps).toEqual(["/campus", "/campus/c-1", "allow"]);
   });
 
-  it.each(["overview", "tracks", "invitations"])(
+  it.each(ADMINISTRATION_PAGES)(
     "forbids an ordinary member from %s administration",
     async (section) => {
       const path = `/campus/c-1/${section}`;
@@ -433,14 +439,11 @@ describe(`Auth redirect chain eval (threshold: 0 chains over ${MAX_REDIRECTS} re
     },
   );
 
-  it.each([
-    ["full-access administrator", "overview"],
-    ["full-access administrator", "tracks"],
-    ["full-access administrator", "invitations"],
-    ["full-access Super Administrator", "overview"],
-    ["full-access Super Administrator", "tracks"],
-    ["full-access Super Administrator", "invitations"],
-  ])("allows a %s into %s administration", async (shape, section) => {
+  it.each(
+    ["full-access administrator", "full-access Super Administrator"].flatMap(
+      (shape) => ADMINISTRATION_PAGES.map((section) => [shape, section]),
+    ),
+  )("allows a %s into %s administration", async (shape, section) => {
     const path = `/campus/c-1/${section}`;
     const { steps } = await walk(path, stateShaped(shape));
 

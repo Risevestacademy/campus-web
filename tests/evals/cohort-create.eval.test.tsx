@@ -50,7 +50,6 @@ const API_ORIGIN = "https://api.example.test";
 const LIST_URL = `${API_ORIGIN}/v1/cohorts`;
 const CREATE_URL = `${TEST_ORIGIN}/api/v1/cohorts`;
 const CREATED = "Cohort created";
-const FAILED = "We couldn't create the cohort";
 
 const VALID: NewCohortInput = { name: "Cohort 1", code: "c1" };
 
@@ -81,13 +80,10 @@ function describeScreen(): string {
     return `${open ? "open" : "closed"} + toast: ${CREATED} + ${navigations.join(",")}`;
   }
   if (navigations.length > 0) return navigations.join(",");
-  if (screen.queryAllByText(FAILED).length > 0) {
-    return `${open ? "open" : "closed"} + toast: ${FAILED}`;
-  }
   const errors = screen
     .queryAllByRole("alert")
     .map((alert) => alert.textContent)
-    .filter((text) => text && text !== FAILED);
+    .filter(Boolean);
   return errors.length > 0 ? `errors: ${errors.join(" | ")}` : "nothing";
 }
 
@@ -161,7 +157,8 @@ interface Expectation {
   page?: number;
 }
 
-const OUTAGE = `open + toast: ${FAILED} (1 POST)`;
+const OUTAGE =
+  "errors: We couldn't create the cohort. Nothing was saved. Check your connection and try again. (1 POST)";
 const created = json({}, 201);
 
 const ANSWERS: Expectation[] = [
@@ -187,7 +184,12 @@ const ANSWERS: Expectation[] = [
     reply: failure(401, "UNAUTHORIZED"),
     expected: "go /sign-in (1 POST)",
   },
-  { name: "403", reply: failure(403, "FORBIDDEN"), expected: OUTAGE },
+  {
+    name: "403",
+    reply: failure(403, "FORBIDDEN"),
+    expected:
+      "errors: You no longer have permission to create Cohorts. (1 POST)",
+  },
   {
     name: "409",
     reply: failure(409, "CONFLICT"),

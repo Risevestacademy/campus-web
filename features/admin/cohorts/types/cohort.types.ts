@@ -39,7 +39,7 @@ export type NewCohortRead =
   | { kind: "invalid"; errors: NewCohortErrors };
 
 export type CohortCreationProblem =
-  "duplicate-code" | "rejected" | "signed-out" | "unavailable";
+  "duplicate-code" | "rejected" | "signed-out" | "forbidden" | "unavailable";
 
 export type CohortCreation =
   { kind: "created" } | { kind: "problem"; problem: CohortCreationProblem };

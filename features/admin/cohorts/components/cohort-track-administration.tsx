@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getServerApi } from "@/core/api/client/server";
 import { buttonVariants } from "@/shared/ui/button";
 
+import { cohortAdministrationHref } from "../../cohort-administration-href";
 import { listTracks } from "../../tracks/services/track-api.adapter";
 import { parseChooserPage } from "../schemas/cohort.schema";
 import { readCohortTracks } from "../services/cohort-track-api.adapter";
@@ -15,7 +16,7 @@ import {
 } from "./cohort-track-actions";
 
 function pageHref(cohortId: string, page: number): Route {
-  return `/campus/${encodeURIComponent(cohortId)}/tracks?page=${page}` as Route;
+  return `${cohortAdministrationHref(cohortId, "tracks")}?page=${page}` as Route;
 }
 
 export async function CohortTrackAdministration({
