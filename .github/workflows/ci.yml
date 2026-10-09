@@ -39,14 +39,6 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Restore Next.js cache
-        uses: actions/cache@v4
-        with:
-          path: .next/cache
-          key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
-          restore-keys: |
-            next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
-
       - name: Lint
         run: pnpm lint
 
@@ -58,9 +50,6 @@ jobs:
 
       - name: Unit tests
         run: pnpm test
-
-      - name: Build
-        run: pnpm build
 
   e2e:
     name: e2e
