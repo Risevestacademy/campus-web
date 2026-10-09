@@ -1,5 +1,7 @@
 // Components
-export { ActiveCampus } from "./components/active-campus/active-campus";
+export { ActiveCampus } from "./components/active-campus";
+export { CampusShell } from "./components/campus-shell/campus-shell";
+export { SidebarCollapseButton } from "./components/campus-shell/sidebar-collapse-button";
 export { CohortCard } from "./components/cohort-card";
 export { CohortChooser } from "./components/cohort-chooser";
 export { VisualsDisplay } from "./components/visuals-display";

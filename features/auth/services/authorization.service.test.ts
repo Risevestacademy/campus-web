@@ -119,6 +119,8 @@ function browserCookies(values: Record<string, string>) {
   nextHeaders.cookies.mockResolvedValue({
     get: (name: string) =>
       values[name] === undefined ? undefined : { name, value: values[name] },
+    getAll: () =>
+      Object.entries(values).map(([name, value]) => ({ name, value })),
     has: (name: string) => values[name] !== undefined,
   });
 }
@@ -162,9 +164,12 @@ const COHORT_B = {
   cohort: { name: "Cohort 4", code: "C4" },
 };
 const ownCohort = cohort(COHORT_A.cohortId);
+const systemAdministrator = {
+  kind: "system-admin",
+} as unknown as RouteAuthorizationRequest;
 
 function fullAccess(
-  systemRole: "user" | "admin",
+  systemRole: "user" | "admin" | "super_admin",
   memberships: readonly object[],
 ) {
   return {
@@ -484,12 +489,25 @@ describe("authorizeRoute: campus index membership routing", () => {
     });
   });
 
-  it("sends a member with one cohort straight to its pre-join screen", async () => {
+  it("sends a member with one unentered cohort to its pre-join screen", async () => {
     backendReplies(ok(fullAccess("user", [COHORT_A])));
 
     await expect(authorize(campusIndex)).resolves.toEqual({
       kind: "redirect",
       href: "/campus/11111111-1111-4111-8111-111111111111/join",
+    });
+  });
+
+  it("sends a member with one entered cohort straight to its campus", async () => {
+    browserCookies({
+      "campus_entry_11111111-1111-4111-8111-111111111111": "1",
+      campus_session: "session-token",
+    });
+    backendReplies(ok(fullAccess("user", [COHORT_A])));
+
+    await expect(authorize(campusIndex)).resolves.toEqual({
+      kind: "redirect",
+      href: "/campus/11111111-1111-4111-8111-111111111111",
     });
   });
 
@@ -512,15 +530,18 @@ describe("authorizeRoute: campus index membership routing", () => {
     });
   });
 
-  it("lets an admin with no cohort place choose from every cohort", async () => {
-    const session = fullAccess("admin", []);
-    backendReplies(ok(session));
+  it.each(["admin", "super_admin"] as const)(
+    "lets a %s with no cohort place choose from every cohort",
+    async (systemRole) => {
+      const session = fullAccess(systemRole, []);
+      backendReplies(ok(session));
 
-    await expect(authorize(campusIndex)).resolves.toEqual({
-      kind: "allow",
-      session,
-    });
-  });
+      await expect(authorize(campusIndex)).resolves.toEqual({
+        kind: "allow",
+        session,
+      });
+    },
+  );
 
   it("does not redirect an admin who holds a single cohort place", async () => {
     const session = fullAccess("admin", [COHORT_A]);
@@ -560,15 +581,18 @@ describe("authorizeRoute: cohort membership", () => {
     });
   });
 
-  it("lets an admin with no cohort place into any cohort", async () => {
-    const session = fullAccess("admin", []);
-    backendReplies(ok(session));
+  it.each(["admin", "super_admin"] as const)(
+    "lets a %s with no cohort place into any cohort",
+    async (systemRole) => {
+      const session = fullAccess(systemRole, []);
+      backendReplies(ok(session));
 
-    await expect(authorize(cohort("any-cohort"))).resolves.toEqual({
-      kind: "allow",
-      session,
-    });
-  });
+      await expect(authorize(cohort("any-cohort"))).resolves.toEqual({
+        kind: "allow",
+        session,
+      });
+    },
+  );
 
   it("sends a provisional session to its invitation before checking membership", async () => {
     backendReplies(ok(provisionalSession));
@@ -595,6 +619,38 @@ describe("authorizeRoute: cohort membership", () => {
       UNAVAILABLE,
     );
   });
+});
+
+describe("authorizeRoute: System Administrator routes", () => {
+  it("forbids a full-access member", async () => {
+    backendReplies(ok(fullAccess("user", [COHORT_A])));
+
+    await expect(authorize(systemAdministrator)).resolves.toEqual({
+      kind: "forbidden",
+    });
+  });
+
+  it("sends a provisional session to its invitation flow", async () => {
+    backendReplies(ok(provisionalSession));
+
+    await expect(authorize(systemAdministrator)).resolves.toEqual({
+      kind: "redirect",
+      href: "/invitation",
+    });
+  });
+
+  it.each(["admin", "super_admin"] as const)(
+    "allows a full-access %s",
+    async (systemRole) => {
+      const session = fullAccess(systemRole, []);
+      backendReplies(ok(session));
+
+      await expect(authorize(systemAdministrator)).resolves.toEqual({
+        kind: "allow",
+        session,
+      });
+    },
+  );
 });
 
 describe("authorizeRoute: invitation routes", () => {
@@ -938,6 +994,14 @@ describe("logsOutFromRail", () => {
     ["a member with several cohorts", fullAccess("user", [COHORT_A, COHORT_B])],
     ["an admin with no cohort place", fullAccess("admin", [])],
     ["an admin with one cohort place", fullAccess("admin", [COHORT_A])],
+    [
+      "a Super Administrator with no cohort place",
+      fullAccess("super_admin", []),
+    ],
+    [
+      "a Super Administrator with one cohort place",
+      fullAccess("super_admin", [COHORT_A]),
+    ],
   ])("leaves log out to the campus chooser for %s", (_, session) => {
     expect(logsOutFromRail(asSession(session))).toBe(false);
   });

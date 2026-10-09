@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { InvitePreview, PendingInvite } from "../types/invite.types";
 
 const cohortRole = z.enum(["student", "professor", "mentor", "guest"]);
-const systemRole = z.enum(["user", "admin"]);
+const systemRole = z.enum(["user", "admin", "super_admin"]);
 const namedCohort = z.looseObject({ name: z.string() }).nullable();
 const optionalName = z.string().nullish();
 

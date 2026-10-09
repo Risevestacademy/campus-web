@@ -4,19 +4,20 @@ import { type NextRequest, NextResponse } from "next/server";
 import { REFRESH_ATTEMPTED_COOKIE, SESSION_COOKIE } from "@/core/api/client";
 
 import { activeCampusCohort, normalizeReturnTo } from "../schemas/return-to";
+import { hasCampusEntry } from "./campus-entry-session";
 import {
   REFRESH_ATTEMPTED_HEADER,
   RETURN_TO_HEADER,
 } from "./campus-request-headers";
 import {
   preJoinRedirect,
-  type RouteRequestSignals,
   signedOutRedirect,
+  type SignedOutSignals,
 } from "./route-policy";
 
 const REFRESH_ATTEMPTED_COOKIE_PATH = "/";
 
-type ProxySignals = RouteRequestSignals & { returnTo: string };
+type ProxySignals = SignedOutSignals & { returnTo: string };
 
 function readSignals(request: NextRequest): ProxySignals {
   const { pathname, search } = request.nextUrl;
@@ -37,21 +38,14 @@ function renderHeaders(
   return headers;
 }
 
-function isDocumentNavigation(request: NextRequest): boolean {
-  return (
-    request.method === "GET" &&
-    request.headers.get("sec-fetch-dest") === "document"
-  );
-}
-
-// Router fetches send Sec-Fetch-Dest: empty and pass, so soft navigation
-// inside an entered campus keeps its media session.
 function preJoinDestination(
   request: NextRequest,
   { returnTo }: ProxySignals,
 ): Route | undefined {
   const cohortId = activeCampusCohort(request.nextUrl.pathname);
-  return cohortId !== undefined && isDocumentNavigation(request)
+  return cohortId !== undefined &&
+    request.method === "GET" &&
+    !hasCampusEntry(request.cookies, cohortId)
     ? preJoinRedirect(cohortId, returnTo)
     : undefined;
 }

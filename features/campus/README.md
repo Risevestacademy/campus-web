@@ -1,136 +1,89 @@
 # Campus
 
-Owns `/campus` and the Active Campus: the cohort chooser, admin cohort
-creation, the rail and sidebar around a cohort's campus, and the in-room media
-UI.
+Owns the member-facing Cohort chooser, the Campus Shell (rail and sidebar),
+and the Active Campus media UI inside it. Admin catalogues and pages belong to
+`admin`, access decisions to `auth`, and the participant list to `roster`.
 
-## Cohort chooser
+## Interface
 
-```tsx
-import { CohortChooser } from "@/features/campus";
-
-<CohortChooser viewer={session} page={page} api={await getServerApi()} />;
-```
-
-| Viewer | Reads                    | Sees                                                        |
-| ------ | ------------------------ | ----------------------------------------------------------- |
-| member | session memberships only | their cohorts, no create tile                               |
-| member | no memberships           | "You're not in a cohort yet…" pointing to an invite         |
-| admin  | `GET /v1/cohorts?page=N` | "Create cohort" tile first, then that page, then pagination |
-| admin  | an empty list            | "No cohorts yet…" above the create tile                     |
-| admin  | the list fails to load   | alert with Try again, no create tile                        |
-
-## Creating a cohort (admins)
-
-The tile is a client island inside the server-rendered grid. It opens a dialog
-whose form sends `POST /v1/cohorts` from the browser through the `/api` proxy.
-
-```text
-CreateCohortTile → CreateCohortForm → parseNewCohort (zod)
-                → useCreateCohort → createCohort → browserApi → /api/v1/cohorts
-```
-
-| Field      | Rule                                                     |
-| ---------- | -------------------------------------------------------- |
-| Name       | required, trimmed                                        |
-| Code       | required, trimmed, uppercased (shown uppercase as typed) |
-| Start, End | optional `YYYY-MM-DD`; left out when empty; end ≥ start  |
-| Status     | Upcoming (default), Active or Completed                  |
-
-| Backend answer    | Admin sees                                                     |
-| ----------------- | -------------------------------------------------------------- |
-| 201               | dialog closes, "Cohort created" toast, page 1 of the chooser   |
-| 400               | form alert: campus-api rejected these details                  |
-| 401               | full load to `/sign-in`                                        |
-| 409               | Code error: another cohort already uses this code              |
-| 403, 5xx, network | "We couldn't create the cohort" toast; dialog keeps its values |
-
-- On page 1 a success calls `router.refresh()`; on any other page it pushes
-  `/campus`. The list is newest first, so the new cohort is always first.
-- The mutation has `retry: false`. A lost 201 followed by a retry would be a
-  409 for a cohort that exists.
-- One POST per submit, even on a double-click or held Enter: `useCreateCohort`
-  gates on a ref, because `isPending` reaches React a tick late.
-- While the POST is in flight, Escape, the backdrop and Cancel do nothing.
-- The popup unmounts on close, so every open starts with a blank form.
-- Hiding the tile from members is cosmetic; campus-api's 403 is the guard.
-
-### Motion
-
-CSS transitions only, so an interrupted open reverses smoothly.
-
-| Element      | Motion                                                                         |
-| ------------ | ------------------------------------------------------------------------------ |
-| Tile         | dashed box `scale(0.96)` on press (label stays); hover brightens border + plus |
-| Dialog popup | `scale(0.96)` + fade in 200ms `cubic-bezier(0.23,1,0.32,1)`, out in 150ms      |
-| Backdrop     | fade in 200ms, out in 150ms                                                    |
-| Reduced      | fades only                                                                     |
-
-### Analytics
-
-`cohort.created` with `cohort_status`, captured once per 201.
-
-## Active Campus
-
-`app/campus/[id]/(active-campus)/layout.tsx` composes one module:
+| Entry         | Imported by           | Exports                                                                                                                    |
+| ------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `index.ts`    | routes                | `CohortChooser`, `CampusShell`, `ActiveCampus`, `CampusMediaSessionProvider`, `VisualsDisplay`, `SidebarCollapseButton`, … |
+| `document.ts` | `app/layout.tsx` only | `sidebarInitializerScript` (sizes the sidebar before hydration)                                                            |
 
 ```tsx
-import { ActiveCampus } from "@/features/campus";
-
-<ActiveCampus
-  AccountMenu={logsOutHere ? AccountMenu : undefined}
+<CampusShell
+  AccountMenu={AccountMenu}
+  administrationPanel={adminSidebar}
   OverviewPanel={CampusOverviewPanel}
+  cohortId={id}
+  initialSidebarMode="admin" // Cohort Administration only
 >
-  {children}
-</ActiveCampus>;
+  <ActiveCampus>{children}</ActiveCampus>
+</CampusShell>
 ```
 
-| Prop            | Meaning                                                              |
-| --------------- | -------------------------------------------------------------------- |
-| `AccountMenu`   | optional; wraps the rail avatar (auth's Log out menu)                |
-| `OverviewPanel` | fills the map panel; receives `collapseButton`. Others "Coming soon" |
-| `children`      | the route's map or meeting content                                   |
+`app/campus/[id]/(media-session)/layout.tsx` mounts `CampusMediaSessionProvider`
+above the Join Gate and Active Campus, so one session spans both.
 
-`ActiveCampus` is a Server Component: both props are components, which cannot
-cross into a client component. The route supplies them because this feature
-may not import `auth` or `roster`.
+Routes pass Auth-, Admin-, and Roster-owned UI in as props, because Campus may
+not import those features.
 
-The sidebar state (open, active panel) lives in `store/sidebar-store.ts`,
-persisted under `campus-sidebar` in `localStorage` and mirrored on
-`<html data-sidebar-open>` so the root layout's `sidebarInitializerScript`
-(imported from `@/features/campus/document`, never the barrel) can size the
-sidebar before hydration. Components read it through
-`hooks/use-sidebar-state.ts`.
+## Modules
 
-| Interaction                      | Effect                                   |
-| -------------------------------- | ---------------------------------------- |
-| Rail panel button                | that panel becomes active; sidebar opens |
-| Collapse sidebar                 | sidebar closes                           |
-| Header "Open sidebar"            | sidebar toggles                          |
-| Grid view (switch or tile)       | sidebar closes                           |
-| Sidebar reopens during grid view | meeting returns to map view              |
+| Module                                                       | Owns                                                                                        | Seam                    |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | ----------------------- |
+| `components/cohort-chooser.tsx`, `cohort-card.tsx`, `types/` | member Cohort selection from session memberships                                            | none                    |
+| `components/campus-shell/`                                   | rail, sidebar, panel switching, collapse                                                    | none                    |
+| `store/`, `hooks/use-sidebar-state.ts`                       | sidebar open, panel, and mode, persisted in `localStorage`                                  | `localStorage`          |
+| `components/` (media UI)                                     | `ActiveCampus`, control bar, media toggles and settings, meeting header, tiles, view switch | `useMediaSession`       |
+| `services/media-session/`                                    | capture, devices, publications ([README](services/media-session/README.md))                 | `MeetingMediaTransport` |
+| `testing/`                                                   | media session test utilities                                                                | none                    |
+
+Flow: component → `useMediaSession(selector)` or sidebar hooks → store →
+browser media or `localStorage`.
+
+## Contributing
+
+### Adding a rail panel
+
+1. Add the id to `SidebarPanelId` and `SIDEBAR_PANEL_IDS` in
+   `store/sidebar-preferences.ts`.
+2. Add the rail item to `components/campus-shell/rail-items.ts`.
+3. Panel content owned by another feature arrives as a `CampusShell` prop
+   (like `OverviewPanel`); until it exists the shell shows a coming-soon
+   panel.
+
+### Adding a media control
+
+1. Component in `components/`; read state with a narrow
+   `useMediaSession(selector)`.
+2. Call a store command; its returned `MediaSessionErrorCode` drives feedback
+   through `media-error-feedback.ts`.
+3. New capture behaviour goes in `services/media-session/`, not the component.
+
+### Rules
+
+- Import no other feature.
+- The root layout imports `document.ts` only; never the `index.ts` barrel.
+- Sidebar state is read through `hooks/use-sidebar-state.ts` and written
+  through `store/sidebar-store.ts`.
+- Cohort Administration opens in Administration mode; Active Campus restores
+  the stored mode. Members never get the Administration control.
+- The chooser never requests the Admin Cohort catalogue.
+- Use `GLOSSARY.md` terms (Active Campus, Campus Shell, Join Gate).
+- Comment only a non-obvious why.
 
 ## Tests
 
 ```bash
-pnpm vitest run --project unit features/campus
-pnpm eval:cohort-create
-pnpm vitest run --project unit \
+pnpm vitest run --project=unit features/campus
+pnpm vitest run --project=unit \
   tests/evals/meeting-header.eval.test.tsx \
   tests/evals/meeting-view-switch.eval.test.tsx \
-  tests/evals/campus-control-bar.eval.test.tsx
+  tests/evals/campus-control-bar.eval.test.tsx \
+  tests/evals/media-controls.eval.test.tsx
 ```
 
-The three Active Campus evals render the real route layout
+The evals render the real media session and Active Campus layouts
 (`tests/fixtures/active-campus-layout.tsx`) with auth stubbed.
-
-`pnpm eval:cohort-create` renders the admin chooser, double-clicks submit for
-every backend answer and for invalid input, and fails on any mismatched screen,
-more than one POST per double-click, or any POST for invalid input. Form
-helpers live in `tests/fixtures/cohorts.ts`.
-
-## Known gaps
-
-- No track UI: a new cohort has no tracks, and students need a `cohortTrackId`
-  to be invited. Attach tracks through campus-api for now.
-- No edit or delete of cohorts.

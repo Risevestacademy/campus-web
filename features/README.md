@@ -2,10 +2,13 @@
 
 Business behavior is organized by product domain.
 
-Planned domains:
+Domains (implemented ones have a directory):
 
+- admin
 - auth
 - campus
+- home
+- invitation
 - campus-world
 - avatar
 - roster
@@ -19,14 +22,18 @@ Planned domains:
 - stage
 - profile
 
-`campus` owns the cohort chooser and the Active Campus, including the rail and
-sidebar chrome around it (navigation, panel switching, the collapse/reopen
-state) — not a class or mentorship session, which is a distinct, later
-concept. `roster` owns the participant directory UI (search, filters, the
-online/offline lists); once real-time status lands, it will consume it from
-`presence` rather than own it.
+`admin` owns System Administrator catalogues and mutations under the `/campus`
+route hierarchy. `campus` owns the member-facing Cohort chooser, the Campus
+Shell (rail, sidebar, panel switching, and collapse/reopen state), and the
+Active Campus inside it — not a class or mentorship session,
+which is a distinct, later concept. `home` owns the public landing page. `invitation` owns Invite Preview and
+Invitation acceptance. `roster` owns the participant directory UI
+(search, filters, and online/offline lists); once real-time status lands, it
+will consume that status from `presence` rather than own it.
 
-Create a feature directory only when implementation starts. Colocate its
+Create a feature directory only when implementation starts, with a README in
+four sections: Interface, Modules, Contributing, Tests
+(`tests/feature-readme.test.ts` enforces it). Colocate its
 components, hooks, services, schemas, state, types, and tests. Expose consumers
 through `index.ts`; do not deep-import another feature or import feature-to-feature.
 

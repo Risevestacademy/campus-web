@@ -5,7 +5,7 @@ import type { CohortSummary } from "../types/cohort.types";
 export function CohortCard({ cohort }: { cohort: CohortSummary }) {
   return (
     <Link
-      href={`/campus/${encodeURIComponent(cohort.id)}/join`}
+      href={`/campus/${encodeURIComponent(cohort.id)}`}
       className="group w-fit"
     >
       <figure className="bg-surface ring-border mb-2 block aspect-video w-80 rounded-2xl ring"></figure>

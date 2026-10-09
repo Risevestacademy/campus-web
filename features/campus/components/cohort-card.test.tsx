@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { CohortCard } from "../index";
 
 describe("CohortCard", () => {
-  it("links to the cohort's pre-join screen by its real ID", () => {
+  it("links to the cohort entry by its real ID", () => {
     render(
       <CohortCard
         cohort={{
@@ -17,7 +17,7 @@ describe("CohortCard", () => {
 
     expect(screen.getByRole("link", { name: /Cohort 3/ })).toHaveAttribute(
       "href",
-      "/campus/11111111-1111-4111-8111-111111111111/join",
+      "/campus/11111111-1111-4111-8111-111111111111",
     );
   });
 
@@ -26,7 +26,7 @@ describe("CohortCard", () => {
 
     expect(screen.getByRole("link", { name: "Odd" })).toHaveAttribute(
       "href",
-      "/campus/a%2Fb%20c/join",
+      "/campus/a%2Fb%20c",
     );
   });
 

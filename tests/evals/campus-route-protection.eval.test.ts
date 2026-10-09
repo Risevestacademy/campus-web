@@ -1,5 +1,8 @@
 // @vitest-environment node
 
+import { readdirSync } from "node:fs";
+import { resolve } from "node:path";
+
 import {
   getRedirectUrl,
   unstable_doesMiddlewareMatch,
@@ -40,7 +43,7 @@ const INVITE_ID = "invite-1";
 
 function session(
   scope: "provisional" | "full_access",
-  systemRole: "user" | "admin",
+  systemRole: "user" | "admin" | "super_admin",
   memberships: Membership[],
   inviteId: string | null = null,
 ): Backend {
@@ -63,6 +66,7 @@ type FetchDestination = "document" | "empty";
 type Destination = RouteAuthorizationRequest | { kind: "sign-in" };
 
 const INDEX: RouteAuthorizationRequest = { kind: "campus-index" };
+const SYSTEM_ADMIN: RouteAuthorizationRequest = { kind: "system-admin" };
 const cohort = (cohortId: string): RouteAuthorizationRequest => ({
   kind: "cohort",
   cohortId,
@@ -240,6 +244,24 @@ const SESSION_STATES: SessionState[] = [
     refresh: "rejected",
   },
   {
+    shape: "full access after campus entry",
+    cookies: { ...SESSION, "campus_entry_c-1": "1" },
+    backend: session("full_access", "user", ONE_COHORT),
+    refresh: "rejected",
+  },
+  {
+    shape: "full-access administrator",
+    cookies: SESSION,
+    backend: session("full_access", "admin", []),
+    refresh: "rejected",
+  },
+  {
+    shape: "full-access Super Administrator",
+    cookies: SESSION,
+    backend: session("full_access", "super_admin", []),
+    refresh: "rejected",
+  },
+  {
     shape: "suspended",
     cookies: SESSION,
     backend: status(403),
@@ -253,9 +275,19 @@ const SESSION_STATES: SessionState[] = [
   },
 ];
 
+// Read from disk so every administration page is walked through the real
+// proxy; one missing from return-to's segment list is sent to /join.
+const ADMINISTRATION_PAGES = readdirSync(
+  resolve(import.meta.dirname, "../../app/campus/[id]/(administration)"),
+  { withFileTypes: true },
+)
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name);
+
 const ENTRY_URLS = [
   "/campus",
   "/campus/c-1/meeting",
+  ...ADMINISTRATION_PAGES.map((page) => `/campus/c-1/${page}`),
   "/invitation",
   "/preview",
   "/sign-in?returnTo=%2Finvitation",
@@ -269,8 +301,17 @@ function destinationOf(pathname: string): Destination | "refresh" {
   if (pathname === "/preview") return PREVIEW;
   if (pathname === "/campus") return INDEX;
 
-  const [, , cohortSegment = ""] = pathname.split("/");
+  const [, , cohortSegment = "", section] = pathname.split("/");
+  if (section !== undefined && ADMINISTRATION_PAGES.includes(section)) {
+    return SYSTEM_ADMIN;
+  }
   return cohort(decodeURIComponent(cohortSegment));
+}
+
+function stateShaped(shape: string): SessionState {
+  const state = SESSION_STATES.find((candidate) => candidate.shape === shape);
+  if (!state) throw new Error(`missing session state: ${shape}`);
+  return state;
 }
 
 interface Chain {
@@ -362,12 +403,10 @@ describe(`Auth redirect chain eval (threshold: 0 chains over ${MAX_REDIRECTS} re
   });
 
   it("sends an expired invitation session through refresh exactly once before sign-in", async () => {
-    const state = SESSION_STATES.find(
-      ({ shape }) => shape === "expired, refreshed but still signed out",
+    const { steps } = await walk(
+      "/invitation",
+      stateShaped("expired, refreshed but still signed out"),
     );
-    if (!state) throw new Error("missing session state");
-
-    const { steps } = await walk("/invitation", state);
 
     expect(steps).toEqual([
       "/invitation",
@@ -376,6 +415,39 @@ describe(`Auth redirect chain eval (threshold: 0 chains over ${MAX_REDIRECTS} re
       "/sign-in?returnTo=%2Finvitation",
       "render",
     ]);
+  });
+
+  it("sends a single-cohort member who already entered straight to their campus", async () => {
+    const { steps } = await walk(
+      "/campus",
+      stateShaped("full access after campus entry"),
+    );
+
+    expect(steps).toEqual(["/campus", "/campus/c-1", "allow"]);
+  });
+
+  it.each(ADMINISTRATION_PAGES)(
+    "forbids an ordinary member from %s administration",
+    async (section) => {
+      const path = `/campus/c-1/${section}`;
+      const { steps } = await walk(
+        path,
+        stateShaped("full access without an invite"),
+      );
+
+      expect(steps).toEqual([path, "forbidden"]);
+    },
+  );
+
+  it.each(
+    ["full-access administrator", "full-access Super Administrator"].flatMap(
+      (shape) => ADMINISTRATION_PAGES.map((section) => [shape, section]),
+    ),
+  )("allows a %s into %s administration", async (shape, section) => {
+    const path = `/campus/c-1/${section}`;
+    const { steps } = await walk(path, stateShaped(shape));
+
+    expect(steps).toEqual([path, "allow"]);
   });
 });
 

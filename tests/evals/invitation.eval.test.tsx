@@ -291,7 +291,7 @@ describe("Invitation eval (threshold: 0 mismatched outcomes, 0 automatic retries
       {
         name: "200 cohort",
         reply: json(acceptedDecision("c-1")),
-        accept: "go /campus/c-1/join",
+        accept: "go /campus/c-1",
       },
       {
         name: "200 admin",

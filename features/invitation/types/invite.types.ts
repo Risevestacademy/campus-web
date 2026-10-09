@@ -1,5 +1,6 @@
 import type { components } from "@/core/api/client";
 
+export type SystemRole = components["schemas"]["SystemRole"];
 export type InvitePreview = components["schemas"]["InvitePreviewResponseDto"];
 export type PendingInvite =
   components["schemas"]["InviteOnboardingResponseDto"];

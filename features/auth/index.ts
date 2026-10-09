@@ -1,4 +1,5 @@
 export { AccountMenu } from "./components/account-menu";
+export { CampusEntryLink } from "./components/campus-entry-link";
 export { CohortGate } from "./components/cohort-gate";
 export { InvitationGate } from "./components/invitation-gate";
 export { RefreshSession } from "./components/refresh-session";
@@ -18,6 +19,7 @@ export {
   requireRouteAccess,
 } from "./services/route-access.service";
 export { logsOutFromRail } from "./services/route-policy";
+export { isSystemAdministrator } from "./services/system-role";
 export type {
   InvitationPath,
   RouteAccess,

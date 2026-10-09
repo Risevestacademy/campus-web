@@ -1,12 +1,16 @@
 import type { ReactNode } from "react";
 
-import ActiveCampusLayout from "@/app/campus/[id]/(active-campus)/layout";
+import ActiveCampusLayout from "@/app/campus/[id]/(media-session)/(active-campus)/layout";
+import MediaSessionLayout from "@/app/campus/[id]/(media-session)/layout";
 
-// The layout is an async Server Component; RTL renders only what it resolves
-// to. Pair with the route-access stub, since the layout reads the session.
-export function activeCampusLayout(children: ReactNode = <div />) {
-  return ActiveCampusLayout({
-    children,
-    params: Promise.resolve({ id: "c-1" }),
-  });
+const params = Promise.resolve({ id: "c-1" });
+
+// Layouts are async Server Components; RTL renders only what they resolve to.
+// Pair with the route-access stub, since the layouts read the session.
+export function mediaSessionLayout(children: ReactNode) {
+  return MediaSessionLayout({ children, params });
+}
+
+export async function activeCampusLayout(children: ReactNode = <div />) {
+  return mediaSessionLayout(await ActiveCampusLayout({ children, params }));
 }

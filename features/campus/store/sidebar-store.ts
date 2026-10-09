@@ -6,8 +6,11 @@ import {
   parseStoredSidebarPreferences,
   SIDEBAR_CHANGE_EVENT,
   SIDEBAR_STORAGE_KEY,
+  type SidebarMode,
   type SidebarPanelId,
 } from "./sidebar-preferences";
+
+let sidebarModeRevision = 0;
 
 function readStoredPreferences() {
   try {
@@ -44,6 +47,22 @@ export function getServerActivePanelSnapshot(): SidebarPanelId {
   return DEFAULT_ACTIVE_PANEL;
 }
 
+export function getSidebarModeSnapshot(): SidebarMode | undefined {
+  return readStoredPreferences().sidebarMode;
+}
+
+export function getServerSidebarModeSnapshot(): undefined {
+  return undefined;
+}
+
+export function getSidebarModeRevisionSnapshot(): number {
+  return sidebarModeRevision;
+}
+
+export function getServerSidebarModeRevisionSnapshot(): number {
+  return 0;
+}
+
 export function getSidebarOpenSnapshot(): boolean {
   return readStoredPreferences().sidebarOpen;
 }
@@ -53,9 +72,20 @@ export function getServerSidebarOpenSnapshot(): boolean {
 }
 
 export function setActivePanel(activePanel: SidebarPanelId): void {
+  sidebarModeRevision += 1;
   writeStoredPreferences({
     ...readStoredPreferences(),
     activePanel,
+    sidebarMode: "campus",
+    sidebarOpen: true,
+  });
+}
+
+export function setSidebarMode(sidebarMode: SidebarMode): void {
+  sidebarModeRevision += 1;
+  writeStoredPreferences({
+    ...readStoredPreferences(),
+    sidebarMode,
     sidebarOpen: true,
   });
 }

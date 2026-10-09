@@ -49,7 +49,12 @@ _Avoid_: Join page, onboarding redirect
 **Active Campus**:
 A cohort's live campus that a member enters after the Join Gate: the map or
 meeting view, the sidebar panels, and the campus controls.
-_Avoid_: Campus shell, campus room, main campus
+_Avoid_: Campus room, main campus
+
+**Campus Shell**:
+The rail and sidebar frame around every page of one Cohort. Active Campus and
+Cohort Administration both render inside it.
+_Avoid_: Layout, chrome
 
 **Route Access Decision**:
 The answer to whether a session may render a route: allow, redirect, forbidden,
@@ -61,6 +66,44 @@ _Avoid_: Auth check, permission result
 The sanitized same-origin Campus or invitation path a visitor goes back to
 after refresh, sign-in, or the Join Gate. Unsafe values fall back to `/campus`.
 _Avoid_: Redirect URL, next URL
+
+## Campus Administration
+
+This context describes system-administrator operations for scheduled learning
+intakes, reusable learning paths, and invitations.
+
+### Language
+
+**System Administrator**:
+A full-access user whose system role permits administration across Cohorts.
+Backend authorization remains authoritative for every operation.
+_Avoid_: Cohort administrator, programme administrator
+
+**Cohort**:
+A scheduled learning intake with its own dates, status, members, and attached
+Programme Tracks.
+_Avoid_: Campus, Programme Track, batch
+
+**Programme Track**:
+A reusable catalogue entry describing a learning path that may be attached to
+multiple Cohorts.
+_Avoid_: Cohort Track, media track
+
+**Cohort Track**:
+The association between one Cohort and one Programme Track. Detaching it
+removes only the association; it never deletes the Programme Track.
+_Avoid_: Programme Track, cohort course
+
+**Cohort Administration**:
+The System Administrator pages for one Cohort. They sit outside Active Campus
+and the Join Gate; entering them leaves Active Campus.
+_Avoid_: Admin panel, admin dashboard
+
+**Invitation**:
+A lifecycle record inviting a person to a Cohort. It may be pending, accepted,
+declined, expired, or revoked. Resending or revoking changes the lifecycle; it
+is not generic CRUD.
+_Avoid_: Invite Link, invitation token
 
 ## Campus Media
 
