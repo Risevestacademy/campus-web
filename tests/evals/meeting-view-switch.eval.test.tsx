@@ -1,18 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CampusMediaSessionProvider } from "@/features/campus";
 import { activeCampusLayout } from "@/tests/fixtures/active-campus-layout";
 
 vi.mock("@/features/auth", () => import("@/tests/fixtures/route-access-stub"));
 vi.mock("server-only", () => ({}));
 
 async function renderActiveCampusLayout() {
-  return render(
-    <CampusMediaSessionProvider>
-      {await activeCampusLayout()}
-    </CampusMediaSessionProvider>,
-  );
+  return render(await activeCampusLayout());
 }
 
 afterEach(() => {

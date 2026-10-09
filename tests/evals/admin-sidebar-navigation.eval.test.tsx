@@ -7,6 +7,7 @@ import { activeCampusLayout } from "@/tests/fixtures/active-campus-layout";
 
 vi.mock("@/features/auth", () => ({
   AccountMenu: ({ children }: { children: ReactNode }) => children,
+  CohortGate: ({ children }: { children: ReactNode }) => children,
   isSystemAdministrator: (role: string) =>
     role === "admin" || role === "super_admin",
   logsOutFromRail: () => false,

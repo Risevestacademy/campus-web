@@ -8,7 +8,6 @@ import {
 } from "@/features/auth";
 import {
   ActiveCampus,
-  CampusMediaSessionProvider,
   CampusShell,
   SidebarCollapseButton,
 } from "@/features/campus";
@@ -47,9 +46,7 @@ export default async function ActiveCampusLayout({
       OverviewPanel={CampusOverviewPanel}
       cohortId={id}
     >
-      <CampusMediaSessionProvider>
-        <ActiveCampus>{children}</ActiveCampus>
-      </CampusMediaSessionProvider>
+      <ActiveCampus>{children}</ActiveCampus>
     </CampusShell>
   );
 }

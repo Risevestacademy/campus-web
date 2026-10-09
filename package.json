@@ -32,7 +32,7 @@
     "eval:analytics": "vitest run core/analytics/contract.eval.test.ts",
     "eval:architecture": "eslint . --max-warnings=0 && vitest run --project=unit tests/evals/proxy-entry-boundary.eval.test.ts tests/evals/root-layout-entry-boundary.eval.test.ts",
     "eval:api-client": "vitest run tests/evals/api-client-foundation.eval.test.ts",
-    "eval:route-protection": "vitest run --project=unit tests/evals/campus-route-protection.eval.test.ts tests/evals/campus-page-authorization.eval.test.tsx",
+    "eval:route-protection": "vitest run --project=unit tests/evals/campus-route-protection.eval.test.ts tests/evals/campus-page-authorization.eval.test.tsx tests/evals/join-gate.eval.test.tsx",
     "eval:invitation": "vitest run --project=unit tests/evals/invitation.eval.test.tsx",
     "eval:admin": "vitest run --project=unit tests/evals/admin-mutations.eval.test.tsx tests/evals/cohort-create.eval.test.tsx tests/evals/admin-layout.eval.test.tsx tests/evals/admin-sidebar-navigation.eval.test.tsx",
     "eval:component-stories": "vitest run --project=unit tests/evals/component-story-coverage.eval.test.ts",

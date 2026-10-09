@@ -19,11 +19,12 @@ and the Active Campus media UI inside it. Admin catalogues and pages belong to
   cohortId={id}
   initialSidebarMode="admin" // Cohort Administration only
 >
-  <CampusMediaSessionProvider>
-    <ActiveCampus>{children}</ActiveCampus>
-  </CampusMediaSessionProvider>
+  <ActiveCampus>{children}</ActiveCampus>
 </CampusShell>
 ```
+
+`app/campus/[id]/(media-session)/layout.tsx` mounts `CampusMediaSessionProvider`
+above the Join Gate and Active Campus, so one session spans both.
 
 Routes pass Auth-, Admin-, and Roster-owned UI in as props, because Campus may
 not import those features.
@@ -84,5 +85,5 @@ pnpm vitest run --project=unit \
   tests/evals/media-controls.eval.test.tsx
 ```
 
-The evals render the real Active Campus layout
+The evals render the real media session and Active Campus layouts
 (`tests/fixtures/active-campus-layout.tsx`) with auth stubbed.

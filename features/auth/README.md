@@ -55,8 +55,8 @@ Flow: page → gate or `requireRouteAccess` → `authorizeRoute` →
 
 ### Protecting a new page
 
-- Active Campus page (`app/campus/[id]/(active-campus)/`): wrap the content
-  in `CohortGate`.
+- Active Campus page (`app/campus/[id]/(media-session)/(active-campus)/`):
+  wrap the content in `CohortGate`.
 - Cohort Administration page (`app/campus/[id]/(administration)/`): call
   `requireRouteAccess({ kind: "system-admin" })`.
 - Any other `/campus` page: call `requireRouteAccess` with its kind.

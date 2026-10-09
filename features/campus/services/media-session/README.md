@@ -6,8 +6,8 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
 
 ## Interface
 
-- `CampusMediaSessionProvider`: one media session per campus route; leaving
-  the route stops capture.
+- `CampusMediaSessionProvider`: one media session shared by the Join Gate
+  and Active Campus; leaving both stops capture.
 - `useMediaSession(selector)`: selected state and commands. Commands
   (`toggleSource`, `selectInputDevice`, `chooseAudioOutput`) resolve to the
   `MediaSessionErrorCode` they produced, or `null`.
