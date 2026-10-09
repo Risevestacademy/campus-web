@@ -429,11 +429,11 @@ test.describe("campus index", () => {
     );
 
     await page.getByRole("link", { name: "Next page" }).click();
-    await expect(page).toHaveURL("/campus?page=2");
+    await expect(page).toHaveURL("/campus?view=cohorts&page=2");
     await expect(page.getByRole("link", { name: /Gamma/ })).toBeVisible();
 
     await page.getByRole("link", { name: "Previous page" }).click();
-    await expect(page).toHaveURL("/campus?page=1");
+    await expect(page).toHaveURL("/campus?view=cohorts&page=1");
     await expect(page.getByRole("link", { name: /Alpha/ })).toBeVisible();
   });
 
