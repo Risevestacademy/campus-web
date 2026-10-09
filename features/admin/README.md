@@ -1,165 +1,83 @@
 # Administration
 
-Owns System Administrator workflows under the `/campus` route hierarchy.
-The Cohort and Programme Track modules provide catalogue, create, edit, and
-guarded-delete workflows. Cohort administration also owns explicit Programme
-Track attachment and detachment.
+Owns System Administrator work under `/campus`: the Cohort and Programme
+Track catalogues and their mutations, Cohort Track attachment, and the Cohort
+Administration pages. Member Cohort selection belongs to `campus`; Invitation
+acceptance belongs to `invitation`.
 
-## Public interface
+## Interface
 
-```tsx
-import { CohortCatalogue } from "@/features/admin";
+`index.ts` is the only entry point.
 
-<CohortCatalogue page={page} />;
-```
+| Export                         | Composed by                                 |
+| ------------------------------ | ------------------------------------------- |
+| `AdministrationCatalogue`      | `app/campus/page.tsx`                       |
+| `AdminSidebar`                 | both `app/campus/[id]` layouts              |
+| `CohortAdministrationOverview` | `app/campus/[id]/(administration)/overview` |
+| `CohortTrackAdministration`    | `app/campus/[id]/(administration)/tracks`   |
+| `CohortCatalogue`              | the Cohort create eval                      |
 
-`AdministrationCatalogue` is the `/campus` composition boundary. It accepts
-the URL-backed `view` (`cohorts` or `tracks`) and page, resets page to 1 when
-switching tabs, and falls back to Cohorts page 1 for invalid values.
+Every route requires `requireRouteAccess({ kind: "system-admin" })` before
+rendering an export.
 
-The interface accepts the requested page and hides transport clients, response
-validation, domain outcomes, mutation policy, analytics, and navigation.
-`app/campus/page.tsx` renders it only for a System Administrator.
+## Modules
 
-## Cohort catalogue
+| Module       | Owns                                                                                                                | Seam                                                                     |
+| ------------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `cohorts/`   | Cohort CRUD, Cohort Track attach and detach                                                                         | `services/cohort-api.adapter.ts`, `services/cohort-track-api.adapter.ts` |
+| `tracks/`    | Programme Track CRUD                                                                                                | `services/track-api.adapter.ts`                                          |
+| `catalogue/` | the `/campus?view=&page=` switch                                                                                    | none                                                                     |
+| root files   | `use-admin-mutation.ts`, `admin-sidebar.tsx`, `cohort-administration-overview.tsx`, `cohort-administration-href.ts` | none                                                                     |
 
-The catalogue reads `GET /v1/cohorts?page=N` in a Server Component. Invalid
-page values fall back to page 1.
+Inside a module: `components/` → `hooks/` → `services/`. `schemas/` parses
+form and response data; `types/` holds outcomes. Server Components read with
+`getServerApi()`; client hooks mutate with `browserApi`.
 
-| Backend answer | Administrator sees                        |
-| -------------- | ----------------------------------------- |
-| Valid page     | Create tile, Cohort cards, and pagination |
-| Empty page     | Empty explanation and the create tile     |
-| Failure        | Alert and a full-request Try again link   |
+## Contributing
 
-Admin owns `CohortAdministrationCard`; Campus keeps a separate member-facing
-card. Active Campus remains the Admin card's primary destination. Its explicit
-administration menu exposes Edit and Delete without changing member behavior.
+### Adding a read
 
-## Creating a Cohort
+1. Outcome type in `types/`: `({ kind: "loaded" } & Data) | { kind: "unavailable" }`.
+2. Adapter in `services/` taking `ApiClient`; parse with a `schemas/`
+   function. A throw or a bad body is `unavailable`.
+3. Call it from a Server Component.
 
-The create tile is a client island inside the server-rendered catalogue. It
-sends `POST /v1/cohorts` through the browser `/api` proxy.
+### Adding a mutation
 
-```text
-CreateCohortTile → CreateCohortForm → parseNewCohort
-                 → useCreateCohort → cohort-api adapter
-```
+1. Problem union in `types/`, one per mutation, extending the module's
+   `…RecordProblem`.
+2. Adapter maps statuses to problems and never throws.
+3. Hook wraps `useAdminMutation` with `browserApi` and adds only the success
+   toast.
+4. Component maps every problem in a complete
+   `Record<Problem, string | undefined>`. `signed-out` is `undefined` because
+   the hook navigates to `/sign-in`.
+5. Add the mutation to `tests/evals/admin-mutations.eval.test.tsx`.
 
-| Field      | Rule                                                     |
-| ---------- | -------------------------------------------------------- |
-| Name       | required, trimmed                                        |
-| Code       | required, trimmed, uppercased (shown uppercase as typed) |
-| Start, End | optional `YYYY-MM-DD`; omitted when empty; end ≥ start   |
-| Status     | Upcoming (default), Active, or Completed                 |
+### Adding a Cohort Administration page
 
-| Backend answer    | Administrator sees                                        |
-| ----------------- | --------------------------------------------------------- |
-| 201               | dialog closes, confirmation, newest catalogue page        |
-| 400               | form alert explaining that the details were rejected      |
-| 401               | full load to `/sign-in`                                   |
-| 409               | Code error explaining that the code is already used       |
-| 403, 5xx, network | failure toast; dialog and entered values remain available |
+1. Page in `app/campus/[id]/(administration)/<page>/`; it calls
+   `requireRouteAccess({ kind: "system-admin" })` itself.
+2. Add `<page>` to `CohortAdministrationPage` in
+   `cohort-administration-href.ts` and a link in `admin-sidebar.tsx`.
+3. Follow "Protecting a new page" in `features/auth/README.md`;
+   `pnpm eval:route-protection` fails until it is done.
 
-- Page 1 refreshes after creation; later pages navigate to `/campus`.
-- Mutations use `retry: false`.
-- A synchronous in-flight gate permits at most one POST per submission.
-- The dialog cannot close while its request is pending.
-- Closing unmounts the form so the next open starts empty.
-- campus-api remains the final authorization authority.
+### Rules
 
-### Analytics
-
-A successful creation records `cohort.created` once with `cohort_status`.
-
-## Editing a Cohort
-
-Edit reuses the create fields and validation but has a separate interface.
-Only normalized changed fields are sent to `PATCH /v1/cohorts/{id}`. Clearing
-an optional date sends `null`.
-
-| Backend answer | Administrator sees                               |
-| -------------- | ------------------------------------------------ |
-| 200            | dialog closes, confirmation, refreshed catalogue |
-| 400            | rejected-changes explanation; values remain      |
-| 401            | full load to `/sign-in`                          |
-| 403            | permission explanation; values remain            |
-| 404            | missing-Cohort explanation; values remain        |
-| 409            | duplicate-code field error; values remain        |
-| 5xx, network   | failure toast; values remain                     |
-
-## Deleting a Cohort
-
-The confirmation names the Cohort and states that deletion is permanent and
-non-cascading. The browser sends only `DELETE /v1/cohorts/{id}`.
-
-| Backend answer | Administrator sees                               |
-| -------------- | ------------------------------------------------ |
-| 204            | dialog closes, confirmation, refreshed catalogue |
-| 401            | full load to `/sign-in`                          |
-| 403            | permission explanation; dialog remains           |
-| 404            | missing-Cohort explanation; dialog remains       |
-| 409            | attached-record explanation; dialog remains      |
-| 5xx, network   | failure toast; dialog remains                    |
-
-A 409 never triggers Programme Track, membership, Invitation, or other cleanup
-requests. The backend remains authoritative for whether the Cohort is empty.
-
-Both mutations use `retry: false` and a synchronous in-flight gate, so repeated
-submission sends at most one request.
-
-## Programme Track catalogue
-
-The Track catalogue reads `GET /v1/tracks?page=N` in a Server Component. Track
-forms trim names and descriptions, uppercase codes, omit empty descriptions on
-create, and send only changed fields on edit. Clearing an existing description
-sends `null`.
-
-Track deletion sends only `DELETE /v1/tracks/{id}`. A `409` means the Track is
-still attached to a Cohort; the dialog remains open and no cascade or detach
-request is attempted.
-
-## Cohort Programme Tracks
-
-`CohortTrackAdministration` is the public interface for
-`/campus/[id]/tracks`. The route requires a full-access System Administrator
-before rendering it. It reuses the Campus rail/sidebar shell but remains
-outside the Active Campus media layout, so it mounts no meeting controls or
-media session.
-
-The Administration rail control is available only to System Administrators.
-It exposes working links to `/campus/[id]/overview` and
-`/campus/[id]/tracks`; ordinary members retain the original Campus sidebar.
-
-The Server Component reads attached Tracks from `GET /v1/cohorts/{id}` and a
-paginated catalogue page from `GET /v1/tracks`. Tracks already attached to the
-Cohort are removed from the attachment choices on that page.
-
-Attachment sends only `POST /v1/cohorts/{id}/tracks`. Detachment sends only
-`DELETE /v1/cohorts/{id}/tracks/{trackId}` and never calls Programme Track
-deletion. A detach conflict leaves the dialog open because students or
-Invitations still reference the association.
-
-Both mutations use `retry: false`, a synchronous in-flight gate, no optimistic
-update, and one server refresh after success.
-
-## Internal transport
-
-- Server catalogue reads use `getServerApi()`.
-- Browser mutations use `browserApi`.
-- `cohort-api.adapter.ts` maps raw responses to Admin-owned domain outcomes.
-- Neither raw transport client is part of the public Admin interface.
-- If the generated PATCH/DELETE status or body contracts change, TypeScript
-  catches request-shape changes and the adapter contract tests catch changed
-  runtime outcomes.
+- Import no other feature; routes pass Auth and Campus UI in.
+- Transport clients never leave `services/` or a Server Component.
+- Mutations never retry, never update optimistically, and never cascade on a 409. campus-api stays the authorization authority.
+- Use `GLOSSARY.md` terms. Inside admin, Programme Track may shorten to
+  `track`; next to media code, say `programmeTrack`.
+- Comment only a non-obvious why.
 
 ## Tests
 
 ```bash
 pnpm vitest run --project=unit features/admin
-pnpm eval:cohort-create
+pnpm eval:admin
 ```
 
-The eval renders the public Admin catalogue, double-submits every backend
-answer, and requires zero mismatched outcomes, at most one POST per valid
-submission, and zero POSTs for invalid input.
+`eval:admin` replays every backend answer for every mutation and requires the
+documented outcome with exactly one request, plus the admin layout and sidebar.
