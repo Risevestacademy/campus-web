@@ -15,5 +15,10 @@ export default async function AdministrationOverviewPage({
     return <SessionUnavailable retryHref={access.retryHref} />;
   }
 
-  return <CohortAdministrationOverview cohortId={id} />;
+  return (
+    <CohortAdministrationOverview
+      cohortId={id}
+      adminName={access.session.user.displayName}
+    />
+  );
 }

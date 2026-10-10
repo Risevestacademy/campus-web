@@ -36,7 +36,7 @@ export default async function AdministrationLayout({
       cohortId={id}
       initialSidebarMode="admin"
     >
-      <div className="bg-surface min-w-0 flex-1 overflow-y-auto rounded-xl border">
+      <div className="min-w-0 flex-1 overflow-y-auto rounded-xl border bg-[#F7F7F7] dark:border-[#2B3B5F] dark:bg-[#1F2940]">
         {children}
       </div>
     </CampusShell>
