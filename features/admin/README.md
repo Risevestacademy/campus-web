@@ -27,6 +27,7 @@ rendering an export.
 | `cohorts/`   | Cohort CRUD, Cohort Track attach and detach                                                                         | `services/cohort-api.adapter.ts`, `services/cohort-track-api.adapter.ts` |
 | `tracks/`    | Programme Track CRUD                                                                                                | `services/track-api.adapter.ts`                                          |
 | `catalogue/` | the `/campus?view=&page=` switch                                                                                    | none                                                                     |
+| `overview/`  | the Administration overview's cards; their figures are mock data in `overview-data.ts` until campus-api has stats   | none                                                                     |
 | root files   | `use-admin-mutation.ts`, `admin-sidebar.tsx`, `cohort-administration-overview.tsx`, `cohort-administration-href.ts` | none                                                                     |
 
 Inside a module: `components/` → `hooks/` → `services/`. `schemas/` parses
