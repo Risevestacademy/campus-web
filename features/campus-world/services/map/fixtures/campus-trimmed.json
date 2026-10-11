@@ -1,0 +1,157 @@
+{
+  "compressionlevel": -1,
+  "height": 3,
+  "infinite": false,
+  "layers": [
+    {
+      "data": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      "height": 3,
+      "name": "ground",
+      "opacity": 1,
+      "type": "tilelayer",
+      "visible": true,
+      "width": 4,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "layers": [
+        {
+          "data": [0, 0, 0, 0, 0, 0, 375, 0, 0, 0, 0, 0],
+          "height": 3,
+          "name": "chairs",
+          "opacity": 1,
+          "type": "tilelayer",
+          "visible": true,
+          "width": 4,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "data": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          "height": 3,
+          "name": "avatars",
+          "opacity": 1,
+          "type": "tilelayer",
+          "visible": true,
+          "width": 4,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "data": [0, 0, 0, 0, 0, 0, 0, 0, 0, 375, 0, 0],
+          "height": 3,
+          "name": "walls",
+          "opacity": 1,
+          "type": "tilelayer",
+          "visible": true,
+          "width": 4,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "name": "furniture",
+      "opacity": 1,
+      "type": "group",
+      "visible": true
+    },
+    {
+      "data": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16253, 0],
+      "height": 3,
+      "name": "trees",
+      "opacity": 1,
+      "type": "tilelayer",
+      "visible": true,
+      "width": 4,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "draworder": "topdown",
+      "name": "collisions",
+      "objects": [
+        {
+          "height": 32,
+          "id": 1,
+          "name": "",
+          "rotation": 0,
+          "type": "",
+          "visible": true,
+          "width": 32,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true
+    },
+    {
+      "draworder": "topdown",
+      "name": "spawn",
+      "objects": [
+        {
+          "id": 2,
+          "name": "spawn",
+          "point": true,
+          "rotation": 0,
+          "type": "",
+          "visible": true,
+          "x": 48,
+          "y": 48
+        }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true
+    }
+  ],
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "tileheight": 32,
+  "tilesets": [
+    {
+      "columns": 22,
+      "firstgid": 1,
+      "image": "tilesets/grounds.png",
+      "imageheight": 544,
+      "imagewidth": 704,
+      "margin": 0,
+      "name": "grounds",
+      "spacing": 0,
+      "tilecount": 374,
+      "tileheight": 32,
+      "tilewidth": 32
+    },
+    {
+      "columns": 80,
+      "firstgid": 375,
+      "image": "tilesets/terrains.png",
+      "imageheight": 3136,
+      "imagewidth": 2560,
+      "margin": 0,
+      "name": "terrains",
+      "spacing": 0,
+      "tilecount": 7840,
+      "tileheight": 32,
+      "tilewidth": 32
+    },
+    {
+      "columns": 15,
+      "firstgid": 16253,
+      "image": "tilesets/trees.png",
+      "imageheight": 605,
+      "imagewidth": 480,
+      "margin": 0,
+      "name": "trees",
+      "spacing": 0,
+      "tilecount": 270,
+      "tileheight": 32,
+      "tilewidth": 32
+    }
+  ],
+  "tilewidth": 32,
+  "type": "map",
+  "version": "1.10",
+  "width": 4
+}

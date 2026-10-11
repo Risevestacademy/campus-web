@@ -8,17 +8,21 @@ describe("build environment validation", () => {
     vi.resetModules();
   });
 
-  it("rejects a protected build when required analytics variables are missing", async () => {
+  it("rejects a protected build when required public variables are missing", async () => {
     vi.stubEnv("CI", "true");
     vi.stubEnv("VERCEL", "");
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "");
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_HOST", "");
+    vi.stubEnv("NEXT_PUBLIC_SANITY_PROJECT_ID", "");
+    vi.stubEnv("NEXT_PUBLIC_SANITY_DATASET", "");
 
     await expect(import("../../next.config")).rejects.toThrow(
       [
         "Invalid build environment:",
         "- NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is required.",
         "- NEXT_PUBLIC_POSTHOG_HOST is required.",
+        "- NEXT_PUBLIC_SANITY_PROJECT_ID is required.",
+        "- NEXT_PUBLIC_SANITY_DATASET is required.",
       ].join("\n"),
     );
   });
@@ -48,11 +52,13 @@ describe("build environment validation", () => {
     });
   });
 
-  it("reports every malformed analytics variable", () => {
+  it("reports every malformed public variable", () => {
     expect(() =>
       validateBuildEnvironment({
         NEXT_PUBLIC_POSTHOG_HOST: "http://eu.i.posthog.com",
         NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: "invalid-token",
+        NEXT_PUBLIC_SANITY_DATASET: "Invalid Dataset",
+        NEXT_PUBLIC_SANITY_PROJECT_ID: "sj3zsz66",
         VERCEL: "1",
       }),
     ).toThrow(
@@ -60,6 +66,7 @@ describe("build environment validation", () => {
         "Invalid build environment:",
         '- NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN must start with "phc_".',
         "- NEXT_PUBLIC_POSTHOG_HOST must be a valid HTTPS URL.",
+        "- NEXT_PUBLIC_SANITY_DATASET must contain only lowercase letters, numbers, underscores, and hyphens.",
       ].join("\n"),
     );
   });
@@ -76,6 +83,8 @@ describe("build environment validation", () => {
           ...buildEnvironment,
           NEXT_PUBLIC_POSTHOG_HOST: "https://eu.i.posthog.com",
           NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: "phc_project",
+          NEXT_PUBLIC_SANITY_DATASET: "staging",
+          NEXT_PUBLIC_SANITY_PROJECT_ID: "sj3zsz66",
         }),
       ).not.toThrow();
     },

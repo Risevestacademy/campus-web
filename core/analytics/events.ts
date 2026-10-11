@@ -10,6 +10,10 @@ export const ANALYTICS_EVENTS = {
   AUTH_SIGNUP_SUCCEEDED: "auth.signup_succeeded",
   AUTH_VERIFICATION_COMPLETED: "auth.verification_completed",
   AUTH_VERIFICATION_SENT: "auth.verification_sent",
+  CAMPUS_WORLD_MAP_FAILED: "campus_world.map_failed",
+  CAMPUS_WORLD_MAP_LOADED: "campus_world.map_loaded",
+  CAMPUS_WORLD_MAP_REHYDRATED: "campus_world.map_rehydrated",
+  CAMPUS_WORLD_MAP_REHYDRATION_FAILED: "campus_world.map_rehydration_failed",
   COHORT_CREATED: "cohort.created",
   IDENTITY_PROFILE_SETUP_COMPLETED: "identity.profile_setup_completed",
   IDENTITY_PROFILE_SETUP_STARTED: "identity.profile_setup_started",
@@ -28,6 +32,8 @@ export type AnalyticsIdentity = Readonly<{
 
 export type AuthMethod = "email" | "google" | "rise_sso";
 export type AnalyticsPlatform = "mobile" | "web";
+export type CampusWorldMapErrorKind =
+  "config" | "layout" | "manifest" | "network" | "render";
 
 export type LoginErrorCode =
   | "ACCOUNT_DISABLED"
@@ -88,6 +94,26 @@ export interface AnalyticsEventMap {
   [ANALYTICS_EVENTS.AUTH_PASSWORD_RESET_COMPLETED]: Record<string, never>;
   [ANALYTICS_EVENTS.AUTH_LOGOUT]: {
     logout_source: "admin_action" | "session_expired" | "user_action";
+  };
+  [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_LOADED]: {
+    load_ms: number;
+    map_id: string;
+    tilesets: number;
+    version: string;
+  };
+  [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_FAILED]: {
+    error_kind: CampusWorldMapErrorKind;
+    map_id: string | null;
+  };
+  [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_REHYDRATED]: {
+    load_ms: number;
+    map_id: string;
+    tilesets: number;
+    version: string;
+  };
+  [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_REHYDRATION_FAILED]: {
+    error_kind: CampusWorldMapErrorKind;
+    map_id: string | null;
   };
   [ANALYTICS_EVENTS.COHORT_CREATED]: {
     cohort_status: "active" | "completed" | "upcoming";

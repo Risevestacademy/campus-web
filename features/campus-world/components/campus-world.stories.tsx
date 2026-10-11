@@ -1,0 +1,131 @@
+import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
+import { flushSync } from "react-dom";
+import { expect, userEvent, waitFor, within } from "storybook/test";
+
+import { startCampusGame } from "../game/start-campus-game";
+import mapFixture from "../services/map/fixtures/campus-trimmed.json";
+import {
+  CampusWorldHarness,
+  type CampusWorldHarnessProps,
+} from "./campus-world";
+
+const mapUrl = "https://cdn.sanity.io/files/sj3zsz66/staging/map.json";
+const transparentPixel =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+
+const manifest = {
+  heightTiles: mapFixture.height,
+  isEntry: true,
+  mapId: "campus",
+  mapUrl,
+  tilesets: mapFixture.tilesets.map(({ image }) => ({
+    tiledImagePath: image,
+    url: transparentPixel,
+  })),
+  version: "storybook-version",
+  widthTiles: mapFixture.width,
+};
+
+const storyFetch = (async (input: RequestInfo | URL) => {
+  const url = String(input);
+
+  if (url.startsWith("data:image/")) {
+    return globalThis.fetch(input);
+  }
+
+  return new Response(
+    JSON.stringify(url === mapUrl ? mapFixture : { result: [manifest] }),
+    { headers: { "Content-Type": "application/json" } },
+  );
+}) as typeof globalThis.fetch;
+
+const dependencies: CampusWorldHarnessProps["dependencies"] = {
+  configuration: { dataset: "staging", projectId: "sj3zsz66" },
+  fetch: storyFetch,
+  startGame: startCampusGame,
+};
+
+function CampusWorldRemountStory() {
+  const [generation, setGeneration] = useState(0);
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      }),
+  );
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <div className="bg-background grid h-dvh grid-rows-[auto_1fr] gap-2 p-2">
+        <button
+          className="bg-primary text-primary-foreground w-fit rounded-lg px-4 py-2"
+          type="button"
+          onClick={() => {
+            flushSync(() => setGeneration((value) => value + 1));
+          }}
+        >
+          Remount campus map
+        </button>
+        <CampusWorldHarness
+          key={generation}
+          cohortId="storybook-cohort"
+          dependencies={dependencies}
+        />
+      </div>
+    </QueryClientProvider>
+  );
+}
+
+const meta = {
+  title: "Features/CampusWorld/Lifecycle",
+  component: CampusWorldRemountStory,
+  parameters: { layout: "fullscreen" },
+  tags: ["!autodocs"],
+} satisfies Meta<typeof CampusWorldRemountStory>;
+
+export default meta;
+
+type Story = StoryObj<typeof meta>;
+
+export const RemountWithinOneFrame: Story = {
+  play: async ({ canvasElement }) => {
+    const story = within(canvasElement);
+    const region = story.getByRole("region", { name: "Campus map" });
+
+    await waitFor(
+      async () => {
+        await expect(region).toHaveAttribute("data-status", "ready");
+      },
+      { timeout: 10_000 },
+    );
+    const firstCanvas = region.querySelector("canvas");
+
+    await userEvent.click(
+      story.getByRole("button", { name: "Remount campus map" }),
+    );
+
+    await waitFor(
+      async () => {
+        const replacementRegion = story.getByRole("region", {
+          name: "Campus map",
+        });
+        const replacementCanvas = replacementRegion.querySelector("canvas");
+        await expect(replacementRegion).toHaveAttribute("data-status", "ready");
+        await expect(replacementCanvas).not.toBe(firstCanvas);
+        await expect(replacementCanvas?.width).toBeGreaterThan(0);
+        await expect(replacementCanvas?.height).toBeGreaterThan(0);
+      },
+      { timeout: 10_000 },
+    );
+
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
+    await expect(
+      story.getByRole("region", { name: "Campus map" }).querySelector("canvas")
+        ?.isConnected,
+    ).toBe(true);
+  },
+};

@@ -1,7 +1,5 @@
-import Image from "next/image";
-
-import { IMAGES } from "@/assets/images";
 import { CohortGate } from "@/features/auth";
+import { CampusWorld } from "@/features/campus-world";
 
 export default async function ActiveCampusPage({
   params,
@@ -12,16 +10,7 @@ export default async function ActiveCampusPage({
 
   return (
     <CohortGate cohortId={id}>
-      <div className="relative grid place-content-center">
-        <Image
-          src={IMAGES.map}
-          alt="Campus Map"
-          fill
-          sizes="100vw"
-          className="size-full object-cover"
-        />
-        <div className="relative"></div>
-      </div>
+      <CampusWorld cohortId={id} />
     </CohortGate>
   );
 }

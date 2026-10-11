@@ -266,42 +266,28 @@ Player position
 ↓  
 Throttled realtime publisher
 
-# Campus Session
+# Campus Runtime Lifecycle
 
-A dedicated campus-session feature should coordinate the overall campus runtime.
+The lifecycle currently belongs to `features/campus-world`, its only consumer.
+Do not create a `campus-session` feature merely to wrap one feature that it
+cannot import under the feature dependency rules.
 
-features/campus-session/
-
-It coordinates:
-
-Campus Session  
-│  
-├── Campus World  
-├── Presence  
-├── Proximity  
-├── Communication  
-├── Avatar  
-└── Classroom
-
-Recommended lifecycle:
+The current lifecycle is:
 
 Idle  
 ↓  
-Loading Campus  
+Loading Map  
 ↓  
-Requesting Media Permission  
-↓  
-Connecting Realtime  
-↓  
-Initializing Game  
-↓  
-Spawning Player  
-↓  
-Ready  
-↓  
-Disconnecting
+Ready or Failed
 
-Represent this lifecycle with a single status instead of many unrelated boolean states.
+Media permission is completed on the Join Gate before Active Campus mounts.
+Realtime connection, player spawn, replacement, refusal, and reconnection join
+this lifecycle when those capabilities ship.
+
+When proximity, communication, or another second consumer needs the same
+status, lift the coordination into `core/` or a route-composed
+`campus-session`. Keep one lifecycle status instead of unrelated booleans, and
+keep frame-by-frame game state out of it.
 
 #
 
@@ -351,31 +337,18 @@ All realtime payloads should have TypeScript contracts.
 
 # Multiplayer Movement
 
-Local movement may run at approximately 60 FPS, but network updates should not.
+Local movement predicts one tile per key step, paced to `welcome.stepMs`, and
+sends `move {direction, seq}`. On `moveResult`, discard acknowledged pending
+moves, apply the authoritative player state, and replay the remaining pending
+moves.
 
-Recommended flow:
+Remote players are drawn from `moved`. When an update spans several tiles,
+walk the gap one orthogonal tile at a time over `stepMs`; never interpolate a
+diagonal shortcut.
 
-Kaplay movement  
-↓  
-Local player coordinates  
-↓  
-Throttle  
-↓  
-10-20 updates/sec  
-↓  
-Realtime server
-
-Remote players should use interpolation:
-
-Server position  
-↓  
-Target position  
-↓  
-Interpolation  
-↓  
-Smooth remote movement
-
-This reduces network traffic while maintaining smooth animation.
+No coordinates are sent. The world protocol owns step pacing and
+reconciliation, so a throttled coordinate publisher would be a conflicting
+protocol rather than an optimization.
 
 #
 
