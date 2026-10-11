@@ -244,12 +244,6 @@ const SESSION_STATES: SessionState[] = [
     refresh: "rejected",
   },
   {
-    shape: "full access after campus entry",
-    cookies: { ...SESSION, "campus_entry_c-1": "1" },
-    backend: session("full_access", "user", ONE_COHORT),
-    refresh: "rejected",
-  },
-  {
     shape: "full-access administrator",
     cookies: SESSION,
     backend: session("full_access", "admin", []),
@@ -417,13 +411,13 @@ describe(`Auth redirect chain eval (threshold: 0 chains over ${MAX_REDIRECTS} re
     ]);
   });
 
-  it("sends a single-cohort member who already entered straight to their campus", async () => {
+  it("sends a single-cohort member through pre-join whenever they use the campus index", async () => {
     const { steps } = await walk(
       "/campus",
-      stateShaped("full access after campus entry"),
+      stateShaped("full access without an invite"),
     );
 
-    expect(steps).toEqual(["/campus", "/campus/c-1", "allow"]);
+    expect(steps).toEqual(["/campus", "/campus/c-1/join", "allow"]);
   });
 
   it.each(ADMINISTRATION_PAGES)(

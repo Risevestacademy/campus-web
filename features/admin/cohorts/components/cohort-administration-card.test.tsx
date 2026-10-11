@@ -75,16 +75,13 @@ afterAll(() => {
 });
 
 describe("CohortAdministrationCard", () => {
-  it("keeps Active Campus as the primary destination", () => {
+  it("links cohort selection to its pre-join screen", () => {
     renderCard();
 
     expect(screen.getByRole("link", { name: /Cohort 1/ })).toHaveAttribute(
       "href",
-      "/campus/cohort-1",
+      "/campus/cohort-1/join",
     );
-    expect(
-      screen.getByRole("button", { name: "Manage Cohort 1" }),
-    ).toBeInTheDocument();
   });
 
   it("links Programme Track administration from the Cohort menu", async () => {

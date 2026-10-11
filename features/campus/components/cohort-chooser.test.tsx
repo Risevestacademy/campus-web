@@ -22,8 +22,8 @@ describe("CohortChooser", () => {
     render(<CohortChooser viewer={member} />);
 
     expect(cohortLinks()).toEqual([
-      ["Cohort 3C3", "/campus/c-3"],
-      ["Cohort 4C4", "/campus/c-4"],
+      ["Cohort 3C3", "/campus/c-3/join"],
+      ["Cohort 4C4", "/campus/c-4/join"],
     ]);
   });
 

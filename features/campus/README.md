@@ -25,6 +25,9 @@ and the Active Campus media UI inside it. Admin catalogues and pages belong to
 
 `app/campus/[id]/(media-session)/layout.tsx` mounts `CampusMediaSessionProvider`
 above the Join Gate and Active Campus, so one session spans both.
+`ActiveCampusAdmissionGate` admits the transient completion hint from Join,
+removes it from browser history, and sends unmarked active routes through
+pre-join after the route has authorized the cohort.
 
 Routes pass Auth-, Admin-, and Roster-owned UI in as props, because Campus may
 not import those features.
@@ -71,6 +74,8 @@ browser media or `localStorage`.
 - Cohort Administration opens in Administration mode; Active Campus restores
   the stored mode. Members never get the Administration control.
 - The chooser never requests the Admin Cohort catalogue.
+- Active Campus authorization runs before its admission gate. The transient
+  completion hint is workflow state and never authorization.
 - Use `GLOSSARY.md` terms (Active Campus, Campus Shell, Join Gate).
 - Comment only a non-obvious why.
 

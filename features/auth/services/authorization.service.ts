@@ -12,7 +12,6 @@ import type {
   RouteAuthorizationRequest,
   SignInDecision,
 } from "../types/auth.types";
-import { enteredCampusIds } from "./campus-entry-session";
 import {
   REFRESH_ATTEMPTED_HEADER,
   RETURN_TO_HEADER,
@@ -33,12 +32,8 @@ const readRequestSession = cache(async (): Promise<SessionRead> => {
 });
 
 async function readCampusRequestSignals(): Promise<RouteRequestSignals> {
-  const [requestHeaders, requestCookies] = await Promise.all([
-    headers(),
-    cookies(),
-  ]);
+  const requestHeaders = await headers();
   return {
-    enteredCampusIds: enteredCampusIds(requestCookies),
     returnTo: requestHeaders.get(RETURN_TO_HEADER) ?? undefined,
     refreshAttempted: requestHeaders.has(REFRESH_ATTEMPTED_HEADER),
   };
@@ -51,7 +46,6 @@ async function readInvitationSignals(
 ): Promise<RouteRequestSignals> {
   const requestCookies = await cookies();
   return {
-    enteredCampusIds: [],
     returnTo: path,
     refreshAttempted: requestCookies.has(REFRESH_ATTEMPTED_COOKIE),
   };

@@ -13,6 +13,7 @@ import {
   signIn,
   test,
 } from "./support/fake-api-fixture";
+import { installSanityMapStub } from "./support/sanity-stub";
 
 type Theme = "light" | "dark";
 type SurfaceRole = "background" | "surface" | "surface-elevated";
@@ -137,8 +138,9 @@ for (const theme of ["light", "dark"] as const) {
 test.describe("protected routes", () => {
   test.skip(!usesFakeApi, "Protected routes need the local fake auth API.");
 
-  test.beforeEach(async ({ context, baseURL, fakeApi }) => {
+  test.beforeEach(async ({ context, baseURL, fakeApi, page }) => {
     await enterAsInvitedMember(context, baseURL, fakeApi);
+    await installSanityMapStub(page);
   });
 
   for (const theme of ["light", "dark"] as const) {

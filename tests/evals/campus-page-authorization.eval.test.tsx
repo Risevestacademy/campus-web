@@ -16,7 +16,6 @@ import { requireRouteAccess } from "@/features/auth";
 
 vi.mock("@/features/auth", () => ({
   AccountMenu: () => null,
-  CampusEntryLink: () => null,
   CohortGate: ({ cohortId }: { cohortId: string }) => (
     <p role="alert">{`Cohort ${cohortId} access unavailable`}</p>
   ),

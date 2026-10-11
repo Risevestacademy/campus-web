@@ -71,7 +71,7 @@ describe("CampusPage", () => {
 
     expect(screen.getByRole("link", { name: /Cohort 3/ })).toHaveAttribute(
       "href",
-      "/campus/cohort-3",
+      "/campus/cohort-3/join",
     );
     expect(administratorTransport.getServerApi).not.toHaveBeenCalled();
   });

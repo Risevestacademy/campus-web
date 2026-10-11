@@ -2,6 +2,7 @@ import { expect } from "@playwright/test";
 
 import { joinLink, preJoinUrl } from "./support/campus-entry";
 import { membership, sessions, signIn, test } from "./support/fake-api-fixture";
+import { installSanityMapStub } from "./support/sanity-stub";
 
 test.skip(
   Boolean(process.env.PLAYWRIGHT_BASE_URL),
@@ -33,6 +34,7 @@ test("a camera turned on at pre-join is still on inside the campus", async ({
 }) => {
   await signIn(context, baseURL);
   await fakeApi.scriptSession(sessions.member(membership("c-3", "Cohort 3")));
+  await installSanityMapStub(page);
   await page.goto(preJoinUrl(CAMPUS));
 
   await page.getByRole("button", { name: "Turn on camera" }).click();
@@ -43,7 +45,9 @@ test("a camera turned on at pre-join is still on inside the campus", async ({
   await joinLink(page).click();
 
   await expect(page).toHaveURL(CAMPUS);
-  await expect(page.getByRole("img", { name: "Campus Map" })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Campus map" }),
+  ).toHaveAttribute("data-status", "ready");
   await expect(
     page.getByRole("button", { name: "Turn off camera" }),
   ).toHaveAttribute("aria-pressed", "true");

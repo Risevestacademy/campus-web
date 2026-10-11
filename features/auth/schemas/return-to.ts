@@ -60,7 +60,7 @@ export function normalizeReturnTo(value: string | undefined): string {
   return parseReturnTo(value) ?? CAMPUS_HOME_PATH;
 }
 
-// Pre-join and administration routes do not require the Campus entry gate.
+// Pre-join and administration routes are not active-campus return targets.
 export function activeCampusCohort(pathname: string): string | undefined {
   const [root, campus, cohortSegment, section] = pathname.split("/");
   if (root !== "" || `/${campus}` !== CAMPUS_HOME_PATH || !cohortSegment) {

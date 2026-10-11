@@ -1,7 +1,13 @@
 import type { ReactNode } from "react";
+import { vi } from "vitest";
 
 import ActiveCampusLayout from "@/app/campus/[id]/(media-session)/(active-campus)/layout";
 import MediaSessionLayout from "@/app/campus/[id]/(media-session)/layout";
+
+vi.mock(
+  "next/navigation",
+  () => import("@/tests/fixtures/active-campus-navigation-stub"),
+);
 
 const params = Promise.resolve({ id: "c-1" });
 

@@ -8,6 +8,7 @@ import {
 } from "@/features/auth";
 import {
   ActiveCampus,
+  ActiveCampusAdmissionGate,
   CampusShell,
   SidebarCollapseButton,
 } from "@/features/campus";
@@ -33,20 +34,22 @@ export default async function ActiveCampusLayout({
   const isAdministrator = isSystemAdministrator(access.session.user.systemRole);
 
   return (
-    <CampusShell
-      AccountMenu={logsOutHere ? AccountMenu : undefined}
-      administrationPanel={
-        isAdministrator ? (
-          <AdminSidebar
-            cohortId={id}
-            collapseButton={<SidebarCollapseButton />}
-          />
-        ) : undefined
-      }
-      OverviewPanel={CampusOverviewPanel}
-      cohortId={id}
-    >
-      <ActiveCampus>{children}</ActiveCampus>
-    </CampusShell>
+    <ActiveCampusAdmissionGate cohortId={id}>
+      <CampusShell
+        AccountMenu={logsOutHere ? AccountMenu : undefined}
+        administrationPanel={
+          isAdministrator ? (
+            <AdminSidebar
+              cohortId={id}
+              collapseButton={<SidebarCollapseButton />}
+            />
+          ) : undefined
+        }
+        OverviewPanel={CampusOverviewPanel}
+        cohortId={id}
+      >
+        <ActiveCampus>{children}</ActiveCampus>
+      </CampusShell>
+    </ActiveCampusAdmissionGate>
   );
 }

@@ -1,12 +1,11 @@
 import { cn } from "cn";
 import type { Route } from "next";
+import Link from "next/link";
 
-import {
-  CampusEntryLink,
-  CohortGate,
-  normalizeCohortReturnTo,
-} from "@/features/auth";
+import { withCampusPreJoinCompletion } from "@/core/navigation";
+import { CohortGate, normalizeCohortReturnTo } from "@/features/auth";
 import { VisualsDisplay } from "@/features/campus";
+import { CampusMapPreparationGate } from "@/features/campus-world";
 import { firstSearchParameter } from "@/shared/lib/search-params";
 import { buttonVariants } from "@/shared/ui/button";
 
@@ -20,24 +19,24 @@ export default async function JoinPage({
   searchParams,
 }: JoinPageProps) {
   const [{ id }, { returnTo }] = await Promise.all([params, searchParams]);
-  const destination = normalizeCohortReturnTo(
-    id,
-    firstSearchParameter(returnTo),
+  const destination = withCampusPreJoinCompletion(
+    normalizeCohortReturnTo(id, firstSearchParameter(returnTo)),
   ) as Route;
 
   return (
     <CohortGate cohortId={id}>
-      <main className="grid h-dvh content-center gap-6">
-        <VisualsDisplay />
+      <CampusMapPreparationGate>
+        <main className="grid h-dvh content-center gap-6">
+          <VisualsDisplay />
 
-        <CampusEntryLink
-          cohortId={id}
-          href={destination}
-          className={cn(buttonVariants({ size: "lg" }), "mx-auto min-w-40")}
-        >
-          Join
-        </CampusEntryLink>
-      </main>
+          <Link
+            href={destination}
+            className={cn(buttonVariants({ size: "lg" }), "mx-auto min-w-40")}
+          >
+            Join
+          </Link>
+        </main>
+      </CampusMapPreparationGate>
     </CohortGate>
   );
 }

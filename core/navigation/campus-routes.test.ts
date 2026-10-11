@@ -1,0 +1,65 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  campusHref,
+  campusJoinHref,
+  campusPreJoinHref,
+  hasCampusPreJoinCompletion,
+  removeCampusPreJoinCompletion,
+  withCampusPreJoinCompletion,
+} from "./campus-routes";
+
+describe("Campus routes", () => {
+  it.each([
+    [
+      "an ordinary cohort ID",
+      "cohort-1",
+      "/campus/cohort-1",
+      "/campus/cohort-1/join",
+    ],
+    [
+      "an ID containing reserved path characters",
+      "a/b c",
+      "/campus/a%2Fb%20c",
+      "/campus/a%2Fb%20c/join",
+    ],
+  ])("keeps %s inside one path segment", (_, cohortId, campus, join) => {
+    expect(campusHref(cohortId)).toBe(campus);
+    expect(campusJoinHref(cohortId)).toBe(join);
+  });
+
+  it("marks a prepared active-campus destination", () => {
+    expect(withCampusPreJoinCompletion("/campus/c-1/meeting?tab=people")).toBe(
+      "/campus/c-1/meeting?tab=people&prejoin=complete",
+    );
+  });
+
+  it.each([
+    ["the exact marker", "prejoin=complete", true],
+    ["a missing marker", "tab=people", false],
+    ["another marker value", "prejoin=pending", false],
+  ])("recognizes %s", (_, search, expected) => {
+    expect(hasCampusPreJoinCompletion(new URLSearchParams(search))).toBe(
+      expected,
+    );
+  });
+
+  it("removes only the transient marker", () => {
+    expect(
+      removeCampusPreJoinCompletion(
+        "/campus/c-1/meeting?prejoin=complete&tab=people",
+      ),
+    ).toBe("/campus/c-1/meeting?tab=people");
+  });
+
+  it("sends an unmarked deep link through its cohort pre-join route", () => {
+    expect(
+      campusPreJoinHref(
+        "c-1",
+        "/campus/c-1/meeting?tab=people&prejoin=pending",
+      ),
+    ).toBe(
+      "/campus/c-1/join?returnTo=%2Fcampus%2Fc-1%2Fmeeting%3Ftab%3Dpeople",
+    );
+  });
+});

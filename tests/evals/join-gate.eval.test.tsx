@@ -8,6 +8,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ActiveCampusPage from "@/app/campus/[id]/(media-session)/(active-campus)/page";
@@ -25,6 +26,14 @@ vi.mock("next/image", () => ({
   default: ({ alt }: { alt: string }) => <span role="img" aria-label={alt} />,
 }));
 vi.mock("@/features/auth", () => import("@/tests/fixtures/route-access-stub"));
+vi.mock(
+  "next/navigation",
+  () => import("@/tests/fixtures/active-campus-navigation-stub"),
+);
+vi.mock("@/features/campus-world", () => ({
+  CampusMapPreparationGate: ({ children }: { children: ReactNode }) => children,
+  CampusWorld: () => null,
+}));
 vi.mock("server-only", () => ({}));
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
