@@ -4,12 +4,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { browserApi } from "@/core/api/client/browser";
+import { useMountEffect } from "@/shared/lib/use-mount-effect";
 
 import {
   createSessionRefresher,
   type SessionRefresh,
 } from "../services/session.service";
-import { useMountEffect } from "./use-mount-effect";
 
 type SessionRefreshState =
   | { status: "pending"; failures: number }
