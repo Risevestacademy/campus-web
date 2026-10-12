@@ -1,21 +1,33 @@
 "use client";
 
 import { type ReactNode, useState } from "react";
+import { preconnect } from "react-dom";
 
-import { publicEnvironment } from "@/config/environment/public";
-import { captureBrowserAnalyticsEvent } from "@/core/analytics/client";
 import { Button } from "@/shared/ui/button";
 
 import {
   type CampusMapPreparationDependencies,
+  defaultCampusMapPreparationDependencies,
   usePreparedCampusMap,
 } from "../hooks/use-prepared-campus-map";
+import { sanityMapOrigins } from "../services/map/load-campus-map";
 import {
   type CampusMapPreparationProgress,
   isPreparedCampusMapRenderReady,
 } from "../services/map/prepare-campus-map";
 
 const initialProgress: CampusMapPreparationProgress = { stage: "manifest" };
+
+type PreparationPhase = "failed" | "preparing" | "ready";
+
+function preparationPhase(
+  query: { isFetching: boolean; isPending: boolean; isSuccess: boolean },
+  isRenderReady: boolean,
+): PreparationPhase {
+  if (query.isFetching || query.isPending) return "preparing";
+  if (!query.isSuccess) return "failed";
+  return isRenderReady ? "ready" : "preparing";
+}
 
 function progressLabel(progress: CampusMapPreparationProgress): string {
   switch (progress.stage) {
@@ -30,96 +42,68 @@ function progressLabel(progress: CampusMapPreparationProgress): string {
   }
 }
 
-interface CampusMapPreparationGateProps {
-  children: ReactNode;
-}
-
-export interface CampusMapPreparationGateHarnessProps extends CampusMapPreparationGateProps {
-  dependencies: CampusMapPreparationDependencies;
-}
-
-export function CampusMapPreparationGateHarness({
-  children,
-  dependencies,
-}: CampusMapPreparationGateHarnessProps) {
-  const [progress, setProgress] = useState(initialProgress);
-  const preparation = usePreparedCampusMap(
-    { kind: "entry" },
-    setProgress,
-    dependencies,
-  );
-  const isRenderReady =
-    preparation.data !== undefined &&
-    isPreparedCampusMapRenderReady(preparation.data);
-  const [beganWithPendingPreparation] = useState(
-    !preparation.isSuccess || !isRenderReady || preparation.isFetching,
-  );
-
-  if (preparation.isSuccess && isRenderReady && !preparation.isFetching) {
-    return beganWithPendingPreparation ? (
-      <div className="animate-in fade-in duration-200 motion-reduce:animate-none">
-        {children}
-      </div>
-    ) : (
-      children
-    );
+function artworkProgressOf(
+  progress: CampusMapPreparationProgress,
+): { completed: number; total: number } | undefined {
+  switch (progress.stage) {
+    case "tilesets":
+      return progress;
+    case "runtime":
+      return { completed: progress.total, total: progress.total };
+    default:
+      return undefined;
   }
+}
 
-  if (
-    preparation.isFetching ||
-    preparation.isPending ||
-    (preparation.isSuccess && !isRenderReady)
-  ) {
-    const artworkProgress =
-      progress.stage === "tilesets"
-        ? progress
-        : progress.stage === "runtime"
-          ? { completed: progress.total, total: progress.total }
-          : undefined;
-    const artworkScale = artworkProgress
-      ? artworkProgress.completed / Math.max(artworkProgress.total, 1)
-      : 0;
+function PreparingCampus({
+  progress,
+}: {
+  progress: CampusMapPreparationProgress;
+}) {
+  const artworkProgress = artworkProgressOf(progress);
+  const artworkScale = artworkProgress
+    ? artworkProgress.completed / Math.max(artworkProgress.total, 1)
+    : 0;
 
-    return (
-      <main
-        aria-label="Preparing campus"
-        className="bg-cobalt-950 text-foreground-inverse grid h-dvh place-items-center px-6"
-        role="status"
-      >
-        <div className="w-full max-w-sm text-center">
-          <div
-            aria-hidden="true"
-            className="bg-accent text-accent-foreground mx-auto mb-8 grid size-14 place-items-center rounded-2xl text-xl font-semibold shadow-[0_12px_40px_rgba(0,0,0,0.25)]"
-          >
-            C
-          </div>
-          <h1 className="font-display text-2xl font-semibold tracking-tight">
-            Preparing your campus
-          </h1>
-          <p className="text-cobalt-200 mt-2 text-sm">
-            {progressLabel(progress)}
-          </p>
-
-          {artworkProgress ? (
-            <div
-              aria-label="Campus artwork"
-              aria-valuemax={artworkProgress.total}
-              aria-valuemin={0}
-              aria-valuenow={artworkProgress.completed}
-              className="bg-cobalt-800 mt-6 h-1.5 overflow-hidden rounded-full"
-              role="progressbar"
-            >
-              <div
-                className="bg-accent h-full origin-left rounded-full transition-transform duration-200 ease-out motion-reduce:transition-none"
-                style={{ transform: `scaleX(${artworkScale})` }}
-              />
-            </div>
-          ) : null}
+  return (
+    <main
+      aria-label="Preparing campus"
+      className="bg-cobalt-950 text-foreground-inverse grid h-dvh place-items-center px-6"
+      role="status"
+    >
+      <div className="w-full max-w-sm text-center">
+        <div
+          aria-hidden="true"
+          className="bg-accent text-accent-foreground mx-auto mb-8 grid size-14 place-items-center rounded-2xl text-xl font-semibold shadow-[0_12px_40px_rgba(0,0,0,0.25)]"
+        >
+          C
         </div>
-      </main>
-    );
-  }
+        <h1 className="font-display text-2xl font-semibold tracking-tight">
+          Preparing your campus
+        </h1>
+        <p className="text-cobalt-200 mt-2 text-sm">
+          {progressLabel(progress)}
+        </p>
 
+        <div
+          aria-label="Campus artwork"
+          aria-valuemax={artworkProgress?.total}
+          aria-valuemin={0}
+          aria-valuenow={artworkProgress?.completed}
+          className="bg-cobalt-800 mt-6 h-1.5 overflow-hidden rounded-full"
+          role="progressbar"
+        >
+          <div
+            className="bg-accent h-full origin-left transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
+            style={{ transform: `scaleX(${artworkScale})` }}
+          />
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function PreparationFailed({ onRetry }: { onRetry: () => void }) {
   return (
     <main
       className="bg-cobalt-950 text-foreground-inverse grid h-dvh place-items-center px-6 text-center"
@@ -138,14 +122,7 @@ export function CampusMapPreparationGateHarness({
         <p className="text-cobalt-200 mt-2 text-sm">
           Check your connection, then try again.
         </p>
-        <Button
-          className="mt-6 min-w-32"
-          type="button"
-          onClick={() => {
-            setProgress(initialProgress);
-            void preparation.refetch();
-          }}
-        >
+        <Button className="mt-6 min-w-32" type="button" onClick={onRetry}>
           Try again
         </Button>
       </div>
@@ -153,18 +130,64 @@ export function CampusMapPreparationGateHarness({
   );
 }
 
+interface CampusMapPreparationGateProps {
+  children: ReactNode;
+}
+
+export interface CampusMapPreparationGateHarnessProps extends CampusMapPreparationGateProps {
+  dependencies: CampusMapPreparationDependencies;
+}
+
+export function CampusMapPreparationGateHarness({
+  children,
+  dependencies,
+}: CampusMapPreparationGateHarnessProps) {
+  // Map requests are CORS fetches; only an anonymous preconnect is reusable.
+  sanityMapOrigins(dependencies.configuration.projectId).forEach((origin) =>
+    preconnect(origin, { crossOrigin: "anonymous" }),
+  );
+
+  const [progress, setProgress] = useState(initialProgress);
+  const preparation = usePreparedCampusMap(
+    { kind: "entry" },
+    setProgress,
+    dependencies,
+  );
+  const isRenderReady =
+    preparation.data !== undefined &&
+    isPreparedCampusMapRenderReady(preparation.data);
+  const phase = preparationPhase(preparation, isRenderReady);
+  const [beganWithPendingPreparation] = useState(phase !== "ready");
+
+  switch (phase) {
+    case "ready":
+      return beganWithPendingPreparation ? (
+        <div className="animate-in fade-in duration-200 motion-reduce:animate-none">
+          {children}
+        </div>
+      ) : (
+        children
+      );
+    case "preparing":
+      return <PreparingCampus progress={progress} />;
+    case "failed":
+      return (
+        <PreparationFailed
+          onRetry={() => {
+            setProgress(initialProgress);
+            void preparation.refetch();
+          }}
+        />
+      );
+  }
+}
+
 export function CampusMapPreparationGate({
   children,
 }: CampusMapPreparationGateProps) {
   return (
     <CampusMapPreparationGateHarness
-      dependencies={{
-        captureEvent: captureBrowserAnalyticsEvent,
-        configuration: {
-          dataset: publicEnvironment.NEXT_PUBLIC_SANITY_DATASET,
-          projectId: publicEnvironment.NEXT_PUBLIC_SANITY_PROJECT_ID,
-        },
-      }}
+      dependencies={defaultCampusMapPreparationDependencies}
     >
       {children}
     </CampusMapPreparationGateHarness>

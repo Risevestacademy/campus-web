@@ -4,33 +4,28 @@ import type {
   CampusMapModule,
   PreparedCampusMap,
 } from "../services/map/prepare-campus-map";
+import { fakeImage } from "../testing/sanity-map-fixture";
 import { startCampusGame } from "./start-campus-game";
 
-function kaplayContext(
-  spriteSources: unknown[],
-  beforeSpriteLoad?: () => void,
-) {
-  const context = {
-    add: vi.fn((components: unknown[]) => {
-      const drawable = components.find(
-        (component): component is { draw: () => void } =>
-          typeof component === "object" &&
-          component !== null &&
-          "draw" in component,
-      );
-      drawable?.draw();
+interface SpriteUpload {
+  finish: () => void;
+  source: unknown;
+}
+
+function kaplayContext(onUpload: (upload: SpriteUpload) => void) {
+  return {
+    add: vi.fn((components: Array<{ draw?: () => void }>) => {
+      components.find((component) => component.draw)?.draw?.();
     }),
     drawSprite: vi.fn(),
     getCamPos: vi.fn(() => ({ x: 0, y: 0 })),
     height: vi.fn(() => 480),
     layer: vi.fn((name: string) => ({ name })),
     loadSprite: vi.fn((_name: string, source: unknown) => {
-      spriteSources.push(source);
       const loading = {
         onError: vi.fn(() => loading),
         onLoad: vi.fn((callback: () => void) => {
-          beforeSpriteLoad?.();
-          callback();
+          onUpload({ finish: callback, source });
           return loading;
         }),
       };
@@ -44,123 +39,90 @@ function kaplayContext(
     vec2: vi.fn((x: number, y: number) => ({ x, y })),
     width: vi.fn(() => 640),
   };
+}
 
-  return context;
+const finishImmediately = (upload: SpriteUpload) => upload.finish();
+
+function preparedMap(
+  decodedImages: Array<ImageBitmap | undefined>,
+  onUpload: (upload: SpriteUpload) => void = finishImmediately,
+): PreparedCampusMap {
+  const kaplay = vi.fn(() => kaplayContext(onUpload));
+
+  return {
+    bands: { above: [], below: [] },
+    kaplayModule: { default: kaplay } as unknown as CampusMapModule,
+    layout: {},
+    manifest: { mapId: "campus" },
+    map: { height: 10, tileheight: 16, tilewidth: 16, width: 10 },
+    tilesets: decodedImages.map((decodedImage, index) => ({
+      decodedImage,
+      firstgid: index + 1,
+      frames: [{ h: 1, w: 1, x: 0, y: 0 }],
+      image: `https://cdn.example/tileset-${index}.png`,
+      lastgid: index + 1,
+      name: `tileset-${index}`,
+      tileheight: 16,
+      tilewidth: 16,
+    })),
+  } as unknown as PreparedCampusMap;
+}
+
+function start(prepared: PreparedCampusMap) {
+  return startCampusGame(
+    document.createElement("div"),
+    document.createElement("canvas"),
+    prepared,
+    { onRenderError: vi.fn() },
+  );
 }
 
 describe("startCampusGame", () => {
-  it("transfers every decoded image before awaiting the first sprite upload", async () => {
-    const spriteSources: unknown[] = [];
-    const firstImage = { close: vi.fn() } as unknown as ImageBitmap;
-    const secondImage = { close: vi.fn() } as unknown as ImageBitmap;
-    let cachedImagesDuringFirstUpload: Array<ImageBitmap | undefined> = [];
-    const kaplay = vi.fn(() =>
-      kaplayContext(spriteSources, () => {
-        if (cachedImagesDuringFirstUpload.length === 0) {
-          cachedImagesDuringFirstUpload = prepared.tilesets.map(
-            ({ decodedImage }) => decodedImage,
-          );
-        }
-      }),
-    );
-    const prepared = {
-      bands: { above: [], below: [] },
-      kaplayModule: { default: kaplay } as unknown as CampusMapModule,
-      layout: {},
-      manifest: { mapId: "campus" },
-      map: {
-        height: 10,
-        tileheight: 16,
-        tilewidth: 16,
-        width: 10,
-      },
-      tilesets: [
-        {
-          decodedImage: firstImage,
-          firstgid: 1,
-          frames: [{ h: 1, w: 1, x: 0, y: 0 }],
-          image: "https://cdn.example/first.png",
-          lastgid: 1,
-          name: "first",
-          tileheight: 16,
-          tilewidth: 16,
-        },
-        {
-          decodedImage: secondImage,
-          firstgid: 2,
-          frames: [{ h: 1, w: 1, x: 0, y: 0 }],
-          image: "https://cdn.example/second.png",
-          lastgid: 2,
-          name: "second",
-          tileheight: 16,
-          tilewidth: 16,
-        },
-      ],
-    } as unknown as PreparedCampusMap;
+  it("takes every decoded image before awaiting the first sprite upload", async () => {
+    const images = [fakeImage(), fakeImage()];
+    const sources: unknown[] = [];
+    let cachedDuringFirstUpload: Array<ImageBitmap | undefined> | undefined;
+    const prepared: PreparedCampusMap = preparedMap(images, (upload) => {
+      cachedDuringFirstUpload ??= prepared.tilesets.map(
+        ({ decodedImage }) => decodedImage,
+      );
+      sources.push(upload.source);
+      upload.finish();
+    });
 
-    await startCampusGame(
-      document.createElement("div"),
-      document.createElement("canvas"),
-      prepared,
-      { onRenderError: vi.fn() },
-    );
+    await start(prepared);
 
-    expect(cachedImagesDuringFirstUpload).toEqual([undefined, undefined]);
-    expect(spriteSources).toEqual([firstImage, secondImage]);
-    expect(firstImage.close).toHaveBeenCalledOnce();
-    expect(secondImage.close).toHaveBeenCalledOnce();
+    expect(cachedDuringFirstUpload).toEqual([undefined, undefined]);
+    expect(sources).toEqual(images);
+    images.forEach((image) => expect(image.close).toHaveBeenCalledOnce());
   });
 
-  it("releases an uploaded decoded tileset and falls back to its URL on remount", async () => {
-    const close = vi.fn();
-    const decodedImage = { close } as unknown as ImageBitmap;
-    const spriteSources: unknown[] = [];
-    const kaplay = vi.fn(() => kaplayContext(spriteSources));
-    const prepared = {
-      bands: { above: [], below: [] },
-      kaplayModule: { default: kaplay } as unknown as CampusMapModule,
-      layout: {},
-      manifest: { mapId: "campus" },
-      map: {
-        height: 10,
-        tileheight: 16,
-        tilewidth: 16,
-        width: 10,
-      },
-      tilesets: [
-        {
-          decodedImage,
-          firstgid: 1,
-          frames: [{ h: 1, w: 1, x: 0, y: 0 }],
-          image: "https://cdn.example/campus.png",
-          lastgid: 1,
-          name: "campus",
-          tileheight: 16,
-          tilewidth: 16,
-        },
-      ],
-    } as unknown as PreparedCampusMap;
-    const container = document.createElement("div");
-
-    await startCampusGame(
-      container,
-      document.createElement("canvas"),
-      prepared,
-      { onRenderError: vi.fn() },
+  it("requests every sprite upload before any finishes", async () => {
+    const uploads: SpriteUpload[] = [];
+    const game = start(
+      preparedMap([undefined, undefined, undefined], (upload) => {
+        uploads.push(upload);
+      }),
     );
 
-    expect(spriteSources[0]).toBe(decodedImage);
-    expect(close).toHaveBeenCalledOnce();
-    expect(prepared.tilesets[0]?.decodedImage).toBeUndefined();
+    await vi.waitFor(() => expect(uploads).toHaveLength(3));
+    uploads.forEach((upload) => upload.finish());
 
-    await startCampusGame(
-      container,
-      document.createElement("canvas"),
-      prepared,
-      { onRenderError: vi.fn() },
-    );
+    await expect(game).resolves.toEqual({ quit: expect.any(Function) });
+  });
 
-    expect(spriteSources[1]).toBe("https://cdn.example/campus.png");
-    expect(close).toHaveBeenCalledOnce();
+  it("falls back to the tileset URL once its decoded image was uploaded", async () => {
+    const image = fakeImage();
+    const sources: unknown[] = [];
+    const prepared = preparedMap([image], (upload) => {
+      sources.push(upload.source);
+      upload.finish();
+    });
+
+    await start(prepared);
+    await start(prepared);
+
+    expect(sources).toEqual([image, "https://cdn.example/tileset-0.png"]);
+    expect(image.close).toHaveBeenCalledOnce();
   });
 });

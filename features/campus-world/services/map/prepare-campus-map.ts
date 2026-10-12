@@ -105,52 +105,97 @@ export function takePreparedTilesetImages(
   });
 }
 
+interface DecodeScope {
+  decodeTilesets: (
+    tilesets: TilesetFrameTable[],
+    mapId: string,
+  ) => Promise<PreparedTileset[]>;
+  signal: AbortSignal;
+}
+
+async function withDecodeScope<T>(
+  dependencies: Pick<
+    PrepareCampusMapDependencies,
+    "loadImage" | "onProgress" | "signal"
+  >,
+  run: (scope: DecodeScope) => Promise<T>,
+): Promise<T> {
+  const { loadImage, onProgress, signal } = dependencies;
+  const work = new AbortController();
+  const decodedImages = new Set<ImageBitmap>();
+  const forwardAbort = () => work.abort(signal.reason);
+
+  async function decodeTileset(
+    tileset: TilesetFrameTable,
+    mapId: string,
+  ): Promise<ImageBitmap> {
+    let decodedImage: ImageBitmap;
+
+    try {
+      decodedImage = await loadImage(tileset.image, work.signal);
+    } catch (error) {
+      work.signal.throwIfAborted();
+      throw new CampusMapPreparationError(
+        "network",
+        "A campus tileset could not be loaded or decoded.",
+        { cause: error, mapId },
+      );
+    }
+
+    if (work.signal.aborted) {
+      decodedImage.close();
+      work.signal.throwIfAborted();
+    }
+
+    decodedImages.add(decodedImage);
+    return decodedImage;
+  }
+
+  function decodeTilesets(
+    tilesets: TilesetFrameTable[],
+    mapId: string,
+  ): Promise<PreparedTileset[]> {
+    const total = tilesets.length;
+    let completed = 0;
+    onProgress?.({ completed, stage: "tilesets", total });
+
+    return Promise.all(
+      tilesets.map(async (tileset): Promise<PreparedTileset> => {
+        const decodedImage = await decodeTileset(tileset, mapId);
+        completed += 1;
+        onProgress?.({ completed, stage: "tilesets", total });
+        return { ...tileset, decodedImage };
+      }),
+    );
+  }
+
+  signal.throwIfAborted();
+  signal.addEventListener("abort", forwardAbort, { once: true });
+
+  try {
+    return await run({ decodeTilesets, signal: work.signal });
+  } catch (error) {
+    work.abort(error);
+    decodedImages.forEach((image) => image.close());
+    signal.throwIfAborted();
+    throw error;
+  } finally {
+    signal.removeEventListener("abort", forwardAbort);
+  }
+}
+
 export async function rehydratePreparedCampusMap(
   prepared: PreparedCampusMap,
   dependencies: RehydrateCampusMapDependencies,
 ): Promise<PreparedCampusMap> {
   const now = dependencies.now ?? performance.now.bind(performance);
   const startedAt = now();
-  const work = new AbortController();
-  const decodedImages = new Set<ImageBitmap>();
-  const forwardAbort = () => work.abort(dependencies.signal.reason);
-  const total = prepared.tilesets.length;
-  let completed = 0;
 
-  dependencies.signal.throwIfAborted();
-  dependencies.signal.addEventListener("abort", forwardAbort, { once: true });
-  prepared.tilesets.forEach(releasePreparedTilesetImage);
-  dependencies.onProgress?.({ completed, stage: "tilesets", total });
-
-  try {
-    const tilesets = await Promise.all(
-      prepared.tilesets.map(async (tileset): Promise<PreparedTileset> => {
-        let decodedImage: ImageBitmap;
-
-        try {
-          decodedImage = await dependencies.loadImage(
-            tileset.image,
-            work.signal,
-          );
-        } catch (error) {
-          work.signal.throwIfAborted();
-          throw new CampusMapPreparationError(
-            "network",
-            "A campus tileset could not be loaded or decoded.",
-            { cause: error, mapId: prepared.manifest.mapId },
-          );
-        }
-
-        if (work.signal.aborted) {
-          decodedImage.close();
-          work.signal.throwIfAborted();
-        }
-
-        decodedImages.add(decodedImage);
-        completed += 1;
-        dependencies.onProgress?.({ completed, stage: "tilesets", total });
-        return { ...tileset, decodedImage };
-      }),
+  return withDecodeScope(dependencies, async ({ decodeTilesets }) => {
+    prepared.tilesets.forEach(releasePreparedTilesetImage);
+    const tilesets = await decodeTilesets(
+      prepared.tilesets,
+      prepared.manifest.mapId,
     );
 
     return {
@@ -158,14 +203,7 @@ export async function rehydratePreparedCampusMap(
       preparationMs: Math.round(now() - startedAt),
       tilesets,
     };
-  } catch (error) {
-    work.abort(error);
-    decodedImages.forEach((image) => image.close());
-    dependencies.signal.throwIfAborted();
-    throw error;
-  } finally {
-    dependencies.signal.removeEventListener("abort", forwardAbort);
-  }
+  });
 }
 
 export async function prepareCampusMap(
@@ -174,68 +212,32 @@ export async function prepareCampusMap(
 ): Promise<PreparedCampusMap> {
   const now = dependencies.now ?? performance.now.bind(performance);
   const startedAt = now();
-  const work = new AbortController();
-  const decodedImages = new Set<ImageBitmap>();
-  const forwardAbort = () => work.abort(dependencies.signal.reason);
 
-  dependencies.signal.throwIfAborted();
-  dependencies.signal.addEventListener("abort", forwardAbort, { once: true });
+  return withDecodeScope(dependencies, async ({ decodeTilesets, signal }) => {
+    const kaplayLoad = dependencies.loadKaplay();
+    // Started before the map loads; a rejection is classified once awaited.
+    kaplayLoad.catch(() => undefined);
 
-  try {
     const loaded = await loadCampusMap(source, {
       dataset: dependencies.dataset,
       fetch: dependencies.fetch,
       onStageChange: (stage) => dependencies.onProgress?.({ stage }),
       projectId: dependencies.projectId,
-      signal: work.signal,
+      signal,
     });
-    const total = loaded.tilesets.length;
-    let completed = 0;
-
-    dependencies.onProgress?.({ completed, stage: "tilesets", total });
-
-    const tilesetsPromise = Promise.all(
-      loaded.tilesets.map(async (tileset): Promise<PreparedTileset> => {
-        let decodedImage: ImageBitmap;
-
-        try {
-          decodedImage = await dependencies.loadImage(
-            tileset.image,
-            work.signal,
-          );
-        } catch (error) {
-          work.signal.throwIfAborted();
-          throw new CampusMapPreparationError(
-            "network",
-            "A campus tileset could not be loaded or decoded.",
-            { cause: error, mapId: loaded.manifest.mapId },
-          );
-        }
-
-        if (work.signal.aborted) {
-          decodedImage.close();
-          work.signal.throwIfAborted();
-        }
-
-        decodedImages.add(decodedImage);
-        completed += 1;
-        dependencies.onProgress?.({
-          completed,
-          stage: "tilesets",
-          total,
-        });
-        return { ...tileset, decodedImage };
-      }),
-    ).then((tilesets) => {
-      dependencies.onProgress?.({ stage: "runtime", total });
-      return tilesets;
-    });
-    const kaplayModulePromise = dependencies.loadKaplay().catch((error) => {
-      work.signal.throwIfAborted();
+    const mapId = loaded.manifest.mapId;
+    const tilesetsPromise = decodeTilesets(loaded.tilesets, mapId).then(
+      (tilesets) => {
+        dependencies.onProgress?.({ stage: "runtime", total: tilesets.length });
+        return tilesets;
+      },
+    );
+    const kaplayModulePromise = kaplayLoad.catch((error) => {
+      signal.throwIfAborted();
       throw new CampusMapPreparationError(
         "render",
         "The campus rendering runtime could not be loaded.",
-        { cause: error, mapId: loaded.manifest.mapId },
+        { cause: error, mapId },
       );
     });
     const [tilesets, kaplayModule] = await Promise.all([
@@ -249,12 +251,5 @@ export async function prepareCampusMap(
       preparationMs: Math.round(now() - startedAt),
       tilesets,
     };
-  } catch (error) {
-    work.abort(error);
-    decodedImages.forEach((image) => image.close());
-    dependencies.signal.throwIfAborted();
-    throw error;
-  } finally {
-    dependencies.signal.removeEventListener("abort", forwardAbort);
-  }
+  });
 }

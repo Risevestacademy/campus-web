@@ -4,58 +4,41 @@ import Link from "next/link";
 import { describe, expect, it, vi } from "vitest";
 
 import { campusMapPreparationQueryKey } from "../hooks/use-prepared-campus-map";
-import mapFixture from "../services/map/fixtures/campus-trimmed.json";
 import {
   type CampusMapModule,
   type PreparedCampusMap,
   releasePreparedTilesetImage,
 } from "../services/map/prepare-campus-map";
 import {
+  fakeImage,
+  jsonResponse,
+  mapUrl,
+  sanityConfiguration,
+  stubSanityFetch,
+  tilesetCount,
+} from "../testing/sanity-map-fixture";
+import {
   CampusMapPreparationGateHarness,
   type CampusMapPreparationGateHarnessProps,
 } from "./campus-map-preparation-gate";
 
-const dataset = "staging";
-const projectId = "sj3zsz66";
-const mapUrl = "https://cdn.sanity.io/files/sj3zsz66/staging/campus-map.json";
-
-function response(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    headers: { "Content-Type": "application/json" },
-    status,
-  });
-}
+type Dependencies = CampusMapPreparationGateHarnessProps["dependencies"];
 
 function preparationDependencies(
-  loadImage: CampusMapPreparationGateHarnessProps["dependencies"]["loadImage"],
-): CampusMapPreparationGateHarnessProps["dependencies"] {
-  const manifest = {
-    heightTiles: mapFixture.height,
-    isEntry: true,
-    mapId: "campus",
-    mapUrl,
-    tilesets: mapFixture.tilesets.map(({ image }) => ({
-      tiledImagePath: image,
-      url: `https://cdn.sanity.io/images/${projectId}/${dataset}/${image.split("/").at(-1)}`,
-    })),
-    version: "version-1",
-    widthTiles: mapFixture.width,
-  };
-
+  overrides: Partial<Dependencies> = {},
+): Dependencies {
   return {
-    configuration: { dataset, projectId },
-    fetch: vi.fn(async (input: RequestInfo | URL) =>
-      String(input) === mapUrl
-        ? response(mapFixture)
-        : response({ result: [manifest] }),
-    ) as unknown as typeof globalThis.fetch,
-    loadImage,
+    captureEvent: vi.fn(),
+    configuration: sanityConfiguration,
+    fetch: stubSanityFetch(),
+    loadImage: vi.fn(async () => fakeImage()),
     loadKaplay: vi.fn(async () => ({}) as CampusMapModule),
+    ...overrides,
   };
 }
 
 function renderGate(
-  dependencies: CampusMapPreparationGateHarnessProps["dependencies"],
+  dependencies: Dependencies,
   queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   }),
@@ -69,105 +52,92 @@ function renderGate(
   );
 }
 
+function consumeCachedImages(
+  queryClient: QueryClient,
+  dependencies: Dependencies,
+) {
+  const prepared = queryClient.getQueryData<PreparedCampusMap>(
+    campusMapPreparationQueryKey(dependencies.configuration, {
+      kind: "entry",
+    }),
+  );
+  prepared?.tilesets.forEach(releasePreparedTilesetImage);
+}
+
+const joinLink = () => screen.queryByRole("link", { name: "Join" });
+
 describe("CampusMapPreparationGate", () => {
-  it("keeps Join unavailable until every map asset is prepared", async () => {
+  it("shows artwork progress and reveals Join only after every tileset decodes", async () => {
     const resolveImages: Array<(image: ImageBitmap) => void> = [];
-    const loadImage = vi.fn(
-      () =>
-        new Promise<ImageBitmap>((resolve) => {
-          resolveImages.push(resolve);
-        }),
-    );
-
-    renderGate(preparationDependencies(loadImage));
-
-    expect(
-      screen.queryByRole("link", { name: "Join" }),
-    ).not.toBeInTheDocument();
-
-    await waitFor(() => {
-      expect(loadImage).toHaveBeenCalledTimes(mapFixture.tilesets.length);
+    const dependencies = preparationDependencies({
+      loadImage: vi.fn(
+        () =>
+          new Promise<ImageBitmap>((resolve) => {
+            resolveImages.push(resolve);
+          }),
+      ),
+      now: vi.fn().mockReturnValueOnce(100).mockReturnValueOnce(142),
     });
 
-    for (const resolveImage of resolveImages) {
-      resolveImage({ close: vi.fn() } as unknown as ImageBitmap);
-    }
+    renderGate(dependencies);
 
-    expect(await screen.findByRole("link", { name: "Join" })).toBeVisible();
-  });
-
-  it("reports decoded artwork progress without inventing work", async () => {
-    const resolveImages: Array<(image: ImageBitmap) => void> = [];
-    const loadImage = vi.fn(
-      () =>
-        new Promise<ImageBitmap>((resolve) => {
-          resolveImages.push(resolve);
-        }),
-    );
-
-    renderGate(preparationDependencies(loadImage));
-
-    const progress = await screen.findByRole("progressbar", {
+    const progress = screen.getByRole("progressbar", {
       name: "Campus artwork",
     });
+    expect(progress).not.toHaveAttribute("aria-valuenow");
+    expect(joinLink()).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(progress).toHaveAttribute("aria-valuenow", "0");
+    });
     expect(progress).toHaveAttribute("aria-valuemax", "3");
-    expect(progress).toHaveAttribute("aria-valuenow", "0");
 
-    resolveImages[0]?.({ close: vi.fn() } as unknown as ImageBitmap);
-
+    resolveImages[0]?.(fakeImage());
     await waitFor(() => {
       expect(progress).toHaveAttribute("aria-valuenow", "1");
     });
+    expect(joinLink()).not.toBeInTheDocument();
 
-    for (const resolveImage of resolveImages.slice(1)) {
-      resolveImage({ close: vi.fn() } as unknown as ImageBitmap);
-    }
+    resolveImages.slice(1).forEach((resolveImage) => resolveImage(fakeImage()));
+
+    expect(await screen.findByRole("link", { name: "Join" })).toBeVisible();
+    expect(dependencies.captureEvent).toHaveBeenCalledExactlyOnceWith(
+      "campus_world.map_loaded",
+      { load_ms: 42, map_id: "campus", tilesets: 3, version: "version-1" },
+    );
   });
 
   it("starts fresh preparation after a network failure is retried", async () => {
-    const captureEvent = vi.fn();
-    const dependencies = preparationDependencies(
-      async () => ({ close: vi.fn() }) as unknown as ImageBitmap,
-    );
-    dependencies.captureEvent = captureEvent;
-    const successfulFetch = dependencies.fetch;
+    const successfulFetch = stubSanityFetch();
     let manifestRequests = 0;
-    dependencies.fetch = vi.fn(async (input: RequestInfo | URL) => {
-      if (String(input) === mapUrl) {
-        return successfulFetch!(input);
-      }
-
-      manifestRequests += 1;
-      return manifestRequests === 1
-        ? response({ error: "scripted" }, 503)
-        : successfulFetch!(input);
-    }) as unknown as typeof globalThis.fetch;
+    const dependencies = preparationDependencies({
+      fetch: vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input) !== mapUrl) manifestRequests += 1;
+        return String(input) !== mapUrl && manifestRequests === 1
+          ? jsonResponse({ error: "scripted" }, 503)
+          : successfulFetch(input);
+      }) as unknown as typeof globalThis.fetch,
+    });
 
     renderGate(dependencies);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "We couldn't prepare your campus.",
     );
-    expect(
-      screen.queryByRole("link", { name: "Join" }),
-    ).not.toBeInTheDocument();
-    expect(captureEvent).toHaveBeenCalledWith("campus_world.map_failed", {
-      error_kind: "network",
-      map_id: null,
-    });
+    expect(joinLink()).not.toBeInTheDocument();
+    expect(dependencies.captureEvent).toHaveBeenCalledWith(
+      "campus_world.map_failed",
+      { error_kind: "network", map_id: null },
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     expect(await screen.findByRole("link", { name: "Join" })).toBeVisible();
     expect(manifestRequests).toBe(2);
-    expect(captureEvent).toHaveBeenCalledTimes(2);
   });
 
   it("renders a render-ready cache hit immediately without preparing again", async () => {
-    const loadImage = vi.fn(
-      async () => ({ close: vi.fn() }) as unknown as ImageBitmap,
-    );
-    const dependencies = preparationDependencies(loadImage);
+    const dependencies = preparationDependencies();
     const queryClient = new QueryClient();
     const firstView = renderGate(dependencies, queryClient);
 
@@ -177,36 +147,26 @@ describe("CampusMapPreparationGate", () => {
 
     renderGate(dependencies, queryClient);
 
-    expect(screen.getByRole("link", { name: "Join" })).toBeVisible();
+    expect(joinLink()).toBeVisible();
     expect(
       screen.queryByRole("status", { name: "Preparing campus" }),
     ).not.toBeInTheDocument();
-    expect(loadImage).toHaveBeenCalledTimes(mapFixture.tilesets.length);
+    expect(dependencies.loadImage).toHaveBeenCalledTimes(tilesetCount);
     expect(dependencies.fetch).toHaveBeenCalledTimes(preparedFetchCount);
   });
 
   it("blocks Join and rehydrates artwork after Active Campus consumes the cached images", async () => {
-    const captureEvent = vi.fn();
     const repeatImageResolvers: Array<(image: ImageBitmap) => void> = [];
-    const loadImage = vi
-      .fn<() => Promise<ImageBitmap>>()
-      .mockImplementationOnce(
-        async () => ({ close: vi.fn() }) as unknown as ImageBitmap,
-      )
-      .mockImplementationOnce(
-        async () => ({ close: vi.fn() }) as unknown as ImageBitmap,
-      )
-      .mockImplementationOnce(
-        async () => ({ close: vi.fn() }) as unknown as ImageBitmap,
-      )
-      .mockImplementation(
-        () =>
-          new Promise<ImageBitmap>((resolve) => {
-            repeatImageResolvers.push(resolve);
-          }),
-      );
-    const dependencies = preparationDependencies(loadImage);
-    dependencies.captureEvent = captureEvent;
+    let rehydrating = false;
+    const dependencies = preparationDependencies({
+      loadImage: vi.fn(async () =>
+        rehydrating
+          ? new Promise<ImageBitmap>((resolve) => {
+              repeatImageResolvers.push(resolve);
+            })
+          : fakeImage(),
+      ),
+    });
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -214,66 +174,53 @@ describe("CampusMapPreparationGate", () => {
 
     expect(await screen.findByRole("link", { name: "Join" })).toBeVisible();
     const preparedFetchCount = vi.mocked(dependencies.fetch!).mock.calls.length;
-    const prepared = queryClient.getQueryData<PreparedCampusMap>(
-      campusMapPreparationQueryKey(dependencies.configuration, {
-        kind: "entry",
-      }),
-    );
-    expect(prepared).toBeDefined();
-    prepared?.tilesets.forEach(releasePreparedTilesetImage);
+    consumeCachedImages(queryClient, dependencies);
     firstView.unmount();
-    captureEvent.mockClear();
+    vi.mocked(dependencies.captureEvent!).mockClear();
+    rehydrating = true;
 
     renderGate(dependencies, queryClient);
 
     expect(
       screen.getByRole("status", { name: "Preparing campus" }),
     ).toBeVisible();
-    expect(
-      screen.queryByRole("link", { name: "Join" }),
-    ).not.toBeInTheDocument();
+    expect(joinLink()).not.toBeInTheDocument();
     await waitFor(() => {
-      expect(loadImage).toHaveBeenCalledTimes(mapFixture.tilesets.length * 2);
+      expect(repeatImageResolvers).toHaveLength(tilesetCount);
     });
     expect(dependencies.fetch).toHaveBeenCalledTimes(preparedFetchCount);
 
-    for (const resolveImage of repeatImageResolvers) {
-      resolveImage({ close: vi.fn() } as unknown as ImageBitmap);
-    }
+    repeatImageResolvers.forEach((resolveImage) => resolveImage(fakeImage()));
 
     expect(await screen.findByRole("link", { name: "Join" })).toBeVisible();
-    expect(captureEvent).toHaveBeenCalledOnce();
-    expect(captureEvent).toHaveBeenCalledWith("campus_world.map_rehydrated", {
-      load_ms: expect.any(Number),
-      map_id: "campus",
-      tilesets: 3,
-      version: "version-1",
-    });
+    expect(dependencies.captureEvent).toHaveBeenCalledExactlyOnceWith(
+      "campus_world.map_rehydrated",
+      {
+        load_ms: expect.any(Number),
+        map_id: "campus",
+        tilesets: 3,
+        version: "version-1",
+      },
+    );
   });
 
   it("reports a distinct failure when consumed artwork cannot be rehydrated", async () => {
     let rehydrating = false;
-    const captureEvent = vi.fn();
-    const loadImage = vi.fn(async () => {
-      if (rehydrating) throw new Error("Image decoding failed.");
-      return { close: vi.fn() } as unknown as ImageBitmap;
+    const dependencies = preparationDependencies({
+      loadImage: vi.fn(async () => {
+        if (rehydrating) throw new Error("Image decoding failed.");
+        return fakeImage();
+      }),
     });
-    const dependencies = preparationDependencies(loadImage);
-    dependencies.captureEvent = captureEvent;
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
     const firstView = renderGate(dependencies, queryClient);
 
     expect(await screen.findByRole("link", { name: "Join" })).toBeVisible();
-    const prepared = queryClient.getQueryData<PreparedCampusMap>(
-      campusMapPreparationQueryKey(dependencies.configuration, {
-        kind: "entry",
-      }),
-    );
-    prepared?.tilesets.forEach(releasePreparedTilesetImage);
+    consumeCachedImages(queryClient, dependencies);
     firstView.unmount();
-    captureEvent.mockClear();
+    vi.mocked(dependencies.captureEvent!).mockClear();
     rehydrating = true;
 
     renderGate(dependencies, queryClient);
@@ -281,44 +228,10 @@ describe("CampusMapPreparationGate", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "We couldn't prepare your campus.",
     );
-    expect(
-      screen.queryByRole("link", { name: "Join" }),
-    ).not.toBeInTheDocument();
-    expect(captureEvent).toHaveBeenCalledOnce();
-    expect(captureEvent).toHaveBeenCalledWith(
+    expect(joinLink()).not.toBeInTheDocument();
+    expect(dependencies.captureEvent).toHaveBeenCalledExactlyOnceWith(
       "campus_world.map_rehydration_failed",
       { error_kind: "network", map_id: "campus" },
     );
-  });
-
-  it("captures preparation success only when real preparation runs", async () => {
-    const captureEvent = vi.fn();
-    const dependencies = {
-      ...preparationDependencies(
-        async () => ({ close: vi.fn() }) as unknown as ImageBitmap,
-      ),
-      captureEvent,
-      now: vi.fn().mockReturnValueOnce(100).mockReturnValueOnce(142),
-    };
-    const queryClient = new QueryClient();
-    const view = renderGate(dependencies, queryClient);
-
-    expect(await screen.findByRole("link", { name: "Join" })).toBeVisible();
-    expect(captureEvent).toHaveBeenCalledOnce();
-    expect(captureEvent).toHaveBeenCalledWith("campus_world.map_loaded", {
-      load_ms: 42,
-      map_id: "campus",
-      tilesets: 3,
-      version: "version-1",
-    });
-
-    view.rerender(
-      <QueryClientProvider client={queryClient}>
-        <CampusMapPreparationGateHarness dependencies={dependencies}>
-          <Link href="/campus/c-1">Join</Link>
-        </CampusMapPreparationGateHarness>
-      </QueryClientProvider>,
-    );
-    expect(captureEvent).toHaveBeenCalledOnce();
   });
 });

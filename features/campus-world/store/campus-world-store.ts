@@ -13,7 +13,7 @@ export interface CampusWorldState {
   attempt: number;
   begin: () => number;
   errorKind: CampusWorldMapErrorKind | null;
-  fail: (attempt: number, failure: CampusWorldFailure) => void;
+  fail: (attempt: number, failure: CampusWorldFailure) => boolean;
   mapId: string | null;
   ready: (attempt: number, mapId: string) => void;
   status: CampusWorldStatus;
@@ -41,10 +41,11 @@ export function createCampusWorldStore(): CampusWorldStore {
         attempt !== state.attempt ||
         (state.status !== "loading-map" && state.status !== "ready")
       ) {
-        return;
+        return false;
       }
 
       set({ ...failure, status: "failed" });
+      return true;
     },
     mapId: null,
     ready(attempt, mapId) {

@@ -7,6 +7,8 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
+import { publicEnvironment } from "@/config/environment/public";
+import { captureBrowserAnalyticsEvent } from "@/core/analytics/client";
 import {
   ANALYTICS_EVENTS,
   type AnalyticsEventMap,
@@ -49,6 +51,24 @@ export interface CampusMapPreparationDependencies {
   loadImage?: (url: string, signal: AbortSignal) => Promise<ImageBitmap>;
   loadKaplay?: () => Promise<CampusMapModule>;
   now?: () => number;
+}
+
+export const defaultCampusMapPreparationDependencies: CampusMapPreparationDependencies =
+  {
+    captureEvent: captureBrowserAnalyticsEvent,
+    configuration: {
+      dataset: publicEnvironment.NEXT_PUBLIC_SANITY_DATASET,
+      projectId: publicEnvironment.NEXT_PUBLIC_SANITY_PROJECT_ID,
+    },
+  };
+
+function preparedEventProperties(prepared: PreparedCampusMap) {
+  return {
+    load_ms: prepared.preparationMs,
+    map_id: prepared.manifest.mapId,
+    tilesets: prepared.tilesets.length,
+    version: prepared.manifest.version,
+  };
 }
 
 function failureFrom(error: unknown): {
@@ -120,12 +140,10 @@ export function campusMapPreparationQueryOptions(
             signal,
           });
 
-          captureEvent(ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_REHYDRATED, {
-            load_ms: rehydrated.preparationMs,
-            map_id: rehydrated.manifest.mapId,
-            tilesets: rehydrated.tilesets.length,
-            version: rehydrated.manifest.version,
-          });
+          captureEvent(
+            ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_REHYDRATED,
+            preparedEventProperties(rehydrated),
+          );
           return rehydrated;
         }
 
@@ -147,12 +165,10 @@ export function campusMapPreparationQueryOptions(
           signal,
         });
 
-        captureEvent(ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_LOADED, {
-          load_ms: prepared.preparationMs,
-          map_id: prepared.manifest.mapId,
-          tilesets: prepared.tilesets.length,
-          version: prepared.manifest.version,
-        });
+        captureEvent(
+          ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_LOADED,
+          preparedEventProperties(prepared),
+        );
 
         return prepared;
       } catch (error) {

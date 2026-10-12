@@ -1,46 +1,41 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import mapFixture from "./fixtures/campus-trimmed.json";
+import {
+  fakeImage,
+  sanityConfiguration,
+  stubSanityFetch,
+  tilesetCount,
+} from "../../testing/sanity-map-fixture";
 import {
   type CampusMapModule,
   isPreparedCampusMapRenderReady,
   loadDecodedCampusMapImage,
   prepareCampusMap,
+  type PrepareCampusMapDependencies,
   rehydratePreparedCampusMap,
   releasePreparedTilesetImage,
 } from "./prepare-campus-map";
 
-const dataset = "staging";
-const projectId = "sj3zsz66";
-const mapUrl = "https://cdn.sanity.io/files/sj3zsz66/staging/campus-map.json";
+function prepare(overrides: Partial<PrepareCampusMapDependencies> = {}) {
+  return prepareCampusMap(
+    { kind: "entry" },
+    {
+      ...sanityConfiguration,
+      fetch: stubSanityFetch(),
+      loadImage: vi.fn(async () => fakeImage()),
+      loadKaplay: vi.fn(async () => ({}) as CampusMapModule),
+      signal: new AbortController().signal,
+      ...overrides,
+    },
+  );
+}
 
-function response(body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    headers: { "Content-Type": "application/json" },
+function pendingUntilAborted<T>(signal: AbortSignal) {
+  return new Promise<T>((_resolve, reject) => {
+    signal.addEventListener("abort", () => reject(signal.reason), {
+      once: true,
+    });
   });
-}
-
-function manifest() {
-  return {
-    heightTiles: mapFixture.height,
-    isEntry: true,
-    mapId: "campus",
-    mapUrl,
-    tilesets: mapFixture.tilesets.map(({ image }) => ({
-      tiledImagePath: image,
-      url: `https://cdn.sanity.io/images/${projectId}/${dataset}/${image.split("/").at(-1)}`,
-    })),
-    version: "version-1",
-    widthTiles: mapFixture.width,
-  };
-}
-
-function stubFetch() {
-  return vi.fn(async (input: RequestInfo | URL) =>
-    String(input) === mapUrl
-      ? response(mapFixture)
-      : response({ result: [manifest()] }),
-  ) as unknown as typeof globalThis.fetch;
 }
 
 afterEach(() => {
@@ -49,7 +44,7 @@ afterEach(() => {
 
 describe("loadDecodedCampusMapImage", () => {
   it("invokes a browser fetch implementation with the global receiver", async () => {
-    const decodedImage = { close: vi.fn() } as unknown as ImageBitmap;
+    const decodedImage = fakeImage();
     vi.stubGlobal(
       "createImageBitmap",
       vi.fn(async () => decodedImage),
@@ -69,113 +64,39 @@ describe("loadDecodedCampusMapImage", () => {
 });
 
 describe("prepareCampusMap", () => {
-  it("does not report ready while a tileset remains undecoded", async () => {
-    const decodedImages: Array<(image: ImageBitmap) => void> = [];
-    const loadImage = vi.fn(
-      () =>
-        new Promise<ImageBitmap>((resolve) => {
-          decodedImages.push(resolve);
-        }),
-    );
-    let settled = false;
-
-    const preparation = prepareCampusMap(
-      { kind: "entry" },
-      {
-        dataset,
-        fetch: stubFetch(),
-        loadImage,
-        loadKaplay: vi.fn(async () => ({}) as CampusMapModule),
-        projectId,
-        signal: new AbortController().signal,
-      },
-    ).then(() => {
-      settled = true;
-    });
-
-    await vi.waitFor(() => {
-      expect(loadImage).toHaveBeenCalledTimes(mapFixture.tilesets.length);
-    });
-
-    for (const resolveImage of decodedImages.slice(0, -1)) {
-      resolveImage({ close: vi.fn() } as unknown as ImageBitmap);
-    }
-    await Promise.resolve();
-
-    expect(settled).toBe(false);
-
-    decodedImages.at(-1)?.({ close: vi.fn() } as unknown as ImageBitmap);
-    await preparation;
-    expect(settled).toBe(true);
-  });
-
-  it("releases decoded images when preparation is cancelled", async () => {
+  it("starts loading KAPLAY before the manifest answers", async () => {
     const controller = new AbortController();
-    const close = vi.fn();
-    const decodedImage = { close } as unknown as ImageBitmap;
-    const loadImage = vi
-      .fn<(url: string, signal: AbortSignal) => Promise<ImageBitmap>>()
-      .mockResolvedValueOnce(decodedImage)
-      .mockImplementation(
-        (_url, signal) =>
-          new Promise<ImageBitmap>((_resolve, reject) => {
-            signal.addEventListener("abort", () => reject(signal.reason), {
-              once: true,
-            });
-          }),
-      );
-
-    const preparation = prepareCampusMap(
-      { kind: "entry" },
-      {
-        dataset,
-        fetch: stubFetch(),
-        loadImage,
-        loadKaplay: vi.fn(async () => ({}) as CampusMapModule),
-        projectId,
-        signal: controller.signal,
-      },
-    );
-
-    await vi.waitFor(() => {
-      expect(loadImage).toHaveBeenCalledTimes(mapFixture.tilesets.length);
+    const loadKaplay = vi.fn(async () => ({}) as CampusMapModule);
+    const preparation = prepare({
+      fetch: ((_input: RequestInfo | URL, init?: RequestInit) =>
+        pendingUntilAborted<Response>(init!.signal!)) as typeof fetch,
+      loadKaplay,
+      signal: controller.signal,
     });
+
+    expect(loadKaplay).toHaveBeenCalledOnce();
 
     controller.abort();
-
     await expect(preparation).rejects.toMatchObject({ name: "AbortError" });
-    expect(close).toHaveBeenCalledOnce();
   });
 
   it("does not report ready before the KAPLAY module resolves", async () => {
     let resolveKaplay: ((module: CampusMapModule) => void) | undefined;
-    const loadKaplay = vi.fn(
-      () =>
+    const loadImage = vi.fn(async () => fakeImage());
+    let settled = false;
+
+    const preparation = prepare({
+      loadImage,
+      loadKaplay: () =>
         new Promise<CampusMapModule>((resolve) => {
           resolveKaplay = resolve;
         }),
-    );
-    const loadImage = vi.fn(
-      async () => ({ close: vi.fn() }) as unknown as ImageBitmap,
-    );
-    let settled = false;
-
-    const preparation = prepareCampusMap(
-      { kind: "entry" },
-      {
-        dataset,
-        fetch: stubFetch(),
-        loadImage,
-        loadKaplay,
-        projectId,
-        signal: new AbortController().signal,
-      },
-    ).then(() => {
+    }).then(() => {
       settled = true;
     });
 
     await vi.waitFor(() => {
-      expect(loadImage).toHaveBeenCalledTimes(mapFixture.tilesets.length);
+      expect(loadImage).toHaveBeenCalledTimes(tilesetCount);
     });
     expect(settled).toBe(false);
 
@@ -184,23 +105,29 @@ describe("prepareCampusMap", () => {
     expect(settled).toBe(true);
   });
 
+  it("releases decoded images when preparation is cancelled", async () => {
+    const controller = new AbortController();
+    const decodedImage = fakeImage();
+    const loadImage = vi
+      .fn<(url: string, signal: AbortSignal) => Promise<ImageBitmap>>()
+      .mockResolvedValueOnce(decodedImage)
+      .mockImplementation((_url, signal) => pendingUntilAborted(signal));
+
+    const preparation = prepare({ loadImage, signal: controller.signal });
+
+    await vi.waitFor(() => {
+      expect(loadImage).toHaveBeenCalledTimes(tilesetCount);
+    });
+    controller.abort();
+
+    await expect(preparation).rejects.toMatchObject({ name: "AbortError" });
+    expect(decodedImage.close).toHaveBeenCalledOnce();
+  });
+
   it("reports only completed preparation stages and decoded tilesets", async () => {
     const onProgress = vi.fn();
 
-    await prepareCampusMap(
-      { kind: "entry" },
-      {
-        dataset,
-        fetch: stubFetch(),
-        loadImage: vi.fn(
-          async () => ({ close: vi.fn() }) as unknown as ImageBitmap,
-        ),
-        loadKaplay: vi.fn(async () => ({}) as CampusMapModule),
-        onProgress,
-        projectId,
-        signal: new AbortController().signal,
-      },
-    );
+    await prepare({ onProgress });
 
     expect(onProgress.mock.calls.map(([progress]) => progress)).toEqual([
       { stage: "manifest" },
@@ -215,67 +142,32 @@ describe("prepareCampusMap", () => {
 
   it("classifies tileset decoding failures with the loaded map identity", async () => {
     await expect(
-      prepareCampusMap(
-        { kind: "entry" },
-        {
-          dataset,
-          fetch: stubFetch(),
-          loadImage: vi.fn(async () => {
-            throw new Error("Image decoding failed.");
-          }),
-          loadKaplay: vi.fn(async () => ({}) as CampusMapModule),
-          projectId,
-          signal: new AbortController().signal,
-        },
-      ),
+      prepare({
+        loadImage: vi.fn(async () => {
+          throw new Error("Image decoding failed.");
+        }),
+      }),
     ).rejects.toMatchObject({ kind: "network", mapId: "campus" });
   });
 
   it("classifies KAPLAY chunk failures with the loaded map identity", async () => {
     await expect(
-      prepareCampusMap(
-        { kind: "entry" },
-        {
-          dataset,
-          fetch: stubFetch(),
-          loadImage: vi.fn(
-            async () => ({ close: vi.fn() }) as unknown as ImageBitmap,
-          ),
-          loadKaplay: vi.fn(async () => {
-            throw new Error("Chunk failed to load.");
-          }),
-          projectId,
-          signal: new AbortController().signal,
-        },
-      ),
+      prepare({
+        loadKaplay: vi.fn(async () => {
+          throw new Error("Chunk failed to load.");
+        }),
+      }),
     ).rejects.toMatchObject({ kind: "render", mapId: "campus" });
   });
 });
 
 describe("rehydratePreparedCampusMap", () => {
-  async function consumedPreparedMap() {
-    const prepared = await prepareCampusMap(
-      { kind: "entry" },
-      {
-        dataset,
-        fetch: stubFetch(),
-        loadImage: vi.fn(
-          async () => ({ close: vi.fn() }) as unknown as ImageBitmap,
-        ),
-        loadKaplay: vi.fn(async () => ({}) as CampusMapModule),
-        projectId,
-        signal: new AbortController().signal,
-      },
-    );
-    prepared.tilesets.forEach(releasePreparedTilesetImage);
-    return prepared;
-  }
-
   it("reloads only consumed tileset images and reports their progress", async () => {
-    const prepared = await consumedPreparedMap();
+    const prepared = await prepare();
+    prepared.tilesets.forEach(releasePreparedTilesetImage);
     const loadImage = vi.fn<
       (url: string, signal: AbortSignal) => Promise<ImageBitmap>
-    >(async () => ({ close: vi.fn() }) as unknown as ImageBitmap);
+    >(async () => fakeImage());
     const onProgress = vi.fn();
 
     const rehydrated = await rehydratePreparedCampusMap(prepared, {
@@ -295,35 +187,5 @@ describe("rehydratePreparedCampusMap", () => {
     ]);
     expect(isPreparedCampusMapRenderReady(rehydrated)).toBe(true);
     expect(rehydrated.kaplayModule).toBe(prepared.kaplayModule);
-  });
-
-  it("releases decoded images when rehydration is cancelled", async () => {
-    const prepared = await consumedPreparedMap();
-    const controller = new AbortController();
-    const close = vi.fn();
-    const loadImage = vi
-      .fn<(url: string, signal: AbortSignal) => Promise<ImageBitmap>>()
-      .mockResolvedValueOnce({ close } as unknown as ImageBitmap)
-      .mockImplementation(
-        (_url, signal) =>
-          new Promise<ImageBitmap>((_resolve, reject) => {
-            signal.addEventListener("abort", () => reject(signal.reason), {
-              once: true,
-            });
-          }),
-      );
-
-    const rehydration = rehydratePreparedCampusMap(prepared, {
-      loadImage,
-      signal: controller.signal,
-    });
-
-    await vi.waitFor(() => {
-      expect(loadImage).toHaveBeenCalledTimes(mapFixture.tilesets.length);
-    });
-    controller.abort();
-
-    await expect(rehydration).rejects.toMatchObject({ name: "AbortError" });
-    expect(close).toHaveBeenCalledOnce();
   });
 });

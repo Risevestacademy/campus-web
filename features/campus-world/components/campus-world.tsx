@@ -2,15 +2,15 @@
 
 import { useCallback, useState } from "react";
 
-import { publicEnvironment } from "@/config/environment/public";
-import { captureBrowserAnalyticsEvent } from "@/core/analytics/client";
 import { ANALYTICS_EVENTS } from "@/core/analytics/events";
+import { Button } from "@/shared/ui/button";
 
 import type { StartCampusGame } from "../game/campus-game.types";
 import { startCampusGame } from "../game/start-campus-game";
 import { useCampusWorldStatus } from "../hooks/use-campus-world-status";
 import {
   type CampusMapPreparationDependencies,
+  defaultCampusMapPreparationDependencies,
   useCampusWorldMap,
 } from "../hooks/use-prepared-campus-map";
 import { createCampusWorldStore } from "../store/campus-world-store";
@@ -28,11 +28,7 @@ export interface CampusWorldHarnessProps extends CampusWorldProps {
 }
 
 const defaultDependencies: CampusWorldDependencies = {
-  captureEvent: captureBrowserAnalyticsEvent,
-  configuration: {
-    dataset: publicEnvironment.NEXT_PUBLIC_SANITY_DATASET,
-    projectId: publicEnvironment.NEXT_PUBLIC_SANITY_PROJECT_ID,
-  },
+  ...defaultCampusMapPreparationDependencies,
   startGame: startCampusGame,
 };
 
@@ -61,13 +57,10 @@ export function CampusWorldHarness({
 
       function failRender() {
         const mapId = preparedMap.manifest.mapId;
-        const before = store.getState();
-        store.getState().fail(attempt, {
-          errorKind: "render",
-          mapId,
-        });
-        const after = store.getState();
-        if (after === before || after.status !== "failed") return;
+        const failed = store
+          .getState()
+          .fail(attempt, { errorKind: "render", mapId });
+        if (!failed) return;
 
         dependencies.captureEvent?.(ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_FAILED, {
           error_kind: "render",
@@ -106,6 +99,7 @@ export function CampusWorldHarness({
     : prepared
       ? state.status
       : "loading-map";
+  const isStarting = status === "loading-map" || status === "idle";
 
   return (
     <div
@@ -118,23 +112,27 @@ export function CampusWorldHarness({
       data-status={status}
       role="region"
     >
-      {status === "loading-map" || status === "idle" ? (
+      <div
+        aria-hidden={isStarting ? undefined : true}
+        className="bg-cobalt-950 text-foreground-inverse pointer-events-none absolute inset-0 z-10 grid place-items-center text-sm transition-opacity duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] data-[state=closed]:opacity-0"
+        data-state={isStarting ? "open" : "closed"}
+      >
         <p
           aria-label="Starting campus"
-          className="bg-cobalt-950 text-foreground-inverse absolute inset-0 z-10 grid place-items-center text-sm"
+          className="animate-in fade-in fill-mode-both delay-300 duration-200 motion-reduce:animate-none"
           role="status"
         >
           Starting your campus…
         </p>
-      ) : null}
+      </div>
       {status === "failed" ? (
         <div
           className="bg-background/95 absolute inset-0 z-10 grid place-content-center gap-3 text-center"
           role="alert"
         >
           <p>We couldn&apos;t load the campus map.</p>
-          <button
-            className="bg-primary text-primary-foreground rounded-lg px-4 py-2"
+          <Button
+            className="mx-auto"
             type="button"
             onClick={() => {
               if (preparation.isError) {
@@ -146,7 +144,7 @@ export function CampusWorldHarness({
             }}
           >
             Try again
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>

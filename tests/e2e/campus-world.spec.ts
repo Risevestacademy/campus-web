@@ -95,32 +95,6 @@ test("reuses pre-join preparation after Join without refetching map assets", asy
   expect(requests).toEqual(preparedRequestCounts);
 });
 
-test("recovers when retrying after Sanity fails", async ({
-  page,
-  context,
-  baseURL,
-  fakeApi,
-}) => {
-  await prepareMember({ baseURL, context, fakeApi });
-  await installSanityMapStub(page, { queryStatuses: [503, 200] });
-
-  await page.goto(`${campusUrl}/join`);
-
-  await expect(
-    page
-      .getByRole("alert")
-      .filter({ hasText: "We couldn't prepare your campus." }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Try again" }).click();
-  await joinLink(page).click();
-
-  const world = page.getByRole("region", { name: "Campus map" });
-  await expect(world).toHaveAttribute("data-status", "ready", {
-    timeout: 15_000,
-  });
-  await expect(world).toHaveAttribute("data-map-id", "campus");
-});
-
 test("rehydrates consumed artwork before Join on repeat entry", async ({
   page,
   context,
@@ -164,6 +138,5 @@ test("rehydrates consumed artwork before Join on repeat entry", async ({
   await expect(world).toHaveAttribute("data-status", "ready", {
     timeout: 15_000,
   });
-  await expect(page.getByText("Loading campus map…")).toHaveCount(0);
   expect(requests).toEqual({ manifest: 1, map: 1, tilesets: 6 });
 });

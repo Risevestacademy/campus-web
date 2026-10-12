@@ -66,6 +66,12 @@ interface LoadCampusMapDependencies {
   signal?: AbortSignal;
 }
 
+export function sanityMapOrigins(projectId: string | undefined): string[] {
+  return projectId
+    ? [`https://${projectId}.api.sanity.io`, "https://cdn.sanity.io"]
+    : [];
+}
+
 function checkedFetch(
   fetchImplementation: typeof fetch,
   signal?: AbortSignal,

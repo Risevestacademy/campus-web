@@ -39,29 +39,31 @@ export const startCampusGame: StartCampusGame = async (
   try {
     k.setLayers(["below", "avatars", "above"], "below");
 
-    const renderTilesets: RenderTileset[] = [];
-    for (const [index, tileset] of prepared.tilesets.entries()) {
-      const spriteName = `campus-tileset-${tileset.firstgid}`;
-      const preparedImage = preparedImages[index];
-      await new Promise<void>((resolve, reject) => {
-        k.loadSprite(spriteName, preparedImage ?? tileset.image, {
-          frames: tileset.frames.map(({ h, w, x, y }) => k.quad(x, y, w, h)),
-        })
-          .onLoad(() => resolve())
-          .onError(reject);
-      });
-      preparedImage?.close();
-      preparedImages[index] = undefined;
-      renderTilesets.push({
-        firstgid: tileset.firstgid,
-        lastgid: tileset.lastgid,
-        name: tileset.name,
-        spriteName,
-        tileheight: tileset.tileheight,
-        tileoffset: tileset.tileoffset,
-        tilewidth: tileset.tilewidth,
-      });
-    }
+    const renderTilesets = await Promise.all(
+      prepared.tilesets.map(async (tileset, index): Promise<RenderTileset> => {
+        const spriteName = `campus-tileset-${tileset.firstgid}`;
+        const preparedImage = preparedImages[index];
+        await new Promise<void>((resolve, reject) => {
+          k.loadSprite(spriteName, preparedImage ?? tileset.image, {
+            frames: tileset.frames.map(({ h, w, x, y }) => k.quad(x, y, w, h)),
+          })
+            .onLoad(() => resolve())
+            .onError(reject);
+        });
+        preparedImage?.close();
+        preparedImages[index] = undefined;
+
+        return {
+          firstgid: tileset.firstgid,
+          lastgid: tileset.lastgid,
+          name: tileset.name,
+          spriteName,
+          tileheight: tileset.tileheight,
+          tileoffset: tileset.tileoffset,
+          tilewidth: tileset.tilewidth,
+        };
+      }),
+    );
 
     const target = prepared.layout.spawn
       ? {

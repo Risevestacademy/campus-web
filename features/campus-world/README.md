@@ -27,22 +27,26 @@ revealing Join; reusable manifest, layout, and KAPLAY data stay cached.
 
 ## Modules
 
-| Module        | Owns                                                         |
-| ------------- | ------------------------------------------------------------ |
-| `components/` | Preparation gate, canvas lifecycle, accessible status, retry |
-| `game/`       | KAPLAY startup, sprite upload, camera, and culled drawing    |
-| `hooks/`      | Shared preparation query and lifecycle-store subscription    |
-| `services/`   | Preparation, loading, layout bands, frames, and camera maths |
-| `store/`      | Lifecycle transitions, attempt IDs, and stale-result guards  |
+| Module        | Owns                                                          |
+| ------------- | ------------------------------------------------------------- |
+| `components/` | Preparation gate, canvas lifecycle, accessible status, retry  |
+| `game/`       | KAPLAY startup, sprite upload, camera, and culled drawing     |
+| `hooks/`      | Shared preparation query and lifecycle-store subscription     |
+| `services/`   | Preparation, loading, bands, draw lists, frames, camera maths |
+| `store/`      | Lifecycle transitions, attempt IDs, and stale-result guards   |
+| `testing/`    | Sanity map fixtures and a fake KAPLAY band for tests          |
 
 The feature may import `core` and `shared`. Routes compose it through the
 barrel; other features do not import its internals.
 
 ## Contributing
 
-- Keep KAPLAY behind `import("kaplay")`; preparation resolves that dynamic
-  import without creating a hidden canvas or putting KAPLAY in the static
-  module graph.
+- Keep KAPLAY behind `import("kaplay")`; preparation starts that dynamic
+  import before the manifest request, without creating a hidden canvas or
+  putting KAPLAY in the static module graph.
+- Read Sanity configuration and analytics from
+  `defaultCampusMapPreparationDependencies`. The Join Gate and `CampusWorld`
+  share one query key only while they share that object.
 - Keep the prepared query key scoped by Sanity project, dataset, and map
   source. It is session-cached with infinite stale and garbage-collection
   times and has no automatic retry.
@@ -52,7 +56,8 @@ barrel; other features do not import its internals.
 - Mount through the React callback ref. Each attempt owns a fresh canvas and
   cleanup calls the matching game's `quit()`.
 - Atomically take every decoded image before the first sprite-upload await,
-  then close each image after KAPLAY uploads it. Repeat pre-join rehydrates the
+  upload every tileset in parallel, then close each image after KAPLAY
+  uploads it. Repeat pre-join rehydrates the
   images through their URLs instead of retaining CPU and GPU copies forever.
 - The Join Gate alone rehydrates. `CampusWorld` observes through
   `useCampusWorldMap`, which never refetches on mount: the game takes the
@@ -60,6 +65,9 @@ barrel; other features do not import its internals.
   observer would refetch tilesets and restart the game.
 - Keep per-frame work in `game/`, not React state. React observes only
   lifecycle changes through `useSyncExternalStore`.
+- Resolve tiles once through `buildBandDrawList`; a frame only walks visible
+  cells layer by layer. Never iterate by tileset: layers that mix tilesets
+  then draw out of order.
 - Preserve the `avatars` tile layer as the below/above split marker. Hidden
   layers do not draw; without a marker every visible tile layer draws below.
 - Use injected fetch and public Sanity configuration. Do not add a Sanity
@@ -77,8 +85,7 @@ pnpm test:e2e
 ```
 
 Unit tests cover preparation and rehydration completion, cancellation, cache
-readiness, progress, retry protection, lifecycle, bands, tile transforms,
-frames, and camera bounds. The Storybook browser test covers a post-upload
+readiness, progress, retry protection, lifecycle, bands, layer draw order,
+tile transforms, frames, and camera bounds. Shared fakes live in `testing/`. The Storybook browser test covers a post-upload
 remount in real Chromium. Playwright covers request reuse across Join,
-repeat-entry rehydration, Sanity stubbing, rendering, resize, failure, and
-recovery.
+repeat-entry rehydration, Sanity stubbing, rendering, and resize.

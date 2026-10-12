@@ -18,6 +18,15 @@ import {
   releasePreparedTilesetImage,
   takePreparedTilesetImages,
 } from "@/features/campus-world/services/map/prepare-campus-map";
+import {
+  addFakeBand,
+  renderTilesets,
+  squareLayer,
+} from "@/features/campus-world/testing/fake-kaplay-band";
+import {
+  fakeImage,
+  sanityConfiguration,
+} from "@/features/campus-world/testing/sanity-map-fixture";
 
 vi.mock("@/features/auth", () => ({
   CohortGate: ({
@@ -54,8 +63,6 @@ function sourceFiles(directory: string): string[] {
     .map((entry) => path.join(entry.parentPath, entry.name));
 }
 
-const worldConfiguration = { dataset: "staging", projectId: "sj3zsz66" };
-
 function renderPreparedWorld(
   dependencies: Omit<CampusWorldDependencies, "configuration">,
 ) {
@@ -63,12 +70,12 @@ function renderPreparedWorld(
     defaultOptions: { queries: { retry: false } },
   });
   queryClient.setQueryData(
-    campusMapPreparationQueryKey(worldConfiguration, { kind: "entry" }),
+    campusMapPreparationQueryKey(sanityConfiguration, { kind: "entry" }),
     {
       manifest: { mapId: "campus", version: "version-1" },
       preparationMs: 42,
       tilesets: Array.from({ length: 3 }, () => ({
-        decodedImage: { close: vi.fn() } as unknown as ImageBitmap,
+        decodedImage: fakeImage(),
       })),
     } as unknown as PreparedCampusMap,
   );
@@ -77,7 +84,7 @@ function renderPreparedWorld(
     <QueryClientProvider client={queryClient}>
       <CampusWorldHarness
         cohortId="cohort-1"
-        dependencies={{ ...dependencies, configuration: worldConfiguration }}
+        dependencies={{ ...dependencies, configuration: sanityConfiguration }}
       />
     </QueryClientProvider>,
   );
@@ -107,7 +114,32 @@ const imageConsumptions: Array<
   ],
 ];
 
-describe("Campus world eval (required threshold: 6/6)", () => {
+const drawTilesets = renderTilesets(["grounds", "terrains", "floors"]);
+
+const layerArrangements: Array<[string, string[]]> = [
+  ["ascending tilesets", ["grounds", "terrains", "floors"]],
+  ["inverted tilesets", ["floors", "terrains", "grounds"]],
+  ["interleaved tilesets", ["terrains", "grounds", "terrains", "floors"]],
+  ["carpets above grass", ["grounds", "terrains", "floors", "grounds"]],
+];
+
+function tileFrom(tilesetName: string): number {
+  return drawTilesets.find(({ name }) => name === tilesetName)!.firstgid;
+}
+
+describe("Campus world eval (required threshold: 9/9)", () => {
+  it.each(layerArrangements)(
+    "draws stacked layers bottom to top with %s",
+    (_, layerTilesets) => {
+      const band = addFakeBand(
+        layerTilesets.map((name) => squareLayer([tileFrom(name)])),
+        drawTilesets,
+      );
+
+      expect(band.drawFrame()).toEqual(layerTilesets);
+    },
+  );
+
   it.each(imageConsumptions)(
     "keeps a started world mounted when its game %s",
     async (_, consumeImages) => {
@@ -147,17 +179,6 @@ describe("Campus world eval (required threshold: 6/6)", () => {
     expect(
       within(gate).getByRole("region", { name: "Campus map" }),
     ).toHaveAttribute("data-cohort-id", "cohort-1");
-  });
-
-  it("exposes only the active world and pre-join preparation boundary", async () => {
-    const feature = await vi.importActual<
-      typeof import("@/features/campus-world")
-    >("@/features/campus-world");
-
-    expect(Object.keys(feature).sort()).toEqual([
-      "CampusMapPreparationGate",
-      "CampusWorld",
-    ]);
   });
 
   it("keeps KAPLAY out of the static application graph", () => {

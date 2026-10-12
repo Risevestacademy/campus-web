@@ -22,7 +22,6 @@ const manifest = {
 };
 
 interface SanityMapStubOptions {
-  queryStatuses?: number[];
   tilesetResponseGate?: {
     afterRequests: number;
     wait: Promise<void>;
@@ -39,7 +38,6 @@ export async function installSanityMapStub(
   page: Page,
   options: SanityMapStubOptions = {},
 ): Promise<SanityMapRequestCounts> {
-  const queryStatuses = [...(options.queryStatuses ?? [])];
   const requests: SanityMapRequestCounts = {
     manifest: 0,
     map: 0,
@@ -48,13 +46,9 @@ export async function installSanityMapStub(
 
   async function fulfillQuery(route: Route) {
     requests.manifest += 1;
-    const status = queryStatuses.shift() ?? 200;
     await route.fulfill({
-      body: JSON.stringify(
-        status >= 400 ? { error: "scripted" } : { result: [manifest] },
-      ),
+      body: JSON.stringify({ result: [manifest] }),
       contentType: "application/json",
-      status,
     });
   }
 
