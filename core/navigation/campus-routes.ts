@@ -1,5 +1,4 @@
-type CampusHref = `/campus/${string}`;
-type CampusJoinHref = `${CampusHref}/join`;
+import type { Route } from "next";
 
 interface CampusSearchParameters {
   get(name: string): string | null;
@@ -9,12 +8,14 @@ const CAMPUS_PRE_JOIN_COMPLETION_PARAMETER = "prejoin";
 const CAMPUS_PRE_JOIN_COMPLETION_VALUE = "complete";
 const ROUTE_ORIGIN = "https://campus.invalid";
 
-export function campusHref(cohortId: string): CampusHref {
-  return `/campus/${encodeURIComponent(cohortId)}` as CampusHref;
+// Typed routes cannot check runtime-built hrefs, so each builder casts here
+// and callers never need to.
+export function campusHref(cohortId: string): Route {
+  return `/campus/${encodeURIComponent(cohortId)}` as Route;
 }
 
-export function campusJoinHref(cohortId: string): CampusJoinHref {
-  return `${campusHref(cohortId)}/join` as CampusJoinHref;
+export function campusJoinHref(cohortId: string): Route {
+  return `${campusHref(cohortId)}/join` as Route;
 }
 
 export function hasCampusPreJoinCompletion(
@@ -32,21 +33,18 @@ export function removeCampusPreJoinCompletion(activeHref: string): string {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
-export function campusPreJoinHref(
-  cohortId: string,
-  activeHref: string,
-): string {
+export function campusPreJoinHref(cohortId: string, activeHref: string): Route {
   const searchParameters = new URLSearchParams({
     returnTo: removeCampusPreJoinCompletion(activeHref),
   });
-  return `${campusJoinHref(cohortId)}?${searchParameters.toString()}`;
+  return `${campusJoinHref(cohortId)}?${searchParameters.toString()}` as Route;
 }
 
-export function withCampusPreJoinCompletion(activeHref: string): string {
+export function withCampusPreJoinCompletion(activeHref: string): Route {
   const url = new URL(activeHref, ROUTE_ORIGIN);
   url.searchParams.set(
     CAMPUS_PRE_JOIN_COMPLETION_PARAMETER,
     CAMPUS_PRE_JOIN_COMPLETION_VALUE,
   );
-  return `${url.pathname}${url.search}`;
+  return `${url.pathname}${url.search}` as Route;
 }

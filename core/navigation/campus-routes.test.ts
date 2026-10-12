@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import type { Route } from "next";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   campusHref,
@@ -10,6 +11,13 @@ import {
 } from "./campus-routes";
 
 describe("Campus routes", () => {
+  it("returns typed routes so callers never cast", () => {
+    expectTypeOf(campusHref).returns.toEqualTypeOf<Route>();
+    expectTypeOf(campusJoinHref).returns.toEqualTypeOf<Route>();
+    expectTypeOf(campusPreJoinHref).returns.toEqualTypeOf<Route>();
+    expectTypeOf(withCampusPreJoinCompletion).returns.toEqualTypeOf<Route>();
+  });
+
   it.each([
     [
       "an ordinary cohort ID",

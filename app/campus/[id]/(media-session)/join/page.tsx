@@ -1,5 +1,4 @@
 import { cn } from "cn";
-import type { Route } from "next";
 import Link from "next/link";
 
 import { withCampusPreJoinCompletion } from "@/core/navigation";
@@ -21,7 +20,7 @@ export default async function JoinPage({
   const [{ id }, { returnTo }] = await Promise.all([params, searchParams]);
   const destination = withCampusPreJoinCompletion(
     normalizeCohortReturnTo(id, firstSearchParameter(returnTo)),
-  ) as Route;
+  );
 
   return (
     <CohortGate cohortId={id}>

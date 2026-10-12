@@ -1,6 +1,5 @@
 "use client";
 
-import type { Route } from "next";
 import { redirect, usePathname, useSearchParams } from "next/navigation";
 import { type ReactNode, useState } from "react";
 
@@ -16,12 +15,9 @@ interface ActiveCampusAdmissionGateProps {
   cohortId: string;
 }
 
-function activeHref(
-  pathname: string,
-  searchParameters: { toString(): string },
-) {
-  const search = searchParameters.toString();
-  return search ? `${pathname}?${search}` : pathname;
+function relativeHref(pathname: string, search: string, hash = "") {
+  const query = search.replace(/^\?/, "");
+  return `${pathname}${query ? `?${query}` : ""}${hash}`;
 }
 
 export function ActiveCampusAdmissionGate({
@@ -32,17 +28,14 @@ export function ActiveCampusAdmissionGate({
   const searchParameters = useSearchParams();
   const [initialRequest] = useState(() => ({
     admitted: hasCampusPreJoinCompletion(searchParameters),
-    href: activeHref(pathname, searchParameters),
+    href: relativeHref(pathname, searchParameters.toString()),
   }));
 
   useMountEffect(() => {
     if (!initialRequest.admitted) return;
 
-    const currentHref = [
-      window.location.pathname,
-      window.location.search,
-      window.location.hash,
-    ].join("");
+    const { hash, pathname: currentPathname, search } = window.location;
+    const currentHref = relativeHref(currentPathname, search, hash);
     const cleanHref = removeCampusPreJoinCompletion(currentHref);
 
     if (currentHref !== cleanHref) {
@@ -51,7 +44,7 @@ export function ActiveCampusAdmissionGate({
   });
 
   if (!initialRequest.admitted) {
-    redirect(campusPreJoinHref(cohortId, initialRequest.href) as Route);
+    redirect(campusPreJoinHref(cohortId, initialRequest.href));
   }
 
   return children;

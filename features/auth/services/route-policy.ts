@@ -65,7 +65,7 @@ function decideCampusIndex(session: Session): RouteAuthorizationDecision {
 
   return {
     kind: "redirect",
-    href: campusJoinHref(onlyMembership.cohortId) as Route,
+    href: campusJoinHref(onlyMembership.cohortId),
   };
 }
 
