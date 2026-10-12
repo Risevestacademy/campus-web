@@ -41,9 +41,6 @@ export function AdminSidebar({
       <header className="flex items-start justify-between gap-3 px-2">
         <div>
           <h2 className="text-xl font-semibold">Admin</h2>
-          <p className="text-foreground-secondary mt-1 text-sm">
-            Campus administration
-          </p>
         </div>
         {collapseButton}
       </header>
@@ -55,8 +52,8 @@ export function AdminSidebar({
             href={href}
             aria-current={pathname === href ? "page" : undefined}
             className={cn(
-              "text-foreground-secondary hover:bg-accent hover:text-foreground flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm font-medium transition-colors duration-150",
-              "aria-[current=page]:bg-cobalt-500/10 aria-[current=page]:text-primary",
+              "text-foreground-secondary hover:text-foreground flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm font-medium transition-colors duration-150 hover:bg-[#E9ECF6] dark:hover:bg-[#2B3B5F]",
+              "aria-[current=page]:text-primary aria-[current=page]:bg-[#E9ECF6] dark:aria-[current=page]:bg-[#2B3B5F] dark:aria-[current=page]:text-[#F7F7F7]",
             )}
           >
             <Icon aria-hidden size={18} />
