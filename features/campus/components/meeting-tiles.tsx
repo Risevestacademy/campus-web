@@ -4,8 +4,8 @@ import { cn } from "cn";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { useMediaSession } from "../services/media-session/media-session-provider";
+import type { MeetingParticipant } from "../types/active-campus.types";
 import { MediaPublicationOutput } from "./media-publication-output";
-import type { MeetingParticipant } from "./meeting-header";
 
 type CubicBezier = [number, number, number, number];
 

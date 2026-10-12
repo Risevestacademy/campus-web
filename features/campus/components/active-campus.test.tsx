@@ -7,6 +7,19 @@ import { createMediaSessionStore } from "../services/media-session/media-session
 import { ActiveCampus } from "./active-campus";
 import { CampusShell } from "./campus-shell/campus-shell";
 
+const activeCampusViewModel = {
+  meeting: {
+    localParticipantId: "participant-a",
+    participants: [
+      { id: "participant-a", initials: "A", name: "Ada Lovelace" },
+      { id: "participant-j", initials: "J", name: "James Baldwin" },
+    ],
+    remainingParticipantCount: 0,
+    title: "Design review",
+  },
+  viewer: { initials: "AL", presenceStatus: "active" },
+} as const;
+
 function OverviewPanelStub({ collapseButton }: { collapseButton: ReactNode }) {
   return <section aria-label="Overview panel">{collapseButton}</section>;
 }
@@ -29,7 +42,7 @@ function renderActiveCampus(AccountMenu?: typeof AccountMenuStub) {
       cohortId="c-1"
     >
       <MediaSessionProvider store={store}>
-        <ActiveCampus>
+        <ActiveCampus viewModel={activeCampusViewModel}>
           <p>Route content</p>
         </ActiveCampus>
       </MediaSessionProvider>
@@ -112,5 +125,34 @@ describe("ActiveCampus", () => {
     expect(
       within(campusRail()).queryByRole("group", { name: "Account menu" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("returns from grid view to map view before opening the sidebar", () => {
+    renderActiveCampus();
+
+    const viewSwitch = screen.getByRole("switch", { name: "Use grid view" });
+
+    fireEvent.click(viewSwitch);
+    fireEvent.click(screen.getByRole("button", { name: "Open sidebar" }));
+
+    expect(viewSwitch).toHaveAttribute("aria-checked", "false");
+    expect(document.documentElement.dataset.sidebarOpen).toBe("true");
+  });
+
+  it("clears focused-participant view before opening the sidebar", () => {
+    renderActiveCampus();
+
+    fireEvent.click(screen.getByRole("switch", { name: "Use grid view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Focus Ada Lovelace" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open sidebar" }));
+
+    expect(
+      screen.queryByRole("button", { name: "Restore equal meeting view" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Show expanded meeting view for Ada Lovelace",
+      }),
+    ).toBeInTheDocument();
   });
 });

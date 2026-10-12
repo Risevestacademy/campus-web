@@ -7,6 +7,7 @@ import type {
   SidebarMode,
   SidebarPanelId,
 } from "../../store/sidebar-preferences";
+import { CampusViewProvider } from "../campus-view-provider";
 import { CampusRail } from "./campus-rail";
 import { CampusSidebar } from "./campus-sidebar";
 import { railPanelItems } from "./rail-items";
@@ -60,27 +61,29 @@ export function CampusShell({
   const avatar = <RailAvatar />;
 
   return (
-    <TooltipProvider>
-      <main
-        data-surface-role="background"
-        className="bg-background text-foreground flex h-dvh gap-1.5 p-1.5"
-      >
-        <CampusRail
-          account={AccountMenu ? <AccountMenu>{avatar}</AccountMenu> : avatar}
-          cohortId={cohortId}
-          hasAdministration={administrationPanel !== undefined}
-          initialSidebarMode={initialSidebarMode}
-        />
-        <CampusSidebar
-          administrationPanel={administrationPanel}
-          initialMode={initialSidebarMode}
-          panels={{
-            ...comingSoonPanels,
-            map: <OverviewPanel collapseButton={collapseButton} />,
-          }}
-        />
-        {children}
-      </main>
-    </TooltipProvider>
+    <CampusViewProvider>
+      <TooltipProvider>
+        <main
+          data-surface-role="background"
+          className="bg-background text-foreground flex h-dvh gap-1.5 p-1.5"
+        >
+          <CampusRail
+            account={AccountMenu ? <AccountMenu>{avatar}</AccountMenu> : avatar}
+            cohortId={cohortId}
+            hasAdministration={administrationPanel !== undefined}
+            initialSidebarMode={initialSidebarMode}
+          />
+          <CampusSidebar
+            administrationPanel={administrationPanel}
+            initialMode={initialSidebarMode}
+            panels={{
+              ...comingSoonPanels,
+              map: <OverviewPanel collapseButton={collapseButton} />,
+            }}
+          />
+          {children}
+        </main>
+      </TooltipProvider>
+    </CampusViewProvider>
   );
 }

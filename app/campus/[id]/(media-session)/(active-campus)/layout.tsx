@@ -9,10 +9,27 @@ import {
 import {
   ActiveCampus,
   ActiveCampusAdmissionGate,
+  type ActiveCampusViewModel,
   CampusShell,
   SidebarCollapseButton,
 } from "@/features/campus";
 import { CampusOverviewPanel } from "@/features/roster";
+
+const PLACEHOLDER_ACTIVE_CAMPUS_VIEW_MODEL = {
+  meeting: {
+    localParticipantId: "participant-a",
+    participants: [
+      { id: "participant-a", initials: "A", name: "Participant A" },
+      { id: "participant-j", initials: "J", name: "Participant J" },
+    ],
+    remainingParticipantCount: 2,
+    title: "Title for meeting",
+  },
+  viewer: {
+    initials: "AJ",
+    presenceStatus: "active",
+  },
+} satisfies ActiveCampusViewModel;
 
 export default async function ActiveCampusLayout({
   children,
@@ -48,7 +65,9 @@ export default async function ActiveCampusLayout({
         OverviewPanel={CampusOverviewPanel}
         cohortId={id}
       >
-        <ActiveCampus>{children}</ActiveCampus>
+        <ActiveCampus viewModel={PLACEHOLDER_ACTIVE_CAMPUS_VIEW_MODEL}>
+          {children}
+        </ActiveCampus>
       </CampusShell>
     </ActiveCampusAdmissionGate>
   );

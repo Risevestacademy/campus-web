@@ -19,7 +19,7 @@ and the Active Campus media UI inside it. Admin catalogues and pages belong to
   cohortId={id}
   initialSidebarMode="admin" // Cohort Administration only
 >
-  <ActiveCampus>{children}</ActiveCampus>
+  <ActiveCampus viewModel={activeCampusViewModel}>{children}</ActiveCampus>
 </CampusShell>
 ```
 
@@ -29,19 +29,25 @@ above the Join Gate and Active Campus, so one session spans both.
 removes it from browser history, and sends unmarked active routes through
 pre-join after the route has authorized the cohort.
 
+The active-campus route supplies `ActiveCampusViewModel`. Its current value is
+an explicit placeholder until meeting and Presence reads exist; leaf media UI
+must not create substitute domain state. Meeting layout and sidebar-opening
+transitions belong to `CampusViewProvider`, whose intent actions preserve the
+rule that an expanded meeting and open sidebar cannot coexist.
+
 Routes pass Auth-, Admin-, and Roster-owned UI in as props, because Campus may
 not import those features.
 
 ## Modules
 
-| Module                                                       | Owns                                                                                        | Seam                    |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | ----------------------- |
-| `components/cohort-chooser.tsx`, `cohort-card.tsx`, `types/` | member Cohort selection from session memberships                                            | none                    |
-| `components/campus-shell/`                                   | rail, sidebar, panel switching, collapse                                                    | none                    |
-| `store/`, `hooks/use-sidebar-state.ts`                       | sidebar open, panel, and mode, persisted in `localStorage`                                  | `localStorage`          |
-| `components/` (media UI)                                     | `ActiveCampus`, control bar, media toggles and settings, meeting header, tiles, view switch | `useMediaSession`       |
-| `services/media-session/`                                    | capture, devices, publications ([README](services/media-session/README.md))                 | `MeetingMediaTransport` |
-| `testing/`                                                   | media session test utilities                                                                | none                    |
+| Module                                                       | Owns                                                                                        | Seam                                    |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `components/cohort-chooser.tsx`, `cohort-card.tsx`, `types/` | member Cohort selection from session memberships                                            | none                                    |
+| `components/campus-shell/`                                   | rail, sidebar, panel switching, collapse                                                    | none                                    |
+| `store/`, `hooks/use-sidebar-state.ts`                       | sidebar open, panel, and mode, persisted in `localStorage`                                  | `localStorage`                          |
+| `components/` (media UI)                                     | `ActiveCampus`, control bar, media toggles and settings, meeting header, tiles, view switch | `useMediaSession`, `CampusViewProvider` |
+| `services/media-session/`                                    | capture, devices, publications ([README](services/media-session/README.md))                 | `MeetingMediaTransport`                 |
+| `testing/`                                                   | media session test utilities                                                                | none                                    |
 
 Flow: component → `useMediaSession(selector)` or sidebar hooks → store →
 browser media or `localStorage`.
@@ -70,7 +76,9 @@ browser media or `localStorage`.
 - Import no other feature.
 - The root layout imports `document.ts` only; never the `index.ts` barrel.
 - Sidebar state is read through `hooks/use-sidebar-state.ts` and written
-  through `store/sidebar-store.ts`.
+  through `CampusViewProvider` intent actions; the provider alone coordinates
+  sidebar writes with meeting layout.
+- Do not add a meeting lock control until a real meeting capability owns it.
 - Cohort Administration opens in Administration mode; Active Campus restores
   the stored mode. Members never get the Administration control.
 - The chooser never requests the Admin Cohort catalogue.

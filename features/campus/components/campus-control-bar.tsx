@@ -12,9 +12,8 @@ import { Button, buttonVariants } from "@/shared/ui/button";
 import { ButtonGroup } from "@/shared/ui/button-group";
 import { Separator } from "@/shared/ui/separator";
 
+import type { PresenceStatus } from "../types/active-campus.types";
 import { MediaControls } from "./media-controls";
-
-type PresenceStatus = "active" | "busy" | "away";
 
 const presenceStatusConfig = {
   active: {
