@@ -26,7 +26,7 @@ export function HeroMobileMenu() {
         aria-label={isOpen ? "Close menu" : "Open menu"}
         aria-expanded={isOpen}
         aria-controls="hero-mobile-menu"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen((current) => !current)}
         className="hover:bg-primary-hover active:bg-primary-active outline-background grid size-10 cursor-pointer place-items-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2"
       >
         {isOpen ? (
