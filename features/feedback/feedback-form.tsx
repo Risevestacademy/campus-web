@@ -1,0 +1,222 @@
+"use client";
+
+import { PaperPlaneTiltIcon } from "@phosphor-icons/react/dist/ssr/PaperPlaneTilt";
+import { type ClipboardEvent, type FormEvent, useId, useState } from "react";
+
+import { Button } from "@/shared/ui/button";
+import { Checkbox } from "@/shared/ui/checkbox";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
+import { Textarea } from "@/shared/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
+
+import {
+  DETAILS_MAX_LENGTH,
+  type FeedbackFieldErrors,
+  LOCATION_MAX_LENGTH,
+  parseFeedback,
+  screenshotProblem,
+  TITLE_MAX_LENGTH,
+} from "./feedback.schema";
+import { feedbackKinds } from "./feedback-kinds";
+import { ScreenshotField, type SelectedScreenshot } from "./screenshot-field";
+import type { FeedbackKind, NewFeedback } from "./types";
+
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function fieldText(data: FormData, name: string): string {
+  const value = data.get(name);
+  return typeof value === "string" ? value : "";
+}
+
+export function FeedbackForm({
+  onCancel,
+  onSubmit,
+}: {
+  onCancel: () => void;
+  onSubmit: (feedback: NewFeedback) => void;
+}) {
+  const id = useId();
+  const [kind, setKind] = useState<FeedbackKind>();
+  const [errors, setErrors] = useState<FeedbackFieldErrors>({});
+  const [screenshot, setScreenshot] = useState<SelectedScreenshot>();
+  const [screenshotError, setScreenshotError] = useState<string>();
+
+  async function selectScreenshot(file: File) {
+    const problem = screenshotProblem(file);
+    setScreenshotError(problem);
+    if (problem) return;
+
+    try {
+      setScreenshot({ name: file.name, previewUrl: await readAsDataUrl(file) });
+    } catch {
+      setScreenshotError("We couldn't read that image. Try another one.");
+    }
+  }
+
+  function pasteScreenshot(event: ClipboardEvent<HTMLFormElement>) {
+    const file = Array.from(event.clipboardData.files).find((candidate) =>
+      candidate.type.startsWith("image/"),
+    );
+    if (!file) return;
+
+    event.preventDefault();
+    void selectScreenshot(file);
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const read = parseFeedback({
+      kind,
+      title: fieldText(data, "title"),
+      details: fieldText(data, "details"),
+      location: fieldText(data, "location"),
+      includeDeviceInfo: data.has("includeDeviceInfo"),
+    });
+
+    setErrors(read.kind === "invalid" ? read.errors : {});
+    if (read.kind === "valid") onSubmit(read.feedback);
+  }
+
+  return (
+    <form
+      noValidate
+      onSubmit={submit}
+      onPaste={pasteScreenshot}
+      className="grid content-start gap-5"
+    >
+      <fieldset className="grid gap-2">
+        <legend className="mb-2 text-sm font-medium">
+          What kind of feedback?
+        </legend>
+        <ToggleGroup
+          value={kind ? [kind] : []}
+          onValueChange={(next) => {
+            if (next[0]) setKind(next[0] as FeedbackKind);
+          }}
+          aria-label="Kind of feedback"
+          className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3"
+        >
+          {feedbackKinds.map(({ id: kindId, Icon, label }) => (
+            <ToggleGroupItem
+              key={kindId}
+              value={kindId}
+              variant="outline"
+              className="data-pressed:border-cobalt-500 dark:data-pressed:border-cobalt-400 h-12 justify-start gap-2 rounded-xl px-4 text-sm hover:bg-[#E9ECF6] data-pressed:border-2 data-pressed:bg-[#E9ECF6] data-pressed:text-inherit dark:border-[#2B3B5F] dark:hover:bg-[#2B3B5F] dark:data-pressed:bg-[#2B3B5F]"
+            >
+              <Icon aria-hidden size={18} />
+              {label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        {errors.kind ? (
+          <p role="alert" className="text-destructive text-sm">
+            {errors.kind}
+          </p>
+        ) : null}
+      </fieldset>
+
+      <div className="grid gap-2">
+        <Label htmlFor={`${id}-title`}>Title</Label>
+        <Input
+          id={`${id}-title`}
+          name="title"
+          maxLength={TITLE_MAX_LENGTH + 20}
+          aria-invalid={errors.title ? true : undefined}
+          className="h-11 rounded-xl px-4 text-base focus-visible:border-[#3155D6] dark:border-[#2B3B5F] dark:focus-visible:border-[#3155D6]"
+        />
+        {errors.title ? (
+          <p role="alert" className="text-destructive text-sm">
+            {errors.title}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor={`${id}-details`}>Details</Label>
+        <Textarea
+          id={`${id}-details`}
+          name="details"
+          maxLength={DETAILS_MAX_LENGTH + 100}
+          aria-invalid={errors.details ? true : undefined}
+          className="min-h-32 rounded-xl px-4 py-3 focus-visible:border-[#3155D6] dark:border-[#2B3B5F] dark:focus-visible:border-[#3155D6]"
+        />
+        {errors.details ? (
+          <p role="alert" className="text-destructive text-sm">
+            {errors.details}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor={`${id}-location`}>
+          Who/where in Campus?
+          <span className="text-foreground-muted text-xs font-normal">
+            Optional
+          </span>
+        </Label>
+        <Input
+          id={`${id}-location`}
+          name="location"
+          maxLength={LOCATION_MAX_LENGTH + 20}
+          aria-invalid={errors.location ? true : undefined}
+          className="h-11 rounded-xl px-4 text-base focus-visible:border-[#3155D6] dark:border-[#2B3B5F] dark:focus-visible:border-[#3155D6]"
+        />
+        {errors.location ? (
+          <p role="alert" className="text-destructive text-sm">
+            {errors.location}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="grid gap-2">
+        <p className="flex items-center gap-2 text-sm font-medium">
+          Screenshot
+          <span className="text-foreground-muted text-xs font-normal">
+            Optional
+          </span>
+        </p>
+        <ScreenshotField
+          screenshot={screenshot}
+          problem={screenshotError}
+          onSelect={(file) => void selectScreenshot(file)}
+          onRemove={() => {
+            setScreenshot(undefined);
+            setScreenshotError(undefined);
+          }}
+        />
+      </div>
+
+      <div className="flex items-center gap-2.5">
+        <Checkbox id={`${id}-device`} name="includeDeviceInfo" defaultChecked />
+        <Label htmlFor={`${id}-device`} className="font-normal">
+          Include device and browser info (helps us fix bugs faster)
+        </Label>
+      </div>
+
+      <div className="flex justify-end gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="hover:border-error-500 hover:bg-error-500 hover:text-error-50 dark:hover:border-error-500 dark:hover:bg-error-500 dark:hover:text-error-50 h-11 px-6 text-base dark:border-[#2B3B5F]"
+          onClick={onCancel}
+        >
+          Cancel
+        </Button>
+        <Button type="submit" size="sm" className="h-11 px-6 text-base">
+          <PaperPlaneTiltIcon aria-hidden />
+          Send feedback
+        </Button>
+      </div>
+    </form>
+  );
+}
