@@ -29,4 +29,12 @@ describe("CohortCard", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("C3")).toBeInTheDocument();
   });
+
+  it("leaves out an empty cohort code", () => {
+    render(<CohortCard cohort={{ id: "c-3", name: "Cohort 3", code: "" }} />);
+
+    expect(
+      screen.getByRole("link", { name: "Cohort 3" }).querySelector("p"),
+    ).toBeNull();
+  });
 });

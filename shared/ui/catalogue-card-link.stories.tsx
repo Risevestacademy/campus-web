@@ -6,7 +6,7 @@ const meta = {
   title: "Composites/CatalogueCardLink",
   component: CatalogueCardLink,
   args: {
-    href: "/campus/cohort-1/join",
+    href: "/campus",
     title: "Cohort 1",
     description: "C1",
   },
