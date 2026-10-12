@@ -1,11 +1,11 @@
-import type { KAPLAYCtx } from "kaplay";
+import type { DrawSpriteOpt, KAPLAYCtx } from "kaplay";
 
+import { buildBandDrawList } from "../services/map/band-draw-list";
 import type { TiledTileLayer } from "../services/map/layer-bands";
 import type {
   CampusTiledMap,
   LoadedCampusMap,
 } from "../services/map/load-campus-map";
-import { decodeTileGid } from "../services/map/tile-frames";
 
 export interface RenderTileset {
   firstgid: number;
@@ -15,6 +15,11 @@ export interface RenderTileset {
   tileheight: number;
   tileoffset?: { x?: number; y?: number };
   tilewidth: number;
+}
+
+interface LayerSprites {
+  cells: Array<DrawSpriteOpt | undefined>;
+  width: number;
 }
 
 function visibleTileBounds(k: KAPLAYCtx, map: CampusTiledMap) {
@@ -36,47 +41,28 @@ function visibleTileBounds(k: KAPLAYCtx, map: CampusTiledMap) {
   };
 }
 
-function drawLayerTiles(
+function layerSprites(
   k: KAPLAYCtx,
   map: CampusTiledMap,
-  layer: TiledTileLayer,
-  tileset: RenderTileset,
-): void {
-  const bounds = visibleTileBounds(k, map);
-  const offsetX = layer.offsetx ?? 0;
-  const offsetY = layer.offsety ?? 0;
-  const tileOffsetX = tileset.tileoffset?.x ?? 0;
-  const tileOffsetY = tileset.tileoffset?.y ?? 0;
-
-  for (let row = bounds.top; row <= bounds.bottom; row += 1) {
-    for (let column = bounds.left; column <= bounds.right; column += 1) {
-      const rawGid = layer.data[row * layer.width + column] ?? 0;
-      if (rawGid === 0) continue;
-
-      const tile = decodeTileGid(rawGid);
-      if (tile.gid < tileset.firstgid || tile.gid > tileset.lastgid) {
-        continue;
-      }
-
-      k.drawSprite({
-        anchor: "center",
-        angle: tile.angle,
-        flipX: tile.flipX,
-        flipY: tile.flipY,
-        frame: tile.gid - tileset.firstgid,
-        opacity: layer.opacity ?? 1,
-        pos: k.vec2(
-          column * map.tilewidth + map.tilewidth / 2 + offsetX + tileOffsetX,
-          row * map.tileheight +
-            map.tileheight -
-            tileset.tileheight / 2 +
-            offsetY +
-            tileOffsetY,
-        ),
-        sprite: tileset.spriteName,
-      });
-    }
-  }
+  layers: TiledTileLayer[],
+  tilesets: RenderTileset[],
+): LayerSprites[] {
+  return buildBandDrawList(map, layers, tilesets).map(({ cells, width }) => ({
+    cells: cells.map(
+      (tile): DrawSpriteOpt | undefined =>
+        tile && {
+          anchor: "center",
+          angle: tile.angle,
+          flipX: tile.flipX,
+          flipY: tile.flipY,
+          frame: tile.frame,
+          opacity: tile.opacity,
+          pos: k.vec2(tile.x, tile.y),
+          sprite: tilesets[tile.tileset]!.spriteName,
+        },
+    ),
+    width,
+  }));
 }
 
 export function addMapBand(
@@ -87,13 +73,24 @@ export function addMapBand(
   layerName: "above" | "below",
   onDraw?: () => void,
 ): void {
+  const sprites = layerSprites(k, loaded.map, layers, tilesets);
+
   k.add([
     k.layer(layerName),
     {
       draw() {
-        for (const tileset of tilesets) {
-          for (const layer of layers) {
-            drawLayerTiles(k, loaded.map, layer, tileset);
+        const bounds = visibleTileBounds(k, loaded.map);
+
+        for (const { cells, width } of sprites) {
+          for (let row = bounds.top; row <= bounds.bottom; row += 1) {
+            for (
+              let column = bounds.left;
+              column <= bounds.right;
+              column += 1
+            ) {
+              const sprite = cells[row * width + column];
+              if (sprite) k.drawSprite(sprite);
+            }
           }
         }
         onDraw?.();
