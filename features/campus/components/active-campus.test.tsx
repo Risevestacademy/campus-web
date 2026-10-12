@@ -114,3 +114,56 @@ describe("ActiveCampus", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+function FeedbackPopupStub({
+  isOpen,
+  onClose,
+  userName,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  userName?: string | null;
+}) {
+  return isOpen ? (
+    <section aria-label="Feedback popup">
+      <p>{userName}</p>
+      <button type="button" onClick={onClose}>
+        Close popup
+      </button>
+    </section>
+  ) : null;
+}
+
+describe("Feedback popup", () => {
+  it("opens from the Report an issue rail button and closes again", () => {
+    render(
+      <CampusShell
+        FeedbackPopup={FeedbackPopupStub}
+        OverviewPanel={OverviewPanelStub}
+        cohortId="c-1"
+        userName="Joseph Okoro"
+      >
+        <p>Route content</p>
+      </CampusShell>,
+    );
+
+    expect(
+      screen.queryByRole("region", { name: "Feedback popup" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(campusRail()).getByRole("button", { name: "Report an issue" }),
+    );
+
+    const popup = screen.getByRole("region", { name: "Feedback popup" });
+
+    expect(within(popup).getByText("Joseph Okoro")).toBeInTheDocument();
+    expect(screen.getByText("Route content")).toBeInTheDocument();
+
+    fireEvent.click(within(popup).getByRole("button", { name: "Close popup" }));
+
+    expect(
+      screen.queryByRole("region", { name: "Feedback popup" }),
+    ).not.toBeInTheDocument();
+  });
+});

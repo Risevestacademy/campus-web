@@ -11,6 +11,7 @@ import {
   CampusShell,
   SidebarCollapseButton,
 } from "@/features/campus";
+import { FeedbackPopup } from "@/features/feedback";
 import { CampusOverviewPanel } from "@/features/roster";
 
 export default async function ActiveCampusLayout({
@@ -43,8 +44,10 @@ export default async function ActiveCampusLayout({
           />
         ) : undefined
       }
+      FeedbackPopup={FeedbackPopup}
       OverviewPanel={CampusOverviewPanel}
       cohortId={id}
+      userName={access.session.user.displayName}
     >
       <ActiveCampus>{children}</ActiveCampus>
     </CampusShell>
