@@ -1,5 +1,5 @@
-import type { CampusWorldMapErrorKind } from "@/core/analytics/events";
-
+import { startTimer } from "../timer";
+import { CampusMapError } from "./campus-map-error";
 import {
   loadCampusMap,
   type LoadedCampusMap,
@@ -8,6 +8,11 @@ import {
 import type { TilesetFrameTable } from "./tile-frames";
 
 export type CampusMapModule = typeof import("kaplay");
+
+export type CampusMapIdentity = Pick<
+  LoadedCampusMap["manifest"],
+  "mapId" | "version"
+>;
 
 export type CampusMapPreparationProgress =
   | { stage: "manifest" }
@@ -36,27 +41,6 @@ export interface PrepareCampusMapDependencies {
   signal: AbortSignal;
 }
 
-export type RehydrateCampusMapDependencies = Pick<
-  PrepareCampusMapDependencies,
-  "loadImage" | "now" | "onProgress" | "signal"
->;
-
-export class CampusMapPreparationError extends Error {
-  readonly kind: CampusWorldMapErrorKind;
-  readonly mapId: string | null;
-
-  constructor(
-    kind: CampusWorldMapErrorKind,
-    message: string,
-    options: { cause?: unknown; mapId?: string | null } = {},
-  ) {
-    super(message, { cause: options.cause });
-    this.name = "CampusMapPreparationError";
-    this.kind = kind;
-    this.mapId = options.mapId ?? null;
-  }
-}
-
 export async function loadDecodedCampusMapImage(
   url: string,
   dependencies: {
@@ -82,16 +66,13 @@ export async function loadDecodedCampusMapImage(
   return image;
 }
 
-export function releasePreparedTilesetImage(tileset: PreparedTileset): void {
-  tileset.decodedImage?.close();
-  tileset.decodedImage = undefined;
-}
-
 export function isPreparedCampusMapRenderReady(
   prepared: PreparedCampusMap,
+  holdsMap: (map: CampusMapIdentity) => boolean,
 ): boolean {
-  return prepared.tilesets.every(
-    ({ decodedImage }) => decodedImage !== undefined,
+  return (
+    holdsMap(prepared.manifest) ||
+    prepared.tilesets.every(({ decodedImage }) => decodedImage !== undefined)
   );
 }
 
@@ -135,7 +116,7 @@ async function withDecodeScope<T>(
       decodedImage = await loadImage(tileset.image, work.signal);
     } catch (error) {
       work.signal.throwIfAborted();
-      throw new CampusMapPreparationError(
+      throw new CampusMapError(
         "network",
         "A campus tileset could not be loaded or decoded.",
         { cause: error, mapId },
@@ -184,34 +165,11 @@ async function withDecodeScope<T>(
   }
 }
 
-export async function rehydratePreparedCampusMap(
-  prepared: PreparedCampusMap,
-  dependencies: RehydrateCampusMapDependencies,
-): Promise<PreparedCampusMap> {
-  const now = dependencies.now ?? performance.now.bind(performance);
-  const startedAt = now();
-
-  return withDecodeScope(dependencies, async ({ decodeTilesets }) => {
-    prepared.tilesets.forEach(releasePreparedTilesetImage);
-    const tilesets = await decodeTilesets(
-      prepared.tilesets,
-      prepared.manifest.mapId,
-    );
-
-    return {
-      ...prepared,
-      preparationMs: Math.round(now() - startedAt),
-      tilesets,
-    };
-  });
-}
-
 export async function prepareCampusMap(
   source: MapSource,
   dependencies: PrepareCampusMapDependencies,
 ): Promise<PreparedCampusMap> {
-  const now = dependencies.now ?? performance.now.bind(performance);
-  const startedAt = now();
+  const timer = startTimer(dependencies.now);
 
   return withDecodeScope(dependencies, async ({ decodeTilesets, signal }) => {
     const kaplayLoad = dependencies.loadKaplay();
@@ -234,7 +192,7 @@ export async function prepareCampusMap(
     );
     const kaplayModulePromise = kaplayLoad.catch((error) => {
       signal.throwIfAborted();
-      throw new CampusMapPreparationError(
+      throw new CampusMapError(
         "render",
         "The campus rendering runtime could not be loaded.",
         { cause: error, mapId },
@@ -248,7 +206,7 @@ export async function prepareCampusMap(
     return {
       ...loaded,
       kaplayModule,
-      preparationMs: Math.round(now() - startedAt),
+      preparationMs: timer.elapsedMs(),
       tilesets,
     };
   });

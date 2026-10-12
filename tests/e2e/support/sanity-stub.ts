@@ -21,13 +21,6 @@ const manifest = {
   widthTiles: mapFixture.width,
 };
 
-interface SanityMapStubOptions {
-  tilesetResponseGate?: {
-    afterRequests: number;
-    wait: Promise<void>;
-  };
-}
-
 export interface SanityMapRequestCounts {
   manifest: number;
   map: number;
@@ -36,7 +29,6 @@ export interface SanityMapRequestCounts {
 
 export async function installSanityMapStub(
   page: Page,
-  options: SanityMapStubOptions = {},
 ): Promise<SanityMapRequestCounts> {
   const requests: SanityMapRequestCounts = {
     manifest: 0,
@@ -61,13 +53,9 @@ export async function installSanityMapStub(
       contentType: "application/json",
     });
   });
-  await page.route("https://cdn.sanity.io/images/**", async (route) => {
+  await page.route("https://cdn.sanity.io/images/**", (route) => {
     requests.tilesets += 1;
-    const gate = options.tilesetResponseGate;
-    if (gate && requests.tilesets > gate.afterRequests) {
-      await gate.wait;
-    }
-    await route.fulfill({ body: transparentPixel, contentType: "image/png" });
+    return route.fulfill({ body: transparentPixel, contentType: "image/png" });
   });
 
   return requests;

@@ -3,26 +3,23 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import Link from "next/link";
 import { describe, expect, it, vi } from "vitest";
 
-import { campusMapPreparationQueryKey } from "../hooks/use-prepared-campus-map";
-import {
-  type CampusMapModule,
-  type PreparedCampusMap,
-  releasePreparedTilesetImage,
+import type { CampusWorldDependencies as Dependencies } from "../hooks/campus-world-dependencies";
+import { campusMapPreparationQueryKey } from "../hooks/use-campus-map-preparation";
+import type {
+  CampusMapModule,
+  PreparedCampusMap,
 } from "../services/map/prepare-campus-map";
+import { fakeCampusRuntime } from "../testing/fake-campus-runtime";
 import {
   fakeImage,
   jsonResponse,
   mapUrl,
+  releasePreparedTilesetImage,
   sanityConfiguration,
   stubSanityFetch,
   tilesetCount,
 } from "../testing/sanity-map-fixture";
-import {
-  CampusMapPreparationGateHarness,
-  type CampusMapPreparationGateHarnessProps,
-} from "./campus-map-preparation-gate";
-
-type Dependencies = CampusMapPreparationGateHarnessProps["dependencies"];
+import { CampusMapPreparationGate } from "./campus-map-preparation-gate";
 
 function preparationDependencies(
   overrides: Partial<Dependencies> = {},
@@ -33,6 +30,7 @@ function preparationDependencies(
     fetch: stubSanityFetch(),
     loadImage: vi.fn(async () => fakeImage()),
     loadKaplay: vi.fn(async () => ({}) as CampusMapModule),
+    runtime: fakeCampusRuntime(),
     ...overrides,
   };
 }
@@ -45,9 +43,9 @@ function renderGate(
 ) {
   return render(
     <QueryClientProvider client={queryClient}>
-      <CampusMapPreparationGateHarness dependencies={dependencies}>
+      <CampusMapPreparationGate dependencies={dependencies}>
         <Link href="/campus/c-1">Join</Link>
-      </CampusMapPreparationGateHarness>
+      </CampusMapPreparationGate>
     </QueryClientProvider>,
   );
 }
@@ -155,29 +153,44 @@ describe("CampusMapPreparationGate", () => {
     expect(dependencies.fetch).toHaveBeenCalledTimes(preparedFetchCount);
   });
 
-  it("blocks Join and rehydrates artwork after Active Campus consumes the cached images", async () => {
-    const repeatImageResolvers: Array<(image: ImageBitmap) => void> = [];
-    let rehydrating = false;
+  it("reveals Join at once on repeat entry while the runtime holds the map", async () => {
+    const holdsMap = vi.fn(() => false);
     const dependencies = preparationDependencies({
-      loadImage: vi.fn(async () =>
-        rehydrating
-          ? new Promise<ImageBitmap>((resolve) => {
-              repeatImageResolvers.push(resolve);
-            })
-          : fakeImage(),
-      ),
+      runtime: fakeCampusRuntime({ holdsMap }),
     });
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
+    const queryClient = new QueryClient();
     const firstView = renderGate(dependencies, queryClient);
 
     expect(await screen.findByRole("link", { name: "Join" })).toBeVisible();
     const preparedFetchCount = vi.mocked(dependencies.fetch!).mock.calls.length;
     consumeCachedImages(queryClient, dependencies);
     firstView.unmount();
+    holdsMap.mockReturnValue(true);
+
+    renderGate(dependencies, queryClient);
+
+    expect(joinLink()).toBeVisible();
+    expect(
+      screen.queryByRole("status", { name: "Preparing campus" }),
+    ).not.toBeInTheDocument();
+    expect(holdsMap).toHaveBeenCalledWith(
+      expect.objectContaining({ mapId: "campus", version: "version-1" }),
+    );
+    expect(dependencies.loadImage).toHaveBeenCalledTimes(tilesetCount);
+    expect(dependencies.fetch).toHaveBeenCalledTimes(preparedFetchCount);
+  });
+
+  it("prepares again when the runtime lost the consumed artwork", async () => {
+    const dependencies = preparationDependencies();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const firstView = renderGate(dependencies, queryClient);
+
+    expect(await screen.findByRole("link", { name: "Join" })).toBeVisible();
+    consumeCachedImages(queryClient, dependencies);
+    firstView.unmount();
     vi.mocked(dependencies.captureEvent!).mockClear();
-    rehydrating = true;
 
     renderGate(dependencies, queryClient);
 
@@ -185,53 +198,11 @@ describe("CampusMapPreparationGate", () => {
       screen.getByRole("status", { name: "Preparing campus" }),
     ).toBeVisible();
     expect(joinLink()).not.toBeInTheDocument();
-    await waitFor(() => {
-      expect(repeatImageResolvers).toHaveLength(tilesetCount);
-    });
-    expect(dependencies.fetch).toHaveBeenCalledTimes(preparedFetchCount);
-
-    repeatImageResolvers.forEach((resolveImage) => resolveImage(fakeImage()));
-
     expect(await screen.findByRole("link", { name: "Join" })).toBeVisible();
+    expect(dependencies.loadImage).toHaveBeenCalledTimes(tilesetCount * 2);
     expect(dependencies.captureEvent).toHaveBeenCalledExactlyOnceWith(
-      "campus_world.map_rehydrated",
-      {
-        load_ms: expect.any(Number),
-        map_id: "campus",
-        tilesets: 3,
-        version: "version-1",
-      },
-    );
-  });
-
-  it("reports a distinct failure when consumed artwork cannot be rehydrated", async () => {
-    let rehydrating = false;
-    const dependencies = preparationDependencies({
-      loadImage: vi.fn(async () => {
-        if (rehydrating) throw new Error("Image decoding failed.");
-        return fakeImage();
-      }),
-    });
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    const firstView = renderGate(dependencies, queryClient);
-
-    expect(await screen.findByRole("link", { name: "Join" })).toBeVisible();
-    consumeCachedImages(queryClient, dependencies);
-    firstView.unmount();
-    vi.mocked(dependencies.captureEvent!).mockClear();
-    rehydrating = true;
-
-    renderGate(dependencies, queryClient);
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "We couldn't prepare your campus.",
-    );
-    expect(joinLink()).not.toBeInTheDocument();
-    expect(dependencies.captureEvent).toHaveBeenCalledExactlyOnceWith(
-      "campus_world.map_rehydration_failed",
-      { error_kind: "network", map_id: "campus" },
+      "campus_world.map_loaded",
+      expect.objectContaining({ map_id: "campus" }),
     );
   });
 });

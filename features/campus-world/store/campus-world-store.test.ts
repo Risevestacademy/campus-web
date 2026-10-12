@@ -8,7 +8,6 @@ describe("createCampusWorldStore", () => {
 
     expect(store.getState()).toMatchObject({
       attempt: 0,
-      errorKind: null,
       mapId: null,
       status: "idle",
     });
@@ -17,7 +16,6 @@ describe("createCampusWorldStore", () => {
     expect(attempt).toBe(1);
     expect(store.getState()).toMatchObject({
       attempt: 1,
-      errorKind: null,
       mapId: null,
       status: "loading-map",
     });
@@ -25,7 +23,6 @@ describe("createCampusWorldStore", () => {
     store.getState().ready(attempt, "campus");
     expect(store.getState()).toMatchObject({
       attempt: 1,
-      errorKind: null,
       mapId: "campus",
       status: "ready",
     });
@@ -36,14 +33,8 @@ describe("createCampusWorldStore", () => {
     const attempt = store.getState().begin();
     store.getState().ready(attempt, "campus");
 
-    expect(
-      store.getState().fail(attempt, {
-        errorKind: "render",
-        mapId: "campus",
-      }),
-    ).toBe(true);
+    expect(store.getState().fail(attempt, "campus")).toBe(true);
     expect(store.getState()).toMatchObject({
-      errorKind: "render",
       mapId: "campus",
       status: "failed",
     });
@@ -52,24 +43,15 @@ describe("createCampusWorldStore", () => {
   it("ignores a late result from an older retry attempt", () => {
     const store = createCampusWorldStore();
     const firstAttempt = store.getState().begin();
-    store.getState().fail(firstAttempt, {
-      errorKind: "network",
-      mapId: null,
-    });
+    store.getState().fail(firstAttempt, null);
     const retryAttempt = store.getState().begin();
 
     store.getState().ready(firstAttempt, "stale-map");
-    expect(
-      store.getState().fail(firstAttempt, {
-        errorKind: "layout",
-        mapId: "stale-map",
-      }),
-    ).toBe(false);
+    expect(store.getState().fail(firstAttempt, "stale-map")).toBe(false);
 
     expect(retryAttempt).toBe(2);
     expect(store.getState()).toMatchObject({
       attempt: 2,
-      errorKind: null,
       mapId: null,
       status: "loading-map",
     });
@@ -79,11 +61,10 @@ describe("createCampusWorldStore", () => {
     const store = createCampusWorldStore();
 
     store.getState().ready(0, "campus");
-    store.getState().fail(0, { errorKind: "manifest", mapId: null });
+    store.getState().fail(0, null);
 
     expect(store.getState()).toMatchObject({
       attempt: 0,
-      errorKind: null,
       mapId: null,
       status: "idle",
     });

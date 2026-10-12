@@ -2,23 +2,22 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { CampusGame, StartCampusGame } from "../game/campus-game.types";
-import { campusMapPreparationQueryKey } from "../hooks/use-prepared-campus-map";
-import {
-  type CampusMapModule,
-  type PreparedCampusMap,
-  releasePreparedTilesetImage,
+import type { CampusGame, CampusRuntime } from "../game/campus-runtime";
+import type { CampusWorldDependencies } from "../hooks/campus-world-dependencies";
+import { campusMapPreparationQueryKey } from "../hooks/use-campus-map-preparation";
+import type {
+  CampusMapModule,
+  PreparedCampusMap,
 } from "../services/map/prepare-campus-map";
+import { fakeCampusRuntime } from "../testing/fake-campus-runtime";
 import {
   fakeImage,
+  releasePreparedTilesetImage,
   sanityConfiguration,
   stubSanityFetch,
   tilesetCount,
 } from "../testing/sanity-map-fixture";
-import {
-  type CampusWorldDependencies,
-  CampusWorldHarness,
-} from "./campus-world";
+import { CampusWorld } from "./campus-world";
 
 function preparedMapFixture(): PreparedCampusMap {
   return {
@@ -29,13 +28,16 @@ function preparedMapFixture(): PreparedCampusMap {
 }
 
 function renderWorld(
-  dependencies: Omit<CampusWorldDependencies, "configuration"> &
-    Partial<Pick<CampusWorldDependencies, "configuration">>,
+  overrides: Partial<CampusWorldDependencies> = {},
   cached: PreparedCampusMap | null = preparedMapFixture(),
 ) {
-  const worldDependencies = {
+  const dependencies: CampusWorldDependencies = {
+    captureEvent: vi.fn(),
     configuration: sanityConfiguration,
-    ...dependencies,
+    fetch: vi.fn(),
+    loadImage: vi.fn(),
+    runtime: fakeCampusRuntime(),
+    ...overrides,
   };
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -43,21 +45,34 @@ function renderWorld(
 
   if (cached !== null) {
     queryClient.setQueryData(
-      campusMapPreparationQueryKey(worldDependencies.configuration, {
+      campusMapPreparationQueryKey(dependencies.configuration, {
         kind: "entry",
       }),
       cached,
     );
   }
 
-  return render(
+  const view = render(
     <QueryClientProvider client={queryClient}>
-      <CampusWorldHarness
-        cohortId="cohort-1"
-        dependencies={worldDependencies}
-      />
+      <CampusWorld cohortId="cohort-1" dependencies={dependencies} />
     </QueryClientProvider>,
   );
+  return { dependencies, view };
+}
+
+function startedGame() {
+  let resolveGame: ((game: CampusGame) => void) | undefined;
+  const start = vi.fn<CampusRuntime["start"]>(
+    () =>
+      new Promise<CampusGame>((resolve) => {
+        resolveGame = resolve;
+      }),
+  );
+  return {
+    finish: () => resolveGame?.({ stop: vi.fn() }),
+    runtime: fakeCampusRuntime({ start }),
+    start,
+  };
 }
 
 const region = () => screen.getByRole("region", { name: "Campus map" });
@@ -69,8 +84,8 @@ async function expectReady() {
 }
 
 describe("CampusWorld", () => {
-  it("does not create a canvas before map preparation succeeds", async () => {
-    const startGame = vi.fn(() => new Promise<CampusGame>(() => undefined));
+  it("does not start the game before map preparation succeeds", async () => {
+    const runtime = fakeCampusRuntime();
     const loadImage = vi.fn(() => new Promise<ImageBitmap>(() => undefined));
 
     renderWorld(
@@ -78,7 +93,7 @@ describe("CampusWorld", () => {
         fetch: stubSanityFetch(),
         loadImage,
         loadKaplay: vi.fn(async () => ({}) as CampusMapModule),
-        startGame,
+        runtime,
       },
       null,
     );
@@ -87,38 +102,29 @@ describe("CampusWorld", () => {
       expect(loadImage).toHaveBeenCalledTimes(tilesetCount);
     });
     expect(region()).toHaveAttribute("data-status", "loading-map");
-    expect(region().querySelector("canvas")).toBeNull();
-    expect(startGame).not.toHaveBeenCalled();
+    expect(runtime.start).not.toHaveBeenCalled();
   });
 
-  it("uses cached preparation and waits for first draw readiness", async () => {
-    let resolveGame: ((game: CampusGame) => void) | undefined;
-    const startGame = vi.fn(
-      () =>
-        new Promise<CampusGame>((resolve) => {
-          resolveGame = resolve;
-        }),
-    );
-    const fetch = vi.fn();
+  it("uses cached preparation and waits for the first frame", async () => {
+    const game = startedGame();
     const preparedMap = preparedMapFixture();
+    const { dependencies } = renderWorld(
+      { runtime: game.runtime },
+      preparedMap,
+    );
 
-    renderWorld({ fetch, startGame }, preparedMap);
-
-    const canvas = region().querySelector("canvas");
-    expect(canvas).not.toBeNull();
     expect(region()).toHaveAttribute("data-status", "loading-map");
     expect(
       screen.getByRole("status", { name: "Starting campus" }),
     ).toHaveTextContent("Starting your campus");
-    expect(startGame).toHaveBeenCalledWith(
+    expect(game.start).toHaveBeenCalledWith(
       region(),
-      canvas,
       preparedMap,
       expect.objectContaining({ onRenderError: expect.any(Function) }),
     );
-    expect(fetch).not.toHaveBeenCalled();
+    expect(dependencies.fetch).not.toHaveBeenCalled();
 
-    resolveGame?.({ quit: vi.fn() });
+    game.finish();
     await expectReady();
     expect(region()).toHaveAttribute("data-map-id", "campus");
     expect(
@@ -126,76 +132,112 @@ describe("CampusWorld", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("starts from consumed cached artwork without rehydrating", async () => {
-    const fetch = vi.fn();
-    const loadImage = vi.fn();
+  it("reports the time from game start to the first frame", async () => {
+    const game = startedGame();
+    const { dependencies } = renderWorld({
+      now: vi.fn().mockReturnValueOnce(1_000).mockReturnValueOnce(1_250),
+      runtime: game.runtime,
+    });
+
+    game.finish();
+    await expectReady();
+
+    expect(dependencies.captureEvent).toHaveBeenCalledExactlyOnceWith(
+      "campus_world.map_ready",
+      { first_frame_ms: 250, map_id: "campus", version: "version-1" },
+    );
+  });
+
+  it("starts from consumed cached artwork without preparing again", async () => {
     const consumedMap = preparedMapFixture();
     consumedMap.tilesets.forEach(releasePreparedTilesetImage);
-    const startGame = vi.fn<StartCampusGame>(async () => ({ quit: vi.fn() }));
-
-    renderWorld({ fetch, loadImage, startGame }, consumedMap);
+    const { dependencies } = renderWorld({}, consumedMap);
 
     await expectReady();
-    expect(startGame).toHaveBeenCalledWith(
+    expect(dependencies.runtime.start).toHaveBeenCalledWith(
       region(),
-      expect.any(HTMLCanvasElement),
       consumedMap,
       expect.objectContaining({ onRenderError: expect.any(Function) }),
     );
-    expect(fetch).not.toHaveBeenCalled();
-    expect(loadImage).not.toHaveBeenCalled();
+    expect(dependencies.fetch).not.toHaveBeenCalled();
+    expect(dependencies.loadImage).not.toHaveBeenCalled();
   });
 
-  it("recovers from a render failure with a fresh canvas", async () => {
-    const canvases: HTMLCanvasElement[] = [];
-    const captureEvent = vi.fn();
-    const startGame = vi.fn<StartCampusGame>(
-      async (_container, canvas, prepared) => {
-        canvases.push(canvas);
-        prepared.tilesets.forEach(releasePreparedTilesetImage);
-        if (canvases.length === 1) {
-          throw new Error("WebGL initialization failed.");
-        }
-        return { quit: vi.fn() };
-      },
-    );
-
-    renderWorld({ captureEvent, startGame });
+  it("starts the runtime again when Try again follows a failed start", async () => {
+    const start = vi
+      .fn<CampusRuntime["start"]>()
+      .mockRejectedValueOnce(new Error("WebGL initialization failed."))
+      .mockResolvedValue({ stop: vi.fn() });
+    const { dependencies } = renderWorld({
+      runtime: fakeCampusRuntime({ start }),
+    });
 
     fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
 
     await expectReady();
-    expect(canvases).toHaveLength(2);
-    expect(canvases[1]).not.toBe(canvases[0]);
-    expect(captureEvent).toHaveBeenCalledExactlyOnceWith(
+    expect(start).toHaveBeenCalledTimes(2);
+    expect(dependencies.captureEvent).toHaveBeenCalledWith(
       "campus_world.map_failed",
       { error_kind: "render", map_id: "campus" },
     );
+    expect(dependencies.captureEvent).toHaveBeenCalledTimes(2);
   });
 
-  it("fails without starting KAPLAY when public configuration is absent", async () => {
-    const captureEvent = vi.fn();
-    const startGame = vi.fn();
+  it("fails once when rendering breaks after the map was ready", async () => {
+    const { dependencies } = renderWorld();
+    await expectReady();
+    const [, , { onRenderError }] = vi.mocked(dependencies.runtime.start).mock
+      .calls[0]!;
 
-    renderWorld({ captureEvent, configuration: {}, startGame }, null);
+    onRenderError();
+    onRenderError();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "We couldn't load the campus map.",
     );
-    expect(startGame).not.toHaveBeenCalled();
-    expect(captureEvent).toHaveBeenCalledWith("campus_world.map_failed", {
-      error_kind: "config",
-      map_id: null,
-    });
+    expect(dependencies.captureEvent).toHaveBeenCalledWith(
+      "campus_world.map_failed",
+      { error_kind: "render", map_id: "campus" },
+    );
+    expect(
+      vi
+        .mocked(dependencies.captureEvent!)
+        .mock.calls.filter(([name]) => name === "campus_world.map_failed"),
+    ).toHaveLength(1);
   });
 
-  it("quits its game on unmount", async () => {
-    const quit = vi.fn();
-    const view = renderWorld({ startGame: vi.fn(async () => ({ quit })) });
+  it("fails without starting the game when public configuration is absent", async () => {
+    const { dependencies } = renderWorld({ configuration: {} }, null);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "We couldn't load the campus map.",
+    );
+    expect(dependencies.runtime.start).not.toHaveBeenCalled();
+    expect(dependencies.captureEvent).toHaveBeenCalledWith(
+      "campus_world.map_failed",
+      { error_kind: "config", map_id: null },
+    );
+  });
+
+  it("stops its game on unmount", async () => {
+    const stop = vi.fn();
+    const { view } = renderWorld({
+      runtime: fakeCampusRuntime({ start: vi.fn(async () => ({ stop })) }),
+    });
 
     await expectReady();
     view.unmount();
 
-    expect(quit).toHaveBeenCalledOnce();
+    expect(stop).toHaveBeenCalledOnce();
+  });
+
+  it("cancels a game still starting when the world unmounts", async () => {
+    const game = startedGame();
+    const { view } = renderWorld({ runtime: game.runtime });
+    const [, , { signal }] = game.start.mock.calls[0]!;
+
+    view.unmount();
+
+    expect(signal.aborted).toBe(true);
   });
 });

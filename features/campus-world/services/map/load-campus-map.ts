@@ -9,6 +9,7 @@ import {
   type WorldMapManifest,
 } from "campus-world-map";
 
+import { CampusMapError } from "./campus-map-error";
 import {
   type LayerBands,
   splitLayerBands,
@@ -23,23 +24,7 @@ import {
 export type MapSource =
   { kind: "entry" } | { kind: "pinned"; mapId: string; version: string };
 
-export type CampusMapLoadErrorKind = "layout" | "manifest" | "network";
-
-export class CampusMapLoadError extends Error {
-  readonly kind: CampusMapLoadErrorKind;
-  readonly mapId: string | null;
-
-  constructor(
-    kind: CampusMapLoadErrorKind,
-    message: string,
-    options: { cause?: unknown; mapId?: string | null } = {},
-  ) {
-    super(message, { cause: options.cause });
-    this.name = "CampusMapLoadError";
-    this.kind = kind;
-    this.mapId = options.mapId ?? null;
-  }
-}
+export const ENTRY_MAP: MapSource = { kind: "entry" };
 
 export interface CampusTiledMap {
   height: number;
@@ -86,7 +71,7 @@ function checkedFetch(
       );
     } catch (error) {
       signal?.throwIfAborted();
-      throw new CampusMapLoadError(
+      throw new CampusMapError(
         "network",
         "The campus map request could not reach the server.",
         { cause: error },
@@ -94,7 +79,7 @@ function checkedFetch(
     }
 
     if (!response.ok) {
-      throw new CampusMapLoadError(
+      throw new CampusMapError(
         "network",
         `The campus map request answered ${response.status}.`,
       );
@@ -128,7 +113,7 @@ async function loadManifest(
   const entry = manifests.find(({ isEntry }) => isEntry);
 
   if (!entry) {
-    throw new CampusMapLoadError(
+    throw new CampusMapError(
       "manifest",
       "No published entry map is available.",
     );
@@ -163,9 +148,9 @@ export async function loadCampusMap(
   } catch (error) {
     dependencies.signal?.throwIfAborted();
 
-    if (error instanceof CampusMapLoadError) {
+    if (error instanceof CampusMapError) {
       throw error.mapId === null && mapId !== null
-        ? new CampusMapLoadError(error.kind, error.message, {
+        ? new CampusMapError(error.kind, error.message, {
             cause: error,
             mapId,
           })
@@ -173,20 +158,20 @@ export async function loadCampusMap(
     }
 
     if (error instanceof LayoutError) {
-      throw new CampusMapLoadError("layout", error.message, {
+      throw new CampusMapError("layout", error.message, {
         cause: error,
         mapId,
       });
     }
 
     if (error instanceof ManifestError) {
-      throw new CampusMapLoadError("manifest", error.message, {
+      throw new CampusMapError("manifest", error.message, {
         cause: error,
         mapId,
       });
     }
 
-    throw new CampusMapLoadError(
+    throw new CampusMapError(
       "manifest",
       "The published campus map could not be read.",
       { cause: error, mapId },

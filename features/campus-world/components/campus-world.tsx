@@ -1,104 +1,24 @@
 "use client";
 
-import { useCallback, useState } from "react";
-
-import { ANALYTICS_EVENTS } from "@/core/analytics/events";
 import { Button } from "@/shared/ui/button";
 
-import type { StartCampusGame } from "../game/campus-game.types";
-import { startCampusGame } from "../game/start-campus-game";
-import { useCampusWorldStatus } from "../hooks/use-campus-world-status";
 import {
-  type CampusMapPreparationDependencies,
-  defaultCampusMapPreparationDependencies,
-  useCampusWorldMap,
-} from "../hooks/use-prepared-campus-map";
-import { createCampusWorldStore } from "../store/campus-world-store";
-
-export interface CampusWorldDependencies extends CampusMapPreparationDependencies {
-  startGame: StartCampusGame;
-}
+  type CampusWorldDependencies,
+  defaultCampusWorldDependencies,
+} from "../hooks/campus-world-dependencies";
+import { useCampusGame } from "../hooks/use-campus-game";
 
 interface CampusWorldProps {
   cohortId: string;
+  dependencies?: CampusWorldDependencies;
 }
 
-export interface CampusWorldHarnessProps extends CampusWorldProps {
-  dependencies: CampusWorldDependencies;
-}
-
-const defaultDependencies: CampusWorldDependencies = {
-  ...defaultCampusMapPreparationDependencies,
-  startGame: startCampusGame,
-};
-
-export function CampusWorldHarness({
+export function CampusWorld({
   cohortId,
-  dependencies,
-}: CampusWorldHarnessProps) {
-  const [store] = useState(createCampusWorldStore);
-  const [mountVersion, setMountVersion] = useState(0);
-  const state = useCampusWorldStatus(store);
-  const preparation = useCampusWorldMap({ kind: "entry" }, dependencies);
-  const prepared = preparation.isFetching ? undefined : preparation.data;
-
-  const mountGame = useCallback(
-    (container: HTMLDivElement | null) => {
-      if (!container || !prepared) return;
-      const preparedMap = prepared;
-
-      const canvas = document.createElement("canvas");
-      canvas.setAttribute("aria-hidden", "true");
-      container.append(canvas);
-
-      const attempt = store.getState().begin();
-      let disposed = false;
-      let game: Awaited<ReturnType<StartCampusGame>> | undefined;
-
-      function failRender() {
-        const mapId = preparedMap.manifest.mapId;
-        const failed = store
-          .getState()
-          .fail(attempt, { errorKind: "render", mapId });
-        if (!failed) return;
-
-        dependencies.captureEvent?.(ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_FAILED, {
-          error_kind: "render",
-          map_id: mapId,
-        });
-      }
-
-      void dependencies
-        .startGame(container, canvas, preparedMap, {
-          onRenderError: failRender,
-        })
-        .then((startedGame) => {
-          if (disposed) {
-            startedGame.quit();
-            return;
-          }
-
-          game = startedGame;
-          store.getState().ready(attempt, preparedMap.manifest.mapId);
-        })
-        .catch(() => {
-          if (!disposed) failRender();
-        });
-
-      return () => {
-        disposed = true;
-        game?.quit();
-        canvas.remove();
-      };
-    },
-    [dependencies, prepared, store],
-  );
-
-  const status = preparation.isError
-    ? "failed"
-    : prepared
-      ? state.status
-      : "loading-map";
+  dependencies = defaultCampusWorldDependencies,
+}: CampusWorldProps) {
+  const { mapId, mountGame, mountVersion, retry, status } =
+    useCampusGame(dependencies);
   const isStarting = status === "loading-map" || status === "idle";
 
   return (
@@ -108,7 +28,7 @@ export function CampusWorldHarness({
       aria-label="Campus map"
       className="bg-cobalt-950 relative size-full overflow-hidden"
       data-cohort-id={cohortId}
-      data-map-id={state.mapId ?? undefined}
+      data-map-id={mapId ?? undefined}
       data-status={status}
       role="region"
     >
@@ -131,26 +51,11 @@ export function CampusWorldHarness({
           role="alert"
         >
           <p>We couldn&apos;t load the campus map.</p>
-          <Button
-            className="mx-auto"
-            type="button"
-            onClick={() => {
-              if (preparation.isError) {
-                void preparation.refetch();
-                return;
-              }
-
-              setMountVersion((version) => version + 1);
-            }}
-          >
+          <Button className="mx-auto" type="button" onClick={retry}>
             Try again
           </Button>
         </div>
       ) : null}
     </div>
   );
-}
-
-export function CampusWorld(props: CampusWorldProps) {
-  return <CampusWorldHarness {...props} dependencies={defaultDependencies} />;
 }

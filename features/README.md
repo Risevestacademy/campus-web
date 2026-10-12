@@ -36,6 +36,9 @@ four sections: Interface, Modules, Contributing, Tests
 (`tests/feature-readme.test.ts` enforces it). Colocate its
 components, hooks, services, schemas, state, types, and tests. Expose consumers
 through `index.ts`; do not deep-import another feature or import feature-to-feature.
+Evals under `tests/evals/` are the one exception: they may import a
+feature's internals, because they measure behaviour the barrel does not
+expose.
 
 Two other entry points exist, each enforced by
 `config/architecture-boundaries.json`:

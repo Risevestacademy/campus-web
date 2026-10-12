@@ -2,22 +2,34 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
-import type { ReactNode } from "react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { type ReactNode, StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import ActiveCampusPage from "@/app/campus/[id]/(media-session)/(active-campus)/page";
+import { CampusWorld } from "@/features/campus-world/components/campus-world";
 import {
-  type CampusWorldDependencies,
-  CampusWorldHarness,
-} from "@/features/campus-world/components/campus-world";
-import type { StartCampusGame } from "@/features/campus-world/game/campus-game.types";
-import { campusMapPreparationQueryKey } from "@/features/campus-world/hooks/use-prepared-campus-map";
+  type CampusRuntime,
+  createCampusRuntime,
+} from "@/features/campus-world/game/campus-runtime";
+import type { CampusWorldDependencies } from "@/features/campus-world/hooks/campus-world-dependencies";
+import { campusMapPreparationQueryKey } from "@/features/campus-world/hooks/use-campus-map-preparation";
 import {
+  isPreparedCampusMapRenderReady,
   type PreparedCampusMap,
-  releasePreparedTilesetImage,
   takePreparedTilesetImages,
 } from "@/features/campus-world/services/map/prepare-campus-map";
+import { fakeCampusRuntime } from "@/features/campus-world/testing/fake-campus-runtime";
+import {
+  fakeKaplay,
+  fakePreparedMap,
+} from "@/features/campus-world/testing/fake-kaplay";
 import {
   addFakeBand,
   renderTilesets,
@@ -25,6 +37,7 @@ import {
 } from "@/features/campus-world/testing/fake-kaplay-band";
 import {
   fakeImage,
+  releasePreparedTilesetImage,
   sanityConfiguration,
 } from "@/features/campus-world/testing/sanity-map-fixture";
 
@@ -63,32 +76,82 @@ function sourceFiles(directory: string): string[] {
     .map((entry) => path.join(entry.parentPath, entry.name));
 }
 
-function renderPreparedWorld(
-  dependencies: Omit<CampusWorldDependencies, "configuration">,
-) {
+function preparedQueryClient(prepared: PreparedCampusMap) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   queryClient.setQueryData(
     campusMapPreparationQueryKey(sanityConfiguration, { kind: "entry" }),
-    {
-      manifest: { mapId: "campus", version: "version-1" },
-      preparationMs: 42,
-      tilesets: Array.from({ length: 3 }, () => ({
-        decodedImage: fakeImage(),
-      })),
-    } as unknown as PreparedCampusMap,
+    prepared,
   );
+  return queryClient;
+}
 
-  render(
-    <QueryClientProvider client={queryClient}>
-      <CampusWorldHarness
-        cohortId="cohort-1"
-        dependencies={{ ...dependencies, configuration: sanityConfiguration }}
-      />
-    </QueryClientProvider>,
+function renderWorld(
+  queryClient: QueryClient,
+  dependencies: Omit<CampusWorldDependencies, "configuration">,
+) {
+  return render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <CampusWorld
+          cohortId="cohort-1"
+          dependencies={{ ...dependencies, configuration: sanityConfiguration }}
+        />
+      </QueryClientProvider>
+    </StrictMode>,
   );
 }
+
+async function expectWorldReady() {
+  await waitFor(() => {
+    expect(screen.getByRole("region", { name: "Campus map" })).toHaveAttribute(
+      "data-status",
+      "ready",
+    );
+  });
+}
+
+interface LifecycleWorld {
+  kaplay: ReturnType<typeof fakeKaplay>;
+  reenter: () => void;
+}
+
+interface Lifecycle {
+  act: (world: LifecycleWorld) => Promise<void>;
+  failFirstUpload: boolean;
+  name: string;
+  readyStarts: number;
+}
+
+const lifecycles: Lifecycle[] = [
+  {
+    act: async () => undefined,
+    failFirstUpload: false,
+    name: "a Strict Mode mount",
+    readyStarts: 1,
+  },
+  {
+    act: async ({ reenter }) => {
+      reenter();
+      await expectWorldReady();
+    },
+    failFirstUpload: false,
+    name: "leaving and re-entering",
+    readyStarts: 2,
+  },
+  {
+    act: async ({ kaplay }) => {
+      fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
+      await waitFor(() => expect(kaplay.uploads).toHaveLength(4));
+      kaplay.uploads.slice(2).forEach((upload) => upload.finish());
+      await expectWorldReady();
+    },
+    failFirstUpload: true,
+    name: "Try again after a failed sprite upload",
+    readyStarts: 1,
+  },
+];
 
 const imageConsumptions: Array<
   [string, (prepared: PreparedCampusMap) => Promise<void> | void]
@@ -127,7 +190,7 @@ function tileFrom(tilesetName: string): number {
   return drawTilesets.find(({ name }) => name === tilesetName)!.firstgid;
 }
 
-describe("Campus world eval (required threshold: 9/9)", () => {
+describe("Campus world eval (required threshold: 13/13)", () => {
   it.each(layerArrangements)(
     "draws stacked layers bottom to top with %s",
     (_, layerTilesets) => {
@@ -145,27 +208,92 @@ describe("Campus world eval (required threshold: 9/9)", () => {
     async (_, consumeImages) => {
       const fetch = vi.fn();
       const loadImage = vi.fn();
-      const quit = vi.fn();
-      const startGame = vi.fn<StartCampusGame>(
-        async (_container, _canvas, prepared) => {
+      const stop = vi.fn();
+      const start = vi.fn<CampusRuntime["start"]>(
+        async (_container, prepared) => {
           await consumeImages(prepared);
-          return { quit };
+          return { stop };
         },
       );
+      const prepared = {
+        manifest: { mapId: "campus", version: "version-1" },
+        preparationMs: 42,
+        tilesets: Array.from({ length: 3 }, () => ({
+          decodedImage: fakeImage(),
+        })),
+      } as unknown as PreparedCampusMap;
 
-      renderPreparedWorld({ fetch, loadImage, startGame });
+      render(
+        <QueryClientProvider client={preparedQueryClient(prepared)}>
+          <CampusWorld
+            cohortId="cohort-1"
+            dependencies={{
+              configuration: sanityConfiguration,
+              fetch,
+              loadImage,
+              runtime: fakeCampusRuntime({ start }),
+            }}
+          />
+        </QueryClientProvider>,
+      );
 
-      const region = screen.getByRole("region", { name: "Campus map" });
-      await waitFor(() => {
-        expect(region).toHaveAttribute("data-status", "ready");
-      });
-      expect(startGame).toHaveBeenCalledOnce();
-      expect(quit).not.toHaveBeenCalled();
-      expect(region.querySelector("canvas")?.isConnected).toBe(true);
+      await expectWorldReady();
+      expect(start).toHaveBeenCalledOnce();
+      expect(stop).not.toHaveBeenCalled();
       expect(fetch).not.toHaveBeenCalled();
       expect(loadImage).not.toHaveBeenCalled();
     },
   );
+
+  it.each(lifecycles)(
+    "starts KAPLAY once and shows one map after $name",
+    async ({ act, failFirstUpload, readyStarts }) => {
+      const kaplay = fakeKaplay({ autoUpload: !failFirstUpload });
+      const runtime = createCampusRuntime();
+      const captureEvent = vi.fn();
+      const queryClient = preparedQueryClient(fakePreparedMap(kaplay.module));
+      const enter = () => renderWorld(queryClient, { captureEvent, runtime });
+      let view = enter();
+
+      if (failFirstUpload) {
+        await waitFor(() => expect(kaplay.uploads).toHaveLength(2));
+        kaplay.uploads[0]!.fail();
+      } else {
+        await expectWorldReady();
+      }
+      await act({
+        kaplay,
+        reenter: () => {
+          view.unmount();
+          view = enter();
+        },
+      });
+
+      expect(kaplay.kaplay).toHaveBeenCalledOnce();
+      expect(kaplay.contexts[0]!.liveObjects()).toBe(2);
+      expect(
+        captureEvent.mock.calls.filter(
+          ([name]) => name === "campus_world.map_ready",
+        ),
+      ).toHaveLength(readyStarts);
+    },
+  );
+
+  it("lets a repeat entry skip artwork the runtime still holds", async () => {
+    const kaplay = fakeKaplay();
+    const runtime = createCampusRuntime();
+    const prepared = fakePreparedMap(kaplay.module);
+
+    renderWorld(preparedQueryClient(prepared), { runtime }).unmount();
+    await waitFor(() => expect(runtime.holdsMap(prepared.manifest)).toBe(true));
+
+    expect(
+      prepared.tilesets.every(({ decodedImage }) => decodedImage === undefined),
+    ).toBe(true);
+    expect(isPreparedCampusMapRenderReady(prepared, runtime.holdsMap)).toBe(
+      true,
+    );
+  });
 
   it("composes CampusWorld inside the cohort gate with the route cohort", async () => {
     render(

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   fakeImage,
+  releasePreparedTilesetImage,
   sanityConfiguration,
   stubSanityFetch,
   tilesetCount,
@@ -12,8 +13,6 @@ import {
   loadDecodedCampusMapImage,
   prepareCampusMap,
   type PrepareCampusMapDependencies,
-  rehydratePreparedCampusMap,
-  releasePreparedTilesetImage,
 } from "./prepare-campus-map";
 
 function prepare(overrides: Partial<PrepareCampusMapDependencies> = {}) {
@@ -161,31 +160,30 @@ describe("prepareCampusMap", () => {
   });
 });
 
-describe("rehydratePreparedCampusMap", () => {
-  it("reloads only consumed tileset images and reports their progress", async () => {
+describe("isPreparedCampusMapRenderReady", () => {
+  const holdsNothing = () => false;
+
+  it("is ready while every tileset image is decoded", async () => {
+    expect(isPreparedCampusMapRenderReady(await prepare(), holdsNothing)).toBe(
+      true,
+    );
+  });
+
+  it("is ready without decoded images once the runtime holds that version", async () => {
     const prepared = await prepare();
     prepared.tilesets.forEach(releasePreparedTilesetImage);
-    const loadImage = vi.fn<
-      (url: string, signal: AbortSignal) => Promise<ImageBitmap>
-    >(async () => fakeImage());
-    const onProgress = vi.fn();
-
-    const rehydrated = await rehydratePreparedCampusMap(prepared, {
-      loadImage,
-      onProgress,
-      signal: new AbortController().signal,
-    });
-
-    expect(loadImage.mock.calls.map(([url]) => url)).toEqual(
-      prepared.tilesets.map(({ image }) => image),
+    const holdsMap = vi.fn(
+      ({ mapId, version }: { mapId: string; version: string }) =>
+        mapId === "campus" && version === "version-1",
     );
-    expect(onProgress.mock.calls.map(([progress]) => progress)).toEqual([
-      { completed: 0, stage: "tilesets", total: 3 },
-      { completed: 1, stage: "tilesets", total: 3 },
-      { completed: 2, stage: "tilesets", total: 3 },
-      { completed: 3, stage: "tilesets", total: 3 },
-    ]);
-    expect(isPreparedCampusMapRenderReady(rehydrated)).toBe(true);
-    expect(rehydrated.kaplayModule).toBe(prepared.kaplayModule);
+
+    expect(isPreparedCampusMapRenderReady(prepared, holdsMap)).toBe(true);
+  });
+
+  it("is not ready when one image was consumed and the runtime lacks the map", async () => {
+    const prepared = await prepare();
+    releasePreparedTilesetImage(prepared.tilesets[0]!);
+
+    expect(isPreparedCampusMapRenderReady(prepared, holdsNothing)).toBe(false);
   });
 });

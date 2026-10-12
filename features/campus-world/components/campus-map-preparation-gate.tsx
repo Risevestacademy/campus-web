@@ -6,15 +6,12 @@ import { preconnect } from "react-dom";
 import { Button } from "@/shared/ui/button";
 
 import {
-  type CampusMapPreparationDependencies,
-  defaultCampusMapPreparationDependencies,
-  usePreparedCampusMap,
-} from "../hooks/use-prepared-campus-map";
-import { sanityMapOrigins } from "../services/map/load-campus-map";
-import {
-  type CampusMapPreparationProgress,
-  isPreparedCampusMapRenderReady,
-} from "../services/map/prepare-campus-map";
+  type CampusWorldDependencies,
+  defaultCampusWorldDependencies,
+} from "../hooks/campus-world-dependencies";
+import { useCampusMapPreparation } from "../hooks/use-campus-map-preparation";
+import { ENTRY_MAP, sanityMapOrigins } from "../services/map/load-campus-map";
+import type { CampusMapPreparationProgress } from "../services/map/prepare-campus-map";
 
 const initialProgress: CampusMapPreparationProgress = { stage: "manifest" };
 
@@ -132,30 +129,24 @@ function PreparationFailed({ onRetry }: { onRetry: () => void }) {
 
 interface CampusMapPreparationGateProps {
   children: ReactNode;
+  dependencies?: CampusWorldDependencies;
 }
 
-export interface CampusMapPreparationGateHarnessProps extends CampusMapPreparationGateProps {
-  dependencies: CampusMapPreparationDependencies;
-}
-
-export function CampusMapPreparationGateHarness({
+export function CampusMapPreparationGate({
   children,
-  dependencies,
-}: CampusMapPreparationGateHarnessProps) {
+  dependencies = defaultCampusWorldDependencies,
+}: CampusMapPreparationGateProps) {
   // Map requests are CORS fetches; only an anonymous preconnect is reusable.
   sanityMapOrigins(dependencies.configuration.projectId).forEach((origin) =>
     preconnect(origin, { crossOrigin: "anonymous" }),
   );
 
   const [progress, setProgress] = useState(initialProgress);
-  const preparation = usePreparedCampusMap(
-    { kind: "entry" },
-    setProgress,
+  const { isRenderReady, preparation } = useCampusMapPreparation(
+    ENTRY_MAP,
     dependencies,
+    setProgress,
   );
-  const isRenderReady =
-    preparation.data !== undefined &&
-    isPreparedCampusMapRenderReady(preparation.data);
   const phase = preparationPhase(preparation, isRenderReady);
   const [beganWithPendingPreparation] = useState(phase !== "ready");
 
@@ -180,16 +171,4 @@ export function CampusMapPreparationGateHarness({
         />
       );
   }
-}
-
-export function CampusMapPreparationGate({
-  children,
-}: CampusMapPreparationGateProps) {
-  return (
-    <CampusMapPreparationGateHarness
-      dependencies={defaultCampusMapPreparationDependencies}
-    >
-      {children}
-    </CampusMapPreparationGateHarness>
-  );
 }

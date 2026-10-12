@@ -2,9 +2,9 @@
 
 Owns preparing and drawing the published campus map. The Join Gate prepares
 the current Sanity entry map before revealing its media controls. Active
-Campus reuses that prepared resource and starts WebGL only after entry. This
-feature does not own authentication, media, player movement, input, or
-sockets.
+Campus reuses that prepared resource and draws it on one KAPLAY runtime per
+page. This feature does not own authentication, media, player movement,
+input, or sockets.
 
 ## Interface
 
@@ -21,20 +21,26 @@ accessible region `Campus map`, plus `data-status` and `data-map-id` for
 browser verification. Its status progresses from `idle` to `loading-map`,
 then to `ready` after first draw or recoverable `failed`.
 
-Preparation success is not permanently render-ready. Active Campus consumes
-decoded tileset images. A later gate rehydrates only those images before
-revealing Join; reusable manifest, layout, and KAPLAY data stay cached.
+A prepared map is render-ready while its tileset images are decoded or the
+runtime already holds that map version's sprites. Active Campus consumes the
+decoded images on first entry, so a repeat entry reveals Join at once. Only a
+render failure, which discards the runtime's sprites, makes the gate prepare
+the map again.
+
+Analytics: `campus_world.map_loaded` carries preparation time (`load_ms`);
+`campus_world.map_ready` carries the time from game start to the first drawn
+frame (`first_frame_ms`), once per ready start.
 
 ## Modules
 
-| Module        | Owns                                                          |
-| ------------- | ------------------------------------------------------------- |
-| `components/` | Preparation gate, canvas lifecycle, accessible status, retry  |
-| `game/`       | KAPLAY startup, sprite upload, camera, and culled drawing     |
-| `hooks/`      | Shared preparation query and lifecycle-store subscription     |
-| `services/`   | Preparation, loading, bands, draw lists, frames, camera maths |
-| `store/`      | Lifecycle transitions, attempt IDs, and stale-result guards   |
-| `testing/`    | Sanity map fixtures and a fake KAPLAY band for tests          |
+| Module        | Owns                                                            |
+| ------------- | --------------------------------------------------------------- |
+| `components/` | Preparation gate and accessible map status, render only         |
+| `game/`       | The page's KAPLAY runtime, sprite upload, and culled drawing    |
+| `hooks/`      | Preparation query, game lifecycle, and store subscription       |
+| `services/`   | Preparation, errors, loading, bands, draw lists, camera, theme  |
+| `store/`      | Lifecycle transitions, attempt IDs, and stale-result guards     |
+| `testing/`    | Sanity fixtures, fake KAPLAY, fake runtime, and a fake map band |
 
 The feature may import `core` and `shared`. Routes compose it through the
 barrel; other features do not import its internals.
@@ -44,25 +50,29 @@ barrel; other features do not import its internals.
 - Keep KAPLAY behind `import("kaplay")`; preparation starts that dynamic
   import before the manifest request, without creating a hidden canvas or
   putting KAPLAY in the static module graph.
-- Read Sanity configuration and analytics from
-  `defaultCampusMapPreparationDependencies`. The Join Gate and `CampusWorld`
-  share one query key only while they share that object.
+- Read Sanity configuration, analytics, and the runtime from
+  `defaultCampusWorldDependencies`. Both components accept a `dependencies`
+  prop for tests and stories; pass a stable object, because a new object
+  per render restarts the game. The query key follows its configuration.
 - Keep the prepared query key scoped by Sanity project, dataset, and map
   source. It is session-cached with infinite stale and garbage-collection
   times and has no automatic retry.
-- Treat readiness as parsed manifest/map data, every currently decoded
-  tileset, and a resolved KAPLAY module. Query success alone is insufficient.
-  Do not add artificial delays or progress.
-- Mount through the React callback ref. Each attempt owns a fresh canvas and
-  cleanup calls the matching game's `quit()`.
+- Treat readiness as parsed manifest/map data, a resolved KAPLAY module, and
+  either every tileset decoded or the runtime holding that version. Query
+  success alone is insufficient. Do not add artificial delays or progress.
+- Call `kaplay()` only inside `game/campus-runtime.ts`. KAPLAY keeps module
+  globals, so a second context breaks the first and logs `KAPLAY already
+initialized`. The runtime moves its one canvas between containers, clears
+  the previous mount's map, and uploads each map version once (KAPLAY's
+  texture packer never frees a re-upload). Only a render failure replaces the
+  context.
+- Mount through the React callback ref; cleanup calls the game's `stop()`.
 - Atomically take every decoded image before the first sprite-upload await,
   upload every tileset in parallel, then close each image after KAPLAY
-  uploads it. Repeat pre-join rehydrates the
-  images through their URLs instead of retaining CPU and GPU copies forever.
-- The Join Gate alone rehydrates. `CampusWorld` observes through
-  `useCampusWorldMap`, which never refetches on mount: the game takes the
-  images during commit, before the observer subscribes, so a rehydrating
-  observer would refetch tilesets and restart the game.
+  uploads it.
+- The Join Gate alone refetches. `CampusWorld` observes through
+  `useCachedCampusMap`, which never refetches on mount: the game takes the
+  images during commit, before the observer subscribes.
 - Keep per-frame work in `game/`, not React state. React observes only
   lifecycle changes through `useSyncExternalStore`.
 - Resolve tiles once through `buildBandDrawList`; a frame only walks visible
@@ -84,8 +94,11 @@ pnpm test:storybook
 pnpm test:e2e
 ```
 
-Unit tests cover preparation and rehydration completion, cancellation, cache
-readiness, progress, retry protection, lifecycle, bands, layer draw order,
-tile transforms, frames, and camera bounds. Shared fakes live in `testing/`. The Storybook browser test covers a post-upload
-remount in real Chromium. Playwright covers request reuse across Join,
-repeat-entry rehydration, Sanity stubbing, rendering, and resize.
+Unit tests cover the runtime (one context, sprite reuse, stale starts, render
+recovery), preparation, cancellation, readiness, progress, analytics,
+lifecycle, bands, layer draw order, tile transforms, frames, camera, and the
+theme background. Shared fakes live in `testing/`. The eval replays Strict
+Mode, re-entry, and retry against the real runtime. The Storybook browser test
+remounts in real Chromium and fails on the KAPLAY warning. Playwright covers
+request reuse across Join and repeat entry, rendering, resize, and the
+warning.

@@ -1,3 +1,5 @@
+import type { MapLayout } from "campus-world-map";
+
 interface Size {
   height: number;
   width: number;
@@ -22,4 +24,30 @@ export function clampCamera(target: Point, viewport: Size, map: Size): Point {
     x: clampAxis(target.x, viewport.width, map.width),
     y: clampAxis(target.y, viewport.height, map.height),
   };
+}
+
+interface TileGrid {
+  height: number;
+  tileheight: number;
+  tilewidth: number;
+  width: number;
+}
+
+export function spawnCamera(
+  map: TileGrid,
+  layout: Pick<MapLayout, "spawn">,
+  viewport: Size,
+): Point {
+  const world = {
+    height: map.height * map.tileheight,
+    width: map.width * map.tilewidth,
+  };
+  const target = layout.spawn
+    ? {
+        x: (layout.spawn.x + 0.5) * map.tilewidth,
+        y: (layout.spawn.y + 0.5) * map.tileheight,
+      }
+    : { x: world.width / 2, y: world.height / 2 };
+
+  return clampCamera(target, viewport, world);
 }

@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 
 import mapFixture from "../services/map/fixtures/campus-trimmed.json";
+import type { PreparedTileset } from "../services/map/prepare-campus-map";
 
 export const sanityConfiguration = {
   dataset: "staging",
@@ -47,3 +48,8 @@ export function fakeImage(): ImageBitmap {
 }
 
 export const tilesetCount = mapFixture.tilesets.length;
+
+export function releasePreparedTilesetImage(tileset: PreparedTileset): void {
+  tileset.decodedImage?.close();
+  tileset.decodedImage = undefined;
+}

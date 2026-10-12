@@ -2,14 +2,12 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { flushSync } from "react-dom";
-import { expect, userEvent, waitFor, within } from "storybook/test";
+import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
-import { startCampusGame } from "../game/start-campus-game";
+import { campusRuntime } from "../game/campus-runtime";
+import type { CampusWorldDependencies } from "../hooks/campus-world-dependencies";
 import mapFixture from "../services/map/fixtures/campus-trimmed.json";
-import {
-  CampusWorldHarness,
-  type CampusWorldHarnessProps,
-} from "./campus-world";
+import { CampusWorld } from "./campus-world";
 
 const mapUrl = "https://cdn.sanity.io/files/sj3zsz66/staging/map.json";
 const transparentPixel =
@@ -41,10 +39,10 @@ const storyFetch = (async (input: RequestInfo | URL) => {
   );
 }) as typeof globalThis.fetch;
 
-const dependencies: CampusWorldHarnessProps["dependencies"] = {
+const dependencies: CampusWorldDependencies = {
   configuration: { dataset: "staging", projectId: "sj3zsz66" },
   fetch: storyFetch,
-  startGame: startCampusGame,
+  runtime: campusRuntime,
 };
 
 function CampusWorldRemountStory() {
@@ -68,7 +66,7 @@ function CampusWorldRemountStory() {
         >
           Remount campus map
         </button>
-        <CampusWorldHarness
+        <CampusWorld
           key={generation}
           cohortId="storybook-cohort"
           dependencies={dependencies}
@@ -92,6 +90,7 @@ type Story = StoryObj<typeof meta>;
 export const RemountWithinOneFrame: Story = {
   play: async ({ canvasElement }) => {
     const story = within(canvasElement);
+    const warn = spyOn(console, "warn");
     const region = story.getByRole("region", { name: "Campus map" });
 
     await waitFor(
@@ -112,8 +111,9 @@ export const RemountWithinOneFrame: Story = {
           name: "Campus map",
         });
         const replacementCanvas = replacementRegion.querySelector("canvas");
+        await expect(replacementRegion).not.toBe(region);
         await expect(replacementRegion).toHaveAttribute("data-status", "ready");
-        await expect(replacementCanvas).not.toBe(firstCanvas);
+        await expect(replacementCanvas).toBe(firstCanvas);
         await expect(replacementCanvas?.width).toBeGreaterThan(0);
         await expect(replacementCanvas?.height).toBeGreaterThan(0);
       },
@@ -127,5 +127,8 @@ export const RemountWithinOneFrame: Story = {
       story.getByRole("region", { name: "Campus map" }).querySelector("canvas")
         ?.isConnected,
     ).toBe(true);
+    await expect(warn).not.toHaveBeenCalledWith(
+      expect.stringMatching(/KAPLAY already initialized/),
+    );
   },
 };

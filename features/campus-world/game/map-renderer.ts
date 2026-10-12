@@ -1,11 +1,8 @@
-import type { DrawSpriteOpt, KAPLAYCtx } from "kaplay";
+import type { DrawSpriteOpt, GameObj, KAPLAYCtx } from "kaplay";
 
 import { buildBandDrawList } from "../services/map/band-draw-list";
 import type { TiledTileLayer } from "../services/map/layer-bands";
-import type {
-  CampusTiledMap,
-  LoadedCampusMap,
-} from "../services/map/load-campus-map";
+import type { CampusTiledMap } from "../services/map/load-campus-map";
 
 export interface RenderTileset {
   firstgid: number;
@@ -65,21 +62,25 @@ function layerSprites(
   }));
 }
 
+interface MapBand {
+  layer: "above" | "below";
+  layers: TiledTileLayer[];
+  map: CampusTiledMap;
+  onDraw?: () => void;
+  tilesets: RenderTileset[];
+}
+
 export function addMapBand(
   k: KAPLAYCtx,
-  loaded: LoadedCampusMap,
-  layers: TiledTileLayer[],
-  tilesets: RenderTileset[],
-  layerName: "above" | "below",
-  onDraw?: () => void,
-): void {
-  const sprites = layerSprites(k, loaded.map, layers, tilesets);
+  { layer, layers, map, onDraw, tilesets }: MapBand,
+): GameObj {
+  const sprites = layerSprites(k, map, layers, tilesets);
 
-  k.add([
-    k.layer(layerName),
+  return k.add([
+    k.layer(layer),
     {
       draw() {
-        const bounds = visibleTileBounds(k, loaded.map);
+        const bounds = visibleTileBounds(k, map);
 
         for (const { cells, width } of sprites) {
           for (let row = bounds.top; row <= bounds.bottom; row += 1) {

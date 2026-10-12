@@ -1,4 +1,4 @@
-import { type BrowserContext, expect } from "@playwright/test";
+import { type BrowserContext, expect, type Page } from "@playwright/test";
 
 import { enterCampus, joinLink } from "./support/campus-entry";
 import {
@@ -21,6 +21,16 @@ test.skip(
 
 const campusUrl = "/campus/c-3";
 
+function collectKaplayWarnings(page: Page): string[] {
+  const warnings: string[] = [];
+  page.on("console", (message) => {
+    if (/KAPLAY already initialized/.test(message.text())) {
+      warnings.push(message.text());
+    }
+  });
+  return warnings;
+}
+
 async function prepareMember({
   baseURL,
   context,
@@ -42,6 +52,7 @@ test("renders the published entry map and follows its container size", async ({
 }) => {
   await prepareMember({ baseURL, context, fakeApi });
   await installSanityMapStub(page);
+  const kaplayWarnings = collectKaplayWarnings(page);
 
   await enterCampus(page, campusUrl);
 
@@ -64,6 +75,7 @@ test("renders the published entry map and follows its container size", async ({
       canvas.evaluate((element) => (element as HTMLCanvasElement).width),
     )
     .not.toBe(initialSize.width);
+  expect(kaplayWarnings).toEqual([]);
 });
 
 test("reuses pre-join preparation after Join without refetching map assets", async ({
@@ -95,7 +107,7 @@ test("reuses pre-join preparation after Join without refetching map assets", asy
   expect(requests).toEqual(preparedRequestCounts);
 });
 
-test("rehydrates consumed artwork before Join on repeat entry", async ({
+test("reveals Join at once on repeat entry and reuses the runtime's artwork", async ({
   page,
   context,
   baseURL,
@@ -108,35 +120,26 @@ test("rehydrates consumed artwork before Join on repeat entry", async ({
       membership("c-4", "Cohort 4"),
     ),
   );
-  let releaseRepeatTilesets: (() => void) | undefined;
-  const repeatTilesets = new Promise<void>((resolve) => {
-    releaseRepeatTilesets = resolve;
-  });
-  const requests = await installSanityMapStub(page, {
-    tilesetResponseGate: { afterRequests: 3, wait: repeatTilesets },
-  });
+  const requests = await installSanityMapStub(page);
+  const kaplayWarnings = collectKaplayWarnings(page);
 
   await enterCampus(page, campusUrl);
-  await expect(
-    page.getByRole("region", { name: "Campus map" }),
-  ).toHaveAttribute("data-status", "ready", { timeout: 15_000 });
-
-  await page.getByRole("link", { name: "Back to campuses" }).click();
-  await page.getByRole("link", { name: /Cohort 3/ }).click();
-
-  await expect(
-    page.getByRole("status", { name: "Preparing campus" }),
-  ).toBeVisible();
-  await expect(joinLink(page)).toHaveCount(0);
-  await expect.poll(() => requests.tilesets).toBe(6);
-
-  releaseRepeatTilesets?.();
-  await expect(joinLink(page)).toBeVisible();
-  await joinLink(page).click();
-
   const world = page.getByRole("region", { name: "Campus map" });
   await expect(world).toHaveAttribute("data-status", "ready", {
     timeout: 15_000,
   });
-  expect(requests).toEqual({ manifest: 1, map: 1, tilesets: 6 });
+  const firstEntryRequests = { ...requests };
+
+  await page.getByRole("link", { name: "Back to campuses" }).click();
+  await page.getByRole("link", { name: /Cohort 3/ }).click();
+
+  await expect(joinLink(page)).toBeVisible();
+  await joinLink(page).click();
+
+  await expect(world).toHaveAttribute("data-status", "ready", {
+    timeout: 15_000,
+  });
+  expect(requests).toEqual(firstEntryRequests);
+  expect(requests).toEqual({ manifest: 1, map: 1, tilesets: 3 });
+  expect(kaplayWarnings).toEqual([]);
 });

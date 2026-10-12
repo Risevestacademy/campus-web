@@ -3,7 +3,7 @@ import { vi } from "vitest";
 
 import { addMapBand, type RenderTileset } from "../game/map-renderer";
 import type { TiledTileLayer } from "../services/map/layer-bands";
-import type { LoadedCampusMap } from "../services/map/load-campus-map";
+import type { CampusTiledMap } from "../services/map/load-campus-map";
 
 const TILE = 16;
 
@@ -44,18 +44,16 @@ export function addFakeBand(
     vec2: (x: number, y: number) => ({ x, y }),
     width: () => side * TILE,
   } as unknown as KAPLAYCtx;
-  const loaded = {
-    map: {
-      height: side,
-      layers,
-      tileheight: TILE,
-      tilesets: [],
-      tilewidth: TILE,
-      width: side,
-    },
-  } as unknown as LoadedCampusMap;
+  const map: CampusTiledMap = {
+    height: side,
+    layers,
+    tileheight: TILE,
+    tilesets: [],
+    tilewidth: TILE,
+    width: side,
+  };
 
-  addMapBand(k, loaded, layers, tilesets, "below");
+  addMapBand(k, { layer: "below", layers, map, tilesets });
 
   return {
     drawFrame() {
