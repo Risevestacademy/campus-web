@@ -13,19 +13,22 @@ import { CampusOverviewPanel } from "@/features/roster";
 <CampusShell OverviewPanel={CampusOverviewPanel} … />;
 ```
 
-`CampusOverviewPanel` receives only the sidebar's `collapseButton`. The route
-passes it in because Campus may not import Roster.
+`CampusOverviewPanel` receives only the sidebar's `collapseButton`. It is the
+current mock-data adapter for the prop-driven `CampusOverview` view. The route
+passes the panel in because Campus may not import Roster.
 
 ## Modules
 
-| Module                                             | Owns                           | Seam                   |
-| -------------------------------------------------- | ------------------------------ | ---------------------- |
-| `campus-overview-panel.tsx`, `participant-row.tsx` | search, grouped lists, rows    | none                   |
-| `participant-filters.ts`, `types.ts`               | status filter ids and matching | none                   |
-| `quick-transport.ts`, `quick-transport-list.tsx`   | destination data and list      | none                   |
-| `mock-participants.ts`                             | stand-in data                  | replaced by `presence` |
+| Module                                           | Owns                                          | Seam                                       |
+| ------------------------------------------------ | --------------------------------------------- | ------------------------------------------ |
+| `campus-overview.tsx`, `participant-row.tsx`     | prop-driven view, search, grouped lists, rows | participant and transport intent callbacks |
+| `campus-overview-panel.tsx`                      | current mock-data binding                     | replaced by Presence binding               |
+| `participant-filters.ts`, `types.ts`             | status filter ids and matching                | none                                       |
+| `quick-transport.ts`, `quick-transport-list.tsx` | destination data and list                     | none                                       |
+| `mock-participants.ts`                           | stand-in data                                 | replaced by `presence`                     |
 
-No backend contract exists yet; everything reads mock data.
+No Presence contract exists yet. Only the thin panel adapter reads mock data;
+the view receives participants, counts, context, and callbacks as props.
 
 ## Contributing
 

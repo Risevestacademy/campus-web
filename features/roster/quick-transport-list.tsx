@@ -1,9 +1,16 @@
 import { ArrowRightIcon } from "@phosphor-icons/react/dist/ssr/ArrowRight";
 import { cn } from "cn";
 
-import { quickTransportDestinations } from "./quick-transport";
+import {
+  type QuickTransportDestination,
+  quickTransportDestinations,
+} from "./quick-transport";
 
-export function QuickTransportList() {
+export function QuickTransportList({
+  onSelect,
+}: {
+  onSelect?: (destination: QuickTransportDestination) => void;
+}) {
   return (
     <div>
       <p className="text-foreground-muted px-2 text-xs font-semibold tracking-wider uppercase">
@@ -14,6 +21,7 @@ export function QuickTransportList() {
           <li key={destination.id}>
             <button
               type="button"
+              onClick={() => onSelect?.(destination)}
               className={cn(
                 "flex w-full items-center gap-2.5 rounded-xl px-2 py-2.5 text-left hover:bg-[#EFFAFF] dark:hover:bg-[#2B3B5F]",
                 destination.isLiveNow && "bg-[#EFFAFF] dark:bg-[#2B3B5F]",

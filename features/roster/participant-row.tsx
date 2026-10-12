@@ -6,15 +6,21 @@ import { cn } from "cn";
 import { Avatar, AvatarBadge, AvatarFallback } from "@/shared/ui/avatar";
 import { buttonVariants } from "@/shared/ui/button";
 
-import type { Participant } from "./types";
+import type { Participant, ParticipantAction } from "./types";
 
 const rowActions = [
-  { label: "Wave", Icon: HandIcon },
-  { label: "Go to", Icon: NavigationArrowIcon },
-  { label: "Message", Icon: ChatCircleIcon },
-];
+  { action: "wave", label: "Wave", Icon: HandIcon },
+  { action: "go-to", label: "Go to", Icon: NavigationArrowIcon },
+  { action: "message", label: "Message", Icon: ChatCircleIcon },
+] as const;
 
-export function ParticipantRow({ participant }: { participant: Participant }) {
+export function ParticipantRow({
+  onAction,
+  participant,
+}: {
+  onAction?: (action: ParticipantAction, participant: Participant) => void;
+  participant: Participant;
+}) {
   return (
     <li className="group/row flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-[#E9ECF6] dark:hover:bg-[#2B3B5F]">
       <Avatar>
@@ -36,11 +42,12 @@ export function ParticipantRow({ participant }: { participant: Participant }) {
       </div>
 
       <div className="hidden shrink-0 items-center gap-1 group-hover/row:flex">
-        {rowActions.map(({ label, Icon }) => (
+        {rowActions.map(({ action, label, Icon }) => (
           <button
             key={label}
             type="button"
             aria-label={`${label} ${participant.name}`}
+            onClick={() => onAction?.(action, participant)}
             className={cn(
               buttonVariants({ variant: "ghost", size: "icon-xs" }),
               "hover:bg-background rounded-full text-[#2443B3] dark:text-[#9DADE7] dark:hover:bg-[#1F2940]",

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import { CampusOverview } from "./campus-overview";
 import { CampusOverviewPanel } from "./campus-overview-panel";
 
 describe("CampusOverviewPanel", () => {
@@ -49,5 +50,68 @@ describe("CampusOverviewPanel", () => {
 
     expect(offlineTrigger).toHaveAttribute("aria-expanded", "true");
     expect(onlineTrigger).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("renders injected participant, context, and offline state", () => {
+    render(
+      <CampusOverview
+        collapseButton={null}
+        contextLabel="Engineering · Mentor"
+        offlineParticipantCount={3}
+        participants={[
+          {
+            id: "zora",
+            name: "Zora",
+            initial: "Z",
+            avatarClassName: "",
+            status: "available",
+            detail: "Available",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Engineering · Mentor")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Online 1" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Offline 3" })).toBeVisible();
+    expect(screen.getByText("Zora")).toBeVisible();
+  });
+
+  it("reports participant and quick-transport intents", () => {
+    const onParticipantAction = vi.fn();
+    const onQuickTransport = vi.fn();
+
+    render(
+      <CampusOverview
+        collapseButton={null}
+        contextLabel="Engineering · Mentor"
+        offlineParticipantCount={0}
+        onParticipantAction={onParticipantAction}
+        onQuickTransport={onQuickTransport}
+        participants={[
+          {
+            id: "zora",
+            name: "Zora",
+            initial: "Z",
+            avatarClassName: "",
+            status: "available",
+            detail: "Available",
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Wave Zora", hidden: true }),
+    );
+    fireEvent.click(screen.getByText("Now & next"));
+
+    expect(onParticipantAction).toHaveBeenCalledWith(
+      "wave",
+      expect.objectContaining({ id: "zora" }),
+    );
+    expect(onQuickTransport).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "now-next" }),
+    );
   });
 });

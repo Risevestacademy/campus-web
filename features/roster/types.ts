@@ -1,4 +1,5 @@
 export type ParticipantStatus = "available" | "in-room" | "busy";
+export type ParticipantAction = "wave" | "go-to" | "message";
 
 export type Participant = {
   id: string;
