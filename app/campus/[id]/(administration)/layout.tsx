@@ -5,6 +5,7 @@ import {
   SessionUnavailable,
 } from "@/features/auth";
 import { CampusShell, SidebarCollapseButton } from "@/features/campus";
+import { FeedbackPopup } from "@/features/feedback";
 import { CampusOverviewPanel } from "@/features/roster";
 
 export default async function AdministrationLayout({
@@ -32,9 +33,11 @@ export default async function AdministrationLayout({
           collapseButton={<SidebarCollapseButton />}
         />
       }
+      FeedbackPopup={FeedbackPopup}
       OverviewPanel={CampusOverviewPanel}
       cohortId={id}
       initialSidebarMode="admin"
+      userName={access.session.user.displayName}
     >
       <div className="min-w-0 flex-1 overflow-y-auto rounded-xl border bg-[#F7F7F7] dark:border-[#2B3B5F] dark:bg-[#1F2940]">
         {children}

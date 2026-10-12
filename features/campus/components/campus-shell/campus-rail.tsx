@@ -19,6 +19,7 @@ import { useThemeToggle } from "@/shared/ui/theme-toggle/use-theme-toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
 import { useActivePanel, useSidebarMode } from "../../hooks/use-sidebar-state";
+import { openFeedbackPanel } from "../../store/feedback-panel-store";
 import type { SidebarMode } from "../../store/sidebar-preferences";
 import { setActivePanel, setSidebarMode } from "../../store/sidebar-store";
 import { railPanelItems } from "./rail-items";
@@ -140,7 +141,7 @@ export function CampusRail({
       </div>
 
       <div className="flex flex-col items-center gap-1">
-        <RailButton label="Report an issue">
+        <RailButton label="Report an issue" onClick={openFeedbackPanel}>
           <ChatCenteredDotsIcon aria-hidden size="1.3rem" weight="bold" />
         </RailButton>
         <ThemeRailButton />
