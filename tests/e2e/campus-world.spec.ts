@@ -1,6 +1,6 @@
 import { type BrowserContext, expect, type Page } from "@playwright/test";
 
-import { enterCampus, joinLink } from "./support/campus-entry";
+import { enterCampus, joinButton } from "./support/campus-entry";
 import {
   type FakeApi,
   membership,
@@ -89,7 +89,7 @@ test("reuses pre-join preparation after Join without refetching map assets", asy
 
   await page.goto(`${campusUrl}/join`);
 
-  const join = joinLink(page);
+  const join = joinButton(page);
   await expect(join).toBeVisible();
   const preparedRequestCounts = { ...requests };
   expect(preparedRequestCounts).toEqual({
@@ -133,8 +133,8 @@ test("reveals Join at once on repeat entry and reuses the runtime's artwork", as
   await page.getByRole("link", { name: "Back to campuses" }).click();
   await page.getByRole("link", { name: /Cohort 3/ }).click();
 
-  await expect(joinLink(page)).toBeVisible();
-  await joinLink(page).click();
+  await expect(joinButton(page)).toBeVisible();
+  await joinButton(page).click();
 
   await expect(world).toHaveAttribute("data-status", "ready", {
     timeout: 15_000,

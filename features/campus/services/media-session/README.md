@@ -11,6 +11,8 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
 - `useMediaSession(selector)`: selected state and commands. Commands
   (`toggleSource`, `selectInputDevice`, `chooseAudioOutput`) resolve to the
   `MediaSessionErrorCode` they produced, or `null`.
+- `pendingActiveCampusDestination`: one exact, in-memory Join grant. Join sets
+  it before navigation; Active Campus clears it after an exact match mounts.
 - `MeetingMediaTransport`: receives local publication changes, supplies remote
   publications. Production uses `noopMeetingMediaTransport` until the
   signaling/SFU adapter exists.
@@ -46,6 +48,8 @@ coexists with `camera`; it does not replace it.
 
 - Every route session starts with camera and microphone off; capture intent
   is never persisted, only device IDs.
+- Entry grants are never persisted. Reloads, new tabs, cohort changes, and
+  leaving the media-session layout require another explicit Join action.
 - Turning a source off stops and removes its track and publication.
 - Input replacement keeps the current track until the new one succeeds.
 - Camera and microphone fail independently; permission failures clear only on

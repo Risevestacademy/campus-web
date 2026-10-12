@@ -1,12 +1,7 @@
-import { cn } from "cn";
-import Link from "next/link";
-
-import { withCampusPreJoinCompletion } from "@/core/navigation";
 import { CohortGate, normalizeCohortReturnTo } from "@/features/auth";
-import { VisualsDisplay } from "@/features/campus";
+import { CampusJoinButton, VisualsDisplay } from "@/features/campus";
 import { CampusMapPreparationGate } from "@/features/campus-world";
 import { firstSearchParameter } from "@/shared/lib/search-params";
-import { buttonVariants } from "@/shared/ui/button";
 
 interface JoinPageProps {
   params: Promise<{ id: string }>;
@@ -18,8 +13,9 @@ export default async function JoinPage({
   searchParams,
 }: JoinPageProps) {
   const [{ id }, { returnTo }] = await Promise.all([params, searchParams]);
-  const destination = withCampusPreJoinCompletion(
-    normalizeCohortReturnTo(id, firstSearchParameter(returnTo)),
+  const destination = normalizeCohortReturnTo(
+    id,
+    firstSearchParameter(returnTo),
   );
 
   return (
@@ -28,12 +24,7 @@ export default async function JoinPage({
         <main className="grid h-dvh content-center gap-6">
           <VisualsDisplay />
 
-          <Link
-            href={destination}
-            className={cn(buttonVariants({ size: "lg" }), "mx-auto min-w-40")}
-          >
-            Join
-          </Link>
+          <CampusJoinButton destination={destination} />
         </main>
       </CampusMapPreparationGate>
     </CohortGate>

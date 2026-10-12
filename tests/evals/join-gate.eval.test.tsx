@@ -19,6 +19,7 @@ import {
 } from "@/features/campus/testing/media-session-test-utils";
 import {
   activeCampusLayout,
+  createActiveCampusTestStore,
   mediaSessionLayout,
 } from "@/tests/fixtures/active-campus-layout";
 
@@ -44,6 +45,7 @@ const MEDIA_UI = /\b(?:VisualsDisplay|ActiveCampus)\b/;
 const MEDIA_SESSION_PROVIDER = /\bCampusMediaSessionProvider\b/;
 
 const params = Promise.resolve({ id: "c-1" });
+let activeStore: ReturnType<typeof createActiveCampusTestStore> | undefined;
 
 function routeModules(): string[] {
   return readdirSync(path.join(PROJECT_ROOT, "app"), {
@@ -65,6 +67,8 @@ function routeModulesMatching(pattern: RegExp): string[] {
 }
 
 afterEach(() => {
+  activeStore?.getState().stop();
+  activeStore = undefined;
   window.localStorage.clear();
   vi.unstubAllGlobals();
 });
@@ -74,9 +78,13 @@ describe("Join Gate media session", () => {
     installTestMediaDevices([
       createTestMediaDevice("camera-1", "videoinput", "Studio Camera"),
     ]);
+    const store = createActiveCampusTestStore();
+    activeStore = store;
+    await store.getState().start();
     const { rerender } = render(
       await mediaSessionLayout(
         await JoinPage({ params, searchParams: Promise.resolve({}) }),
+        store,
       ),
     );
 
@@ -86,8 +94,11 @@ describe("Join Gate media session", () => {
         screen.getByRole("button", { name: "Turn off camera" }),
       ).toHaveAttribute("aria-pressed", "true");
     });
+    fireEvent.click(screen.getByRole("button", { name: "Join" }));
 
-    rerender(await activeCampusLayout(await ActiveCampusPage({ params })));
+    rerender(
+      await activeCampusLayout(await ActiveCampusPage({ params }), store),
+    );
 
     const controls = screen.getByRole("complementary", {
       name: "Campus controls",

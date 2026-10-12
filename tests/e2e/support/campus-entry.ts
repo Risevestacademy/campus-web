@@ -9,13 +9,13 @@ export function preJoinUrl(activePath: string): string {
   return `/campus/${cohortSegment}/join?${search.toString()}`;
 }
 
-export function joinLink(page: Page) {
-  return page.getByRole("link", { name: "Join", exact: true });
+export function joinButton(page: Page) {
+  return page.getByRole("button", { name: "Join", exact: true });
 }
 
 // Enter through the preparation route, then soft-navigate with Join.
 export async function enterCampus(page: Page, activePath: string) {
   await page.goto(preJoinUrl(activePath));
-  await joinLink(page).click();
+  await joinButton(page).click();
   await expect(page).toHaveURL(activePath);
 }

@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 
-import { joinLink, preJoinUrl } from "./support/campus-entry";
+import { joinButton, preJoinUrl } from "./support/campus-entry";
 import { membership, sessions, signIn, test } from "./support/fake-api-fixture";
 import { installSanityMapStub } from "./support/sanity-stub";
 
@@ -42,7 +42,7 @@ test("a camera turned on at pre-join is still on inside the campus", async ({
     page.getByRole("button", { name: "Turn off camera" }),
   ).toHaveAttribute("aria-pressed", "true");
 
-  await joinLink(page).click();
+  await joinButton(page).click();
 
   await expect(page).toHaveURL(CAMPUS);
   await expect(

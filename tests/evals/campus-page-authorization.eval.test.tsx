@@ -27,6 +27,7 @@ vi.mock("@/features/auth", () => ({
   SessionUnavailable: () => <p role="alert">Route access unavailable</p>,
 }));
 vi.mock("@/features/campus", () => ({
+  CampusJoinButton: () => null,
   CampusMediaSessionProvider: ({ children }: { children: ReactNode }) =>
     children,
   CohortChooser: () => null,

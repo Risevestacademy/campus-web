@@ -1,21 +1,13 @@
 import type { Route } from "next";
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import {
-  campusHref,
-  campusJoinHref,
-  campusPreJoinHref,
-  hasCampusPreJoinCompletion,
-  removeCampusPreJoinCompletion,
-  withCampusPreJoinCompletion,
-} from "./campus-routes";
+import { campusHref, campusJoinHref, campusPreJoinHref } from "./campus-routes";
 
 describe("Campus routes", () => {
   it("returns typed routes so callers never cast", () => {
     expectTypeOf(campusHref).returns.toEqualTypeOf<Route>();
     expectTypeOf(campusJoinHref).returns.toEqualTypeOf<Route>();
     expectTypeOf(campusPreJoinHref).returns.toEqualTypeOf<Route>();
-    expectTypeOf(withCampusPreJoinCompletion).returns.toEqualTypeOf<Route>();
   });
 
   it.each([
@@ -36,35 +28,11 @@ describe("Campus routes", () => {
     expect(campusJoinHref(cohortId)).toBe(join);
   });
 
-  it("marks a prepared active-campus destination", () => {
-    expect(withCampusPreJoinCompletion("/campus/c-1/meeting?tab=people")).toBe(
-      "/campus/c-1/meeting?tab=people&prejoin=complete",
-    );
-  });
-
-  it.each([
-    ["the exact marker", "prejoin=complete", true],
-    ["a missing marker", "tab=people", false],
-    ["another marker value", "prejoin=pending", false],
-  ])("recognizes %s", (_, search, expected) => {
-    expect(hasCampusPreJoinCompletion(new URLSearchParams(search))).toBe(
-      expected,
-    );
-  });
-
-  it("removes only the transient marker", () => {
-    expect(
-      removeCampusPreJoinCompletion(
-        "/campus/c-1/meeting?prejoin=complete&tab=people",
-      ),
-    ).toBe("/campus/c-1/meeting?tab=people");
-  });
-
   it("sends an unmarked deep link through its cohort pre-join route", () => {
     expect(
       campusPreJoinHref(
         "c-1",
-        "/campus/c-1/meeting?tab=people&prejoin=pending",
+        "/campus/c-1/meeting?tab=people&prejoin=complete",
       ),
     ).toBe(
       "/campus/c-1/join?returnTo=%2Fcampus%2Fc-1%2Fmeeting%3Ftab%3Dpeople",

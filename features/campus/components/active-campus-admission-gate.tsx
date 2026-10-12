@@ -3,12 +3,10 @@
 import { redirect, usePathname, useSearchParams } from "next/navigation";
 import { type ReactNode, useState } from "react";
 
-import {
-  campusPreJoinHref,
-  hasCampusPreJoinCompletion,
-  removeCampusPreJoinCompletion,
-} from "@/core/navigation";
+import { campusPreJoinHref } from "@/core/navigation";
 import { useMountEffect } from "@/shared/lib/use-mount-effect";
+
+import { useMediaSession } from "../services/media-session/media-session-provider";
 
 interface ActiveCampusAdmissionGateProps {
   children: ReactNode;
@@ -26,24 +24,23 @@ export function ActiveCampusAdmissionGate({
 }: ActiveCampusAdmissionGateProps) {
   const pathname = usePathname();
   const searchParameters = useSearchParams();
+  const pendingDestination = useMediaSession(
+    (state) => state.pendingActiveCampusDestination,
+  );
+  const clearActiveCampusEntry = useMediaSession(
+    (state) => state.clearActiveCampusEntry,
+  );
   const [initialRequest] = useState(() => ({
-    admitted: hasCampusPreJoinCompletion(searchParameters),
     href: relativeHref(pathname, searchParameters.toString()),
+    pendingDestination,
   }));
+  const admitted = initialRequest.href === initialRequest.pendingDestination;
 
   useMountEffect(() => {
-    if (!initialRequest.admitted) return;
-
-    const { hash, pathname: currentPathname, search } = window.location;
-    const currentHref = relativeHref(currentPathname, search, hash);
-    const cleanHref = removeCampusPreJoinCompletion(currentHref);
-
-    if (currentHref !== cleanHref) {
-      window.history.replaceState(window.history.state, "", cleanHref);
-    }
+    if (admitted) clearActiveCampusEntry(initialRequest.href);
   });
 
-  if (!initialRequest.admitted) {
+  if (!admitted) {
     redirect(campusPreJoinHref(cohortId, initialRequest.href));
   }
 

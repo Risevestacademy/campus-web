@@ -86,11 +86,13 @@ layout and its page in parallel, and keeps layouts across soft navigation.
   the exit from every failed state, which is what prevents redirect loops.
 - Every redirect target goes through `normalizeReturnTo` /
   `normalizeCohortReturnTo`.
-- Cohort-selection links target `/campus/{id}/join`; Join marks its validated
-  active-campus destination as having completed pre-join.
+- Cohort-selection links target `/campus/{id}/join`; Join grants its validated
+  active-campus destination in the route-scoped media session before client
+  navigation.
 - Pre-join is preparation, not authorization. Direct active-campus URLs are
-  checked by `CohortGate` / `requireRouteAccess` first, then unmarked requests
-  return through pre-join. The transient marker never grants cohort access.
+  checked by `CohortGate` / `requireRouteAccess` first, then requests without an
+  exact pending destination return through pre-join. The client grant never
+  grants cohort access.
 - Client modules import auth siblings directly, never `index.ts` (it
   re-exports server-only modules).
 - Other features never import auth; routes pass `AccountMenu` and gates in.

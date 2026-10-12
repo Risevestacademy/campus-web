@@ -7,5 +7,9 @@ export function usePathname(): string {
 }
 
 export function useSearchParams(): URLSearchParams {
-  return new URLSearchParams("prejoin=complete");
+  return new URLSearchParams();
+}
+
+export function useRouter() {
+  return { push() {} };
 }

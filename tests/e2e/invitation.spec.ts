@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
-import { joinLink, preJoinUrl } from "./support/campus-entry";
+import { joinButton, preJoinUrl } from "./support/campus-entry";
 import {
   INVITE_ID,
   invites,
@@ -104,7 +104,7 @@ test.describe("accepting an invitation", () => {
     await goToCampus(page).click();
 
     await expect(page).toHaveURL(preJoinUrl("/campus/c-3"));
-    await expect(joinLink(page)).toBeVisible();
+    await expect(joinButton(page)).toBeVisible();
     const posts = await fakeApi.decisionPosts();
     expect(posts.map(({ body }) => JSON.parse(body))).toEqual([
       { decision: "accept", inviteId: INVITE_ID },

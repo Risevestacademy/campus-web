@@ -1,8 +1,1 @@
-export {
-  campusHref,
-  campusJoinHref,
-  campusPreJoinHref,
-  hasCampusPreJoinCompletion,
-  removeCampusPreJoinCompletion,
-  withCampusPreJoinCompletion,
-} from "./campus-routes";
+export { campusHref, campusJoinHref, campusPreJoinHref } from "./campus-routes";

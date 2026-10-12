@@ -14,7 +14,9 @@ export default async function MediaSessionLayout({
 
   return (
     <CohortGate cohortId={id}>
-      <CampusMediaSessionProvider>{children}</CampusMediaSessionProvider>
+      <CampusMediaSessionProvider key={id}>
+        {children}
+      </CampusMediaSessionProvider>
     </CohortGate>
   );
 }
