@@ -35,7 +35,7 @@ must not create substitute domain state. Meeting layout and sidebar-opening
 transitions belong to `CampusViewProvider`, whose intent actions preserve the
 rule that an expanded meeting and open sidebar cannot coexist.
 
-Routes pass Auth-, Admin-, and Roster-owned UI in as props, because Campus may
+Routes pass Auth-, Admin-, Feedback-, and Roster-owned UI in as props, because Campus may
 not import those features.
 
 ## Modules
@@ -43,8 +43,9 @@ not import those features.
 | Module                                                       | Owns                                                                                        | Seam                                    |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | --------------------------------------- |
 | `components/cohort-chooser.tsx`, `cohort-card.tsx`, `types/` | member Cohort selection from session memberships                                            | none                                    |
-| `components/campus-shell/`                                   | rail, sidebar, panel switching, collapse                                                    | none                                    |
+| `components/campus-shell/`                                   | rail, sidebar, panel switching, collapse, and the layer that places the Feedback popup      | none                                    |
 | `store/`, `hooks/use-sidebar-state.ts`                       | sidebar open, panel, and mode, persisted in `localStorage`                                  | `localStorage`                          |
+| `store/feedback-panel-store.ts`                              | whether the Feedback popup is open (not persisted)                                          | none                                    |
 | `components/` (media UI)                                     | `ActiveCampus`, control bar, media toggles and settings, meeting header, tiles, view switch | `useMediaSession`, `CampusViewProvider` |
 | `services/media-session/`                                    | capture, devices, publications ([README](services/media-session/README.md))                 | `MeetingMediaTransport`                 |
 | `testing/`                                                   | media session test utilities                                                                | none                                    |

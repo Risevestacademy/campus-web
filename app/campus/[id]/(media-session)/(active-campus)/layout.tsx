@@ -13,6 +13,7 @@ import {
   CampusShell,
   SidebarCollapseButton,
 } from "@/features/campus";
+import { FeedbackPopup } from "@/features/feedback";
 import { CampusOverviewPanel } from "@/features/roster";
 
 const PLACEHOLDER_ACTIVE_CAMPUS_VIEW_MODEL = {
@@ -62,8 +63,10 @@ export default async function ActiveCampusLayout({
             />
           ) : undefined
         }
+        FeedbackPopup={FeedbackPopup}
         OverviewPanel={CampusOverviewPanel}
         cohortId={id}
+        userName={access.session.user.displayName}
       >
         <ActiveCampus viewModel={PLACEHOLDER_ACTIVE_CAMPUS_VIEW_MODEL}>
           {children}
