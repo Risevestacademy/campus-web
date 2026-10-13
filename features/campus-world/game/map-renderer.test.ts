@@ -31,4 +31,17 @@ describe("addMapBand", () => {
     band.drawFrame();
     expect(band.drawSprite).toHaveBeenCalledTimes(4);
   });
+
+  it("draws a tall tile whose base cell is below the viewport", () => {
+    const band = addFakeBand(
+      [squareLayer([0, 0, 0, 0, 0, 0, 1, 0, 0])],
+      [{ ...tilesets[0]!, tileheight: 46 }],
+      {
+        camera: { x: 8, y: 8 },
+        viewport: { height: 16, width: 16 },
+      },
+    );
+
+    expect(band.drawFrame()).toEqual(["grounds"]);
+  });
 });

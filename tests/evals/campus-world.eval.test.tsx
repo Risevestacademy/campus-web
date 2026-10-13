@@ -120,6 +120,7 @@ interface LifecycleWorld {
 interface Lifecycle {
   act: (world: LifecycleWorld) => Promise<void>;
   failFirstUpload: boolean;
+  kaplayStarts: number;
   name: string;
   readyStarts: number;
 }
@@ -128,6 +129,7 @@ const lifecycles: Lifecycle[] = [
   {
     act: async () => undefined,
     failFirstUpload: false,
+    kaplayStarts: 1,
     name: "a Strict Mode mount",
     readyStarts: 1,
   },
@@ -137,6 +139,7 @@ const lifecycles: Lifecycle[] = [
       await expectWorldReady();
     },
     failFirstUpload: false,
+    kaplayStarts: 1,
     name: "leaving and re-entering",
     readyStarts: 2,
   },
@@ -148,6 +151,7 @@ const lifecycles: Lifecycle[] = [
       await expectWorldReady();
     },
     failFirstUpload: true,
+    kaplayStarts: 2,
     name: "Try again after a failed sprite upload",
     readyStarts: 1,
   },
@@ -246,8 +250,8 @@ describe("Campus world eval (required threshold: 13/13)", () => {
   );
 
   it.each(lifecycles)(
-    "starts KAPLAY once and shows one map after $name",
-    async ({ act, failFirstUpload, readyStarts }) => {
+    "keeps exactly one live map after $name",
+    async ({ act, failFirstUpload, kaplayStarts, readyStarts }) => {
       const kaplay = fakeKaplay({ autoUpload: !failFirstUpload });
       const runtime = createCampusRuntime();
       const captureEvent = vi.fn();
@@ -269,8 +273,9 @@ describe("Campus world eval (required threshold: 13/13)", () => {
         },
       });
 
-      expect(kaplay.kaplay).toHaveBeenCalledOnce();
-      expect(kaplay.contexts[0]!.liveObjects()).toBe(2);
+      expect(kaplay.kaplay).toHaveBeenCalledTimes(kaplayStarts);
+      expect(kaplay.contexts).toHaveLength(kaplayStarts);
+      expect(kaplay.contexts.at(-1)!.liveObjects()).toBe(2);
       expect(
         captureEvent.mock.calls.filter(
           ([name]) => name === "campus_world.map_ready",

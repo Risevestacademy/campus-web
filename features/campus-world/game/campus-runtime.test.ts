@@ -193,25 +193,32 @@ describe("createCampusRuntime", () => {
     expect(kaplay.contexts[0]!.liveObjects()).toBe(2);
   });
 
-  it("uploads again from tileset URLs after an upload failed", async () => {
+  it("replaces the context after one sprite upload succeeds and another fails", async () => {
     const kaplay = fakeKaplay({ autoUpload: false });
     const runtime = createCampusRuntime();
-    const image = fakeImage();
-    const prepared = fakePreparedMap(kaplay.module, { images: [image] });
+    const images = [fakeImage(), fakeImage()];
+    const prepared = fakePreparedMap(kaplay.module, { images });
 
     const failed = runtime.start(container(), prepared, mountOptions());
-    kaplay.uploads[0]!.fail();
+    kaplay.uploads[0]!.finish();
+    kaplay.uploads[1]!.fail();
     await expect(failed).rejects.toThrow("The sprite upload failed.");
 
     const retried = runtime.start(container(), prepared, mountOptions());
-    kaplay.uploads[1]!.finish();
+    expect(kaplay.kaplay).toHaveBeenCalledTimes(2);
+    expect(kaplay.contexts[0]!.stopLoop).toHaveBeenCalledOnce();
+    expect(kaplay.contexts[0]!.k.loadSprite).toHaveBeenCalledTimes(2);
+    expect(kaplay.contexts[1]!.k.loadSprite).toHaveBeenCalledTimes(2);
+
+    kaplay.uploads.slice(2).forEach((upload) => upload.finish());
     await retried;
 
     expect(kaplay.uploads.map(({ source }) => source)).toEqual([
-      image,
+      ...images,
       "https://cdn.example/tileset-0.png",
+      "https://cdn.example/tileset-1.png",
     ]);
-    expect(image.close).toHaveBeenCalled();
+    images.forEach((image) => expect(image.close).toHaveBeenCalledOnce());
   });
 
   it("rejects a start whose first frame fails", async () => {

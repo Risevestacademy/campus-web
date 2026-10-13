@@ -3,6 +3,7 @@ import type { DrawSpriteOpt, GameObj, KAPLAYCtx } from "kaplay";
 import { buildBandDrawList } from "../services/map/band-draw-list";
 import type { TiledTileLayer } from "../services/map/layer-bands";
 import type { CampusTiledMap } from "../services/map/load-campus-map";
+import { createTileViewportCuller } from "../services/viewport-culling";
 
 export interface RenderTileset {
   firstgid: number;
@@ -17,25 +18,6 @@ export interface RenderTileset {
 interface LayerSprites {
   cells: Array<DrawSpriteOpt | undefined>;
   width: number;
-}
-
-function visibleTileBounds(k: KAPLAYCtx, map: CampusTiledMap) {
-  const camera = k.getCamPos();
-  const halfWidth = k.width() / 2;
-  const halfHeight = k.height() / 2;
-
-  return {
-    bottom: Math.min(
-      map.height - 1,
-      Math.ceil((camera.y + halfHeight) / map.tileheight),
-    ),
-    left: Math.max(0, Math.floor((camera.x - halfWidth) / map.tilewidth)),
-    right: Math.min(
-      map.width - 1,
-      Math.ceil((camera.x + halfWidth) / map.tilewidth),
-    ),
-    top: Math.max(0, Math.floor((camera.y - halfHeight) / map.tileheight)),
-  };
 }
 
 function layerSprites(
@@ -75,12 +57,19 @@ export function addMapBand(
   { layer, layers, map, onDraw, tilesets }: MapBand,
 ): GameObj {
   const sprites = layerSprites(k, map, layers, tilesets);
+  const visibleBounds = createTileViewportCuller({ layers, map, tilesets });
 
   return k.add([
     k.layer(layer),
     {
       draw() {
-        const bounds = visibleTileBounds(k, map);
+        const camera = k.getCamPos();
+        const bounds = visibleBounds({
+          height: k.height(),
+          width: k.width(),
+          x: camera.x,
+          y: camera.y,
+        });
 
         for (const { cells, width } of sprites) {
           for (let row = bounds.top; row <= bounds.bottom; row += 1) {

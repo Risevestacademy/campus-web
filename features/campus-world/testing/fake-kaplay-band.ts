@@ -7,6 +7,11 @@ import type { CampusTiledMap } from "../services/map/load-campus-map";
 
 const TILE = 16;
 
+interface FakeBandOptions {
+  camera?: { x: number; y: number };
+  viewport?: { height: number; width: number };
+}
+
 export function renderTilesets(names: string[]): RenderTileset[] {
   return names.map((name, index) => ({
     firstgid: index * 10 + 1,
@@ -26,8 +31,15 @@ export function squareLayer(data: number[]): TiledTileLayer {
 export function addFakeBand(
   layers: TiledTileLayer[],
   tilesets: RenderTileset[],
+  options: FakeBandOptions = {},
 ) {
   const side = layers[0]?.width ?? 1;
+  const mapSize = side * TILE;
+  const camera = options.camera ?? { x: mapSize / 2, y: mapSize / 2 };
+  const viewport = options.viewport ?? {
+    height: mapSize,
+    width: mapSize,
+  };
   const drawn: string[] = [];
   let draw: (() => void) | undefined;
   const drawSprite = vi.fn((options: { sprite: string }) => {
@@ -38,11 +50,11 @@ export function addFakeBand(
       draw = components.find((component) => component.draw)?.draw;
     },
     drawSprite,
-    getCamPos: () => ({ x: (side * TILE) / 2, y: (side * TILE) / 2 }),
-    height: () => side * TILE,
+    getCamPos: () => camera,
+    height: () => viewport.height,
     layer: (name: string) => ({ name }),
     vec2: (x: number, y: number) => ({ x, y }),
-    width: () => side * TILE,
+    width: () => viewport.width,
   } as unknown as KAPLAYCtx;
   const map: CampusTiledMap = {
     height: side,

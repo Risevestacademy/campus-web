@@ -24,8 +24,8 @@ then to `ready` after first draw or recoverable `failed`.
 A prepared map is render-ready while its tileset images are decoded or the
 runtime already holds that map version's sprites. Active Campus consumes the
 decoded images on first entry, so a repeat entry reveals Join at once. Only a
-render failure, which discards the runtime's sprites, makes the gate prepare
-the map again.
+render or sprite-upload failure discards the runtime's sprites and makes the
+gate prepare the map again.
 
 Analytics: `campus_world.map_loaded` carries preparation time (`load_ms`);
 `campus_world.map_ready` carries the time from game start to the first drawn
@@ -64,8 +64,8 @@ barrel; other features do not import its internals.
   globals, so a second context breaks the first and logs `KAPLAY already
 initialized`. The runtime moves its one canvas between containers, clears
   the previous mount's map, and uploads each map version once (KAPLAY's
-  texture packer never frees a re-upload). Only a render failure replaces the
-  context.
+  texture packer never frees a re-upload). A render error or rejected
+  sprite-upload batch replaces the context before retry.
 - Mount through the React callback ref; cleanup calls the game's `stop()`.
 - Atomically take every decoded image before the first sprite-upload await,
   upload every tileset in parallel, then close each image after KAPLAY
@@ -75,9 +75,9 @@ initialized`. The runtime moves its one canvas between containers, clears
   images during commit, before the observer subscribes.
 - Keep per-frame work in `game/`, not React state. React observes only
   lifecycle changes through `useSyncExternalStore`.
-- Resolve tiles once through `buildBandDrawList`; a frame only walks visible
-  cells layer by layer. Never iterate by tileset: layers that mix tilesets
-  then draw out of order.
+- Resolve tiles once through `buildBandDrawList`; a frame only walks cells
+  whose rendered tiles can reach the viewport, layer by layer. Never iterate
+  by tileset: layers that mix tilesets then draw out of order.
 - Preserve the `avatars` tile layer as the below/above split marker. Hidden
   layers do not draw; without a marker every visible tile layer draws below.
 - Use injected fetch and public Sanity configuration. Do not add a Sanity

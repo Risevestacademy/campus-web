@@ -157,7 +157,10 @@ export function createCampusRuntime(
     runtimeContext.sprites.set(key, upload);
     void upload.then(
       () => runtimeContext.heldMaps.add(key),
-      () => runtimeContext.sprites.delete(key),
+      () => {
+        runtimeContext.broken = true;
+        runtimeContext.sprites.delete(key);
+      },
     );
     return upload;
   }
