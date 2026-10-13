@@ -1,0 +1,31 @@
+name: Railway apply
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - ".railway/**"
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+jobs:
+  apply:
+    name: apply (${{ github.ref_name == 'main' && 'production' || 'staging' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: ${{ github.ref_name == 'main' && 'campus-by-rise / production' || 'campus-by-rise / staging' }}
+      deployment: false
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: railwayapp/config@v1
+        with:
+          command: apply
+          railway-token: ${{ secrets.RAILWAY_TOKEN }}
+          cli-version: 5.66.0
+          confirm-destructive: false

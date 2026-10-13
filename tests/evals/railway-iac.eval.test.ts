@@ -1,24 +1,15 @@
 // @vitest-environment node
 
-import type {
-  ProjectDefinition,
-  RailwayProgram,
-  ServiceNode,
-} from "railway/iac";
+import type { ProjectDefinition, ServiceNode } from "railway/iac";
 import { createRailwayContext, project } from "railway/iac";
 import { describe, expect, it } from "vitest";
 
-import stagingDefinition, {
-  partial as stagingPartial,
-} from "../../.railway/railway";
-import productionDefinition, {
-  partial as productionPartial,
-} from "../../.railway/railway.production";
+import railwayDefinition, { partial } from "../../.railway/railway";
 
 async function evaluateRailwayDefinition(
-  definition: RailwayProgram,
+  environment: string,
 ): Promise<ProjectDefinition> {
-  return definition(createRailwayContext(), project);
+  return railwayDefinition(createRailwayContext({ environment }), project);
 }
 
 function findService(
@@ -51,17 +42,14 @@ const campusWebBaseVariables = {
   NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: { type: "preserve" },
 };
 
-describe("Railway IaC eval (required threshold: 7/7)", () => {
+describe("Railway IaC eval (required threshold: 8/8)", () => {
   it("owns only the two frontend services through one stable partial", async () => {
     const definitions = await Promise.all([
-      evaluateRailwayDefinition(stagingDefinition),
-      evaluateRailwayDefinition(productionDefinition),
+      evaluateRailwayDefinition("staging"),
+      evaluateRailwayDefinition("production"),
     ]);
 
-    expect([stagingPartial, productionPartial]).toEqual([
-      "campus-frontends",
-      "campus-frontends",
-    ]);
+    expect(partial).toBe("campus-frontends");
     for (const definition of definitions) {
       expect(definition.name).toBe("campus-by-rise");
       expect(
@@ -74,8 +62,8 @@ describe("Railway IaC eval (required threshold: 7/7)", () => {
   });
 
   it("pins each environment to its required GitHub source", async () => {
-    const staging = await evaluateRailwayDefinition(stagingDefinition);
-    const production = await evaluateRailwayDefinition(productionDefinition);
+    const staging = await evaluateRailwayDefinition("staging");
+    const production = await evaluateRailwayDefinition("production");
     const stagingSource = {
       branch: "dev",
       checkSuites: true,
@@ -103,8 +91,8 @@ describe("Railway IaC eval (required threshold: 7/7)", () => {
 
   it("routes both environments to their environment-local campus-api service", async () => {
     const definitions = await Promise.all([
-      evaluateRailwayDefinition(stagingDefinition),
-      evaluateRailwayDefinition(productionDefinition),
+      evaluateRailwayDefinition("staging"),
+      evaluateRailwayDefinition("production"),
     ]);
 
     for (const definition of definitions) {
@@ -116,8 +104,8 @@ describe("Railway IaC eval (required threshold: 7/7)", () => {
 
   it("keeps application variables out of campus-storybook", async () => {
     const definitions = await Promise.all([
-      evaluateRailwayDefinition(stagingDefinition),
-      evaluateRailwayDefinition(productionDefinition),
+      evaluateRailwayDefinition("staging"),
+      evaluateRailwayDefinition("production"),
     ]);
 
     for (const definition of definitions) {
@@ -132,8 +120,8 @@ describe("Railway IaC eval (required threshold: 7/7)", () => {
 
   it("renders the imported build and watch settings in both environments", async () => {
     const definitions = await Promise.all([
-      evaluateRailwayDefinition(stagingDefinition),
-      evaluateRailwayDefinition(productionDefinition),
+      evaluateRailwayDefinition("staging"),
+      evaluateRailwayDefinition("production"),
     ]);
     const expectedStorybookBuild = {
       buildCommand: "pnpm storybook:build",
@@ -188,7 +176,7 @@ describe("Railway IaC eval (required threshold: 7/7)", () => {
   });
 
   it("lets staging frontends sleep when idle, serving production builds that cannot keep themselves awake", async () => {
-    const staging = await evaluateRailwayDefinition(stagingDefinition);
+    const staging = await evaluateRailwayDefinition("staging");
 
     expect(findService(staging, "campus-storybook").deploy).toEqual({
       ...alwaysOnRegions,
@@ -208,7 +196,7 @@ describe("Railway IaC eval (required threshold: 7/7)", () => {
   });
 
   it("keeps production frontends always-on and byte-identical to the imported configuration", async () => {
-    const production = await evaluateRailwayDefinition(productionDefinition);
+    const production = await evaluateRailwayDefinition("production");
 
     expect(findService(production, "campus-storybook").deploy).toEqual({
       ...alwaysOnRegions,
@@ -219,6 +207,12 @@ describe("Railway IaC eval (required threshold: 7/7)", () => {
     );
     expect(findService(production, "campus-web").variables).toEqual(
       campusWebBaseVariables,
+    );
+  });
+
+  it("fails closed when the target Railway environment is unsupported", async () => {
+    await expect(evaluateRailwayDefinition("preview")).rejects.toThrow(
+      "Unsupported Railway environment: preview",
     );
   });
 });
