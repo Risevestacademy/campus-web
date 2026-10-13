@@ -20,7 +20,7 @@ const mockApi = await vi.hoisted(async () => {
   return startMockApi();
 });
 
-const navigation = vi.hoisted(() => ({ replace: vi.fn() }));
+const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 vi.mock("server-only", () => ({}));
@@ -43,12 +43,14 @@ async function refreshFrom(returnTo: string | string[] | undefined) {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(0);
   });
-  return navigation.replace.mock.calls;
+  expect(navigation.refresh).toHaveBeenCalledOnce();
+  return `${window.location.pathname}${window.location.search}`;
 }
 
 beforeEach(() => {
   vi.useFakeTimers();
-  navigation.replace.mockReset();
+  navigation.refresh.mockReset();
+  window.history.replaceState(null, "", "/");
 });
 
 afterEach(() => {
@@ -62,15 +64,15 @@ afterAll(() => {
 
 describe("SessionRefreshPage", () => {
   it("returns to the requested Campus deep link", async () => {
-    await expect(refreshFrom("/campus/42/rooms?seat=3")).resolves.toEqual([
-      ["/campus/42/rooms?seat=3"],
-    ]);
+    await expect(refreshFrom("/campus/42/rooms?seat=3")).resolves.toBe(
+      "/campus/42/rooms?seat=3",
+    );
   });
 
   it.each(["/invitation", "/preview"])(
     "returns to the invitation page %s the refresh started from",
     async (returnTo) => {
-      await expect(refreshFrom(returnTo)).resolves.toEqual([[returnTo]]);
+      await expect(refreshFrom(returnTo)).resolves.toBe(returnTo);
     },
   );
 
@@ -79,12 +81,12 @@ describe("SessionRefreshPage", () => {
     ["a destination outside Campus and the invitation", "/sign-in"],
     ["a missing destination", undefined],
   ])("returns to the campus index for %s", async (_, returnTo) => {
-    await expect(refreshFrom(returnTo)).resolves.toEqual([["/campus"]]);
+    await expect(refreshFrom(returnTo)).resolves.toBe("/campus");
   });
 
   it("uses the first destination when several are supplied", async () => {
     await expect(
       refreshFrom(["/campus/42", "//attacker.example/campus"]),
-    ).resolves.toEqual([["/campus/42"]]);
+    ).resolves.toBe("/campus/42");
   });
 });

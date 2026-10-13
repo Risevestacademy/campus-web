@@ -87,8 +87,11 @@ layout and its page in parallel, and keeps layouts across soft navigation.
 - Every redirect target goes through `normalizeReturnTo` /
   `normalizeCohortReturnTo`.
 - Cohort-selection links target `/campus/{id}/join`; Join grants its validated
-  active-campus destination in the route-scoped media session before client
-  navigation.
+  active-campus destination in the document-scoped admission store before
+  client navigation.
+- Session refresh shares one in-flight rotating-token request across soft-route
+  remounts. On success it replaces the native history URL and refreshes that
+  route's server tree, avoiding a stale middleware-redirect target.
 - Pre-join is preparation, not authorization. Direct active-campus URLs are
   checked by `CohortGate` / `requireRouteAccess` first, then requests without an
   exact pending destination return through pre-join. The client grant never

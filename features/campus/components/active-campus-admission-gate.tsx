@@ -6,7 +6,7 @@ import { type ReactNode, useState } from "react";
 import { campusPreJoinHref } from "@/core/navigation";
 import { useMountEffect } from "@/shared/lib/use-mount-effect";
 
-import { useMediaSession } from "../services/media-session/media-session-provider";
+import { useCampusAdmission } from "../services/admission/campus-admission-provider";
 
 interface ActiveCampusAdmissionGateProps {
   children: ReactNode;
@@ -24,20 +24,29 @@ export function ActiveCampusAdmissionGate({
 }: ActiveCampusAdmissionGateProps) {
   const pathname = usePathname();
   const searchParameters = useSearchParams();
-  const pendingDestination = useMediaSession(
+  const admittedCohortId = useCampusAdmission(
+    (state) => state.admittedCohortId,
+  );
+  const pendingDestination = useCampusAdmission(
     (state) => state.pendingActiveCampusDestination,
   );
-  const clearActiveCampusEntry = useMediaSession(
-    (state) => state.clearActiveCampusEntry,
+  const completeActiveCampusEntry = useCampusAdmission(
+    (state) => state.completeActiveCampusEntry,
   );
   const [initialRequest] = useState(() => ({
+    admittedCohortId,
     href: relativeHref(pathname, searchParameters.toString()),
     pendingDestination,
   }));
-  const admitted = initialRequest.href === initialRequest.pendingDestination;
+  const hasExactGrant =
+    initialRequest.href === initialRequest.pendingDestination;
+  const admitted =
+    initialRequest.admittedCohortId === cohortId || hasExactGrant;
 
   useMountEffect(() => {
-    if (admitted) clearActiveCampusEntry(initialRequest.href);
+    if (hasExactGrant) {
+      completeActiveCampusEntry(cohortId, initialRequest.href);
+    }
   });
 
   if (!admitted) {

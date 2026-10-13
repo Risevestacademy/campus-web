@@ -9,6 +9,7 @@ export { CohortChooser } from "./components/cohort-chooser";
 export { VisualsDisplay } from "./components/visuals-display";
 
 // Services
+export { CampusAdmissionProvider } from "./services/admission/campus-admission-provider";
 export {
   CampusMediaSessionProvider,
   useMediaSession,

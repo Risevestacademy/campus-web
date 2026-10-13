@@ -136,29 +136,6 @@ describe("media session store", () => {
     window.localStorage.clear();
   });
 
-  it("grants one exact pending Active Campus destination", () => {
-    const store = createMediaSessionStore({ mediaDevices: null });
-
-    store.getState().grantActiveCampusEntry("/campus/c-1/meeting?tab=people");
-
-    expect(store.getState().pendingActiveCampusDestination).toBe(
-      "/campus/c-1/meeting?tab=people",
-    );
-  });
-
-  it("clears only the matching pending Active Campus destination", () => {
-    const store = createMediaSessionStore({ mediaDevices: null });
-    store.getState().grantActiveCampusEntry("/campus/c-1/meeting");
-
-    store.getState().clearActiveCampusEntry("/campus/c-1");
-    expect(store.getState().pendingActiveCampusDestination).toBe(
-      "/campus/c-1/meeting",
-    );
-
-    store.getState().clearActiveCampusEntry("/campus/c-1/meeting");
-    expect(store.getState().pendingActiveCampusDestination).toBeNull();
-  });
-
   it("starts with camera and microphone off when no preference is stored", async () => {
     const mediaDevices = createMediaDevices(async () => createStream());
     const store = createMediaSessionStore({

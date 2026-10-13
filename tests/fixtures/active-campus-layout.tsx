@@ -4,6 +4,11 @@ import type { StoreApi } from "zustand/vanilla";
 
 import ActiveCampusLayout from "@/app/campus/[id]/(media-session)/(active-campus)/layout";
 import MediaSessionLayout from "@/app/campus/[id]/(media-session)/layout";
+import { CampusAdmissionProvider } from "@/features/campus/services/admission/campus-admission-provider";
+import {
+  type CampusAdmissionStore,
+  createCampusAdmissionStore,
+} from "@/features/campus/services/admission/campus-admission-store";
 import { MediaSessionProvider } from "@/features/campus/services/media-session/media-session-provider";
 import {
   createMediaSessionStore,
@@ -23,28 +28,40 @@ export function createActiveCampusTestStore() {
   return createMediaSessionStore();
 }
 
-export function mediaSessionLayout(
+export function createActiveCampusAdmissionTestStore() {
+  return createCampusAdmissionStore();
+}
+
+export async function mediaSessionLayout(
   children: ReactNode,
   store?: StoreApi<MediaSessionState>,
+  admissionStore: CampusAdmissionStore = createActiveCampusAdmissionTestStore(),
 ) {
-  if (store)
-    return (
-      <MediaSessionProvider store={store}>{children}</MediaSessionProvider>
-    );
+  const mediaSession = store ? (
+    <MediaSessionProvider store={store}>{children}</MediaSessionProvider>
+  ) : (
+    await MediaSessionLayout({ children, params })
+  );
 
-  return MediaSessionLayout({ children, params });
+  return (
+    <CampusAdmissionProvider store={admissionStore}>
+      {mediaSession}
+    </CampusAdmissionProvider>
+  );
 }
 
 export async function activeCampusLayout(
   children: ReactNode = <div />,
   store = createActiveCampusTestStore(),
+  admissionStore = createActiveCampusAdmissionTestStore(),
 ) {
-  if (store.getState().pendingActiveCampusDestination === null) {
-    store.getState().grantActiveCampusEntry("/campus/c-1");
+  if (admissionStore.getState().pendingActiveCampusDestination === null) {
+    admissionStore.getState().grantActiveCampusEntry("/campus/c-1");
   }
 
   return mediaSessionLayout(
     await ActiveCampusLayout({ children, params }),
     store,
+    admissionStore,
   );
 }

@@ -29,7 +29,8 @@
   ],
   "files": [
     { "category": "root-proxy", "pattern": "proxy.ts" },
-    { "category": "root-layout", "pattern": "app/layout.tsx" }
+    { "category": "root-layout", "pattern": "app/layout.tsx" },
+    { "category": "app-providers", "pattern": "app/providers.tsx" }
   ],
   "dependencyRule": {
     "default": "disallow",
@@ -78,6 +79,14 @@
         }
       },
       {
+        "from": { "file": { "categories": ["app-providers"] } },
+        "allow": {
+          "to": {
+            "element": { "type": "feature", "fileInternalPath": "session.ts" }
+          }
+        }
+      },
+      {
         "from": { "file": { "categories": ["root-proxy"] } },
         "allow": {
           "to": {
@@ -89,7 +98,10 @@
         "from": { "file": { "categories": ["root-layout"] } },
         "allow": {
           "to": {
-            "element": { "type": "feature", "fileInternalPath": "document.ts" }
+            "element": {
+              "type": "feature",
+              "fileInternalPath": "document.ts"
+            }
           }
         }
       },

@@ -6,13 +6,13 @@ import { useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 
-import { useMediaSession } from "../services/media-session/media-session-provider";
+import { useCampusAdmission } from "../services/admission/campus-admission-provider";
 
 export function CampusJoinButton({
   destination,
 }: Readonly<{ destination: string }>) {
   const router = useRouter();
-  const grantActiveCampusEntry = useMediaSession(
+  const grantActiveCampusEntry = useCampusAdmission(
     (state) => state.grantActiveCampusEntry,
   );
   const [isJoining, setIsJoining] = useState(false);

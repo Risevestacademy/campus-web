@@ -496,6 +496,29 @@ test.describe("cohort pre-join", () => {
     await expect(joinButton(page)).toBeVisible();
   });
 
+  test("keeps admission through Administration and a session refresh", async ({
+    page,
+    context,
+    fakeApi,
+  }) => {
+    await fakeApi.scriptSession(sessions.admin());
+    await enterCampus(page, "/campus/c-3");
+
+    await page.getByRole("button", { name: "Administration" }).click();
+    await page.getByRole("link", { name: "Overview", exact: true }).click();
+    await expect(page).toHaveURL("/campus/c-3/overview");
+
+    await context.clearCookies({ name: "campus_session" });
+    await fakeApi.scriptRefresh(SUCCESS);
+    const refreshed = page.waitForResponse("**/api/v1/auth/refresh");
+    await page.getByRole("link", { name: "Campus overview" }).click();
+    expect((await refreshed).ok()).toBe(true);
+
+    await expect(page).toHaveURL("/campus/c-3");
+    await expect(campusMap(page)).toBeVisible();
+    await expect(joinButton(page)).toHaveCount(0);
+  });
+
   test("an explicit pre-join visit remains available after an active visit", async ({
     page,
   }) => {

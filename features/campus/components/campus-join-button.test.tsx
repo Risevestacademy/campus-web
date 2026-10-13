@@ -1,11 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MediaSessionProvider } from "../services/media-session/media-session-provider";
+import { CampusAdmissionProvider } from "../services/admission/campus-admission-provider";
 import {
-  createMediaSessionStore,
-  type MediaSessionState,
-} from "../services/media-session/media-session-store";
+  type CampusAdmissionState,
+  createCampusAdmissionStore,
+} from "../services/admission/campus-admission-store";
 import { CampusJoinButton } from "./campus-join-button";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn() }));
@@ -18,15 +18,15 @@ describe("CampusJoinButton", () => {
   beforeEach(() => navigation.push.mockClear());
 
   it("grants the exact destination before navigating and prevents another activation", () => {
-    const store = createMediaSessionStore({ mediaDevices: null });
-    const statesAtNavigation: MediaSessionState[] = [];
+    const store = createCampusAdmissionStore();
+    const statesAtNavigation: CampusAdmissionState[] = [];
     navigation.push.mockImplementation(() => {
       statesAtNavigation.push(store.getState());
     });
     render(
-      <MediaSessionProvider store={store}>
+      <CampusAdmissionProvider store={store}>
         <CampusJoinButton destination="/campus/c-1/meeting?tab=people" />
-      </MediaSessionProvider>,
+      </CampusAdmissionProvider>,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Join" }));

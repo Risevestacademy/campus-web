@@ -6,10 +6,11 @@ and the Active Campus media UI inside it. Admin catalogues and pages belong to
 
 ## Interface
 
-| Entry         | Imported by           | Exports                                                                                                                    |
-| ------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `index.ts`    | routes                | `CohortChooser`, `CampusShell`, `ActiveCampus`, `CampusMediaSessionProvider`, `VisualsDisplay`, `SidebarCollapseButton`, … |
-| `document.ts` | `app/layout.tsx` only | `sidebarInitializerScript` (sizes the sidebar before hydration)                                                            |
+| Entry         | Imported by           | Exports                                                                                                                      |
+| ------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `index.ts`    | routes                | `CohortChooser`, `CampusShell`, `ActiveCampus`, `CampusAdmissionProvider`, `CampusMediaSessionProvider`, `VisualsDisplay`, … |
+| `document.ts` | `app/layout.tsx` only | `sidebarInitializerScript` (sizes the sidebar before hydration)                                                              |
+| `session.ts`  | `app/providers.tsx`   | `CampusAdmissionProvider` without the rest of the Campus client graph                                                        |
 
 ```tsx
 <CampusShell
@@ -24,11 +25,13 @@ and the Active Campus media UI inside it. Admin catalogues and pages belong to
 ```
 
 `app/campus/[id]/(media-session)/layout.tsx` mounts `CampusMediaSessionProvider`
-above the Join Gate and Active Campus, so one session spans both.
-Join grants one exact pending destination in that session before navigating.
-`ActiveCampusAdmissionGate` admits and consumes only that exact destination,
-and sends every unmatched active route through pre-join after the route has
-authorized the cohort.
+above the Join Gate and Active Campus, so one media session spans both.
+`app/providers.tsx` mounts the separate `CampusAdmissionProvider` for Campus
+and session-refresh routes. Join grants one exact pending destination before
+navigating; the admission gate promotes an exact match to document-scoped
+cohort admission. Administration and session refresh navigation therefore
+preserve admission, while reloads and new tabs create a new document and
+return active routes through pre-join.
 
 The active-campus route supplies `ActiveCampusViewModel`. Its current value is
 an explicit placeholder until meeting and Presence reads exist; leaf media UI
@@ -48,6 +51,7 @@ not import those features.
 | `store/`, `hooks/use-sidebar-state.ts`                       | sidebar open, panel, and mode, persisted in `localStorage`                                  | `localStorage`                          |
 | `store/feedback-panel-store.ts`                              | whether the Feedback popup is open (not persisted)                                          | none                                    |
 | `components/` (media UI)                                     | `ActiveCampus`, control bar, media toggles and settings, meeting header, tiles, view switch | `useMediaSession`, `CampusViewProvider` |
+| `services/admission/`                                        | document-scoped Active Campus admission workflow                                            | `CampusAdmissionProvider`               |
 | `services/media-session/`                                    | capture, devices, publications ([README](services/media-session/README.md))                 | `MeetingMediaTransport`                 |
 | `testing/`                                                   | media session test utilities                                                                | none                                    |
 

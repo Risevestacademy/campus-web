@@ -19,6 +19,7 @@ import {
 } from "@/features/campus/testing/media-session-test-utils";
 import {
   activeCampusLayout,
+  createActiveCampusAdmissionTestStore,
   createActiveCampusTestStore,
   mediaSessionLayout,
 } from "@/tests/fixtures/active-campus-layout";
@@ -79,12 +80,14 @@ describe("Join Gate media session", () => {
       createTestMediaDevice("camera-1", "videoinput", "Studio Camera"),
     ]);
     const store = createActiveCampusTestStore();
+    const admissionStore = createActiveCampusAdmissionTestStore();
     activeStore = store;
     await store.getState().start();
     const { rerender } = render(
       await mediaSessionLayout(
         await JoinPage({ params, searchParams: Promise.resolve({}) }),
         store,
+        admissionStore,
       ),
     );
 
@@ -97,7 +100,11 @@ describe("Join Gate media session", () => {
     fireEvent.click(screen.getByRole("button", { name: "Join" }));
 
     rerender(
-      await activeCampusLayout(await ActiveCampusPage({ params }), store),
+      await activeCampusLayout(
+        await ActiveCampusPage({ params }),
+        store,
+        admissionStore,
+      ),
     );
 
     const controls = screen.getByRole("complementary", {

@@ -237,6 +237,41 @@ describe("createCampusRuntime", () => {
     expect(onRenderError).not.toHaveBeenCalled();
   });
 
+  it("rejects when KAPLAY fails before first-draw rejection is installed", async () => {
+    const kaplay = fakeKaplay({ autoDraw: false, autoUpload: false });
+    const runtime = createCampusRuntime();
+    const failure = new Error("The render loop failed during upload.");
+
+    const game = runtime.start(
+      container(),
+      fakePreparedMap(kaplay.module),
+      mountOptions(),
+    );
+    kaplay.contexts[0]!.failFrame(failure);
+    kaplay.uploads.forEach((upload) => upload.finish());
+
+    await expect(game).rejects.toThrow(failure.message);
+    expect(kaplay.contexts[0]!.liveObjects()).toBe(0);
+  });
+
+  it("removes its canvas when KAPLAY initialization throws", async () => {
+    const kaplay = fakeKaplay();
+    const element = container();
+    kaplay.kaplay.mockImplementationOnce(() => {
+      throw new Error("WebGL initialization failed.");
+    });
+
+    await expect(
+      createCampusRuntime().start(
+        element,
+        fakePreparedMap(kaplay.module),
+        mountOptions(),
+      ),
+    ).rejects.toThrow("WebGL initialization failed.");
+
+    expect(element.querySelector("canvas")).toBeNull();
+  });
+
   it("reports a render error after the first frame once", async () => {
     const kaplay = fakeKaplay();
     const onRenderError = vi.fn();

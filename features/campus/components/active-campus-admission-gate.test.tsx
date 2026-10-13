@@ -1,8 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MediaSessionProvider } from "../services/media-session/media-session-provider";
-import { createMediaSessionStore } from "../services/media-session/media-session-store";
+import { CampusAdmissionProvider } from "../services/admission/campus-admission-provider";
+import { createCampusAdmissionStore } from "../services/admission/campus-admission-store";
 import { ActiveCampusAdmissionGate } from "./active-campus-admission-gate";
 
 const navigation = vi.hoisted(() => ({
@@ -19,17 +19,15 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => navigation.searchParams,
 }));
 
-function admissionGate(
-  store = createMediaSessionStore({ mediaDevices: null }),
-) {
+function admissionGate(store = createCampusAdmissionStore()) {
   return {
     store,
     view: (
-      <MediaSessionProvider store={store}>
+      <CampusAdmissionProvider store={store}>
         <ActiveCampusAdmissionGate cohortId="c-1">
           <p>Active campus</p>
         </ActiveCampusAdmissionGate>
-      </MediaSessionProvider>
+      </CampusAdmissionProvider>
     ),
   };
 }
@@ -92,6 +90,7 @@ describe("ActiveCampusAdmissionGate", () => {
 
     expect(screen.getByText("Active campus")).toBeVisible();
     expect(store.getState().pendingActiveCampusDestination).toBeNull();
+    expect(store.getState().admittedCohortId).toBe("c-1");
   });
 
   it("rejects a mismatched destination without consuming it", () => {
@@ -112,6 +111,19 @@ describe("ActiveCampusAdmissionGate", () => {
 
     navigation.pathname = "/campus/c-1";
     rendered.rerender(view);
+
+    expect(screen.getByText("Active campus")).toBeVisible();
+    expect(navigation.redirect).not.toHaveBeenCalled();
+  });
+
+  it("keeps the cohort admitted when Active Campus remounts", () => {
+    const { store, view } = admissionGate();
+    store.getState().grantActiveCampusEntry("/campus/c-1/meeting");
+    const firstMount = render(view);
+    expect(store.getState().pendingActiveCampusDestination).toBeNull();
+    firstMount.unmount();
+
+    render(view);
 
     expect(screen.getByText("Active campus")).toBeVisible();
     expect(navigation.redirect).not.toHaveBeenCalled();

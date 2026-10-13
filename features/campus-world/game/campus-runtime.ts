@@ -39,10 +39,10 @@ interface RuntimeContext {
 
 interface Mount {
   bands: GameObj[];
-  failed: boolean;
   onRenderError: () => void;
   ready: boolean;
   rejectFirstDraw?: (error: Error) => void;
+  renderError?: Error;
   stopped: boolean;
 }
 
@@ -70,9 +70,9 @@ export function createCampusRuntime(
 
   function reportRenderError(error: Error) {
     const mount = active;
-    if (!mount || mount.failed) return;
+    if (!mount || mount.renderError) return;
 
-    mount.failed = true;
+    mount.renderError = error;
     if (mount.ready) {
       mount.onRenderError();
     } else {
@@ -88,16 +88,22 @@ export function createCampusRuntime(
     canvas.setAttribute("aria-hidden", "true");
     container.append(canvas);
 
-    const k = kaplayModule.default({
-      background: readBackground(),
-      canvas,
-      crisp: true,
-      debug: process.env.NODE_ENV !== "production",
-      focus: false,
-      global: false,
-      loadingScreen: false,
-      root: container,
-    });
+    let k: KAPLAYCtx;
+    try {
+      k = kaplayModule.default({
+        background: readBackground(),
+        canvas,
+        crisp: true,
+        debug: process.env.NODE_ENV !== "production",
+        focus: false,
+        global: false,
+        loadingScreen: false,
+        root: container,
+      });
+    } catch (error) {
+      canvas.remove();
+      throw error;
+    }
     canvas.tabIndex = -1;
     k.setLayers(["below", "avatars", "above"], "below");
 
@@ -171,19 +177,27 @@ export function createCampusRuntime(
     prepared: PreparedCampusMap,
     tilesets: RenderTileset[],
   ): Promise<void> {
-    const camera = spawnCamera(prepared.map, prepared.layout, {
-      height: k.height(),
-      width: k.width(),
-    });
-    k.setCamPos(k.vec2(camera.x, camera.y));
-
-    const band = { map: prepared.map, tilesets };
-    mount.bands.push(
-      addMapBand(k, { ...band, layer: "below", layers: prepared.bands.below }),
-    );
-
     return new Promise<void>((resolve, reject) => {
       mount.rejectFirstDraw = reject;
+      if (mount.renderError) {
+        reject(mount.renderError);
+        return;
+      }
+
+      const camera = spawnCamera(prepared.map, prepared.layout, {
+        height: k.height(),
+        width: k.width(),
+      });
+      k.setCamPos(k.vec2(camera.x, camera.y));
+
+      const band = { map: prepared.map, tilesets };
+      mount.bands.push(
+        addMapBand(k, {
+          ...band,
+          layer: "below",
+          layers: prepared.bands.below,
+        }),
+      );
       mount.bands.push(
         addMapBand(k, {
           ...band,
@@ -221,7 +235,6 @@ export function createCampusRuntime(
 
       const mount: Mount = {
         bands: [],
-        failed: false,
         onRenderError,
         ready: false,
         stopped: false,
@@ -237,6 +250,7 @@ export function createCampusRuntime(
         if (mount.stopped) throw stoppedError();
 
         await drawMap(runtimeContext.k, mount, prepared, tilesets);
+        if (mount.renderError) throw mount.renderError;
         mount.ready = true;
         return { stop: () => stop(mount) };
       } catch (error) {

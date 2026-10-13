@@ -51,13 +51,16 @@ Two other entry points exist, each enforced by
   Every client module reachable from an import in the root layout ships on
   every page, so the root layout may not import a feature's `index.ts`. Only
   `campus` has one today.
+- `session.ts`, for the small Campus admission provider used by the shared app
+  provider without pulling the complete Campus client graph into session
+  refresh.
 
 `package.json` marks every module except CSS as free of import-time side
 effects, so the bundler drops barrel exports a page does not use. Keep it
 true: a module must not need to be imported only for what it does at load.
 
 Client providers live with the routes that use them, not in the root layout:
-`app/providers.tsx` (query client and toasts) wraps `app/campus/layout.tsx`,
-`/preview` and `/session/refresh`; `ActiveCampus` owns its `TooltipProvider`.
-The root layout keeps only theme behaviour, so `/` and `/sign-in` ship none of
-it.
+`app/providers.tsx` (query client, admission, and toasts) wraps
+`app/campus/layout.tsx`, `/preview` and `/session/refresh`; `ActiveCampus` owns
+its `TooltipProvider`. Admission uses document-scoped memory so the provider
+can remount during session refresh without creating durable browser state.

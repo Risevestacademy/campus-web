@@ -43,16 +43,13 @@ type DeviceRequest = Readonly<{
 
 export type MediaSessionState = Readonly<{
   camera: CaptureSourceState;
-  clearActiveCampusEntry: (destination: string) => void;
   chooseAudioOutput: () => MediaActionFailure;
   deviceDiscoveryStatus: DeviceDiscoveryStatus;
-  grantActiveCampusEntry: (destination: string) => void;
   localPublications: Readonly<
     Partial<Record<PublicationSource, LocalMediaPublication>>
   >;
   microphone: CaptureSourceState;
   output: AudioOutputState;
-  pendingActiveCampusDestination: string | null;
   refreshDevices: () => Promise<void>;
   remotePublications: RemotePublicationRegistry;
   selectInputDevice: (
@@ -525,13 +522,6 @@ export function createMediaSessionStore(
 
     return {
       camera: createInitialCaptureState(false),
-      clearActiveCampusEntry(destination) {
-        set((state) =>
-          state.pendingActiveCampusDestination === destination
-            ? { pendingActiveCampusDestination: null }
-            : state,
-        );
-      },
       async chooseAudioOutput() {
         const selectableMediaDevices = mediaDevices as
           SelectableAudioOutputMediaDevices | undefined;
@@ -573,9 +563,6 @@ export function createMediaSessionStore(
         }
       },
       deviceDiscoveryStatus: "idle",
-      grantActiveCampusEntry(destination) {
-        set({ pendingActiveCampusDestination: destination });
-      },
       localPublications: {},
       microphone: createInitialCaptureState(false),
       output: {
@@ -587,7 +574,6 @@ export function createMediaSessionStore(
           : "unsupported",
         supportsSelection: supportsAudioOutputSelection(mediaDevices),
       },
-      pendingActiveCampusDestination: null,
       refreshDevices,
       remotePublications: {},
       async selectInputDevice(source, deviceId) {
@@ -686,7 +672,6 @@ export function createMediaSessionStore(
             false,
             devicePreferences.microphoneDeviceId,
           ),
-          pendingActiveCampusDestination: null,
           remotePublications: {},
         });
       },
