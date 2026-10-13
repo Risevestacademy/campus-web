@@ -34,4 +34,4 @@ jobs:
         with:
           command: plan
           railway-token: ${{ secrets.RAILWAY_TOKEN }}
-          cli-version: 5.66.0
+          cli-version: 5.63.1

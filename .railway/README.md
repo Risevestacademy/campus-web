@@ -30,6 +30,8 @@ Railway configuration and application deployment are separate operations:
   the pull request merges. A direct push without a saved plan fails closed.
 - Both jobs use `deployment: false`. They can read their GitHub environment's
   `RAILWAY_TOKEN` without creating misleading GitHub deployment records.
+- Both jobs pin Railway CLI `5.63.1`, the version verified with the
+  environment-scoped project token.
 - Destructive applies are disabled. Resource deletion requires a separately
   reviewed manual operation.
 - Railway's GitHub integration remains responsible for application builds and
@@ -94,6 +96,11 @@ IaC for every environment instead of maintaining it only in the dashboard.
 
 - `NEXT_PUBLIC_POSTHOG_HOST`
 - `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`
+
+It also preserves its Railway-managed Sanity configuration:
+
+- `NEXT_PUBLIC_SANITY_DATASET`
+- `NEXT_PUBLIC_SANITY_PROJECT_ID`
 
 In staging only, `campus-web` also owns:
 
