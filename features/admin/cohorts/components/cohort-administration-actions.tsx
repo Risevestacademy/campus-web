@@ -4,6 +4,7 @@ import { DotsThreeVerticalIcon } from "@phosphor-icons/react/dist/ssr/DotsThreeV
 import Link from "next/link";
 import { useState } from "react";
 
+import { campusPreJoinHref } from "@/core/navigation";
 import { Button } from "@/shared/ui/button";
 import {
   DropdownMenu,
@@ -12,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu";
 
+import { cohortAdministrationHref } from "../../cohort-administration-href";
 import type { CohortSummary } from "../types/cohort.types";
 import { DeleteCohortDialog } from "./delete-cohort-dialog";
 import { EditCohortDialog } from "./edit-cohort-dialog";
@@ -46,7 +48,12 @@ export function CohortAdministrationActions({
         >
           <DropdownMenuItem
             render={
-              <Link href={`/campus/${encodeURIComponent(cohort.id)}/tracks`} />
+              <Link
+                href={campusPreJoinHref(
+                  cohort.id,
+                  cohortAdministrationHref(cohort.id, "tracks"),
+                )}
+              />
             }
           >
             Programme Tracks

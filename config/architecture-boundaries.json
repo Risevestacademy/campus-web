@@ -29,8 +29,7 @@
   ],
   "files": [
     { "category": "root-proxy", "pattern": "proxy.ts" },
-    { "category": "root-layout", "pattern": "app/layout.tsx" },
-    { "category": "app-providers", "pattern": "app/providers.tsx" }
+    { "category": "root-layout", "pattern": "app/layout.tsx" }
   ],
   "dependencyRule": {
     "default": "disallow",
@@ -75,14 +74,6 @@
         "allow": {
           "to": {
             "element": { "type": "shared" }
-          }
-        }
-      },
-      {
-        "from": { "file": { "categories": ["app-providers"] } },
-        "allow": {
-          "to": {
-            "element": { "type": "feature", "fileInternalPath": "session.ts" }
           }
         }
       },

@@ -154,6 +154,16 @@ describe("normalizeCohortReturnTo", () => {
       "/campus/c-3/meeting?tab=people#row",
       "/campus/c-3/meeting?tab=people",
     ],
+    [
+      "the administration overview",
+      "/campus/c-3/overview",
+      "/campus/c-3/overview",
+    ],
+    [
+      "the Cohort Track administration",
+      "/campus/c-3/tracks?page=2",
+      "/campus/c-3/tracks?page=2",
+    ],
   ])("keeps %s", (_, value, expected) => {
     expect(normalizeCohortReturnTo("c-3", value)).toBe(expected);
   });
@@ -163,10 +173,7 @@ describe("normalizeCohortReturnTo", () => {
     ["another cohort", "/campus/c-4/meeting"],
     ["the cohort's pre-join screen", "/campus/c-3/join?returnTo=%2Fcampus"],
     ["an encoded pre-join segment", "/campus/c-3/%6Aoin"],
-    ["the administration overview route", "/campus/c-3/overview"],
-    ["an encoded overview segment", "/campus/c-3/%6Fverview"],
-    ["the Cohort Track administration route", "/campus/c-3/tracks"],
-    ["an encoded administration segment", "/campus/c-3/%74racks"],
+    ["an administration page of another cohort", "/campus/c-4/overview"],
     ["the campus index", "/campus"],
     ["an off-site URL", "https://attacker.example/campus/c-3"],
     ["a protocol-relative URL", "//attacker.example/campus/c-3"],

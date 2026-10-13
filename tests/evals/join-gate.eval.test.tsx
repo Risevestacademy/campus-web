@@ -11,18 +11,19 @@ import {
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import ActiveCampusPage from "@/app/campus/[id]/(media-session)/(active-campus)/page";
-import JoinPage from "@/app/campus/[id]/(media-session)/join/page";
+import ActiveCampusPage from "@/app/campus/[id]/(active-campus)/page";
+import JoinPage from "@/app/campus/[id]/join/page";
 import {
   createTestMediaDevice,
   installTestMediaDevices,
 } from "@/features/campus/testing/media-session-test-utils";
+import { activeCampusLayout } from "@/tests/fixtures/active-campus-layout";
+import { administrationLayout } from "@/tests/fixtures/administration-layout";
 import {
-  activeCampusLayout,
-  createActiveCampusAdmissionTestStore,
-  createActiveCampusTestStore,
-  mediaSessionLayout,
-} from "@/tests/fixtures/active-campus-layout";
+  createPresenceAdmissionTestStore,
+  createPresenceMediaTestStore,
+  presenceSession,
+} from "@/tests/fixtures/presence-session";
 
 vi.mock("next/image", () => ({
   default: ({ alt }: { alt: string }) => <span role="img" aria-label={alt} />,
@@ -39,14 +40,14 @@ vi.mock("@/features/campus-world", () => ({
 vi.mock("server-only", () => ({}));
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
-const MEDIA_SESSION_ROUTES = "app/campus/[id]/(media-session)/";
-const MEDIA_SESSION_LAYOUT = `${MEDIA_SESSION_ROUTES}layout.tsx`;
+const COHORT_ROUTES = "app/campus/[id]/";
+const COHORT_LAYOUT = `${COHORT_ROUTES}layout.tsx`;
 // Campus exports that read the media session and so need its provider above.
-const MEDIA_UI = /\b(?:VisualsDisplay|ActiveCampus)\b/;
-const MEDIA_SESSION_PROVIDER = /\bCampusMediaSessionProvider\b/;
+const MEDIA_UI = /\b(?:VisualsDisplay|ActiveCampus|PresenceDock)\b/;
+const PRESENCE_SESSION = /<PresenceSession\b/;
 
 const params = Promise.resolve({ id: "c-1" });
-let activeStore: ReturnType<typeof createActiveCampusTestStore> | undefined;
+let activeStore: ReturnType<typeof createPresenceMediaTestStore> | undefined;
 
 function routeModules(): string[] {
   return readdirSync(path.join(PROJECT_ROOT, "app"), {
@@ -79,12 +80,12 @@ describe("Join Gate media session", () => {
     installTestMediaDevices([
       createTestMediaDevice("camera-1", "videoinput", "Studio Camera"),
     ]);
-    const store = createActiveCampusTestStore();
-    const admissionStore = createActiveCampusAdmissionTestStore();
+    const store = createPresenceMediaTestStore();
+    const admissionStore = createPresenceAdmissionTestStore();
     activeStore = store;
     await store.getState().start();
     const { rerender } = render(
-      await mediaSessionLayout(
+      presenceSession(
         await JoinPage({ params, searchParams: Promise.resolve({}) }),
         store,
         admissionStore,
@@ -115,17 +116,51 @@ describe("Join Gate media session", () => {
     ).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("renders media UI only under the shared media session", () => {
+  it("keeps the same camera track from Active Campus into Cohort Administration", async () => {
+    const mediaDevices = installTestMediaDevices([
+      createTestMediaDevice("camera-1", "videoinput", "Studio Camera"),
+    ]);
+    const store = createPresenceMediaTestStore();
+    const admissionStore = createPresenceAdmissionTestStore();
+    activeStore = store;
+    await store.getState().start();
+    const { rerender } = render(
+      await activeCampusLayout(
+        await ActiveCampusPage({ params }),
+        store,
+        admissionStore,
+      ),
+    );
+    const controls = screen.getByRole("complementary", {
+      name: "Campus controls",
+    });
+    fireEvent.click(
+      within(controls).getByRole("button", { name: "Turn on camera" }),
+    );
+    await waitFor(() => expect(store.getState().camera.track).not.toBeNull());
+    const cameraTrack = store.getState().camera.track;
+
+    rerender(
+      await administrationLayout(<p>Overview</p>, store, admissionStore),
+    );
+
+    const dock = screen.getByRole("complementary", { name: "Presence dock" });
+    expect(
+      within(dock).getByRole("button", { name: "Turn off camera" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(store.getState().camera.track).toBe(cameraTrack);
+    expect(mediaDevices.getUserMedia).toHaveBeenCalledOnce();
+  });
+
+  it("renders media UI only under the cohort's Presence Session", () => {
     expect(
       routeModulesMatching(MEDIA_UI).filter(
-        (file) => !file.startsWith(MEDIA_SESSION_ROUTES),
+        (file) => !file.startsWith(COHORT_ROUTES),
       ),
     ).toEqual([]);
   });
 
-  it("provides the media session only from the media-session layout", () => {
-    expect(routeModulesMatching(MEDIA_SESSION_PROVIDER)).toEqual([
-      MEDIA_SESSION_LAYOUT,
-    ]);
+  it("provides the Presence Session only from the cohort layout", () => {
+    expect(routeModulesMatching(PRESENCE_SESSION)).toEqual([COHORT_LAYOUT]);
   });
 });

@@ -2,10 +2,8 @@ import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { CampusAdmissionProvider } from "@/features/campus";
-
 import JoinPage from "./join/page";
-import MediaSessionLayout from "./layout";
+import CohortLayout from "./layout";
 
 vi.mock("@/features/auth", () => import("@/tests/fixtures/route-access-stub"));
 vi.mock("@/features/campus-world", () => ({
@@ -18,14 +16,14 @@ vi.mock("server-only", () => ({}));
 
 const params = Promise.resolve({ id: "c-1" });
 
-describe("MediaSessionLayout", () => {
-  it("renders the Join Gate inside the shared media session", async () => {
-    const layout = await MediaSessionLayout({
-      params,
-      children: await JoinPage({ params, searchParams: Promise.resolve({}) }),
-    });
-
-    render(<CampusAdmissionProvider>{layout}</CampusAdmissionProvider>);
+describe("CohortLayout", () => {
+  it("renders the Join Gate inside the cohort's Presence Session", async () => {
+    render(
+      await CohortLayout({
+        params,
+        children: await JoinPage({ params, searchParams: Promise.resolve({}) }),
+      }),
+    );
 
     expect(
       screen.getByRole("button", { name: "Turn on camera" }),

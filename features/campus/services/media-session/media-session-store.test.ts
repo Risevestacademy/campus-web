@@ -113,19 +113,24 @@ function storeMediaControlPreferences(
 
 function createTransport() {
   const changes: LocalPublicationChange[] = [];
+  const connectedRooms: string[] = [];
+  const disconnect = vi.fn(() => {
+    remoteListener = undefined;
+  });
   let remoteListener: ((change: RemotePublicationChange) => void) | undefined;
   const transport: MeetingMediaTransport = {
-    handleLocalPublicationChange: (change) => changes.push(change),
-    subscribeToRemotePublications(listener) {
+    connect(roomId, listener) {
+      connectedRooms.push(roomId);
       remoteListener = listener;
-      return () => {
-        remoteListener = undefined;
-      };
+      return disconnect;
     },
+    handleLocalPublicationChange: (change) => changes.push(change),
   };
 
   return {
     changes,
+    connectedRooms,
+    disconnect,
     emitRemote: (change: RemotePublicationChange) => remoteListener?.(change),
     transport,
   };
@@ -227,6 +232,7 @@ describe("media session store", () => {
       transport,
     });
     await store.getState().start();
+    store.getState().connect("c-1");
 
     await store.getState().toggleSource("camera");
     await store.getState().toggleSource("camera");
@@ -310,6 +316,7 @@ describe("media session store", () => {
       transport,
     });
     await store.getState().start();
+    store.getState().connect("c-1");
     await store.getState().toggleSource("microphone");
 
     await store.getState().toggleSource("microphone");
@@ -507,6 +514,7 @@ describe("media session store", () => {
       transport,
     });
     await store.getState().start();
+    store.getState().connect("c-1");
     await store.getState().toggleSource("camera");
 
     await store.getState().selectInputDevice("camera", "camera-2");
@@ -792,6 +800,7 @@ describe("media session store", () => {
       transport,
     });
     await store.getState().start();
+    store.getState().connect("c-1");
 
     emitRemote({
       publication: {
@@ -824,6 +833,86 @@ describe("media session store", () => {
     expect(
       store.getState().remotePublications["participant-2"],
     ).toBeUndefined();
+  });
+
+  it("publishes nothing to the transport before the session connects", async () => {
+    const camera = createTrack("video", "camera-1");
+    const mediaDevices = createMediaDevices(async () => createStream([camera]));
+    const { changes, connectedRooms, transport } = createTransport();
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+      transport,
+    });
+    await store.getState().start();
+
+    await store.getState().toggleSource("camera");
+
+    expect(store.getState().localPublications.camera?.track).toBe(camera);
+    expect(connectedRooms).toEqual([]);
+    expect(changes).toEqual([]);
+  });
+
+  it("connects once and replays the publications chosen before Join", async () => {
+    const camera = createTrack("video", "camera-1");
+    const mediaDevices = createMediaDevices(async () => createStream([camera]));
+    const { changes, connectedRooms, transport } = createTransport();
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+      transport,
+    });
+    await store.getState().start();
+    await store.getState().toggleSource("camera");
+
+    store.getState().connect("c-1");
+    store.getState().connect("c-1");
+
+    expect(connectedRooms).toEqual(["c-1"]);
+    expect(changes).toEqual([
+      {
+        publication: expect.objectContaining({
+          source: "camera",
+          track: camera,
+        }),
+        type: "added",
+      },
+    ]);
+  });
+
+  it("disconnects once when the session ends and stops forwarding changes", async () => {
+    const camera = createTrack("video", "camera-1");
+    const remoteMicrophone = createTrack("audio", "remote-microphone");
+    const mediaDevices = createMediaDevices(async () => createStream([camera]));
+    const { changes, disconnect, emitRemote, transport } = createTransport();
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+      transport,
+    });
+    await store.getState().start();
+    store.getState().connect("c-1");
+    await store.getState().toggleSource("camera");
+    emitRemote({
+      publication: {
+        enabled: true,
+        origin: "remote",
+        participantId: "participant-2",
+        publicationId: "remote-microphone",
+        source: "microphone",
+        stream: createStream([remoteMicrophone]),
+        track: remoteMicrophone,
+      },
+      type: "upserted",
+    });
+    const changesBeforeStop = changes.length;
+
+    store.getState().stop();
+    store.getState().stop();
+
+    expect(disconnect).toHaveBeenCalledOnce();
+    expect(changes).toHaveLength(changesBeforeStop);
+    expect(store.getState().remotePublications).toEqual({});
   });
 
   it("stops owned tracks and clears publications when the session ends", async () => {

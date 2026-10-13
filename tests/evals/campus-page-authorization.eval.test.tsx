@@ -5,12 +5,12 @@ import { cleanup, render } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import ActiveCampusMeetingPage from "@/app/campus/[id]/(active-campus)/meeting/page";
+import ActiveCampusPage from "@/app/campus/[id]/(active-campus)/page";
 import AdministrationOverviewPage from "@/app/campus/[id]/(administration)/overview/page";
 import CohortTracksPage from "@/app/campus/[id]/(administration)/tracks/page";
-import ActiveCampusMeetingPage from "@/app/campus/[id]/(media-session)/(active-campus)/meeting/page";
-import ActiveCampusPage from "@/app/campus/[id]/(media-session)/(active-campus)/page";
-import JoinPage from "@/app/campus/[id]/(media-session)/join/page";
-import MediaSessionLayout from "@/app/campus/[id]/(media-session)/layout";
+import JoinPage from "@/app/campus/[id]/join/page";
+import CohortLayout from "@/app/campus/[id]/layout";
 import CampusPage from "@/app/campus/page";
 import { requireRouteAccess } from "@/features/auth";
 
@@ -28,9 +28,10 @@ vi.mock("@/features/auth", () => ({
 }));
 vi.mock("@/features/campus", () => ({
   CampusJoinButton: () => null,
-  CampusMediaSessionProvider: ({ children }: { children: ReactNode }) =>
-    children,
   CohortChooser: () => null,
+  PresenceSession: ({ children }: { children: ReactNode }) => (
+    <section aria-label="Presence Session">{children}</section>
+  ),
   VisualsDisplay: () => null,
 }));
 vi.mock("server-only", () => ({}));
@@ -55,17 +56,17 @@ const PAGES: Record<string, ProtectedPage> = {
     denial: ROUTE_DENIAL,
     routeAccessCalls: [[{ kind: "campus-index" }]],
   },
-  "app/campus/[id]/(media-session)/(active-campus)/page.tsx": {
+  "app/campus/[id]/(active-campus)/page.tsx": {
     render: () => ActiveCampusPage({ params }),
     denial: COHORT_DENIAL,
     routeAccessCalls: [],
   },
-  "app/campus/[id]/(media-session)/(active-campus)/meeting/page.tsx": {
+  "app/campus/[id]/(active-campus)/meeting/page.tsx": {
     render: () => ActiveCampusMeetingPage({ params }),
     denial: COHORT_DENIAL,
     routeAccessCalls: [],
   },
-  "app/campus/[id]/(media-session)/join/page.tsx": {
+  "app/campus/[id]/join/page.tsx": {
     render: () => JoinPage({ params, searchParams }),
     denial: COHORT_DENIAL,
     routeAccessCalls: [],
@@ -115,14 +116,15 @@ describe("Campus production page authorization", () => {
     },
   );
 
-  it("renders only the cohort denial before the media session mounts", async () => {
-    const { container } = render(
-      await MediaSessionLayout({
+  it("renders only the cohort denial before the Presence Session mounts", async () => {
+    const { container, queryByLabelText } = render(
+      await CohortLayout({
         params,
-        children: <p>Media session content</p>,
+        children: <p>Cohort page content</p>,
       }),
     );
 
     expect(container.textContent).toBe(COHORT_DENIAL);
+    expect(queryByLabelText("Presence Session")).toBeNull();
   });
 });

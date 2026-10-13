@@ -51,6 +51,23 @@ A cohort's live campus that a member enters after the Join Gate: the map or
 meeting view, the sidebar panels, and the campus controls.
 _Avoid_: Campus room, main campus
 
+**Presence Session**:
+One browser document's joined, real-time presence in one Cohort. It starts at
+Join, continues across every page of that Cohort, and ends on Leave, on
+leaving the Cohort, on reload, or in a new tab.
+_Avoid_: Campus session, call, Campus Access Session
+
+**Admission**:
+The Presence Session's record that Join completed. Join grants one exact
+destination; arriving there admits the session. It is workflow state, never
+an authorization credential.
+_Avoid_: Entry cookie, join token
+
+**Presence Dock**:
+The compact corner controls shown on every joined Cohort page that is not the
+map or meeting view, so the member stays visibly connected.
+_Avoid_: Mini player, floating toolbar
+
 **Campus Shell**:
 The rail and sidebar frame around every page of one Cohort. Active Campus and
 Cohort Administration both render inside it.
@@ -96,7 +113,7 @@ _Avoid_: Programme Track, cohort course
 
 **Cohort Administration**:
 The System Administrator pages for one Cohort. They sit outside Active Campus
-and the Join Gate; entering them leaves Active Campus.
+but inside the Presence Session, so entering them keeps the member connected.
 _Avoid_: Admin panel, admin dashboard
 
 **Invitation**:
@@ -149,10 +166,11 @@ Acquiring and publishing a replacement input before stopping the current
 track.
 _Avoid_: Immediate device replacement
 
-**Route-scoped media session**:
-Media state owned by the dynamic campus route so it survives navigation
-between Join and active-campus screens but ends when leaving that route.
-_Avoid_: Global media state, page-local media state
+**Cohort media session**:
+Media state owned by the Presence Session, so it survives navigation between
+the Join Gate and every Cohort page but ends when the Presence Session ends.
+_Avoid_: Global media state, page-local media state, route-scoped media
+session
 
 **Output routing**:
 Applying a selected speaker to remote media output where the browser supports
@@ -166,5 +184,6 @@ _Avoid_: Camera replacement
 
 **Transport seam**:
 The `MeetingMediaTransport` interface where publication events are translated
-by a signaling or SFU adapter.
+by a signaling or SFU adapter. It connects only after Admission and
+disconnects when the Presence Session ends.
 _Avoid_: Browser capture ownership, server media state

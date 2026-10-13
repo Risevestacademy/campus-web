@@ -496,9 +496,8 @@ test.describe("cohort pre-join", () => {
     await expect(joinButton(page)).toBeVisible();
   });
 
-  test("keeps admission through Administration and a session refresh", async ({
+  test("stays joined while moving between the map and Administration", async ({
     page,
-    context,
     fakeApi,
   }) => {
     await fakeApi.scriptSession(sessions.admin());
@@ -507,6 +506,49 @@ test.describe("cohort pre-join", () => {
     await page.getByRole("button", { name: "Administration" }).click();
     await page.getByRole("link", { name: "Overview", exact: true }).click();
     await expect(page).toHaveURL("/campus/c-3/overview");
+    await page.getByRole("link", { name: "Campus overview" }).click();
+
+    await expect(page).toHaveURL("/campus/c-3");
+    await expect(campusMap(page)).toBeVisible();
+    await expect(joinButton(page)).toHaveCount(0);
+  });
+
+  test("a hard load of an administration page redirects through pre-join", async ({
+    page,
+    fakeApi,
+  }) => {
+    await fakeApi.scriptSession(sessions.admin());
+
+    await page.goto("/campus/c-3/overview");
+
+    await expect(page).toHaveURL(preJoinUrl("/campus/c-3/overview"));
+    await expect(joinButton(page)).toBeVisible();
+  });
+
+  test("a reload on Administration returns through pre-join to the same page", async ({
+    page,
+    fakeApi,
+  }) => {
+    await fakeApi.scriptSession(sessions.admin());
+    await enterCampus(page, "/campus/c-3/overview");
+
+    await page.reload();
+    await expect(page).toHaveURL(preJoinUrl("/campus/c-3/overview"));
+    await joinButton(page).click();
+
+    await expect(page).toHaveURL("/campus/c-3/overview");
+    await expect(
+      page.getByRole("complementary", { name: "Presence dock" }),
+    ).toBeVisible();
+  });
+
+  test("a session refresh round trip ends the Presence Session", async ({
+    page,
+    context,
+    fakeApi,
+  }) => {
+    await fakeApi.scriptSession(sessions.admin());
+    await enterCampus(page, "/campus/c-3/overview");
 
     await context.clearCookies({ name: "campus_session" });
     await fakeApi.scriptRefresh(SUCCESS);
@@ -514,9 +556,8 @@ test.describe("cohort pre-join", () => {
     await page.getByRole("link", { name: "Campus overview" }).click();
     expect((await refreshed).ok()).toBe(true);
 
-    await expect(page).toHaveURL("/campus/c-3");
-    await expect(campusMap(page)).toBeVisible();
-    await expect(joinButton(page)).toHaveCount(0);
+    await expect(page).toHaveURL(preJoinUrl("/campus/c-3"));
+    await expect(joinButton(page)).toBeVisible();
   });
 
   test("an explicit pre-join visit remains available after an active visit", async ({

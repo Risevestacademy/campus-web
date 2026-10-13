@@ -51,23 +51,14 @@ function ParticipantMedia({
       ? state.localPublications.camera
       : state.remotePublications[participant.id]?.camera,
   );
-  const audioPublication = useMediaSession((state) =>
-    isLocal ? undefined : state.remotePublications[participant.id]?.microphone,
-  );
-  const outputDeviceId = useMediaSession((state) =>
-    isLocal ? undefined : state.output.selectedDeviceId,
-  );
 
   return (
     <MediaPublicationOutput
-      audioPublication={audioPublication}
       fallbackInitials={participant.initials}
       fallbackLabel={
         isLocal || videoPublication ? "Camera off" : "Waiting for video"
       }
-      isLocal={isLocal}
       label={`${participant.name} video`}
-      outputDeviceId={outputDeviceId}
       videoPublication={videoPublication}
     />
   );

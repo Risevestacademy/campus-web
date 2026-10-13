@@ -1,6 +1,6 @@
 const CAMPUS_HOME_PATH = "/campus";
 const RETURN_ROOTS = [CAMPUS_HOME_PATH, "/invitation", "/preview"] as const;
-const NON_ACTIVE_CAMPUS_SEGMENTS = new Set(["join", "overview", "tracks"]);
+const PRE_JOIN_SEGMENT = "join";
 const MAX_RETURN_TO_LENGTH = 2048;
 // Only used to serialize a path that already passed validation.
 const PARSING_ORIGIN = "https://campus.invalid";
@@ -60,8 +60,8 @@ export function normalizeReturnTo(value: string | undefined): string {
   return parseReturnTo(value) ?? CAMPUS_HOME_PATH;
 }
 
-// Pre-join and administration routes are not active-campus return targets.
-export function activeCampusCohort(pathname: string): string | undefined {
+// Every cohort page except pre-join itself is inside the Presence Session.
+function presenceSessionCohort(pathname: string): string | undefined {
   const [root, campus, cohortSegment, section] = pathname.split("/");
   if (root !== "" || `/${campus}` !== CAMPUS_HOME_PATH || !cohortSegment) {
     return undefined;
@@ -69,8 +69,7 @@ export function activeCampusCohort(pathname: string): string | undefined {
 
   const decodedSection =
     section === undefined ? undefined : decodeSegment(section);
-  return decodedSection !== undefined &&
-    NON_ACTIVE_CAMPUS_SEGMENTS.has(decodedSection)
+  return decodedSection === PRE_JOIN_SEGMENT
     ? undefined
     : decodeSegment(cohortSegment);
 }
@@ -82,7 +81,7 @@ export function normalizeCohortReturnTo(
   const destination = parseReturnTo(value);
   const [pathname = ""] = destination?.split("?", 1) ?? [];
 
-  return destination && activeCampusCohort(pathname) === cohortId
+  return destination && presenceSessionCohort(pathname) === cohortId
     ? destination
     : `${CAMPUS_HOME_PATH}/${encodeURIComponent(cohortId)}`;
 }

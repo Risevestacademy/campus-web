@@ -54,17 +54,16 @@ Flow: page → gate or `requireRouteAccess` → `authorizeRoute` →
 
 ### Protecting a new page
 
-- Active Campus page (`app/campus/[id]/(media-session)/(active-campus)/`):
-  wrap the content in `CohortGate`.
+- Active Campus page (`app/campus/[id]/(active-campus)/`): wrap the content
+  in `CohortGate`.
 - Cohort Administration page (`app/campus/[id]/(administration)/`): call
   `requireRouteAccess({ kind: "system-admin" })`.
 - Any other `/campus` page: call `requireRouteAccess` with its kind.
 - Add the page to `tests/evals/campus-page-authorization.eval.test.tsx`; it
   fails while any page under `app/campus` is missing.
-- A Cohort Administration page also adds its segment to
-  `NON_ACTIVE_CAMPUS_SEGMENTS` in `schemas/return-to.ts`, so it cannot become
-  an Active Campus return destination. The route-protection eval walks every
-  page in `(administration)/` and catches it.
+- Every cohort page except `/join` is a valid pre-join return destination
+  (`normalizeCohortReturnTo`), so a reload returns there after Join. The
+  route-protection eval walks every page in `(administration)/`.
 
 Every page checks for itself, even under a checking layout: Next renders a
 layout and its page in parallel, and keeps layouts across soft navigation.
@@ -87,15 +86,14 @@ layout and its page in parallel, and keeps layouts across soft navigation.
 - Every redirect target goes through `normalizeReturnTo` /
   `normalizeCohortReturnTo`.
 - Cohort-selection links target `/campus/{id}/join`; Join grants its validated
-  active-campus destination in the document-scoped admission store before
-  client navigation.
+  destination in the cohort's Presence Session before client navigation.
 - Session refresh shares one in-flight rotating-token request across soft-route
   remounts. On success it replaces the native history URL and refreshes that
   route's server tree, avoiding a stale middleware-redirect target.
-- Pre-join is preparation, not authorization. Direct active-campus URLs are
-  checked by `CohortGate` / `requireRouteAccess` first, then requests without an
-  exact pending destination return through pre-join. The client grant never
-  grants cohort access.
+- Pre-join is preparation, not authorization. Direct cohort URLs are checked
+  by `CohortGate` / `requireRouteAccess` first, then requests without an exact
+  pending destination return through pre-join. The client grant never grants
+  cohort access.
 - Client modules import auth siblings directly, never `index.ts` (it
   re-exports server-only modules).
 - Other features never import auth; routes pass `AccountMenu` and gates in.

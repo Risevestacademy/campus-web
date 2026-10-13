@@ -6,9 +6,10 @@ import { type ReactNode, useState } from "react";
 import { campusPreJoinHref } from "@/core/navigation";
 import { useMountEffect } from "@/shared/lib/use-mount-effect";
 
-import { useCampusAdmission } from "../services/admission/campus-admission-provider";
+import { useMediaSession } from "../services/media-session/media-session-provider";
+import { useAdmission } from "../services/presence-session/presence-session-provider";
 
-interface ActiveCampusAdmissionGateProps {
+interface PresenceSessionGateProps {
   children: ReactNode;
   cohortId: string;
 }
@@ -18,35 +19,32 @@ function relativeHref(pathname: string, search: string, hash = "") {
   return `${pathname}${query ? `?${query}` : ""}${hash}`;
 }
 
-export function ActiveCampusAdmissionGate({
+export function PresenceSessionGate({
   children,
   cohortId,
-}: ActiveCampusAdmissionGateProps) {
+}: PresenceSessionGateProps) {
   const pathname = usePathname();
   const searchParameters = useSearchParams();
-  const admittedCohortId = useCampusAdmission(
-    (state) => state.admittedCohortId,
-  );
-  const pendingDestination = useCampusAdmission(
-    (state) => state.pendingActiveCampusDestination,
-  );
-  const completeActiveCampusEntry = useCampusAdmission(
-    (state) => state.completeActiveCampusEntry,
-  );
+  const wasAdmitted = useAdmission((state) => state.admitted);
+  const pendingDestination = useAdmission((state) => state.pendingDestination);
+  const completeEntry = useAdmission((state) => state.completeEntry);
+  const connect = useMediaSession((state) => state.connect);
+  // Snapshot at mount: client navigation inside an admitted session must not
+  // re-evaluate the grant that admitted it.
   const [initialRequest] = useState(() => ({
-    admittedCohortId,
     href: relativeHref(pathname, searchParameters.toString()),
     pendingDestination,
+    wasAdmitted,
   }));
   const hasExactGrant =
     initialRequest.href === initialRequest.pendingDestination;
-  const admitted =
-    initialRequest.admittedCohortId === cohortId || hasExactGrant;
+  const admitted = initialRequest.wasAdmitted || hasExactGrant;
 
   useMountEffect(() => {
-    if (hasExactGrant) {
-      completeActiveCampusEntry(cohortId, initialRequest.href);
-    }
+    if (!admitted) return;
+
+    if (hasExactGrant) completeEntry(initialRequest.href);
+    connect(cohortId);
   });
 
   if (!admitted) {

@@ -8,9 +8,9 @@ import {
 } from "@/features/auth";
 import {
   ActiveCampus,
-  ActiveCampusAdmissionGate,
   type ActiveCampusViewModel,
   CampusShell,
+  PresenceSessionGate,
   SidebarCollapseButton,
 } from "@/features/campus";
 import { FeedbackPopup } from "@/features/feedback";
@@ -52,7 +52,7 @@ export default async function ActiveCampusLayout({
   const isAdministrator = isSystemAdministrator(access.session.user.systemRole);
 
   return (
-    <ActiveCampusAdmissionGate cohortId={id}>
+    <PresenceSessionGate cohortId={id}>
       <CampusShell
         AccountMenu={logsOutHere ? AccountMenu : undefined}
         administrationPanel={
@@ -72,6 +72,6 @@ export default async function ActiveCampusLayout({
           {children}
         </ActiveCampus>
       </CampusShell>
-    </ActiveCampusAdmissionGate>
+    </PresenceSessionGate>
   );
 }

@@ -16,7 +16,7 @@ vi.mock("@/features/auth", () => ({
 }));
 vi.mock("@/features/campus", () => ({
   ActiveCampus: ({ children }: { children: ReactNode }) => children,
-  ActiveCampusAdmissionGate: ({
+  PresenceSessionGate: ({
     children,
     cohortId,
   }: {

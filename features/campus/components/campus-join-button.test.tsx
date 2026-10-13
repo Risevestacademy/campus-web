@@ -1,11 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CampusAdmissionProvider } from "../services/admission/campus-admission-provider";
 import {
-  type CampusAdmissionState,
-  createCampusAdmissionStore,
-} from "../services/admission/campus-admission-store";
+  type AdmissionState,
+  createAdmissionStore,
+} from "../services/presence-session/admission-store";
+import { AdmissionProvider } from "../services/presence-session/presence-session-provider";
 import { CampusJoinButton } from "./campus-join-button";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn() }));
@@ -18,20 +18,20 @@ describe("CampusJoinButton", () => {
   beforeEach(() => navigation.push.mockClear());
 
   it("grants the exact destination before navigating and prevents another activation", () => {
-    const store = createCampusAdmissionStore();
-    const statesAtNavigation: CampusAdmissionState[] = [];
+    const store = createAdmissionStore();
+    const statesAtNavigation: AdmissionState[] = [];
     navigation.push.mockImplementation(() => {
       statesAtNavigation.push(store.getState());
     });
     render(
-      <CampusAdmissionProvider store={store}>
+      <AdmissionProvider store={store}>
         <CampusJoinButton destination="/campus/c-1/meeting?tab=people" />
-      </CampusAdmissionProvider>,
+      </AdmissionProvider>,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Join" }));
 
-    expect(statesAtNavigation[0]?.pendingActiveCampusDestination).toBe(
+    expect(statesAtNavigation[0]?.pendingDestination).toBe(
       "/campus/c-1/meeting?tab=people",
     );
     expect(navigation.push).toHaveBeenCalledExactlyOnceWith(

@@ -84,14 +84,17 @@ describe("CohortAdministrationCard", () => {
     );
   });
 
-  it("links Programme Track administration from the Cohort menu", async () => {
+  it("links Programme Track administration through pre-join from the Cohort menu", async () => {
     renderCard();
 
     fireEvent.click(screen.getByRole("button", { name: "Manage Cohort 1" }));
 
     expect(
       await screen.findByRole("menuitem", { name: "Programme Tracks" }),
-    ).toHaveAttribute("href", "/campus/cohort-1/tracks");
+    ).toHaveAttribute(
+      "href",
+      "/campus/cohort-1/join?returnTo=%2Fcampus%2Fcohort-1%2Ftracks",
+    );
   });
 
   it("PATCHes normalized changed fields once, then closes and refreshes", async () => {

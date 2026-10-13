@@ -270,7 +270,7 @@ const SESSION_STATES: SessionState[] = [
 ];
 
 // Read from disk so every administration page is walked through the real
-// proxy; one missing from return-to's segment list is sent to /join.
+// proxy and route policy.
 const ADMINISTRATION_PAGES = readdirSync(
   resolve(import.meta.dirname, "../../app/campus/[id]/(administration)"),
   { withFileTypes: true },

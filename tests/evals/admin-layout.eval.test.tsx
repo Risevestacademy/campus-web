@@ -56,6 +56,20 @@ describe("administration Campus layout", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps the member connected through the Presence Dock", async () => {
+    render(await administrationLayout(<p>Track administration</p>));
+
+    const dock = screen.getByRole("complementary", { name: "Presence dock" });
+
+    expect(
+      within(dock).getByRole("button", { name: "Turn on microphone" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dock).getByRole("link", { name: "Campus map" }),
+    ).toHaveAttribute("href", "/campus/c-1");
+    expect(within(dock).getByText("AA")).toBeInTheDocument();
+  });
+
   it.each(["Search", "Chat", "Tasks", "Calendar"])(
     "%s restores Campus sidebar mode",
     async (panel) => {

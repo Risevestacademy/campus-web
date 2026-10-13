@@ -6,22 +6,20 @@ import { useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 
-import { useCampusAdmission } from "../services/admission/campus-admission-provider";
+import { useAdmission } from "../services/presence-session/presence-session-provider";
 
 export function CampusJoinButton({
   destination,
 }: Readonly<{ destination: string }>) {
   const router = useRouter();
-  const grantActiveCampusEntry = useCampusAdmission(
-    (state) => state.grantActiveCampusEntry,
-  );
+  const grantEntry = useAdmission((state) => state.grantEntry);
   const [isJoining, setIsJoining] = useState(false);
 
   function joinCampus() {
     if (isJoining) return;
 
     setIsJoining(true);
-    grantActiveCampusEntry(destination);
+    grantEntry(destination);
     router.push(destination as Route);
   }
 

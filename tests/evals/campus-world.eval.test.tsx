@@ -12,7 +12,7 @@ import {
 import { type ReactNode, StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import ActiveCampusPage from "@/app/campus/[id]/(media-session)/(active-campus)/page";
+import ActiveCampusPage from "@/app/campus/[id]/(active-campus)/page";
 import { CampusWorld } from "@/features/campus-world/components/campus-world";
 import {
   type CampusRuntime,
