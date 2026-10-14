@@ -238,7 +238,13 @@ describe("browser analytics", () => {
     const analytics = await import("./client");
 
     expect(await analytics.initializeBrowserAnalytics()).toBe(false);
-    expect(consoleError).toHaveBeenCalledOnce();
+    expect(consoleError).toHaveBeenCalledExactlyOnceWith(
+      "PostHog browser initialization failed.",
+      "Error",
+    );
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+      "initialization failed",
+    );
   });
 
   it("does not let browser SDK failures break product operations", async () => {
@@ -376,6 +382,12 @@ describe("server analytics", () => {
         },
       ),
     ).resolves.toBeUndefined();
-    expect(consoleError).toHaveBeenCalledOnce();
+    expect(consoleError).toHaveBeenCalledExactlyOnceWith(
+      "PostHog server event capture failed.",
+      "Error",
+    );
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+      "network unavailable",
+    );
   });
 });
