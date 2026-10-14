@@ -37,7 +37,7 @@
     "eval:privacy": "vitest run --project=unit tests/evals/data-privacy.eval.test.ts",
     "eval:admin": "vitest run --project=unit tests/evals/admin-mutations.eval.test.tsx tests/evals/cohort-create.eval.test.tsx tests/evals/admin-layout.eval.test.tsx tests/evals/admin-sidebar-navigation.eval.test.tsx tests/evals/admin-page-params.eval.test.ts",
     "eval:component-stories": "vitest run --project=unit tests/evals/component-story-coverage.eval.test.ts",
-    "eval:campus-world": "vitest run --project=unit tests/evals/campus-world.eval.test.tsx",
+    "eval:campus-world": "vitest run --project=unit tests/evals/campus-world.eval.test.tsx tests/evals/campus-map-trust.eval.test.ts",
     "eval:cohort-card": "vitest run --project=unit tests/evals/cohort-card.eval.test.tsx",
     "eval:theme": "vitest run --project=unit tests/evals/theme.eval.test.ts",
     "eval:session-renewal": "vitest run --project=unit tests/evals/session-renewal.eval.test.ts",

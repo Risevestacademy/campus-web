@@ -38,6 +38,7 @@ frame (`first_frame_ms`), once per ready start.
 | `components/` | Preparation gate and accessible map status, render only         |
 | `game/`       | The page's KAPLAY runtime, sprite upload, and culled drawing    |
 | `hooks/`      | Preparation query, game lifecycle, and store subscription       |
+| `schemas/`    | The Tiled map fields the renderer reads                         |
 | `services/`   | Preparation, errors, loading, bands, draw lists, camera, theme  |
 | `store/`      | Lifecycle transitions, attempt IDs, and stale-result guards     |
 | `testing/`    | Sanity fixtures, fake KAPLAY, fake runtime, and a fake map band |
@@ -57,6 +58,10 @@ barrel; other features do not import its internals.
 - Keep the prepared query key scoped by Sanity project, dataset, and map
   source. It is session-cached with infinite stale and garbage-collection
   times and has no automatic retry.
+- Treat the manifest and map JSON as untrusted. Map and tileset URLs must be
+  assets of the configured Sanity project and dataset before anything fetches
+  them, and the renderer only receives what `parseCampusTiledMap` returns. Add
+  a field to `schemas/campus-map.schema.ts` before the renderer reads it.
 - Treat readiness as parsed manifest/map data, a resolved KAPLAY module, and
   either every tileset decoded or the runtime holding that version. Query
   success alone is insufficient. Do not add artificial delays or progress.
