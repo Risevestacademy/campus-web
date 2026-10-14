@@ -89,8 +89,8 @@ describe("CohortCatalogue", () => {
     await renderCatalogue("2");
 
     expect(cohortLinks()).toEqual([
-      ["GammaGAMMA", "/campus/id-Gamma"],
-      ["DeltaDELTA", "/campus/id-Delta"],
+      ["GammaGAMMA", "/campus/id-Gamma/join"],
+      ["DeltaDELTA", "/campus/id-Delta/join"],
     ]);
     expect(sent.map((request) => request.url)).toEqual([
       `${COHORTS_URL}?page=2`,

@@ -7,11 +7,13 @@ import type {
   DeviceCatalogSnapshot,
   DeviceDiscoveryStatus,
   LocalMediaPublication,
+  LocalPublicationChange,
   MediaDeviceCatalog,
   MediaDeviceOption,
   MediaSessionErrorCode,
   MeetingMediaTransport,
   PublicationSource,
+  RemotePublicationChange,
   RemotePublicationRegistry,
 } from "./contracts";
 import { createDeviceCatalog } from "./device-discovery";
@@ -44,6 +46,7 @@ type DeviceRequest = Readonly<{
 export type MediaSessionState = Readonly<{
   camera: CaptureSourceState;
   chooseAudioOutput: () => MediaActionFailure;
+  connect: (roomId: string) => void;
   deviceDiscoveryStatus: DeviceDiscoveryStatus;
   localPublications: Readonly<
     Partial<Record<PublicationSource, LocalMediaPublication>>
@@ -219,7 +222,7 @@ export function createMediaSessionStore(
     {};
   let started = false;
   let removeDeviceChangeListener: (() => void) | undefined;
-  let unsubscribeRemotePublications: (() => void) | undefined;
+  let disconnectTransport: (() => void) | undefined;
 
   const store = createStore<MediaSessionState>((set, get) => {
     function persistInputDevicePreference(
@@ -239,6 +242,22 @@ export function createMediaSessionStore(
         speakerDeviceId: deviceId,
       };
       saveMediaDevicePreferences(devicePreferences);
+    }
+
+    function forwardLocalChange(change: LocalPublicationChange) {
+      if (disconnectTransport) transport.handleLocalPublicationChange(change);
+    }
+
+    function applyRemotePublicationChange(change: RemotePublicationChange) {
+      set((state) => ({
+        remotePublications:
+          change.type === "upserted"
+            ? upsertRemotePublication(
+                state.remotePublications,
+                change.publication,
+              )
+            : removeRemotePublication(state.remotePublications, change),
+      }));
     }
 
     function updateSource(
@@ -271,7 +290,7 @@ export function createMediaSessionStore(
         },
       }));
 
-      transport.handleLocalPublicationChange(
+      forwardLocalChange(
         previousTrack
           ? { previousTrack, publication, type: "replaced" }
           : { publication, type: "added" },
@@ -292,7 +311,7 @@ export function createMediaSessionStore(
       delete endedHandlers[source];
       localStream.removeTrack(track);
       track.stop();
-      transport.handleLocalPublicationChange({
+      forwardLocalChange({
         previousTrack: track,
         publicationId: `local-${source}`,
         source,
@@ -453,7 +472,7 @@ export function createMediaSessionStore(
             track: null,
           });
           removeLocalPublication(source);
-          transport.handleLocalPublicationChange({
+          forwardLocalChange({
             previousTrack: track,
             publicationId: `local-${source}`,
             source,
@@ -562,6 +581,17 @@ export function createMediaSessionStore(
           return errorCode;
         }
       },
+      connect(roomId) {
+        if (disconnectTransport) return;
+
+        disconnectTransport = transport.connect(
+          roomId,
+          applyRemotePublicationChange,
+        );
+        for (const publication of Object.values(get().localPublications)) {
+          if (publication) forwardLocalChange({ publication, type: "added" });
+        }
+      },
       deviceDiscoveryStatus: "idle",
       localPublications: {},
       microphone: createInitialCaptureState(false),
@@ -621,20 +651,6 @@ export function createMediaSessionStore(
           },
         }));
 
-        unsubscribeRemotePublications = transport.subscribeToRemotePublications(
-          (change) => {
-            set((state) => ({
-              remotePublications:
-                change.type === "upserted"
-                  ? upsertRemotePublication(
-                      state.remotePublications,
-                      change.publication,
-                    )
-                  : removeRemotePublication(state.remotePublications, change),
-            }));
-          },
-        );
-
         if (mediaDevices) {
           const deviceChangeHandler = () => void handleDeviceChange();
           mediaDevices.addEventListener("devicechange", deviceChangeHandler);
@@ -646,6 +662,8 @@ export function createMediaSessionStore(
         }
       },
       stop() {
+        disconnectTransport?.();
+        disconnectTransport = undefined;
         if (!started) return;
         started = false;
         operationVersions.camera += 1;
@@ -653,8 +671,6 @@ export function createMediaSessionStore(
         deviceCatalog?.reset();
         removeDeviceChangeListener?.();
         removeDeviceChangeListener = undefined;
-        unsubscribeRemotePublications?.();
-        unsubscribeRemotePublications = undefined;
 
         for (const source of ["camera", "microphone"] as const) {
           const track = get()[source].track;

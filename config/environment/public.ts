@@ -11,4 +11,10 @@ export const publicEnvironment = Object.freeze({
   NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: normalizeEnvironmentValue(
     process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
   ),
+  NEXT_PUBLIC_SANITY_DATASET: normalizeEnvironmentValue(
+    process.env.NEXT_PUBLIC_SANITY_DATASET,
+  ),
+  NEXT_PUBLIC_SANITY_PROJECT_ID: normalizeEnvironmentValue(
+    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
+  ),
 });

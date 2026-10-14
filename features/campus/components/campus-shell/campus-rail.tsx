@@ -12,6 +12,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import logoMark from "@/assets/icon-inverse.svg";
+import { campusHref } from "@/core/navigation";
 import { badgeVariants } from "@/shared/ui/badge";
 import { buttonVariants } from "@/shared/ui/button";
 import { Separator } from "@/shared/ui/separator";
@@ -21,7 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { useActivePanel, useSidebarMode } from "../../hooks/use-sidebar-state";
 import { openFeedbackPanel } from "../../store/feedback-panel-store";
 import type { SidebarMode } from "../../store/sidebar-preferences";
-import { setActivePanel, setSidebarMode } from "../../store/sidebar-store";
+import { useCampusView } from "../campus-view-provider";
 import { railPanelItems } from "./rail-items";
 
 function RailButton({
@@ -95,7 +96,8 @@ export function CampusRail({
 }) {
   const activePanel = useActivePanel();
   const sidebarMode = useSidebarMode(initialSidebarMode, hasAdministration);
-  const campusHref = `/campus/${encodeURIComponent(cohortId)}` as Route;
+  const { openAdministration, openPanel } = useCampusView();
+  const mapHref = campusHref(cohortId);
 
   return (
     <nav
@@ -117,7 +119,7 @@ export function CampusRail({
             <RailButton
               label="Administration"
               isActive={sidebarMode === "admin"}
-              onClick={() => setSidebarMode("admin")}
+              onClick={openAdministration}
             >
               <SquaresFourIcon aria-hidden />
             </RailButton>
@@ -128,8 +130,8 @@ export function CampusRail({
               label={item.label}
               isActive={sidebarMode === "campus" && activePanel === item.id}
               badgeCount={item.badgeCount}
-              href={item.id === "map" ? campusHref : undefined}
-              onClick={() => setActivePanel(item.id)}
+              href={item.id === "map" ? mapHref : undefined}
+              onClick={() => openPanel(item.id)}
             >
               <item.Icon
                 aria-hidden

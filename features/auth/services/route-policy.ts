@@ -1,5 +1,7 @@
 import type { Route } from "next";
 
+import { campusJoinHref } from "@/core/navigation";
+
 import { normalizeReturnTo } from "../schemas/return-to";
 import type {
   CampusRouteRequest,
@@ -20,7 +22,6 @@ const SESSION_REFRESH_PATH = "/session/refresh";
 const SIGN_IN_PATH = "/sign-in";
 
 export interface RouteRequestSignals {
-  enteredCampusIds: readonly string[];
   returnTo: string | undefined;
   refreshAttempted: boolean;
 }
@@ -43,21 +44,8 @@ export function signedOutRedirect({
   return `${path}?${search.toString()}` as Route;
 }
 
-function campusPath(cohortId: string): Route {
-  return `/campus/${encodeURIComponent(cohortId)}` as Route;
-}
-
-function preJoinPath(cohortId: string): Route {
-  return `${campusPath(cohortId)}/join` as Route;
-}
-
-export function preJoinRedirect(cohortId: string, returnTo: string): Route {
-  const search = new URLSearchParams({ returnTo });
-  return `${preJoinPath(cohortId)}?${search.toString()}` as Route;
-}
-
 // Admins and members of several cohorts choose at /campus; everyone else is
-// sent straight into their one cohort and never sees the chooser.
+// sent through pre-join for their one cohort and never sees the chooser.
 function usesCohortChooser(session: Session): boolean {
   return (
     isSystemAdministrator(session.user.systemRole) ||
@@ -69,21 +57,15 @@ export function logsOutFromRail(session: Session): boolean {
   return !usesCohortChooser(session);
 }
 
-function decideCampusIndex(
-  session: Session,
-  enteredCampusIds: readonly string[],
-): RouteAuthorizationDecision {
+function decideCampusIndex(session: Session): RouteAuthorizationDecision {
   if (usesCohortChooser(session)) return { kind: "allow", session };
 
   const [onlyMembership] = session.memberships;
   if (!onlyMembership) return { kind: "forbidden" };
 
-  const { cohortId } = onlyMembership;
   return {
     kind: "redirect",
-    href: enteredCampusIds.includes(cohortId)
-      ? campusPath(cohortId)
-      : preJoinPath(cohortId),
+    href: campusJoinHref(onlyMembership.cohortId),
   };
 }
 
@@ -100,11 +82,10 @@ function decideCohort(
 function decideFullAccess(
   request: CampusRouteRequest,
   session: Session,
-  signals: RouteRequestSignals,
 ): RouteAuthorizationDecision {
   switch (request.kind) {
     case "campus-index":
-      return decideCampusIndex(session, signals.enteredCampusIds);
+      return decideCampusIndex(session);
     case "cohort":
       return decideCohort(session, request.cohortId);
     case "system-admin":
@@ -117,10 +98,9 @@ function decideFullAccess(
 function decideCampus(
   request: CampusRouteRequest,
   session: Session,
-  signals: RouteRequestSignals,
 ): RouteAuthorizationDecision {
   return session.scope === "full_access"
-    ? decideFullAccess(request, session, signals)
+    ? decideFullAccess(request, session)
     : { kind: "redirect", href: INVITATION_PATH };
 }
 
@@ -144,11 +124,10 @@ function decideInvitation(
 function decideSignedIn(
   request: RouteAuthorizationRequest,
   session: Session,
-  signals: RouteRequestSignals,
 ): RouteAuthorizationDecision {
   return request.kind === "invitation"
     ? decideInvitation(request.path, session)
-    : decideCampus(request, session, signals);
+    : decideCampus(request, session);
 }
 
 export function decideRoute(
@@ -158,7 +137,7 @@ export function decideRoute(
 ): RouteAuthorizationDecision {
   switch (sessionRead.kind) {
     case "authenticated":
-      return decideSignedIn(request, sessionRead.session, signals);
+      return decideSignedIn(request, sessionRead.session);
 
     case "unauthenticated":
       return { kind: "redirect", href: signedOutRedirect(signals) };

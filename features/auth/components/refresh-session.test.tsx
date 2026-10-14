@@ -21,7 +21,7 @@ const mockApi = await vi.hoisted(async () => {
   return startMockApi();
 });
 
-const navigation = vi.hoisted(() => ({ replace: vi.fn() }));
+const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 vi.mock("server-only", () => ({}));
@@ -73,7 +73,8 @@ const refreshPosts = () =>
 
 beforeEach(() => {
   vi.useFakeTimers();
-  navigation.replace.mockReset();
+  navigation.refresh.mockReset();
+  window.history.replaceState(null, "", "/");
 });
 
 afterEach(() => {
@@ -110,7 +111,34 @@ describe("RefreshSession: automatic refresh", () => {
     renderRefresh();
     await elapse();
 
-    expect(navigation.replace.mock.calls).toEqual([[DESTINATION]]);
+    expect(`${window.location.pathname}${window.location.search}`).toBe(
+      DESTINATION,
+    );
+    expect(navigation.refresh).toHaveBeenCalledOnce();
+  });
+
+  it("returns to the destination when the refresh page remounts in flight", async () => {
+    let completeRefresh: (() => void) | undefined;
+    refreshReplies(async () => {
+      await new Promise<void>((resolve) => {
+        completeRefresh = resolve;
+      });
+      return refreshed();
+    });
+    const firstMount = renderRefresh();
+    await elapse();
+    firstMount.unmount();
+
+    renderRefresh();
+    await elapse();
+    completeRefresh?.();
+    await elapse();
+
+    expect(refreshPosts()).toHaveLength(1);
+    expect(`${window.location.pathname}${window.location.search}`).toBe(
+      DESTINATION,
+    );
+    expect(navigation.refresh).toHaveBeenCalledOnce();
   });
 
   // The refresh API answers 401 alike for a visitor who never signed in, so
@@ -120,9 +148,10 @@ describe("RefreshSession: automatic refresh", () => {
     renderRefresh();
     await elapse();
 
-    expect(navigation.replace.mock.calls).toEqual([
-      ["/sign-in?returnTo=%2Fcampus%2F42%2Frooms%3Fseat%3D3"],
-    ]);
+    expect(`${window.location.pathname}${window.location.search}`).toBe(
+      "/sign-in?returnTo=%2Fcampus%2F42%2Frooms%3Fseat%3D3",
+    );
+    expect(navigation.refresh).toHaveBeenCalledOnce();
   });
 });
 
@@ -145,7 +174,7 @@ describe("RefreshSession: failed refresh", () => {
         "We couldn't restore your session",
       );
       expect(refreshPosts()).toHaveLength(1);
-      expect(navigation.replace).not.toHaveBeenCalled();
+      expect(navigation.refresh).not.toHaveBeenCalled();
     },
   );
 
@@ -223,6 +252,9 @@ describe("RefreshSession: failed refresh", () => {
     await clickRetry();
 
     expect(refreshPosts()).toHaveLength(2);
-    expect(navigation.replace.mock.calls).toEqual([[DESTINATION]]);
+    expect(`${window.location.pathname}${window.location.search}`).toBe(
+      DESTINATION,
+    );
+    expect(navigation.refresh).toHaveBeenCalledOnce();
   });
 });

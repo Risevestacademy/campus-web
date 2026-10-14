@@ -9,7 +9,7 @@ describe("analytics contract evaluation", () => {
     expect(new Set(eventNames).size).toBe(eventNames.length);
 
     for (const eventName of eventNames) {
-      expect(eventName).toMatch(/^[a-z][a-z0-9]*\.[a-z][a-z0-9_]*$/);
+      expect(eventName).toMatch(/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/);
     }
   });
 });

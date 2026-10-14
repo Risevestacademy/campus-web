@@ -4,8 +4,8 @@ import { cn } from "cn";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { useMediaSession } from "../services/media-session/media-session-provider";
+import type { MeetingParticipant } from "../types/active-campus.types";
 import { MediaPublicationOutput } from "./media-publication-output";
-import type { MeetingParticipant } from "./meeting-header";
 
 type CubicBezier = [number, number, number, number];
 
@@ -51,23 +51,14 @@ function ParticipantMedia({
       ? state.localPublications.camera
       : state.remotePublications[participant.id]?.camera,
   );
-  const audioPublication = useMediaSession((state) =>
-    isLocal ? undefined : state.remotePublications[participant.id]?.microphone,
-  );
-  const outputDeviceId = useMediaSession((state) =>
-    isLocal ? undefined : state.output.selectedDeviceId,
-  );
 
   return (
     <MediaPublicationOutput
-      audioPublication={audioPublication}
       fallbackInitials={participant.initials}
       fallbackLabel={
         isLocal || videoPublication ? "Camera off" : "Waiting for video"
       }
-      isLocal={isLocal}
       label={`${participant.name} video`}
-      outputDeviceId={outputDeviceId}
       videoPublication={videoPublication}
     />
   );

@@ -9,7 +9,6 @@ import {
   setSidebarMode,
   setSidebarOpen,
   subscribeToSidebar,
-  toggleSidebar,
 } from "./sidebar-store";
 
 beforeEach(() => {
@@ -46,16 +45,6 @@ describe("sidebar store", () => {
     expect(
       JSON.parse(window.localStorage.getItem(SIDEBAR_STORAGE_KEY) ?? "{}"),
     ).toMatchObject({ activePanel: "chat", sidebarOpen: true });
-  });
-
-  it("toggles the sidebar and mirrors the state on the document element", () => {
-    toggleSidebar();
-    expect(getSidebarOpenSnapshot()).toBe(false);
-    expect(document.documentElement.dataset.sidebarOpen).toBe("false");
-
-    toggleSidebar();
-    expect(getSidebarOpenSnapshot()).toBe(true);
-    expect(document.documentElement.dataset.sidebarOpen).toBe("true");
   });
 
   it("ignores a corrupted value stored for another key", () => {

@@ -5,7 +5,7 @@ import { type ReactNode, useState } from "react";
 
 import { Toaster } from "@/shared/ui/toast";
 
-// Query client and toasts for routes with mutations: /campus/**, /preview and
+// Query client and toasts for /campus/**, /preview and
 // /session/refresh. The root layout keeps only theme behaviour.
 export function Providers({ children }: { children: ReactNode }) {
   // One client per browser session; created lazily so server renders never

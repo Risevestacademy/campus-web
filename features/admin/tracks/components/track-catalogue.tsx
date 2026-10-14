@@ -1,11 +1,11 @@
 import "server-only";
 
-import { cn } from "cn";
-import Link from "next/link";
-
 import { getServerApi } from "@/core/api/client/server";
-import { buttonVariants } from "@/shared/ui/button";
 
+import {
+  CataloguePagination,
+  CatalogueUnavailable,
+} from "../../catalogue/catalogue-presentation";
 import { listTracks } from "../services/track-api.adapter";
 import type { TrackSummary } from "../types/track.types";
 import { CreateTrackTile } from "./create-track-tile";
@@ -31,15 +31,11 @@ export async function TrackCatalogue({
         Programme Tracks
       </h2>
       {result.kind === "unavailable" ? (
-        <div className="grid justify-items-start gap-4">
-          <p role="alert">We couldn&apos;t load the Programme Tracks.</p>
-          <a
-            className={cn(buttonVariants({ variant: "outline" }))}
-            href={`/campus?view=tracks&page=${requested}`}
-          >
-            Try again
-          </a>
-        </div>
+        <CatalogueUnavailable
+          retryHref={`/campus?view=tracks&page=${requested}`}
+        >
+          We couldn&apos;t load the Programme Tracks.
+        </CatalogueUnavailable>
       ) : (
         <div className="grid gap-8">
           {result.tracks.length === 0 ? (
@@ -55,32 +51,12 @@ export async function TrackCatalogue({
               </li>
             ))}
           </ul>
-          {result.totalPages > 1 ? (
-            <nav
-              aria-label="Programme Track pages"
-              className="flex items-center gap-4"
-            >
-              {result.page > 1 ? (
-                <Link
-                  href={href(result.page - 1)}
-                  className={buttonVariants({ variant: "outline" })}
-                >
-                  Previous page
-                </Link>
-              ) : null}
-              <span>
-                Page {result.page} of {result.totalPages}
-              </span>
-              {result.page < result.totalPages ? (
-                <Link
-                  href={href(result.page + 1)}
-                  className={buttonVariants({ variant: "outline" })}
-                >
-                  Next page
-                </Link>
-              ) : null}
-            </nav>
-          ) : null}
+          <CataloguePagination
+            ariaLabel="Programme Track pages"
+            hrefForPage={href}
+            page={result.page}
+            totalPages={result.totalPages}
+          />
         </div>
       )}
     </section>

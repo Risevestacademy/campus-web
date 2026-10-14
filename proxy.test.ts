@@ -34,12 +34,6 @@ function visit(
   );
 }
 
-function campusEntry(cohortId: string): Record<string, string> {
-  return {
-    [`campus_entry_${encodeURIComponent(cohortId)}`]: "1",
-  };
-}
-
 // Next hands NextResponse.next({ request: { headers } }) to the render as
 // x-middleware-override-headers plus one x-middleware-request-<name> each.
 function headersSeenByRender(response: NextResponse): Headers {
@@ -101,7 +95,7 @@ describe("proxy matcher", () => {
 
 describe("proxy: visitors without an access cookie", () => {
   it("sends them through one refresh, keeping their destination", () => {
-    const response = visit(DEEP_LINK, { cookies: campusEntry("42") });
+    const response = visit(DEEP_LINK);
 
     expect(response.status).toBe(307);
     expect(getRedirectUrl(response)).toBe(
@@ -112,7 +106,6 @@ describe("proxy: visitors without an access cookie", () => {
   it("sends them to sign-in after their refresh attempt and clears the marker", () => {
     const response = visit(DEEP_LINK, {
       cookies: {
-        ...campusEntry("42"),
         campus_refresh_attempted: "1",
       },
     });
@@ -126,9 +119,7 @@ describe("proxy: visitors without an access cookie", () => {
   });
 
   it("replaces an unsafe destination with the campus index", () => {
-    const response = visit("/campus/a%2F..%2Fadmin", {
-      cookies: campusEntry("a/../admin"),
-    });
+    const response = visit("/campus/a%2F..%2Fadmin");
 
     expect(getRedirectUrl(response)).toBe(
       `${ORIGIN}/session/refresh?returnTo=%2Fcampus`,
@@ -138,7 +129,6 @@ describe("proxy: visitors without an access cookie", () => {
 
 describe("proxy: visitors with an access cookie", () => {
   const signedIn = {
-    ...campusEntry("42"),
     campus_session: "session-token",
   };
 
@@ -190,127 +180,5 @@ describe("proxy: visitors with an access cookie", () => {
     expect(markerDeletion(response)).toMatch(
       /^campus_refresh_attempted=; Path=\/; Expires=Thu, 01 Jan 1970/,
     );
-  });
-});
-
-describe("proxy: pre-join once per campus browser session", () => {
-  const signedIn = { campus_session: "session-token" };
-  const hardLoad = { "sec-fetch-dest": "document" };
-  const ACTIVE_DEEP_LINK = "/campus/c-3/meeting?tab=people";
-  const PRE_JOIN = `${ORIGIN}/campus/c-3/join?returnTo=${encodeURIComponent(ACTIVE_DEEP_LINK)}`;
-
-  it("sends a hard load to the cohort's pre-join screen, keeping the deep link", () => {
-    const response = visit(ACTIVE_DEEP_LINK, {
-      cookies: signedIn,
-      headers: hardLoad,
-    });
-
-    expect(response.status).toBe(307);
-    expect(getRedirectUrl(response)).toBe(PRE_JOIN);
-  });
-
-  it("lets a hard load through after this campus has been entered", () => {
-    const response = visit(ACTIVE_DEEP_LINK, {
-      cookies: { ...signedIn, ...campusEntry("c-3") },
-      headers: hardLoad,
-    });
-
-    expect(getRedirectUrl(response)).toBeNull();
-    expect(headersSeenByRender(response).get("x-campus-return-to")).toBe(
-      ACTIVE_DEEP_LINK,
-    );
-  });
-
-  it.each(["/campus/c-3", "/campus/c-3/"])(
-    "treats %s as an active campus",
-    (path) => {
-      const response = visit(path, { cookies: signedIn, headers: hardLoad });
-
-      expect(getRedirectUrl(response)).toBe(
-        `${ORIGIN}/campus/c-3/join?returnTo=${encodeURIComponent(path)}`,
-      );
-    },
-  );
-
-  it("sends a signed-out hard load through pre-join before the session check", () => {
-    const response = visit(ACTIVE_DEEP_LINK, { headers: hardLoad });
-
-    expect(getRedirectUrl(response)).toBe(PRE_JOIN);
-  });
-
-  it("leaves the refresh marker for the pre-join request", () => {
-    const response = visit(ACTIVE_DEEP_LINK, {
-      cookies: { campus_refresh_attempted: "1" },
-      headers: hardLoad,
-    });
-
-    expect(getRedirectUrl(response)).toBe(PRE_JOIN);
-    expect(markerDeletion(response)).toBeUndefined();
-  });
-
-  it("keeps an encoded cohort ID in a single path segment", () => {
-    const response = visit("/campus/a%20b%3Fc/meeting", {
-      cookies: signedIn,
-      headers: hardLoad,
-    });
-
-    expect(new URL(getRedirectUrl(response) ?? "").pathname).toBe(
-      "/campus/a%20b%3Fc/join",
-    );
-  });
-
-  it.each([
-    ["a router fetch", { "sec-fetch-dest": "empty" }],
-    ["a request without fetch metadata", {}],
-  ])("sends %s through pre-join before entry", (_, headers) => {
-    const response = visit(ACTIVE_DEEP_LINK, { cookies: signedIn, headers });
-
-    expect(getRedirectUrl(response)).toBe(PRE_JOIN);
-  });
-
-  it.each([
-    ["a router fetch", { "sec-fetch-dest": "empty" }],
-    ["a request without fetch metadata", {}],
-  ])("lets %s through after entry", (_, headers) => {
-    const response = visit(ACTIVE_DEEP_LINK, {
-      cookies: { ...signedIn, ...campusEntry("c-3") },
-      headers,
-    });
-
-    expect(getRedirectUrl(response)).toBeNull();
-    expect(headersSeenByRender(response).get("x-campus-return-to")).toBe(
-      ACTIVE_DEEP_LINK,
-    );
-  });
-
-  it("does not let another campus's marker bypass pre-join", () => {
-    const response = visit(ACTIVE_DEEP_LINK, {
-      cookies: { ...signedIn, ...campusEntry("c-4") },
-      headers: hardLoad,
-    });
-
-    expect(getRedirectUrl(response)).toBe(PRE_JOIN);
-  });
-
-  it.each([
-    "/campus/c-3/join",
-    "/campus/c-3/join?returnTo=%2Fcampus",
-    "/campus/c-3/tracks",
-    "/campus/c-3/tracks?page=2",
-    "/campus",
-  ])("does not gate %s", (path) => {
-    const response = visit(path, { cookies: signedIn, headers: hardLoad });
-
-    expect(getRedirectUrl(response)).toBeNull();
-  });
-
-  it.each(["HEAD", "POST"])("does not gate a %s request", (method) => {
-    const response = visit(ACTIVE_DEEP_LINK, {
-      cookies: signedIn,
-      headers: hardLoad,
-      method,
-    });
-
-    expect(getRedirectUrl(response)).toBeNull();
   });
 });

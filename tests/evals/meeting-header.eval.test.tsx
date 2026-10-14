@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 describe("meeting header UI (required threshold: 2/2)", () => {
-  it("renders meeting information and accessible controls through the active-campus layout", async () => {
+  it("renders meeting information without an unavailable lock control", async () => {
     await renderActiveCampusLayout();
 
     expect(
@@ -29,23 +29,18 @@ describe("meeting header UI (required threshold: 2/2)", () => {
       screen.getByRole("img", { name: "2 more participants" }),
     ).toHaveTextContent("+2");
 
-    const lockToggle = screen.getByRole("button", { name: "Meeting lock" });
-
-    expect(lockToggle).toHaveAttribute("aria-pressed", "false");
-
-    fireEvent.click(lockToggle);
-
-    expect(lockToggle).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.queryByRole("button", { name: "Meeting lock" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("toggles the campus sidebar from the header", async () => {
+  it("opens the campus sidebar from the header", async () => {
     await renderActiveCampusLayout();
 
-    const openSidebar = screen.getByRole("button", { name: "Open sidebar" });
-
-    fireEvent.click(openSidebar);
-
+    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
     expect(document.documentElement.dataset.sidebarOpen).toBe("false");
+
+    const openSidebar = screen.getByRole("button", { name: "Open sidebar" });
 
     fireEvent.click(openSidebar);
 

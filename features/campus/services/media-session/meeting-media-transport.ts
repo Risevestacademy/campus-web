@@ -4,8 +4,8 @@ import type {
 } from "./contracts";
 
 export const noopMeetingMediaTransport: MeetingMediaTransport = {
-  handleLocalPublicationChange(_change: LocalPublicationChange) {},
-  subscribeToRemotePublications() {
+  connect() {
     return () => undefined;
   },
+  handleLocalPublicationChange(_change: LocalPublicationChange) {},
 };

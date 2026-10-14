@@ -40,9 +40,6 @@ vi.mock("server-only", () => ({}));
 
 const LOGOUT_URL = `${TEST_ORIGIN}/api/v1/auth/logout`;
 const CAMPUS_PATH = "/campus/c-3";
-const CAMPUS_ENTRY_COOKIES = ["campus_entry_c-3", "campus_entry_c-4"];
-const COOKIE_PATHS = ["/campus", "/"];
-const UNRELATED_COOKIE = "theme=dark";
 const LOGGED_OUT_SEQUENCE = [
   'capture auth.logout {"logout_source":"user_action"}',
   "reset analytics user",
@@ -54,35 +51,6 @@ const status =
   () =>
     new Response(null, { status: code });
 const neverAnswers: Reply = () => new Promise<Response>(() => {});
-
-function visibleCookies(): string[] {
-  return document.cookie
-    .split(";")
-    .map((cookie) => cookie.trim())
-    .filter(Boolean);
-}
-
-const campusEntryCookies = () =>
-  visibleCookies().filter((cookie) => cookie.startsWith("campus_entry_"));
-
-// Markers from before entry moved under /campus still live at the root path.
-function rememberCampusEntries() {
-  for (const name of CAMPUS_ENTRY_COOKIES) {
-    for (const path of COOKIE_PATHS) {
-      document.cookie = `${name}=1; Path=${path}; SameSite=Lax`;
-    }
-  }
-  document.cookie = `${UNRELATED_COOKIE}; Path=/`;
-}
-
-function forgetCookies() {
-  for (const cookie of visibleCookies()) {
-    const [name] = cookie.split("=", 1);
-    for (const path of COOKIE_PATHS) {
-      document.cookie = `${name}=; Path=${path}; Max-Age=0`;
-    }
-  }
-}
 
 function logoutReplies(...replies: Reply[]) {
   mockApi.server.use(http.post(LOGOUT_URL, inOrder(...replies)));
@@ -118,7 +86,6 @@ async function logOut() {
 beforeEach(() => {
   sideEffects.length = 0;
   window.history.replaceState(null, "", CAMPUS_PATH);
-  forgetCookies();
 });
 
 afterEach(() => {
@@ -135,9 +102,8 @@ describe("AccountMenu: logging out", () => {
     ["the backend ends the session", 204],
     ["the session had already ended", 401],
   ])(
-    "records the logout, forgets the analytics user and every campus entry, then leaves for sign-in when %s",
+    "records the logout, forgets the analytics user, then leaves for sign-in when %s",
     async (_, code) => {
-      rememberCampusEntries();
       logoutReplies(status(code));
       renderMenu();
 
@@ -147,7 +113,6 @@ describe("AccountMenu: logging out", () => {
         expect(sideEffects).toEqual(LOGGED_OUT_SEQUENCE);
       });
       expect(logoutPosts()).toHaveLength(1);
-      expect(visibleCookies()).toEqual([UNRELATED_COOKIE]);
     },
   );
 });
@@ -157,7 +122,6 @@ describe("AccountMenu: failed logout", () => {
     ["a server error", status(503)],
     ["a network failure", () => HttpResponse.error()],
   ])("keeps the visitor signed in and explains after %s", async (_, reply) => {
-    rememberCampusEntries();
     logoutReplies(reply);
     renderMenu();
 
@@ -167,7 +131,6 @@ describe("AccountMenu: failed logout", () => {
       await screen.findByText("We couldn't log you out"),
     ).toBeInTheDocument();
     expect(sideEffects).toEqual([]);
-    expect(campusEntryCookies()).toHaveLength(4);
   });
 
   it("lets the visitor try again after a failure", async () => {

@@ -3,6 +3,7 @@ import { expect, userEvent, within } from "storybook/test";
 
 import { MediaSessionProvider } from "../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../services/media-session/media-session-store";
+import { CampusViewProvider } from "./campus-view-provider";
 import {
   DEFAULT_MEETING_TILE_MOTION,
   type MeetingTileMotionConfig,
@@ -58,7 +59,9 @@ const meta = {
   decorators: [
     (Story) => (
       <MediaSessionProvider store={previewMediaSessionStore}>
-        <Story />
+        <CampusViewProvider>
+          <Story />
+        </CampusViewProvider>
       </MediaSessionProvider>
     ),
   ],

@@ -8,17 +8,22 @@ import { createContext, type CSSProperties, useContext } from "react";
 
 import { toggleVariants } from "@/shared/ui/toggle";
 
-const ToggleGroupContext = createContext<
-  VariantProps<typeof toggleVariants> & {
-    spacing?: number;
-    orientation?: "horizontal" | "vertical";
+type ToggleGroupContextValue = VariantProps<typeof toggleVariants> & {
+  spacing?: number;
+  orientation?: "horizontal" | "vertical";
+};
+
+const ToggleGroupContext = createContext<ToggleGroupContextValue | null>(null);
+
+function useToggleGroupContext(): ToggleGroupContextValue {
+  const value = useContext(ToggleGroupContext);
+
+  if (value === null) {
+    throw new Error("ToggleGroupItem must be rendered inside ToggleGroup.");
   }
->({
-  size: "default",
-  variant: "default",
-  spacing: 2,
-  orientation: "horizontal",
-});
+
+  return value;
+}
 
 function ToggleGroup({
   className,
@@ -63,7 +68,7 @@ function ToggleGroupItem({
   size = "default",
   ...props
 }: TogglePrimitive.Props & VariantProps<typeof toggleVariants>) {
-  const context = useContext(ToggleGroupContext);
+  const context = useToggleGroupContext();
 
   return (
     <TogglePrimitive

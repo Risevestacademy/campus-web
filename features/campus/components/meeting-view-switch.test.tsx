@@ -7,6 +7,7 @@ import {
   createTestMediaDevice,
   installTestMediaDevices,
 } from "../testing/media-session-test-utils";
+import { CampusViewProvider } from "./campus-view-provider";
 import { MeetingViewControls } from "./meeting-view-switch";
 
 const meetingParticipants = [
@@ -19,10 +20,12 @@ function renderMeetingViewControls() {
 
   return render(
     <MediaSessionProvider store={store}>
-      <MeetingViewControls
-        localParticipantId="participant-a"
-        participants={meetingParticipants}
-      />
+      <CampusViewProvider>
+        <MeetingViewControls
+          localParticipantId="participant-a"
+          participants={meetingParticipants}
+        />
+      </CampusViewProvider>
     </MediaSessionProvider>,
   );
 }
@@ -43,10 +46,12 @@ describe("MeetingViewControls", () => {
     await store.getState().toggleSource("camera");
     render(
       <MediaSessionProvider store={store}>
-        <MeetingViewControls
-          localParticipantId="participant-a"
-          participants={meetingParticipants}
-        />
+        <CampusViewProvider>
+          <MeetingViewControls
+            localParticipantId="participant-a"
+            participants={meetingParticipants}
+          />
+        </CampusViewProvider>
       </MediaSessionProvider>,
     );
 

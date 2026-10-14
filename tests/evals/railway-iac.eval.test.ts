@@ -49,6 +49,8 @@ const campusWebBaseVariables = {
   },
   NEXT_PUBLIC_POSTHOG_HOST: { type: "preserve" },
   NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: { type: "preserve" },
+  NEXT_PUBLIC_SANITY_DATASET: { type: "preserve" },
+  NEXT_PUBLIC_SANITY_PROJECT_ID: { type: "preserve" },
 };
 
 describe("Railway IaC eval (required threshold: 7/7)", () => {

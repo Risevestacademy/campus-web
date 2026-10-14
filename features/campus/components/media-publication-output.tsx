@@ -1,58 +1,26 @@
 "use client";
 
 import { cn } from "cn";
-import { useCallback } from "react";
 
+import { useMediaElementRef } from "../hooks/use-media-element-ref";
 import type { MediaPublication } from "../services/media-session/contracts";
 
 type MediaPublicationOutputProps = Readonly<{
-  audioPublication?: MediaPublication;
   className?: string;
   fallbackInitials?: string;
   fallbackLabel: string;
-  isLocal: boolean;
   label: string;
-  outputDeviceId?: string;
   videoPublication?: MediaPublication;
 }>;
 
-function useMediaElementRef(
-  publication: MediaPublication | undefined,
-  outputDeviceId?: string,
-) {
-  return useCallback(
-    (element: HTMLMediaElement | null) => {
-      if (!element || !publication) return;
-
-      element.srcObject = publication.stream;
-
-      if (outputDeviceId !== undefined && "setSinkId" in element) {
-        void element.setSinkId(outputDeviceId).catch(() => undefined);
-      }
-
-      return () => {
-        if (element.srcObject === publication.stream) element.srcObject = null;
-      };
-    },
-    [outputDeviceId, publication],
-  );
-}
-
 export function MediaPublicationOutput({
-  audioPublication,
   className,
   fallbackInitials,
   fallbackLabel,
-  isLocal,
   label,
-  outputDeviceId,
   videoPublication,
 }: MediaPublicationOutputProps) {
   const videoRef = useMediaElementRef(videoPublication);
-  const audioRef = useMediaElementRef(
-    isLocal ? undefined : audioPublication,
-    outputDeviceId,
-  );
   const showVideo = Boolean(
     videoPublication?.enabled && videoPublication.track.readyState === "live",
   );
@@ -77,10 +45,6 @@ export function MediaPublicationOutput({
             showVideo ? "opacity-100" : "absolute opacity-0",
           )}
         />
-      ) : null}
-
-      {!isLocal && audioPublication ? (
-        <audio ref={audioRef} autoPlay aria-label={`${label} audio`} />
       ) : null}
 
       {showVideo ? null : (

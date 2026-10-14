@@ -29,19 +29,3 @@ export function CohortGate({ children }: { children: ReactNode }) {
 export const SessionUnavailable = () => null;
 
 export { normalizeCohortReturnTo } from "@/features/auth/schemas/return-to";
-
-export function CampusEntryLink({
-  children,
-  className,
-  href,
-}: {
-  children: ReactNode;
-  className?: string;
-  href: string;
-}) {
-  return (
-    <a className={className} href={href}>
-      {children}
-    </a>
-  );
-}

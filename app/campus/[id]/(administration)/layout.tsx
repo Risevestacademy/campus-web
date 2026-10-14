@@ -4,7 +4,12 @@ import {
   requireRouteAccess,
   SessionUnavailable,
 } from "@/features/auth";
-import { CampusShell, SidebarCollapseButton } from "@/features/campus";
+import {
+  CampusShell,
+  PresenceDock,
+  PresenceSessionGate,
+  SidebarCollapseButton,
+} from "@/features/campus";
 import { FeedbackPopup } from "@/features/feedback";
 import { CampusOverviewPanel } from "@/features/roster";
 
@@ -24,24 +29,29 @@ export default async function AdministrationLayout({
     return <SessionUnavailable retryHref={access.retryHref} />;
   }
 
+  const userName = access.session.user.displayName;
+
   return (
-    <CampusShell
-      AccountMenu={AccountMenu}
-      administrationPanel={
-        <AdminSidebar
-          cohortId={id}
-          collapseButton={<SidebarCollapseButton />}
-        />
-      }
-      FeedbackPopup={FeedbackPopup}
-      OverviewPanel={CampusOverviewPanel}
-      cohortId={id}
-      initialSidebarMode="admin"
-      userName={access.session.user.displayName}
-    >
-      <div className="min-w-0 flex-1 overflow-y-auto rounded-xl border bg-[#F7F7F7] dark:border-[#2B3B5F] dark:bg-[#1F2940]">
-        {children}
-      </div>
-    </CampusShell>
+    <PresenceSessionGate cohortId={id}>
+      <CampusShell
+        AccountMenu={AccountMenu}
+        administrationPanel={
+          <AdminSidebar
+            cohortId={id}
+            collapseButton={<SidebarCollapseButton />}
+          />
+        }
+        FeedbackPopup={FeedbackPopup}
+        OverviewPanel={CampusOverviewPanel}
+        cohortId={id}
+        initialSidebarMode="admin"
+        userName={userName}
+      >
+        <div className="min-w-0 flex-1 overflow-y-auto rounded-xl border bg-[#F7F7F7] dark:border-[#2B3B5F] dark:bg-[#1F2940]">
+          {children}
+        </div>
+        <PresenceDock cohortId={id} userName={userName} />
+      </CampusShell>
+    </PresenceSessionGate>
   );
 }
