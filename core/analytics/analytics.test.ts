@@ -229,7 +229,7 @@ describe("browser analytics", () => {
   it("does not let initialization failures break hydration", async () => {
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
     analyticsMocks.browser.init.mockImplementationOnce(() => {
-      throw new Error("initialization failed");
+      throw new Error("token=leaked-secret");
     });
     const consoleError = vi
       .spyOn(console, "error")
@@ -243,7 +243,7 @@ describe("browser analytics", () => {
       "Error",
     );
     expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
-      "initialization failed",
+      "leaked-secret",
     );
   });
 
