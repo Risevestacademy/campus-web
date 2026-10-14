@@ -9,8 +9,8 @@ on:
     branches: [dev, main]
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -19,19 +19,51 @@ env:
   HUSKY: 0 # the `prepare` script runs husky on install; not wanted in CI
   NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ vars.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN }}
   NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
-  NEXT_PUBLIC_SANITY_DATASET: ${{ vars.NEXT_PUBLIC_SANITY_DATASET }}
-  NEXT_PUBLIC_SANITY_PROJECT_ID: ${{ vars.NEXT_PUBLIC_SANITY_PROJECT_ID }}
 
 jobs:
   build:
     name: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment:
-      name: ${{ (github.base_ref || github.ref_name) == 'main' && 'campus-by-rise / production' || 'campus-by-rise / staging' }}
 
     steps:
       - uses: actions/checkout@v7
+
+      - name: Select Sanity build variables
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
+          STAGING_SANITY_DATASET: ${{ vars.STAGING_NEXT_PUBLIC_SANITY_DATASET }}
+          STAGING_SANITY_PROJECT_ID: ${{ vars.STAGING_NEXT_PUBLIC_SANITY_PROJECT_ID }}
+          PRODUCTION_SANITY_DATASET: ${{ vars.PRODUCTION_NEXT_PUBLIC_SANITY_DATASET }}
+          PRODUCTION_SANITY_PROJECT_ID: ${{ vars.PRODUCTION_NEXT_PUBLIC_SANITY_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+
+          case "$TARGET_BRANCH" in
+            dev)
+              sanity_dataset="$STAGING_SANITY_DATASET"
+              sanity_project_id="$STAGING_SANITY_PROJECT_ID"
+              ;;
+            main)
+              sanity_dataset="$PRODUCTION_SANITY_DATASET"
+              sanity_project_id="$PRODUCTION_SANITY_PROJECT_ID"
+              ;;
+            *)
+              echo "::error::Unsupported CI target branch: $TARGET_BRANCH"
+              exit 1
+              ;;
+          esac
+
+          if [[ -z "$sanity_dataset" || -z "$sanity_project_id" ]]; then
+            echo "::error::Sanity repository variables are missing for $TARGET_BRANCH."
+            exit 1
+          fi
+
+          {
+            echo "NEXT_PUBLIC_SANITY_DATASET=$sanity_dataset"
+            echo "NEXT_PUBLIC_SANITY_PROJECT_ID=$sanity_project_id"
+          } >> "$GITHUB_ENV"
 
       - uses: pnpm/action-setup@v6
 
@@ -59,11 +91,45 @@ jobs:
     name: e2e
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    environment:
-      name: ${{ (github.base_ref || github.ref_name) == 'main' && 'campus-by-rise / production' || 'campus-by-rise / staging' }}
 
     steps:
       - uses: actions/checkout@v7
+
+      - name: Select Sanity build variables
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
+          STAGING_SANITY_DATASET: ${{ vars.STAGING_NEXT_PUBLIC_SANITY_DATASET }}
+          STAGING_SANITY_PROJECT_ID: ${{ vars.STAGING_NEXT_PUBLIC_SANITY_PROJECT_ID }}
+          PRODUCTION_SANITY_DATASET: ${{ vars.PRODUCTION_NEXT_PUBLIC_SANITY_DATASET }}
+          PRODUCTION_SANITY_PROJECT_ID: ${{ vars.PRODUCTION_NEXT_PUBLIC_SANITY_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+
+          case "$TARGET_BRANCH" in
+            dev)
+              sanity_dataset="$STAGING_SANITY_DATASET"
+              sanity_project_id="$STAGING_SANITY_PROJECT_ID"
+              ;;
+            main)
+              sanity_dataset="$PRODUCTION_SANITY_DATASET"
+              sanity_project_id="$PRODUCTION_SANITY_PROJECT_ID"
+              ;;
+            *)
+              echo "::error::Unsupported CI target branch: $TARGET_BRANCH"
+              exit 1
+              ;;
+          esac
+
+          if [[ -z "$sanity_dataset" || -z "$sanity_project_id" ]]; then
+            echo "::error::Sanity repository variables are missing for $TARGET_BRANCH."
+            exit 1
+          fi
+
+          {
+            echo "NEXT_PUBLIC_SANITY_DATASET=$sanity_dataset"
+            echo "NEXT_PUBLIC_SANITY_PROJECT_ID=$sanity_project_id"
+          } >> "$GITHUB_ENV"
 
       - uses: pnpm/action-setup@v6
 

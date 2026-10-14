@@ -9,18 +9,63 @@ partial:
 It does not own `campus-api`, `campus-world`, PostgreSQL, volumes, generated
 domains, or other project resources.
 
-Railway CLI issue `railwayapp/cli#1137` currently prevents the documented
-environment context from selecting branches. Two thin entry files provide the
-required source configuration:
+The single `.railway/railway.ts` entry reads Railway's environment context and
+fails closed for every environment except the two supported targets:
 
-| Environment | Entry file                       | Branch |
-| ----------- | -------------------------------- | ------ |
-| staging     | `.railway/railway.ts`            | `dev`  |
-| production  | `.railway/railway.production.ts` | `main` |
+| Environment | Branch |
+| ----------- | ------ |
+| staging     | `dev`  |
+| production  | `main` |
 
-Both entries use `Risevestacademy/campus-web` with Wait for CI enabled. The
-linked Railway environment selects the target; the entry filename does not.
-Always verify `railway status` before planning or applying.
+Both targets use `Risevestacademy/campus-web` with Wait for CI enabled. Always
+verify `railway status` before planning or applying locally.
+
+## CI/CD
+
+Railway configuration and application deployment are separate operations:
+
+- `.github/workflows/railway-plan.yml` plans `.railway/**` changes on pull
+  requests targeting `dev` or `main`.
+- `.github/workflows/railway-apply.yml` applies the exact reviewed plan after
+  the pull request merges. A direct push without a saved plan fails closed.
+- This split Plan/Apply layout follows Railway's documented workflow. Required,
+  up-to-date PR CI protects the merge; configuration Apply does not wait for a
+  repeated post-merge CI run.
+- Both jobs use `deployment: false`. They can read their GitHub environment's
+  `RAILWAY_TOKEN` without creating misleading GitHub deployment records.
+- Both jobs pin Railway CLI `5.63.1`, the version verified with the
+  environment-scoped project token.
+- Destructive applies are disabled. Resource deletion requires a separately
+  reviewed manual operation.
+- Railway's GitHub integration remains responsible for application builds and
+  deployments. Its Wait for CI setting holds application deployments until all
+  workflows for the commit pass. Do not add `railway up` to GitHub Actions.
+
+Create a different environment-scoped Railway project token named
+`RAILWAY_TOKEN` in each GitHub environment:
+
+- `campus-by-rise / staging`
+- `campus-by-rise / production`
+
+Ordinary CI does not attach to those environments. Define these non-secret
+repository Actions variables instead:
+
+- `STAGING_NEXT_PUBLIC_SANITY_DATASET`
+- `STAGING_NEXT_PUBLIC_SANITY_PROJECT_ID`
+- `PRODUCTION_NEXT_PUBLIC_SANITY_DATASET`
+- `PRODUCTION_NEXT_PUBLIC_SANITY_PROJECT_ID`
+
+CI selects staging values for `dev` and production values for `main`, and fails
+closed when either selected value is missing.
+
+Protect production with required reviewers for both plan and apply. GitHub App
+custom deployment protection rules are incompatible with `deployment: false`.
+If either GitHub environment restricts deployment branches, allow its target
+branch (`dev` or `main`) and `refs/pull/*/merge`; plan jobs run on pull-request
+merge refs even though the workflow selects the environment from the base
+branch.
+Railway service deployments remain the authoritative deployment records;
+`campus-web` and `campus-storybook` deploy independently.
 
 ## Variables
 
@@ -94,9 +139,10 @@ pnpm typecheck
 pnpm lint
 pnpm format:check
 pnpm test
+pnpm build
 ```
 
-The Railway eval must report 7/7 passing cases.
+The Railway eval must report 8/8 passing cases.
 
 ## Staging
 
@@ -120,14 +166,17 @@ The initial staging plan should:
 - Enable Wait for CI on the Storybook source.
 - Leave the `campus-web` source unchanged.
 
-Do not apply until the Storybook configuration fix is deployed from `dev`.
-Applying requires separate explicit approval.
+Do not merge until the Storybook configuration fix is ready on `dev`. Merging
+the reviewed pull request authorizes the non-destructive staging apply.
 
 After an approved apply:
 
 1. Confirm the Storybook source is `dev` with Wait for CI enabled.
 2. Verify its generated Railway URL after deployment.
-3. Run `railway config plan` again and require no unintended changes.
+3. Run `railway config plan` again and reject unintended changes. Railway CLI
+   issue [#992](https://github.com/railwayapp/cli/issues/992) can repeatedly
+   report unchanged literal variables, so do not use zero drift as the only
+   success signal.
 
 ## Staging serverless
 
@@ -150,14 +199,16 @@ It targets `/`, a static page, so web deploys do not depend on `campus-api`.
 
 ### Runbook
 
-Run from your shell with `.railway` committed and `railway status` showing
-staging. Reject a plan that touches `campus-api`, `campus-world`, databases,
-volumes, domains, or production.
+The normal apply path is the reviewed GitHub Actions workflow. For local
+diagnosis, run from your shell with `railway status` showing staging. Reject a
+plan that touches `campus-api`, `campus-world`, databases, volumes, domains, or
+production.
 
 ```bash
 railway config plan
-railway config apply   # starts a deploy of each changed service
 ```
+
+Do not run a local apply without separate explicit approval.
 
 After 10+ idle minutes, both services should report `Status: SLEEPING`:
 
@@ -239,20 +290,34 @@ Production stays always-on. Serverless, the pinned start command, the web
 healthcheck, and `NEXT_TELEMETRY_DISABLED` are staging-only until production
 gets its own cost review.
 
-Production currently has no `campus-storybook` service. First review:
+Production currently has no `campus-storybook` service instance. Railway CLI
+issue [#1170](https://github.com/railwayapp/cli/issues/1170) can return exit
+code zero when an IaC apply fails to add a service that exists elsewhere in the
+project. Reconcile the topology before approving production:
+
+1. Complete and verify the staging canary.
+2. In the Railway dashboard, switch to production and use Environment Sync to
+   bring only `campus-storybook` from staging into production.
+3. Review the staged Railway change and obtain separate production approval
+   before deploying it.
+4. Refresh the production pull request after the sync so its plan captures the
+   new production configuration etag.
+
+Then verify the target locally if needed:
 
 ```bash
 railway link \
   --project campus-by-rise \
   --environment production
 railway status
-railway config plan --file .railway/railway.production.ts
+railway config plan
 ```
 
 The production plan should set `campus-web` `API_BASE_URL` to the
 environment-local `campus-api` private-network reference, otherwise leave
-`campus-web` unchanged, and create only `campus-storybook`, connected to `main`
-with Wait for CI enabled. Do not apply without separate production approval.
+`campus-web` unchanged, and reconcile `campus-storybook` to `main` with Wait for
+CI enabled and always-on runtime settings. The protected production apply job
+requires approval after merge.
 
 After an approved production apply, verify the deployment and generate a
 Railway domain if Railway did not create one automatically. Domain creation is

@@ -1,0 +1,37 @@
+name: Railway plan
+
+on:
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - ".railway/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+env:
+  HUSKY: 0
+
+jobs:
+  plan:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    name: plan (${{ github.base_ref == 'main' && 'production' || 'staging' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: ${{ github.base_ref == 'main' && 'campus-by-rise / production' || 'campus-by-rise / staging' }}
+      deployment: false
+    concurrency:
+      group: railway-plan-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: railwayapp/config@v1
+        with:
+          command: plan
+          railway-token: ${{ secrets.RAILWAY_TOKEN }}
+          cli-version: 5.63.1
