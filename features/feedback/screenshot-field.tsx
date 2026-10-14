@@ -4,6 +4,8 @@ import { type DragEvent, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 
+import { SCREENSHOT_TYPES } from "./schemas/feedback.schema";
+
 export interface SelectedScreenshot {
   name: string;
   previewUrl: string;
@@ -35,7 +37,7 @@ export function ScreenshotField({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={SCREENSHOT_TYPES.join(",")}
         tabIndex={-1}
         aria-label="Screenshot file"
         className="sr-only"

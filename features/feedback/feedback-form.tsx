@@ -10,15 +10,16 @@ import { Label } from "@/shared/ui/label";
 import { Textarea } from "@/shared/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 
+import { feedbackKinds } from "./feedback-kinds";
 import {
   DETAILS_MAX_LENGTH,
   type FeedbackFieldErrors,
+  feedbackKindSchema,
   LOCATION_MAX_LENGTH,
   parseFeedback,
   screenshotProblem,
   TITLE_MAX_LENGTH,
-} from "./feedback.schema";
-import { feedbackKinds } from "./feedback-kinds";
+} from "./schemas/feedback.schema";
 import { ScreenshotField, type SelectedScreenshot } from "./screenshot-field";
 import type { FeedbackKind, NewFeedback } from "./types";
 
@@ -29,11 +30,6 @@ function readAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
-}
-
-function fieldText(data: FormData, name: string): string {
-  const value = data.get(name);
-  return typeof value === "string" ? value : "";
 }
 
 export function FeedbackForm({
@@ -73,14 +69,7 @@ export function FeedbackForm({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const read = parseFeedback({
-      kind,
-      title: fieldText(data, "title"),
-      details: fieldText(data, "details"),
-      location: fieldText(data, "location"),
-      includeDeviceInfo: data.has("includeDeviceInfo"),
-    });
+    const read = parseFeedback(new FormData(event.currentTarget));
 
     setErrors(read.kind === "invalid" ? read.errors : {});
     if (read.kind === "valid") onSubmit(read.feedback);
@@ -100,7 +89,8 @@ export function FeedbackForm({
         <ToggleGroup
           value={kind ? [kind] : []}
           onValueChange={(next) => {
-            if (next[0]) setKind(next[0] as FeedbackKind);
+            const picked = feedbackKindSchema.safeParse(next[0]);
+            if (picked.success) setKind(picked.data);
           }}
           aria-label="Kind of feedback"
           className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3"
@@ -117,6 +107,7 @@ export function FeedbackForm({
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
+        <input type="hidden" name="kind" value={kind ?? ""} />
         {errors.kind ? (
           <p role="alert" className="text-destructive text-sm">
             {errors.kind}
