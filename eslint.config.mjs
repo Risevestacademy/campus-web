@@ -117,6 +117,7 @@ const eslintConfig = defineConfig([
   },
   {
     files: [
+      "app/**/*.{ts,tsx}",
       "core/**/*.{ts,tsx}",
       "features/**/*.{ts,tsx}",
       "shared/**/*.{ts,tsx}",

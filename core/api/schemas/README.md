@@ -34,9 +34,12 @@ import {
   reads (`z.object`) and returns `schema.safeParse(value).data` (the
   stripped output, `undefined` on failure), never the input, typed as
   `Simplify<Pick<Dto, …>>`.
-- Lint (`config/zod-restrictions.json`) bans `looseObject`, `strictObject`,
-  `.passthrough()`, `.strict()`, `.merge()` and `reportInput` in `core/`,
-  `features/` and `shared/`. Response schemas strip with `z.object`; Zod
+- Lint (`config/zod-restrictions.json`) bans, in `app/`, `core/`,
+  `features/` and `shared/`: `looseObject` and `strictObject` (called on `z`
+  or imported by name), `.loose()`, `.passthrough()` and `.catchall()` on any
+  receiver, `.strict()` and `.merge()` on a chain that starts at `z`, and a
+  `reportInput` key. `.strict()` or `.merge()` on a schema variable is not
+  caught: review it. Response schemas strip with `z.object`; Zod
   issues never carry raw input.
 - Only vocabulary shared by two or more features lives here. A feature's own
   response shapes stay in its `schemas/` folder.
