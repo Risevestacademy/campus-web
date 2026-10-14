@@ -31,7 +31,8 @@ import {
 - Bind every schema to its generated type with `z.toZod`. Never copy enum
   literals into a feature.
 - A feature schema that validates a response strips to the fields the feature
-  reads (`z.object`) and returns `parsed.data`, typed as
+  reads (`z.object`) and returns `schema.safeParse(value).data` (the
+  stripped output, `undefined` on failure), never the input, typed as
   `Simplify<Pick<Dto, …>>`.
 - Lint (`config/zod-restrictions.json`) bans `looseObject`, `strictObject`,
   `.passthrough()`, `.strict()`, `.merge()` and `reportInput` in `core/`,
