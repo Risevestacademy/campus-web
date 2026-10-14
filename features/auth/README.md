@@ -8,10 +8,10 @@ reads and acceptance belong to `invitation`.
 
 ## Interface
 
-| Entry      | Imported by         | Exports                                                                                                                                     |
-| ---------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.ts` | route code          | `requireRouteAccess`, `CohortGate`, `InvitationGate`, `ResumeInvitation`, `redirectSignedInVisitor`, `SessionUnavailable`, `AccountMenu`, … |
-| `proxy.ts` | the root `proxy.ts` | `guardCampusRequest` (no React, no `server-only`)                                                                                           |
+| Entry      | Imported by         | Exports                                                                                                                                        |
+| ---------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.ts` | route code          | `requireRouteAccess`, `CohortGate`, `SessionRenewal`, `InvitationGate`, `ResumeInvitation`, `redirectSignedInVisitor`, `SessionUnavailable`, … |
+| `proxy.ts` | the root `proxy.ts` | `guardCampusRequest` (no React, no `server-only`)                                                                                              |
 
 ```tsx
 const access = await requireRouteAccess({ kind: "system-admin" });
@@ -43,12 +43,43 @@ access.session;
 | `services/authorization.service.ts` | one `cache()`d session read per request, request signals   | `getServerApi()`                               |
 | `services/session.service.ts`       | `/v1/auth/me` with retries, refresh POST, logout POST      | `ApiClient`                                    |
 | `services/campus-proxy.service.ts`  | session refresh redirects and trusted render headers       | `NextRequest`                                  |
+| `services/session-renewal.ts`       | Session Renewal: when to renew, retries, cross-tab skips   | ports: refresh, lock, shared expiry, wake      |
+| `services/browser-session.ts`       | browser adapters for those ports; the refresh singletons   | `browserApi`, Web Locks, `localStorage`        |
+| `services/refresh-cooldown.ts`      | the 1/2/4/8 s backoff, stretched by `Retry-After`          | none                                           |
 | `schemas/`                          | session parsing; return-destination rules (`return-to.ts`) | none                                           |
-| `components/`                       | gates, `SessionUnavailable`, refresh page, account menu    | none                                           |
-| `hooks/`                            | refresh and logout mutations, countdown                    | `browserApi`, shared `useMountEffect`          |
+| `components/`                       | gates, `SessionRenewal`, refresh page, account menu        | none                                           |
+| `hooks/`                            | refresh, renewal and logout; countdown                     | `browserApi`, shared `useMountEffect`          |
 
 Flow: page → gate or `requireRouteAccess` → `authorizeRoute` →
 `route-policy` + `session.service`.
+
+Session Renewal: the cohort layout's `SessionRenewal` (server) seeds
+`SessionRenewalTimer` (client) with the cached session's `expiresAt`; its hook
+starts `createSessionRenewal`, which POSTs the refresh at
+`expiresAt − min(2 min, remaining / 4)` under the `campus-session-renewal` Web
+Lock, skips when another tab already renewed (`localStorage`), and re-checks on
+`visibilitychange`, `focus`, `online` and `pageshow`. It never navigates, so
+the Presence Session keeps running. `/session/refresh` remains the cold-load
+path: a reload, a new tab, or a wake after the access cookie already lapsed.
+
+### What the proxy is for
+
+Next.js 16 treats Proxy as an optimistic, cookie-only layer: it runs before
+every matched request, including prefetches, is "not intended for slow data
+fetching", and "should not be used as a full session management or
+authorization solution" (`node_modules/next/dist/docs/01-app/01-getting-started/16-proxy.md`,
+`02-guides/authentication.md`, "Optimistic checks with Proxy").
+
+| Proxy does                                                     | Proxy never does                                        |
+| -------------------------------------------------------------- | ------------------------------------------------------- |
+| Check that the session cookie exists                           | Authorize a route, role, or cohort                      |
+| Redirect a request with no session cookie to refresh / sign-in | Read the session from the backend (`/v1/auth/me`)       |
+| Set trusted request headers (`returnTo`, refresh attempted)    | Fetch data; `fetch` caching has no effect in Proxy      |
+| Clear its own one-shot marker cookie                           | Rely on module globals; it may run apart from rendering |
+
+Authorization stays close to the data: each page calls `requireRouteAccess`
+(one `cache()`d session read per request), because layouts do not re-render on
+client navigation. The backend remains the final authority.
 
 ## Contributing
 
@@ -80,7 +111,9 @@ layout and its page in parallel, and keeps layouts across soft navigation.
 ### Rules
 
 - An outage is never "signed out"; malformed sessions count as outages.
-- The proxy checks cookies only and never calls the backend.
+- The proxy checks cookies only and never calls the backend, not even to
+  refresh (see "What the proxy is for"); `eval:session-renewal` enforces it.
+  Session Renewal keeps the access cookie alive in the browser instead.
 - Sign-in never refreshes and never redirects without a usable session; it is
   the exit from every failed state, which is what prevents redirect loops.
 - Every redirect target goes through `normalizeReturnTo` /
@@ -90,6 +123,13 @@ layout and its page in parallel, and keeps layouts across soft navigation.
 - Session refresh shares one in-flight rotating-token request across soft-route
   remounts. On success it replaces the native history URL and refreshes that
   route's server tree, avoiding a stale middleware-redirect target.
+- Every refresh POST runs under the `campus-session-renewal` Web Lock. The
+  refresh page locks inside its single-flight, since a lock around it would let
+  StrictMode's second caller spend the rotated token. Session Renewal locks
+  around its other-tab check and its own unlocked refresher, since Web Locks
+  are not reentrant.
+- Session Renewal never ends a Presence Session. An `expired` renewal shows a
+  persistent "Your session ended" toast; signing in is the member's choice.
 - Pre-join is preparation, not authorization. Direct cohort URLs are checked
   by `CohortGate` / `requireRouteAccess` first, then requests without an exact
   pending destination return through pre-join. The client grant never grants
@@ -107,18 +147,25 @@ layout and its page in parallel, and keeps layouts across soft navigation.
   `/`, so a stored `returnTo` can be lost after Google sign-in.
 - A member with no cohort lands on the 403 page with no way to log out.
 - The rail avatar initial is a placeholder "J".
+- A refresh POST that hangs holds the Web Lock, so other tabs wait to renew;
+  each tab's wake signals still retry once it is released.
+- A server clock more than 2 min behind the browser can reject a renewed token
+  within 60 s; the relay's `campus_refresh_attempted` marker then sends that
+  request to sign-in instead of refresh.
 
 ## Tests
 
 ```bash
 pnpm vitest run --project unit features/auth ./proxy.test.ts
 pnpm eval:route-protection
+pnpm eval:session-renewal
 pnpm eval:architecture
 pnpm build && pnpm playwright test tests/e2e/authorization.spec.ts tests/e2e/pre-join-media.spec.ts
 ```
 
 `eval:route-protection` walks every entry route and session state for loops
-and leaks. `eval:architecture` keeps the root proxy on `proxy.ts`. Playwright
+and leaks. `eval:session-renewal` keeps renewal mounted outside the keyed
+Presence Session, the proxy cookie-only, and cohort code off `/session/refresh`. `eval:architecture` keeps the root proxy on `proxy.ts`. Playwright
 asserts what unit tests cannot: one `/v1/auth/me` per navigation, retries
-reaching the network, explicit pre-join preparation, and stateless Join
-navigation.
+reaching the network, explicit pre-join preparation, stateless Join
+navigation, and a camera that stays live past the access token's lifetime.

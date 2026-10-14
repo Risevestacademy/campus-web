@@ -25,6 +25,13 @@ transport.
 | `admission-store.ts`            | pending destination and admitted flag           |
 | `presence-session-provider.tsx` | per-cohort store creation and media composition |
 
+## Session Renewal
+
+The auth feature's Session Renewal keeps the access token alive while a cohort
+page is open, so a token refresh never leaves the page. Only a cold load with
+lapsed access (a wake after expiry, before renewal finishes) still goes through
+`/session/refresh`, which is outside `/campus/[id]` and ends the session.
+
 ## Rules
 
 - Admission is workflow state, never authorization; server checks run first.

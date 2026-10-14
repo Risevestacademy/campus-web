@@ -31,17 +31,26 @@ export type SignedOutSignals = Pick<
   "returnTo" | "refreshAttempted"
 >;
 
+function withReturnTo(path: string, returnTo: string | undefined): Route {
+  const search = new URLSearchParams({
+    returnTo: normalizeReturnTo(returnTo),
+  });
+  return `${path}?${search.toString()}` as Route;
+}
+
+export function signInHref(returnTo: string | undefined): Route {
+  return withReturnTo(SIGN_IN_PATH, returnTo);
+}
+
 // One automatic refresh per visit, then sign-in: the refresh-attempt marker is
 // what stops a refresh/redirect loop.
 export function signedOutRedirect({
   returnTo,
   refreshAttempted,
 }: SignedOutSignals): Route {
-  const path = refreshAttempted ? SIGN_IN_PATH : SESSION_REFRESH_PATH;
-  const search = new URLSearchParams({
-    returnTo: normalizeReturnTo(returnTo),
-  });
-  return `${path}?${search.toString()}` as Route;
+  return refreshAttempted
+    ? signInHref(returnTo)
+    : withReturnTo(SESSION_REFRESH_PATH, returnTo);
 }
 
 // Admins and members of several cohorts choose at /campus; everyone else is

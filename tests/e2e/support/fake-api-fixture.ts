@@ -75,6 +75,17 @@ export const sessions = {
   }),
 };
 
+// A session whose access token lapses at expiresAt (epoch ms), for renewal tests.
+export function expiringAt(reply: ScriptedReply, expiresAt: number) {
+  return {
+    ...reply,
+    body: {
+      ...(reply.body as object),
+      expiresAt: new Date(expiresAt).toISOString(),
+    },
+  };
+}
+
 export const invites = {
   preview: (cohortName = "Cohort 3"): ScriptedReply => ({
     status: 200,
@@ -123,7 +134,13 @@ export function cohortsPage(page: number, totalPages: number, names: string[]) {
   };
 }
 
-export async function signIn(context: BrowserContext, baseURL?: string) {
+// expiresAt (epoch ms) makes the browser drop the access cookie then, as it
+// does with the backend's Expires attribute.
+export async function signIn(
+  context: BrowserContext,
+  baseURL?: string,
+  { expiresAt }: { expiresAt?: number } = {},
+) {
   await context.addCookies([
     {
       name: "campus_session",
@@ -132,6 +149,7 @@ export async function signIn(context: BrowserContext, baseURL?: string) {
       path: "/",
       httpOnly: true,
       sameSite: "Lax",
+      ...(expiresAt && { expires: expiresAt / 1000 }),
     },
   ]);
 }

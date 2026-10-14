@@ -117,6 +117,21 @@ describe("AccountMenu: logging out", () => {
   );
 });
 
+describe("AccountMenu: logging out of every tab", () => {
+  it("forgets the expiry shared between tabs, so the next session starts fresh", async () => {
+    localStorage.setItem("campus.session-expires-at", "1792000000000");
+    logoutReplies(status(204));
+    renderMenu();
+
+    await logOut();
+
+    await waitFor(() => {
+      expect(sideEffects).toEqual(LOGGED_OUT_SEQUENCE);
+    });
+    expect(localStorage.getItem("campus.session-expires-at")).toBeNull();
+  });
+});
+
 describe("AccountMenu: failed logout", () => {
   it.each([
     ["a server error", status(503)],
