@@ -71,6 +71,27 @@ test.describe("invite link", () => {
     ]);
   });
 
+  test("moves the token out of the address bar into an HttpOnly cookie", async ({
+    page,
+    context,
+    fakeApi,
+  }) => {
+    await fakeApi.scriptInvitePreview(invites.preview("Cohort 3"));
+
+    await page.goto(INVITE_LINK);
+
+    await expect(page).toHaveURL("/invitation");
+    await expect(
+      page.getByRole("heading", {
+        name: "You're invited to join Backend Engineering Cohort 3",
+      }),
+    ).toBeVisible();
+    const cookies = await context.cookies();
+    expect(
+      cookies.find(({ name }) => name === "campus_invite_token"),
+    ).toMatchObject({ value: TOKEN, httpOnly: true, path: "/invitation" });
+  });
+
   test("tells the browser never to send the token on as a Referer", async ({
     page,
     fakeApi,

@@ -30,10 +30,8 @@ function withCookies(values: Record<string, string>) {
 }
 
 // The page returns an async server component; run it the way Next would.
-async function visit(query: { token?: string | string[] }): Promise<ReactNode> {
-  const element = (await InvitationPage({
-    searchParams: Promise.resolve(query),
-  })) as ReactElement;
+async function visit(): Promise<ReactNode> {
+  const element = (await InvitationPage()) as ReactElement;
   const component = element.type as (props: unknown) => Promise<ReactNode>;
   return component(element.props);
 }
@@ -71,11 +69,12 @@ afterEach(() => {
   nextHeaders.headers.mockReset();
 });
 
-describe("InvitationPage: an invite link", () => {
+describe("InvitationPage: an invite token cookie", () => {
   it("previews the invitation without asking for a session", async () => {
+    withCookies({ campus_invite_token: TOKEN });
     backend.mockResolvedValue(Response.json(invitePreview()));
 
-    render(await visit({ token: TOKEN }));
+    render(await visit());
 
     expect(
       screen.getByRole("heading", {
@@ -85,10 +84,21 @@ describe("InvitationPage: an invite link", () => {
     expect(calledPaths()).toEqual(["POST /v1/invites/preview"]);
   });
 
-  it("forwards the visitor's address, which campus-api rate-limits by", async () => {
+  it("sends the cookie's token to the preview", async () => {
+    withCookies({ campus_invite_token: TOKEN });
     backend.mockResolvedValue(Response.json(invitePreview()));
 
-    await visit({ token: TOKEN });
+    await visit();
+
+    const request = backend.mock.calls[0]?.[0];
+    await expect(request?.json()).resolves.toEqual({ token: TOKEN });
+  });
+
+  it("forwards the visitor's address, which campus-api rate-limits by", async () => {
+    withCookies({ campus_invite_token: TOKEN });
+    backend.mockResolvedValue(Response.json(invitePreview()));
+
+    await visit();
 
     const request = backend.mock.calls[0]?.[0];
     expect(request?.headers.get("x-forwarded-for")).toBe("203.0.113.7");
@@ -100,7 +110,7 @@ describe("InvitationPage: no token", () => {
     withCookies({ campus_session: "session-token" });
     backend.mockResolvedValue(Response.json(invitedSession));
 
-    const interrupt = await visit({}).catch((error: unknown) => error);
+    const interrupt = await visit().catch((error: unknown) => error);
 
     expect(isRedirectError(interrupt)).toBe(true);
     if (!isRedirectError(interrupt)) return;
@@ -108,10 +118,15 @@ describe("InvitationPage: no token", () => {
     expect(calledPaths()).toEqual(["GET /v1/auth/me"]);
   });
 
-  it.each([{}, { token: "" }])(
+  it.each<Record<string, string>>([
+    {},
+    { campus_invite_token: "" },
+    { campus_invite_token: "   " },
+  ])(
     "sends a visitor with neither a token nor a session through refresh (%o)",
-    async (query) => {
-      const interrupt = await visit(query).catch((error: unknown) => error);
+    async (cookies) => {
+      withCookies(cookies);
+      const interrupt = await visit().catch((error: unknown) => error);
 
       expect(isRedirectError(interrupt)).toBe(true);
       if (!isRedirectError(interrupt)) return;

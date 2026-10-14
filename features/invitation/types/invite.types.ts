@@ -1,9 +1,34 @@
 import type { components } from "@/core/api/client";
+import type { Simplify } from "@/core/api/schemas";
 
-export type SystemRole = components["schemas"]["SystemRole"];
-export type InvitePreview = components["schemas"]["InvitePreviewResponseDto"];
-export type PendingInvite =
-  components["schemas"]["InviteOnboardingResponseDto"];
+type Schemas = components["schemas"];
+type Named<Dto extends { name: string }> = Pick<Dto, "name">;
+
+export type SystemRole = Schemas["SystemRole"];
+
+// Only the fields the screens render: the invitee's email and every id stay
+// out of the preview.
+export type InvitePreview = Simplify<
+  Pick<Schemas["InvitePreviewResponseDto"], "cohortRole" | "systemRole"> & {
+    cohort: Named<Schemas["InvitePreviewCohortDto"]> | null;
+    track: Named<Schemas["InvitePreviewTrackDto"]> | null;
+    invitedBy: Schemas["InvitePreviewInviterDto"];
+  }
+>;
+
+export type PendingInvite = Simplify<
+  Pick<
+    Schemas["InviteOnboardingResponseDto"],
+    "id" | "cohortRole" | "systemRole"
+  > & {
+    cohort: Named<Schemas["InviteCohortDto"]> | null;
+    track: Named<Schemas["InviteTrackDto"]> | null;
+    user: Pick<
+      Schemas["InviteInviteeDto"],
+      "email" | "displayName" | "firstName" | "lastName"
+    >;
+  }
+>;
 
 export type InviteProblem =
   | "expired"

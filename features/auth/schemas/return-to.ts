@@ -1,5 +1,6 @@
 const CAMPUS_HOME_PATH = "/campus";
-const RETURN_ROOTS = [CAMPUS_HOME_PATH, "/invitation", "/preview"] as const;
+const INVITE_RETURN_ROOTS = ["/invitation", "/preview"] as const;
+const RETURN_ROOTS = [CAMPUS_HOME_PATH, ...INVITE_RETURN_ROOTS] as const;
 const PRE_JOIN_SEGMENT = "join";
 const MAX_RETURN_TO_LENGTH = 2048;
 // Only used to serialize a path that already passed validation.
@@ -29,14 +30,12 @@ function isSafeSegment(segment: string, isLast: boolean): boolean {
   );
 }
 
-function isUnderReturnRoot(path: string): boolean {
-  return RETURN_ROOTS.some(
-    (root) => path === root || path.startsWith(`${root}/`),
-  );
+function isUnderRoot(path: string, roots: readonly string[]): boolean {
+  return roots.some((root) => path === root || path.startsWith(`${root}/`));
 }
 
 function isReturnPath(path: string): boolean {
-  if (!isUnderReturnRoot(path)) return false;
+  if (!isUnderRoot(path, RETURN_ROOTS)) return false;
 
   const segments = path.split("/").slice(1);
   return segments.every((segment, index) =>
@@ -53,7 +52,11 @@ export function parseReturnTo(value: string | undefined): string | undefined {
   if (!isReturnPath(path)) return undefined;
 
   const url = new URL(withoutFragment, PARSING_ORIGIN);
-  return `${url.pathname}${url.search}`;
+  // Invite pages read nothing from the query, and a stray invite token must
+  // not ride into sign-in URLs or the OAuth return cookie.
+  return isUnderRoot(url.pathname, INVITE_RETURN_ROOTS)
+    ? url.pathname
+    : `${url.pathname}${url.search}`;
 }
 
 export function normalizeReturnTo(value: string | undefined): string {

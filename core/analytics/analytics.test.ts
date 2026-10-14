@@ -102,12 +102,90 @@ describe("browser analytics", () => {
       {
         api_host: "https://eu.i.posthog.com",
         autocapture: false,
+        before_send: expect.any(Function),
+        capture_dead_clicks: false,
+        capture_exceptions: false,
+        capture_heatmaps: false,
         capture_pageleave: false,
         capture_pageview: "history_change",
+        custom_personal_data_properties: ["token", "returnTo", "code", "state"],
         defaults: "2026-01-30",
         disable_session_recording: true,
+        mask_personal_data_properties: true,
         person_profiles: "identified_only",
       },
+    );
+  });
+
+  it("scrubs URL query strings from every event before it leaves the browser", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    const [, config] = analyticsMocks.browser.init.mock.calls[0] as [
+      string,
+      { before_send: (event: unknown) => unknown },
+    ];
+
+    expect(
+      config.before_send({
+        uuid: "event-1",
+        event: "$pageview",
+        properties: {
+          $current_url: "https://campus.example/invitation?token=secret",
+        },
+      }),
+    ).toEqual({
+      uuid: "event-1",
+      event: "$pageview",
+      properties: { $current_url: "https://campus.example/invitation" },
+    });
+  });
+
+  it("strips properties outside an event's contract before capture", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.captureBrowserAnalyticsEvent(
+      ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED,
+      {
+        auth_method: "email",
+        platform: "web",
+        password: "must-not-be-captured",
+      } as never,
+    );
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.capture).toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED,
+      { auth_method: "email", platform: "web" },
+    );
+  });
+
+  it("drops an event carrying an email, logging the issue but never the value", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.captureBrowserAnalyticsEvent(
+      ANALYTICS_EVENTS.AUTH_SIGNUP_SUCCEEDED,
+      { auth_method: "google", role: "student", user_id: "ada@campus.local" },
+    );
+    analytics.identifyAnalyticsUser({
+      id: "ada@campus.local",
+      role: "student",
+    });
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.capture).not.toHaveBeenCalled();
+    expect(analyticsMocks.browser.identify).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+      "ada@campus.local",
     );
   });
 
@@ -240,7 +318,7 @@ describe("server analytics", () => {
     const { captureServerAnalyticsEvent } = await import("./server");
     const properties = {
       auth_method: "rise_sso" as const,
-      role: "student",
+      role: "student" as const,
       user_id: "user-1",
     };
 
@@ -260,6 +338,21 @@ describe("server analytics", () => {
       event: ANALYTICS_EVENTS.AUTH_LOGIN_SUCCEEDED,
       properties,
     });
+  });
+
+  it("drops a server event whose distinct ID is not an opaque ID", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const { captureServerAnalyticsEvent } = await import("./server");
+
+    await captureServerAnalyticsEvent(
+      ANALYTICS_EVENTS.AUTH_LOGIN_FAILED,
+      "ada@campus.local",
+      { auth_method: "email", error_code: "INVALID_CREDENTIALS" },
+    );
+
+    expect(analyticsMocks.server.captureImmediate).not.toHaveBeenCalled();
   });
 
   it("does not let delivery failures break business operations", async () => {

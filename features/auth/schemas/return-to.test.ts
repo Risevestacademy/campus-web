@@ -31,7 +31,12 @@ describe("parseReturnTo", () => {
   it.each([
     ["the invitation", "/invitation", "/invitation"],
     ["the invitation preview", "/preview", "/preview"],
-    ["an invitation step query", "/invitation?step=2", "/invitation?step=2"],
+    [
+      "an invitation with a stray token",
+      "/invitation?token=secret",
+      "/invitation",
+    ],
+    ["a preview with a query", "/preview?token=secret#x", "/preview"],
   ])(
     "accepts %s, which needs an invite rather than Campus",
     (_, value, expected) => {

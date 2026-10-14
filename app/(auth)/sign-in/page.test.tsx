@@ -133,6 +133,17 @@ describe("SignInPage: error messages", () => {
     );
   });
 
+  it.each(["__proto__", "constructor"])(
+    "shows the generic message for the prototype key %s instead of crashing",
+    async (error) => {
+      await renderVisit({ error });
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Sign-in could not be completed. Please try again.",
+      );
+    },
+  );
+
   it("shows no alert without an error", async () => {
     await renderVisit({ returnTo: "/invitation" });
 

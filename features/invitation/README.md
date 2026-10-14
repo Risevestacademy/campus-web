@@ -8,28 +8,43 @@ what renders there. Invitation administration will belong to `admin`.
 ## Interface
 
 ```tsx
-import { InvitationOffer, InviteConfirmation } from "@/features/invitation";
+import {
+  InvitationOffer,
+  InviteConfirmation,
+  readInviteToken,
+} from "@/features/invitation";
 
-// /invitation?token=…  (no session; the token is the proof)
+// /invitation, after the proxy moved ?token=… into a cookie (no session; the
+// token is the proof)
+const token = await readInviteToken();
 <InvitationOffer api={await getServerApi()} token={token} />;
 
 // /preview, inside InvitationGate
 <InviteConfirmation api={await getServerApi()} />;
 ```
 
-Both are async Server Components that take the route's server `ApiClient`.
+The root `proxy.ts` imports `moveInviteTokenToCookie` from `proxy.ts` (no
+React, no `server-only`). It answers `/invitation?token=…` with a 303 to the
+clean `/invitation` and an HttpOnly `campus_invite_token` cookie scoped to
+`/invitation` for 30 minutes, so the page, PostHog, browser history and
+`Referer` never see the token.
+
+Both components are async Server Components that take the route's server `ApiClient`.
 Pass the default `getServerApi()`, not `authentication: "none"`: only it
 forwards `X-Forwarded-For`, which campus-api rate-limits on.
 
 ## Modules
 
-| Module                       | Owns                                                                      | Seam         |
-| ---------------------------- | ------------------------------------------------------------------------- | ------------ |
-| `services/invite.service.ts` | preview, validate, and decision calls; one outcome mapping                | `ApiClient`  |
-| `schemas/invite.schema.ts`   | the fields screens render                                                 | none         |
-| `types/invite.types.ts`      | generated DTO aliases and `InviteProblem`                                 | none         |
-| `hooks/use-accept-invite.ts` | the accept mutation, analytics, full-load navigation                      | `browserApi` |
-| `components/`                | offer, confirmation, details, one notice per problem, Google sign-in link | none         |
+| Module                                   | Owns                                                                      | Seam          |
+| ---------------------------------------- | ------------------------------------------------------------------------- | ------------- |
+| `services/invite.service.ts`             | preview, validate, and decision calls; one outcome mapping                | `ApiClient`   |
+| `services/invite-token-proxy.service.ts` | token-to-cookie redirect for the root proxy                               | `NextRequest` |
+| `services/invite-token.service.ts`       | reads the token cookie for the page                                       | `cookies()`   |
+| `schemas/invite.schema.ts`               | strips responses to the fields screens render                             | none          |
+| `schemas/invite-token.schema.ts`         | token bounds, checked on the way in and on every read                     | none          |
+| `types/invite.types.ts`                  | the rendered picks of the generated DTOs, and `InviteProblem`             | none          |
+| `hooks/use-accept-invite.ts`             | the accept mutation, analytics, full-load navigation                      | `browserApi`  |
+| `components/`                            | offer, confirmation, details, one notice per problem, Google sign-in link | none          |
 
 Reads run in Server Components and call the service directly: nothing
 refetches them, so a query layer would add only a loading state. The accept
@@ -50,7 +65,11 @@ runs in the browser through `/api`, because only the proxy sets auth cookies.
   second answer. The button stays disabled after success.
 - `already-accepted` links to Google, never `/sign-in` (sign-in would loop
   back to `/preview`).
-- The token never reaches client JavaScript; the page sends no Referer.
+- The token never reaches client JavaScript or a rendered URL: the proxy moves
+  it into the cookie before render, and the page sends no Referer.
+- Invite reads keep only the fields screens render; the public preview never
+  holds the invitee's email. Widen a schema in `invite.schema.ts` and in
+  `tests/evals/data-privacy.eval.test.ts` together.
 - A successful accept captures `auth.verification_completed` once.
 - Use `GLOSSARY.md` terms (Invite Link, Invite Preview, Invitation).
 - Comment only a non-obvious why.
@@ -58,13 +77,15 @@ runs in the browser through `/api`, because only the proxy sets auth cookies.
 ### Known gaps
 
 - "Flag an Issue" has no backend; Decline is not wired.
-- The token reaches host access logs until campus-api changes the link shape.
+- The token still reaches host access logs on the first request, until
+  campus-api changes the link shape.
 
 ## Tests
 
 ```bash
 pnpm vitest run --project unit features/invitation "app/(auth)/invitation"
 pnpm eval:invitation
+pnpm eval:privacy
 pnpm build && pnpm playwright test tests/e2e/invitation.spec.ts
 ```
 

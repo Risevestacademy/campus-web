@@ -5,6 +5,7 @@ export { RefreshSession } from "./components/refresh-session";
 export { ResumeInvitation } from "./components/resume-invitation";
 export { SessionRenewal } from "./components/session-renewal";
 export { SessionUnavailable } from "./components/session-unavailable";
+export { authErrorMessage } from "./schemas/auth-error.schema";
 export {
   normalizeCohortReturnTo,
   normalizeReturnTo,
