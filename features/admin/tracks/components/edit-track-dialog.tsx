@@ -42,6 +42,7 @@ export function EditTrackDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const [errors, setErrors] = useState<TrackFieldErrors>({});
+  const [formError, setFormError] = useState<string>();
   const [unchanged, setUnchanged] = useState(false);
   const editing = useEditTrack({ track, onEdited: () => onOpenChange(false) });
 
@@ -50,6 +51,7 @@ export function EditTrackDialog({
     if (!next) {
       editing.reset();
       setErrors({});
+      setFormError(undefined);
       setUnchanged(false);
     }
     onOpenChange(next);
@@ -59,6 +61,7 @@ export function EditTrackDialog({
     event.preventDefault();
     const read = parseTrackEdit(track, new FormData(event.currentTarget));
     setErrors(read.kind === "invalid" ? read.errors : {});
+    setFormError(read.kind === "invalid" ? read.formError : undefined);
     setUnchanged(read.kind === "unchanged");
     if (read.kind === "valid") {
       editing.edit(read.changes);
@@ -72,9 +75,9 @@ export function EditTrackDialog({
     (editing.problem === "duplicate-code"
       ? "Another Programme Track already uses this code."
       : undefined);
-  const problemMessage = editing.problem
-    ? PROBLEM_MESSAGES[editing.problem]
-    : undefined;
+  const alertMessage =
+    formError ??
+    (editing.problem ? PROBLEM_MESSAGES[editing.problem] : undefined);
 
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
@@ -86,9 +89,9 @@ export function EditTrackDialog({
           </DialogDescription>
         </DialogHeader>
         <form noValidate onSubmit={submit} className="grid gap-6">
-          {problemMessage ? (
+          {alertMessage ? (
             <p role="alert" className="text-destructive text-sm">
-              {problemMessage}
+              {alertMessage}
             </p>
           ) : null}
           {unchanged ? (

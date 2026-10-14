@@ -42,7 +42,8 @@ export const feedbackSchema = z.object({
       LOCATION_MAX_LENGTH,
       `Keep this under ${LOCATION_MAX_LENGTH} characters.`,
     ),
-  includeDeviceInfo: z.string().transform((value) => value !== ""),
+  // An unticked checkbox is left out of the form entirely.
+  includeDeviceInfo: z.string().optional().transform(Boolean),
 });
 
 const screenshotSchema = z
@@ -54,7 +55,7 @@ export type FeedbackFieldErrors = FormErrors<typeof feedbackSchema>;
 
 export type FeedbackRead =
   | { kind: "valid"; feedback: z.output<typeof feedbackSchema> }
-  | { kind: "invalid"; errors: FeedbackFieldErrors };
+  | { kind: "invalid"; errors: FeedbackFieldErrors; formError?: string };
 
 export function parseFeedback(form: FormData): FeedbackRead {
   const read = parseForm(feedbackSchema, form);

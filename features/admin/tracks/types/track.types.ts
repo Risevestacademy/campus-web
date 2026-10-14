@@ -19,10 +19,10 @@ export type TrackPatch = Schemas["UpdateTrackDto"];
 export type TrackFieldErrors = Partial<Record<keyof TrackFieldValues, string>>;
 export type NewTrackRead =
   | { kind: "valid"; track: NewTrack }
-  | { kind: "invalid"; errors: TrackFieldErrors };
+  | { kind: "invalid"; errors: TrackFieldErrors; formError?: string };
 export type TrackEditRead =
   | { kind: "valid"; changes: TrackPatch }
-  | { kind: "invalid"; errors: TrackFieldErrors }
+  | { kind: "invalid"; errors: TrackFieldErrors; formError?: string }
   | { kind: "unchanged" };
 export type TrackCreationProblem =
   "duplicate-code" | "rejected" | "signed-out" | "forbidden" | "unavailable";

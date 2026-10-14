@@ -31,7 +31,7 @@ export type NewCohortErrors = CohortFieldErrors;
 
 export type NewCohortRead =
   | { kind: "valid"; cohort: NewCohort }
-  | { kind: "invalid"; errors: NewCohortErrors };
+  | { kind: "invalid"; errors: NewCohortErrors; formError?: string };
 
 export type CohortCreationProblem =
   "duplicate-code" | "rejected" | "signed-out" | "forbidden" | "unavailable";
@@ -43,7 +43,7 @@ export type CohortPatch = Schemas["UpdateCohortDto"];
 
 export type CohortEditRead =
   | { kind: "valid"; changes: CohortPatch }
-  | { kind: "invalid"; errors: CohortFieldErrors }
+  | { kind: "invalid"; errors: CohortFieldErrors; formError?: string }
   | { kind: "unchanged" };
 
 export type CohortMutationProblem =

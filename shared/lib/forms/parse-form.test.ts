@@ -3,9 +3,11 @@ import { z } from "zod";
 
 import { optionalIsoDate, optionalText, parseForm } from "./index";
 
-function formOf(fields: Record<string, string | File>) {
+function formOf(fields: Record<string, string | File | string[]>) {
   const form = new FormData();
-  for (const [field, value] of Object.entries(fields)) form.set(field, value);
+  for (const [field, value] of Object.entries(fields)) {
+    for (const entry of [value].flat()) form.append(field, entry);
+  }
   return form;
 }
 
@@ -20,10 +22,30 @@ describe("parseForm", () => {
     ).toStrictEqual({ kind: "valid", data: { name: "Ada" } });
   });
 
-  it("treats a missing field as empty", () => {
-    expect(parseForm(nameSchema, formOf({}))).toStrictEqual({
+  it("reports a missing required field as invalid", () => {
+    const schema = z.object({ name: z.string("Enter a name.") });
+
+    expect(parseForm(schema, formOf({}))).toStrictEqual({
       kind: "invalid",
       errors: { name: "Enter a name." },
+    });
+  });
+
+  it("does not coerce a missing field to zero", () => {
+    const schema = z.object({ seats: z.coerce.number("Enter a number.") });
+
+    expect(parseForm(schema, formOf({}))).toStrictEqual({
+      kind: "invalid",
+      errors: { seats: "Enter a number." },
+    });
+  });
+
+  it("passes every value of a repeated field", () => {
+    const schema = z.object({ tags: z.array(z.string()) });
+
+    expect(parseForm(schema, formOf({ tags: ["a", "b"] }))).toStrictEqual({
+      kind: "valid",
+      data: { tags: ["a", "b"] },
     });
   });
 
@@ -52,7 +74,7 @@ describe("parseForm", () => {
     });
   });
 
-  it("drops an issue that names no field", () => {
+  it("returns an issue that names no field as the form error", () => {
     const schema = z
       .object({ name: z.string() })
       .refine(() => false, { error: "Form-level problem." });
@@ -60,6 +82,7 @@ describe("parseForm", () => {
     expect(parseForm(schema, formOf({ name: "Ada" }))).toStrictEqual({
       kind: "invalid",
       errors: {},
+      formError: "Form-level problem.",
     });
   });
 

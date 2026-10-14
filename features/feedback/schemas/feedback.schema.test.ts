@@ -65,11 +65,10 @@ describe("parseFeedback", () => {
     const form = feedbackForm({});
     form.delete("includeDeviceInfo");
 
-    const read = parseFeedback(form);
-
-    expect(read.kind === "valid" && read.feedback.includeDeviceInfo).toBe(
-      false,
-    );
+    expect(parseFeedback(form)).toMatchObject({
+      kind: "valid",
+      feedback: { includeDeviceInfo: false },
+    });
   });
 });
 

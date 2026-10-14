@@ -42,6 +42,7 @@ export function FeedbackForm({
   const id = useId();
   const [kind, setKind] = useState<FeedbackKind>();
   const [errors, setErrors] = useState<FeedbackFieldErrors>({});
+  const [formError, setFormError] = useState<string>();
   const [screenshot, setScreenshot] = useState<SelectedScreenshot>();
   const [screenshotError, setScreenshotError] = useState<string>();
 
@@ -72,6 +73,7 @@ export function FeedbackForm({
     const read = parseFeedback(new FormData(event.currentTarget));
 
     setErrors(read.kind === "invalid" ? read.errors : {});
+    setFormError(read.kind === "invalid" ? read.formError : undefined);
     if (read.kind === "valid") onSubmit(read.feedback);
   }
 
@@ -82,6 +84,11 @@ export function FeedbackForm({
       onPaste={pasteScreenshot}
       className="grid content-start gap-5"
     >
+      {formError ? (
+        <p role="alert" className="text-destructive text-sm">
+          {formError}
+        </p>
+      ) : null}
       <fieldset className="grid gap-2">
         <legend className="mb-2 text-sm font-medium">
           What kind of feedback?
