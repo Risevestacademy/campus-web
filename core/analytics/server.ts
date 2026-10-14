@@ -3,7 +3,12 @@ import "server-only";
 import { PostHog } from "posthog-node";
 
 import { readAnalyticsConfiguration } from "./configuration";
-import type { AnalyticsEventMap, AnalyticsEventName } from "./events";
+import {
+  allowAnalyticsProperties,
+  allowDistinctId,
+  type AnalyticsEventMap,
+  type AnalyticsEventName,
+} from "./events";
 
 let serverClient: PostHog | undefined;
 
@@ -30,14 +35,9 @@ export async function captureServerAnalyticsEvent<
   distinctId: string,
   properties: AnalyticsEventMap[EventName],
 ): Promise<void> {
-  const normalizedDistinctId = distinctId.trim();
-
-  if (!normalizedDistinctId) {
-    console.error(
-      "PostHog server event capture skipped: distinct ID is empty.",
-    );
-    return;
-  }
+  const allowedDistinctId = allowDistinctId(distinctId);
+  const allowedProperties = allowAnalyticsProperties(eventName, properties);
+  if (!allowedDistinctId || !allowedProperties) return;
 
   const client = getServerClient();
 
@@ -47,11 +47,12 @@ export async function captureServerAnalyticsEvent<
 
   try {
     await client.captureImmediate({
-      distinctId: normalizedDistinctId,
+      distinctId: allowedDistinctId,
       event: eventName,
-      properties,
+      properties: allowedProperties,
     });
   } catch (error) {
-    console.error("PostHog server event capture failed.", error);
+    const name = error instanceof Error ? error.name : typeof error;
+    console.error("PostHog server event capture failed.", name);
   }
 }

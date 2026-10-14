@@ -59,16 +59,11 @@ describe("ActiveCampusLayout", () => {
       session: {
         expiresAt: "2026-10-11T23:00:00.000Z",
         inviteId: null,
-        membership: null,
         memberships: [],
         scope: "full_access",
         user: {
-          avatarUrl: null,
           displayName: "Ada Lovelace",
           email: "ada@campus.local",
-          firstName: "Ada",
-          id: "55555555-5555-4555-8555-555555555555",
-          lastName: "Lovelace",
           systemRole: "user",
         },
       },

@@ -44,12 +44,26 @@ describe("Root proxy entry boundary eval (threshold: every case holds)", () => {
     ).resolves.toEqual([]);
   });
 
+  it("accepts the invitation feature's proxy entry", async () => {
+    await expect(
+      boundaryErrors(proxyImporting("@/features/invitation/proxy")),
+    ).resolves.toEqual([]);
+  });
+
   it.each([
     [
       "the auth barrel, which pulls client and server-only code",
       "@/features/auth",
     ],
     ["an auth internal", "@/features/auth/services/campus-proxy.service"],
+    [
+      "the invitation barrel, which pulls server-only code",
+      "@/features/invitation",
+    ],
+    [
+      "an invitation internal",
+      "@/features/invitation/services/invite-token-proxy.service",
+    ],
   ])("rejects %s", async (_, specifier) => {
     await expect(
       boundaryErrors(proxyImporting(specifier)),

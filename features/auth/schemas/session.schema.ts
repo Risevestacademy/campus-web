@@ -1,26 +1,29 @@
 import { z } from "zod";
 
+import { sessionScopeSchema, systemRoleSchema } from "@/core/api/schemas";
+
 import type { Session } from "../types/auth.types";
 
-const sessionSchema = z.looseObject({
-  scope: z.enum(["provisional", "full_access"]),
-  expiresAt: z.iso.datetime({ offset: true }),
-  inviteId: z.string().min(1).nullish(),
-  user: z.looseObject({
-    id: z.string().min(1),
-    email: z.string().min(1),
-    systemRole: z.enum(["user", "admin", "super_admin"]),
-  }),
-  memberships: z.array(
-    z.looseObject({
-      cohortId: z.string().min(1),
-      role: z.enum(["student", "professor", "mentor", "guest"]),
-      cohort: z.looseObject({ name: z.string(), code: z.string() }),
+const sessionSchema = z.toZod<Session>()(
+  z.object({
+    scope: sessionScopeSchema,
+    expiresAt: z.iso.datetime({ offset: true }),
+    inviteId: z.string().min(1).nullish(),
+    user: z.object({
+      email: z.string().min(1),
+      displayName: z.string().nullish(),
+      systemRole: systemRoleSchema,
     }),
-  ),
-});
+    memberships: z.array(
+      z.object({
+        cohortId: z.string().min(1),
+        cohort: z.object({ name: z.string(), code: z.string() }),
+      }),
+    ),
+  }),
+);
 
-const refreshSchema = z.looseObject({
+const refreshSchema = z.object({
   expiresAt: z.iso.datetime({ offset: true }),
 });
 
@@ -32,15 +35,11 @@ function parseJson(body: string): unknown {
   }
 }
 
-// Validates the fields route policies branch on, then returns the original
-// value so DTO fields outside the schema are not silently dropped.
 export function parseSessionBody(
   body: string | undefined,
 ): Session | undefined {
-  const value = body ? parseJson(body) : undefined;
-  return sessionSchema.safeParse(value).success
-    ? (value as Session)
-    : undefined;
+  const parsed = sessionSchema.safeParse(body ? parseJson(body) : undefined);
+  return parsed.success ? parsed.data : undefined;
 }
 
 export function parseRefreshExpiry(

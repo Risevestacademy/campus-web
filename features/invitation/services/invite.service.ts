@@ -1,8 +1,8 @@
 import type { ApiClient } from "@/core/api/client";
+import { type ExceptionCode, parseExceptionCode } from "@/core/api/schemas";
 
 import {
   parseAcceptedCohort,
-  parseErrorCode,
   parseInvitePreview,
   parsePendingInvite,
 } from "../schemas/invite.schema";
@@ -23,12 +23,18 @@ interface ApiAnswer {
 const CAMPUS_HOME_PATH = "/campus";
 
 // campus-api answers every invite route with the same 409 vocabulary.
-const CONFLICT_PROBLEMS: Readonly<Record<string, InviteProblem>> = {
+const CONFLICT_PROBLEMS: Readonly<
+  Partial<Record<ExceptionCode, InviteProblem>>
+> = {
   INVITE_ALREADY_ACCEPTED: "already-accepted",
   INVITE_ALREADY_DECLINED: "closed",
   INVITE_REVOKED: "closed",
   CONFLICT: "already-member",
 };
+
+function conflictProblem(code: ExceptionCode | undefined): InviteProblem {
+  return (code && CONFLICT_PROBLEMS[code]) ?? "unavailable";
+}
 
 function classifyFailure(status: number, error: unknown): InviteProblem {
   switch (status) {
@@ -39,7 +45,7 @@ function classifyFailure(status: number, error: unknown): InviteProblem {
     case 404:
       return "not-found";
     case 409:
-      return CONFLICT_PROBLEMS[parseErrorCode(error) ?? ""] ?? "unavailable";
+      return conflictProblem(parseExceptionCode(error));
     default:
       return "unavailable";
   }

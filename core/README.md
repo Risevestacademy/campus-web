@@ -8,6 +8,8 @@ Implemented concerns:
   `analytics/README.md`.
 - `api/client`: generated typed Campus API client, direct server composition,
   and the policy-enforcing browser proxy. See `api/client/README.md`.
+- `api/schemas`: Zod schemas for API vocabulary shared by features, bound to
+  the generated types. See `api/schemas/README.md`.
 - `navigation`: canonical, framework-independent route construction shared
   across features.
 - `observability`: structured application logging. See

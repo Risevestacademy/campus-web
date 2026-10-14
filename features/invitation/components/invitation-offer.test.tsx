@@ -142,16 +142,16 @@ describe("InvitationOffer: a live invitation", () => {
 });
 
 // The screen for each failure is covered by the invitation eval; only the
-// retry link's token encoding lives here.
+// retry link lives here.
 describe("InvitationOffer: an outage", () => {
-  it("offers a retry of the same link, token encoded", async () => {
+  it("retries the invitation page without putting the token in the link", async () => {
     previewReplies(failure(503, "INTERNAL_ERROR"));
 
-    await renderOffer("token with/odd&chars");
+    await renderOffer();
 
     expect(screen.getByRole("link", { name: "Try again" })).toHaveAttribute(
       "href",
-      "/invitation?token=token+with%2Fodd%26chars",
+      "/invitation",
     );
   });
 });

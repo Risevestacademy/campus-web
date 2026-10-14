@@ -72,6 +72,8 @@ describe("proxy matcher", () => {
     "/campus/42/meeting",
     "/campus/42/join",
     "/campus/42/tracks",
+    "/invitation",
+    "/invitation?token=abc",
   ])("runs for %s", (url) => {
     expect(unstable_doesMiddlewareMatch({ config, url })).toBe(true);
   });
@@ -83,13 +85,29 @@ describe("proxy matcher", () => {
     "/api/v1/auth/refresh",
     "/sign-in",
     "/session/refresh",
-    "/invitation",
+    "/invitation/other",
     "/preview",
     "/_next/static/chunks/app.js",
     "/_next/image",
     "/favicon.ico",
   ])("does not run for %s", (url) => {
     expect(unstable_doesMiddlewareMatch({ config, url })).toBe(false);
+  });
+});
+
+describe("proxy: invite links", () => {
+  it("moves the token out of the URL before the page renders", () => {
+    const response = visit("/invitation?token=abc");
+
+    expect(response.status).toBe(303);
+    expect(getRedirectUrl(response)).toBe(`${ORIGIN}/invitation`);
+  });
+
+  it("never sends an invitee through the campus sign-in guard", () => {
+    const response = visit("/invitation");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-middleware-next")).toBe("1");
   });
 });
 
