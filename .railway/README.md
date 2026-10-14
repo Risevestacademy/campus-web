@@ -47,6 +47,17 @@ Create a different environment-scoped Railway project token named
 - `campus-by-rise / staging`
 - `campus-by-rise / production`
 
+Ordinary CI does not attach to those environments. Define these non-secret
+repository Actions variables instead:
+
+- `STAGING_NEXT_PUBLIC_SANITY_DATASET`
+- `STAGING_NEXT_PUBLIC_SANITY_PROJECT_ID`
+- `PRODUCTION_NEXT_PUBLIC_SANITY_DATASET`
+- `PRODUCTION_NEXT_PUBLIC_SANITY_PROJECT_ID`
+
+CI selects staging values for `dev` and production values for `main`, and fails
+closed when either selected value is missing.
+
 Protect production with required reviewers for both plan and apply. GitHub App
 custom deployment protection rules are incompatible with `deployment: false`.
 If either GitHub environment restricts deployment branches, allow its target
