@@ -2,6 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { validateBuildEnvironment } from "./validation";
 
+const completeProtectedEnvironment = {
+  CI: "true",
+  NEXT_PUBLIC_POSTHOG_HOST: "https://eu.i.posthog.com",
+  NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: "phc_project",
+  NEXT_PUBLIC_SANITY_DATASET: "staging",
+  NEXT_PUBLIC_SANITY_PROJECT_ID: "sj3zsz66",
+};
+
 describe("build environment validation", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -66,8 +74,55 @@ describe("build environment validation", () => {
         "Invalid build environment:",
         '- NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN must start with "phc_".',
         "- NEXT_PUBLIC_POSTHOG_HOST must be a valid HTTPS URL.",
-        "- NEXT_PUBLIC_SANITY_DATASET must contain only lowercase letters, numbers, underscores, and hyphens.",
+        "- NEXT_PUBLIC_SANITY_DATASET must contain only lowercase letters.",
       ].join("\n"),
+    );
+  });
+
+  it("rejects a Sanity project ID that is not a single hostname label", () => {
+    expect(() =>
+      validateBuildEnvironment({
+        ...completeProtectedEnvironment,
+        NEXT_PUBLIC_SANITY_PROJECT_ID: "evil.example/x",
+      }),
+    ).toThrow(
+      [
+        "Invalid build environment:",
+        "- NEXT_PUBLIC_SANITY_PROJECT_ID must contain only letters, numbers, and hyphens.",
+      ].join("\n"),
+    );
+  });
+
+  it.each(["staging_2", "prod-eu", "v2", "Staging"])(
+    "rejects the dataset name %s because it is not a single lowercase word",
+    (dataset) => {
+      expect(() =>
+        validateBuildEnvironment({
+          ...completeProtectedEnvironment,
+          NEXT_PUBLIC_SANITY_DATASET: dataset,
+        }),
+      ).toThrow(
+        [
+          "Invalid build environment:",
+          "- NEXT_PUBLIC_SANITY_DATASET must contain only lowercase letters.",
+        ].join("\n"),
+      );
+    },
+  );
+
+  it("reports a malformed host once", () => {
+    expect(() =>
+      validateBuildEnvironment({
+        ...completeProtectedEnvironment,
+        NEXT_PUBLIC_POSTHOG_HOST: "ftp://x",
+      }),
+    ).toThrow(
+      new Error(
+        [
+          "Invalid build environment:",
+          "- NEXT_PUBLIC_POSTHOG_HOST must be a valid HTTPS URL.",
+        ].join("\n"),
+      ),
     );
   });
 
