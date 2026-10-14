@@ -9,6 +9,7 @@ what renders there. Invitation administration will belong to `admin`.
 
 ```tsx
 import {
+  INVITE_TOKEN_COOKIE_SCOPE,
   InvitationOffer,
   InviteConfirmation,
   readInviteToken,
@@ -28,6 +29,11 @@ React, no `server-only`). It answers `/invitation?token=…` with a 303 to the
 clean `/invitation` and an HttpOnly `campus_invite_token` cookie scoped to
 `/invitation` for 30 minutes, so the page, PostHog, browser history and
 `Referer` never see the token.
+
+`app/api/[...path]/route.ts` passes `INVITE_TOKEN_COOKIE_SCOPE` to the API
+proxy as a cookie spent by sign-in. Once the Google callback starts a session,
+the proxy expires the token, and campus-api's redirect back to `/invitation`
+renders `ResumeInvitation`, which sends the session on to `/preview`.
 
 Both components are async Server Components that take the route's server `ApiClient`.
 Pass the default `getServerApi()`, not `authentication: "none"`: only it
@@ -67,6 +73,10 @@ runs in the browser through `/api`, because only the proxy sets auth cookies.
   back to `/preview`).
 - The token never reaches client JavaScript or a rendered URL: the proxy moves
   it into the cookie before render, and the page sends no Referer.
+- The token cookie lives until the first of: a sign-in that starts a session,
+  a new or unusable invite link, or 30 minutes. A failed sign-in keeps it so
+  the invitee can retry. Set, delete, and expire it only through
+  `INVITE_TOKEN_COOKIE_SCOPE`; any other path leaves it in the browser.
 - Invite reads keep only the fields screens render; the public preview never
   holds the invitee's email. Widen a schema in `invite.schema.ts` and in
   `tests/evals/data-privacy.eval.test.ts` together.
