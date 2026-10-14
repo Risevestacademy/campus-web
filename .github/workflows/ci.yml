@@ -9,8 +9,8 @@ on:
     branches: [dev, main]
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -27,8 +27,6 @@ jobs:
     name: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment:
-      name: ${{ (github.base_ref || github.ref_name) == 'main' && 'campus-by-rise / production' || 'campus-by-rise / staging' }}
 
     steps:
       - uses: actions/checkout@v7
@@ -59,8 +57,6 @@ jobs:
     name: e2e
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    environment:
-      name: ${{ (github.base_ref || github.ref_name) == 'main' && 'campus-by-rise / production' || 'campus-by-rise / staging' }}
 
     steps:
       - uses: actions/checkout@v7

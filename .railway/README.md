@@ -28,6 +28,9 @@ Railway configuration and application deployment are separate operations:
   requests targeting `dev` or `main`.
 - `.github/workflows/railway-apply.yml` applies the exact reviewed plan after
   the pull request merges. A direct push without a saved plan fails closed.
+- This split Plan/Apply layout follows Railway's documented workflow. Required,
+  up-to-date PR CI protects the merge; configuration Apply does not wait for a
+  repeated post-merge CI run.
 - Both jobs use `deployment: false`. They can read their GitHub environment's
   `RAILWAY_TOKEN` without creating misleading GitHub deployment records.
 - Both jobs pin Railway CLI `5.63.1`, the version verified with the
@@ -35,7 +38,8 @@ Railway configuration and application deployment are separate operations:
 - Destructive applies are disabled. Resource deletion requires a separately
   reviewed manual operation.
 - Railway's GitHub integration remains responsible for application builds and
-  deployments. Do not add `railway up` to GitHub Actions.
+  deployments. Its Wait for CI setting holds application deployments until all
+  workflows for the commit pass. Do not add `railway up` to GitHub Actions.
 
 Create a different environment-scoped Railway project token named
 `RAILWAY_TOKEN` in each GitHub environment:
@@ -96,11 +100,6 @@ IaC for every environment instead of maintaining it only in the dashboard.
 
 - `NEXT_PUBLIC_POSTHOG_HOST`
 - `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`
-- `NEXT_PUBLIC_SANITY_DATASET`
-- `NEXT_PUBLIC_SANITY_PROJECT_ID`
-
-It also preserves its Railway-managed Sanity configuration:
-
 - `NEXT_PUBLIC_SANITY_DATASET`
 - `NEXT_PUBLIC_SANITY_PROJECT_ID`
 
