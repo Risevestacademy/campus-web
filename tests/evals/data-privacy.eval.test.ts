@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { NextRequest } from "next/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
 import { analyticsEventSchemas } from "@/core/analytics/events";
@@ -14,6 +14,8 @@ import {
 } from "@/features/invitation/schemas/invite.schema";
 import { moveInviteTokenToCookie } from "@/features/invitation/services/invite-token-proxy.service";
 import { invitePreview, pendingInvite } from "@/tests/fixtures/invites";
+
+vi.mock("server-only", () => ({}));
 
 // A new field reaching screens or PostHog fails here until it is added to an
 // allow-list below, on purpose: each addition is a privacy decision.
@@ -92,6 +94,38 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "identity.profile_setup_completed": ["cohort_id", "role", "track_id"],
   "identity.profile_setup_started": ["cohort_id", "role", "track_id"],
 };
+
+async function completeGoogleSignIn(
+  backendDestination: string,
+  ...upstreamSetCookies: string[]
+) {
+  vi.stubEnv("API_BASE_URL", "https://api.example.test");
+  vi.stubGlobal("fetch", () => {
+    const headers = new Headers({
+      location: `${ORIGIN}${backendDestination}`,
+    });
+    for (const setCookie of upstreamSetCookies) {
+      headers.append("set-cookie", setCookie);
+    }
+    return Promise.resolve(new Response(null, { headers, status: 302 }));
+  });
+  const { GET } = await import("@/app/api/[...path]/route");
+
+  const response = await GET(
+    new Request(`${ORIGIN}/api/v1/auth/google/callback?code=google-code`),
+    { params: Promise.resolve({ path: ["v1", "auth", "google", "callback"] }) },
+  );
+
+  return response.headers
+    .getSetCookie()
+    .filter((setCookie) => setCookie.startsWith("campus_invite_token="));
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  vi.resetModules();
+});
 
 const eventSchemas: [string, z.ZodObject][] = Object.entries(
   analyticsEventSchemas,
@@ -176,6 +210,23 @@ describe("Data privacy eval (threshold: every case holds)", () => {
 
       expect(response.headers.get("location")).toBe(`${ORIGIN}/invitation`);
       expect(response.headers.get("location")).not.toContain(TOKEN);
+    });
+
+    it("is expired once sign-in spends it", async () => {
+      expect(
+        await completeGoogleSignIn(
+          "/invitation",
+          "campus_session=session-token; Path=/",
+        ),
+      ).toEqual([
+        "campus_invite_token=; HttpOnly; Secure; SameSite=Lax; Path=/invitation; Max-Age=0",
+      ]);
+    });
+
+    it("survives a failed sign-in so the invitee can retry", async () => {
+      expect(
+        await completeGoogleSignIn("/sign-in?error=invite_required"),
+      ).toEqual([]);
     });
 
     it("is dropped from a returnTo before it reaches sign-in or the OAuth cookie", () => {

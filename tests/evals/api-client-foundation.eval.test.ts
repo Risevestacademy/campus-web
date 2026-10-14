@@ -139,6 +139,9 @@ describe("API client authentication journey eval", () => {
     expect(requireSetCookie(callbackResponse, "campus_oauth_return_to")).toBe(
       "campus_oauth_return_to=; HttpOnly; SameSite=Lax; Path=/api/v1/auth; Max-Age=0",
     );
+    expect(requireSetCookie(callbackResponse, "campus_invite_token")).toBe(
+      "campus_invite_token=; HttpOnly; SameSite=Lax; Path=/invitation; Max-Age=0",
+    );
 
     const logoutResponse = await POST(
       new Request("http://localhost:3000/api/v1/auth/logout", {
