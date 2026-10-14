@@ -44,4 +44,35 @@ describe("loadMediaDevicePreferences", () => {
       speakerDeviceId: "default",
     });
   });
+
+  it.each(["not json", "null", "[]"])(
+    "falls back to defaults when the stored value is %s",
+    (value) => {
+      window.localStorage.setItem(STORAGE_KEY, value);
+
+      expect(loadMediaDevicePreferences()).toEqual({
+        cameraDeviceId: "",
+        microphoneDeviceId: "",
+        speakerDeviceId: "",
+      });
+    },
+  );
+
+  it("blanks a malformed id and keeps the others", () => {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        cameraDeviceId: 7,
+        microphoneDeviceId: "default",
+        speakerDeviceId: "speaker-1",
+        extra: "dropped",
+      }),
+    );
+
+    expect(loadMediaDevicePreferences()).toStrictEqual({
+      cameraDeviceId: "",
+      microphoneDeviceId: "default",
+      speakerDeviceId: "speaker-1",
+    });
+  });
 });

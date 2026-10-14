@@ -6,6 +6,9 @@ import type { SharedExpiry } from "./session-renewal";
 const SESSION_LOCK = "campus-session-renewal";
 const SHARED_EXPIRY_KEY = "campus.session-expires-at";
 const WINDOW_WAKE_EVENTS = ["focus", "online", "pageshow"] as const;
+// campus-api caps access tokens at 15 minutes. A shared expiry further ahead
+// was not written by a renewal and would stall every tab's schedule.
+const MAX_ACCESS_TOKEN_LIFETIME_MS = 15 * 60_000;
 
 // Serialises refreshes across tabs. Web Locks need a secure context; without
 // them the backend's 60 s reuse grace window absorbs a cross-tab race.
@@ -26,7 +29,8 @@ export const renewSession = createSessionRefresher(browserApi);
 
 function parseExpiry(value: string | null): number | undefined {
   const expiresAt = Number(value);
-  return Number.isFinite(expiresAt) && expiresAt > 0 ? expiresAt : undefined;
+  const latestPossible = Date.now() + MAX_ACCESS_TOKEN_LIFETIME_MS;
+  return expiresAt > 0 && expiresAt <= latestPossible ? expiresAt : undefined;
 }
 
 // Storage can be unavailable (private mode, blocked site data); renewal then
