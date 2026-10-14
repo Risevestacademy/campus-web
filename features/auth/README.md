@@ -57,7 +57,8 @@ Session Renewal: the cohort layout's `SessionRenewal` (server) seeds
 `SessionRenewalTimer` (client) with the cached session's `expiresAt`; its hook
 starts `createSessionRenewal`, which POSTs the refresh at
 `expiresAt − min(2 min, remaining / 4)` under the `campus-session-renewal` Web
-Lock, skips when another tab already renewed (`localStorage`), and re-checks on
+Lock, skips when another tab already renewed (`localStorage`, ignored when more
+than one 15-minute access-token lifetime ahead), and re-checks on
 `visibilitychange`, `focus`, `online` and `pageshow`. It never navigates, so
 the Presence Session keeps running. `/session/refresh` remains the cold-load
 path: a reload, a new tab, or a wake after the access cookie already lapsed.

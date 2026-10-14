@@ -61,6 +61,8 @@ form and response data; `types/` holds outcomes. Server Components read with
 
 1. Page in `app/campus/[id]/(administration)/<page>/`; it calls
    `requireRouteAccess({ kind: "system-admin" })` itself.
+   Parse `?page=` once with `parsePageNumber` from `@/shared/lib/search-params`
+   and pass the `number` down; catalogues never take URL text.
 2. Add `<page>` to `CohortAdministrationPage` in
    `cohort-administration-href.ts` and a link in `admin-sidebar.tsx`.
 3. Follow "Protecting a new page" in `features/auth/README.md`;
