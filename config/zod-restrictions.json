@@ -1,0 +1,14 @@
+[
+  {
+    "selector": "CallExpression > MemberExpression.callee[property.name=/^(looseObject|strictObject|passthrough|strict)$/]",
+    "message": "Response schemas strip unknown keys: use z.object. See core/api/schemas/README.md."
+  },
+  {
+    "selector": "CallExpression > MemberExpression.callee[property.name='merge']",
+    "message": ".merge() is deprecated in Zod 4: use .extend() or spread .shape. See core/api/schemas/README.md."
+  },
+  {
+    "selector": "Property[key.name='reportInput']",
+    "message": "Never copy raw input into Zod issues. See core/api/schemas/README.md."
+  }
+]

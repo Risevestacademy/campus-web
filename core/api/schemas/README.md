@@ -33,6 +33,10 @@ import {
 - A feature schema that validates a response strips to the fields the feature
   reads (`z.object`) and returns `parsed.data`, typed as
   `Simplify<Pick<Dto, …>>`.
+- Lint (`config/zod-restrictions.json`) bans `looseObject`, `strictObject`,
+  `.passthrough()`, `.strict()`, `.merge()` and `reportInput` in `core/`,
+  `features/` and `shared/`. Response schemas strip with `z.object`; Zod
+  issues never carry raw input.
 - Only vocabulary shared by two or more features lives here. A feature's own
   response shapes stay in its `schemas/` folder.
 

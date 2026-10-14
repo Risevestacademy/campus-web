@@ -11,6 +11,7 @@ import unusedImportsPlugin from "eslint-plugin-unused-imports";
 import architectureBoundaries from "./config/architecture-boundaries.json" with { type: "json" };
 import phosphorImportRestrictions from "./config/phosphor-imports.json" with { type: "json" };
 import reactImportRestrictions from "./config/react-imports.json" with { type: "json" };
+import zodRestrictions from "./config/zod-restrictions.json" with { type: "json" };
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -112,6 +113,16 @@ const eslintConfig = defineConfig([
         "error",
         architectureBoundaries.dependencyRule,
       ],
+    },
+  },
+  {
+    files: [
+      "core/**/*.{ts,tsx}",
+      "features/**/*.{ts,tsx}",
+      "shared/**/*.{ts,tsx}",
+    ],
+    rules: {
+      "no-restricted-syntax": ["error", ...zodRestrictions],
     },
   },
   prettier,
