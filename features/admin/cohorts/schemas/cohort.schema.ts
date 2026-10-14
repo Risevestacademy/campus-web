@@ -3,6 +3,7 @@ import { z } from "zod";
 import { cohortStatusSchema, paginationMetaSchema } from "@/core/api/schemas";
 import { changedFields } from "@/shared/lib/changed-fields";
 import { optionalIsoDate, parseForm } from "@/shared/lib/forms";
+import { withoutUndefined } from "@/shared/lib/without-undefined";
 
 import type {
   CohortEditRead,
@@ -75,7 +76,9 @@ export function parseCohortList(body: unknown): CohortPage | undefined {
 
 export function parseNewCohort(form: FormData): NewCohortRead {
   const read = parseForm(cohortFieldsSchema, form);
-  return read.kind === "valid" ? { kind: "valid", cohort: read.data } : read;
+  return read.kind === "valid"
+    ? { kind: "valid", cohort: withoutUndefined(read.data) }
+    : read;
 }
 
 export function parseCohortEdit(
