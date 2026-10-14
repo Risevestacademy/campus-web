@@ -99,6 +99,9 @@ describe("Join Gate media session", () => {
       ).toHaveAttribute("aria-pressed", "true");
     });
     fireEvent.click(screen.getByRole("button", { name: "Join" }));
+    await waitFor(() =>
+      expect(admissionStore.getState().pendingDestination).not.toBeNull(),
+    );
 
     rerender(
       await activeCampusLayout(
