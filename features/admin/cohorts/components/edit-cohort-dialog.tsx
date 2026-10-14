@@ -62,7 +62,7 @@ export function EditCohortDialog({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const read = parseCohortEdit(new FormData(event.currentTarget), cohort);
+    const read = parseCohortEdit(cohort, new FormData(event.currentTarget));
     setErrors(read.kind === "invalid" ? read.errors : {});
     setUnchanged(read.kind === "unchanged");
     if (read.kind === "valid") {

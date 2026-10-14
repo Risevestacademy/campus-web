@@ -1,14 +1,14 @@
 import { z } from "zod";
 
 import { paginationMetaSchema } from "@/core/api/schemas";
+import { changedFields } from "@/shared/lib/changed-fields";
+import { optionalText, parseForm } from "@/shared/lib/forms";
 
 import type {
   NewTrackRead,
   TrackEditRead,
-  TrackFieldErrors,
   TrackFieldValues,
   TrackPage,
-  TrackPatch,
   TrackSummary,
 } from "../types/track.types";
 
@@ -26,7 +26,7 @@ const trackListSchema = z.object({
   meta: paginationMetaSchema,
 });
 
-const fields = z.toZod<TrackFieldValues>()(
+const trackFieldsSchema = z.toZod<TrackFieldValues>()(
   z.object({
     name: z.string().trim().min(1, "Enter a programme track name."),
     code: z
@@ -34,62 +34,24 @@ const fields = z.toZod<TrackFieldValues>()(
       .trim()
       .min(1, "Enter a programme track code.")
       .transform((value) => value.toUpperCase()),
-    description: z.string().trim().optional(),
+    description: optionalText(),
   }),
 );
-function text(form: FormData, name: string) {
-  const value = form.get(name);
-  return typeof value === "string" ? value : "";
-}
-function errors(issues: z.ZodError["issues"]): TrackFieldErrors {
-  const result: TrackFieldErrors = {};
-  for (const issue of issues)
-    result[issue.path[0] as keyof TrackFieldErrors] ??= issue.message;
-  return result;
-}
-function read(form: FormData) {
-  return fields.safeParse({
-    name: text(form, "name"),
-    code: text(form, "code"),
-    description: text(form, "description") || undefined,
-  });
-}
 
-function normalizeValues(values: {
-  name: string;
-  code: string;
-  description?: string;
-}) {
-  return { ...values, description: values.description?.trim() || undefined };
-}
-export function parseNewTrack(
-  form: FormData | { name: string; code: string; description?: string },
-): NewTrackRead {
-  const parsed =
-    form instanceof FormData
-      ? read(form)
-      : fields.safeParse(normalizeValues(form));
-  return parsed.success
-    ? { kind: "valid", track: parsed.data }
-    : { kind: "invalid", errors: errors(parsed.error.issues) };
+export function parseNewTrack(form: FormData): NewTrackRead {
+  const read = parseForm(trackFieldsSchema, form);
+  return read.kind === "valid" ? { kind: "valid", track: read.data } : read;
 }
 
 export function parseTrackEdit(
   track: TrackSummary,
-  values: FormData | { name: string; code: string; description?: string },
+  form: FormData,
 ): TrackEditRead {
-  const parsed =
-    values instanceof FormData
-      ? read(values)
-      : fields.safeParse(normalizeValues(values));
-  if (!parsed.success)
-    return { kind: "invalid", errors: errors(parsed.error.issues) };
-  const changes: TrackPatch = {};
-  if (parsed.data.name !== track.name) changes.name = parsed.data.name;
-  if (parsed.data.code !== track.code) changes.code = parsed.data.code;
-  const description = parsed.data.description ?? null;
-  if (description !== track.description) changes.description = description;
-  return Object.keys(changes).length
+  const read = parseForm(trackFieldsSchema, form);
+  if (read.kind === "invalid") return read;
+
+  const changes = changedFields(track, read.data);
+  return Object.keys(changes).length > 0
     ? { kind: "valid", changes }
     : { kind: "unchanged" };
 }

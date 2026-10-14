@@ -106,11 +106,9 @@ describe("parseNewCohort", () => {
   it("leaves out dates that were not entered", () => {
     const parsed = parseNewCohort(cohortForm({}));
 
-    expect(parsed.kind === "valid" && Object.keys(parsed.cohort)).toEqual([
-      "name",
-      "code",
-      "status",
-    ]);
+    expect(
+      parsed.kind === "valid" && JSON.parse(JSON.stringify(parsed.cohort)),
+    ).toStrictEqual({ name: "Cohort 1", code: "C1", status: "upcoming" });
   });
 
   it("keeps the dates and status the admin chose", () => {
@@ -191,6 +189,7 @@ describe("parseCohortEdit", () => {
   it("returns only normalized fields that changed", () => {
     expect(
       parseCohortEdit(
+        cohort,
         cohortForm({
           name: " Renamed cohort ",
           code: " c2 ",
@@ -198,7 +197,6 @@ describe("parseCohortEdit", () => {
           endDate: "2027-06-30",
           status: "active",
         }),
-        cohort,
       ),
     ).toEqual({
       kind: "valid",
@@ -213,11 +211,11 @@ describe("parseCohortEdit", () => {
   it("uses null to clear an optional date", () => {
     expect(
       parseCohortEdit(
+        cohort,
         cohortForm({
           startDate: "2026-09-01",
           endDate: "",
         }),
-        cohort,
       ),
     ).toEqual({
       kind: "valid",
@@ -228,13 +226,13 @@ describe("parseCohortEdit", () => {
   it("does not produce a mutation when normalized values are unchanged", () => {
     expect(
       parseCohortEdit(
+        cohort,
         cohortForm({
           name: " Cohort 1 ",
           code: " c1 ",
           startDate: "2026-09-01",
           endDate: "2027-06-30",
         }),
-        cohort,
       ),
     ).toEqual({ kind: "unchanged" });
   });
@@ -242,11 +240,11 @@ describe("parseCohortEdit", () => {
   it("validates the complete edited date range", () => {
     expect(
       parseCohortEdit(
+        cohort,
         cohortForm({
           startDate: "2027-07-01",
           endDate: "2027-06-30",
         }),
-        cohort,
       ),
     ).toEqual({
       kind: "invalid",

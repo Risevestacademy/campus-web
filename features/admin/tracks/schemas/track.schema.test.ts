@@ -11,35 +11,63 @@ const track = {
   updatedAt: "2026-01-01T00:00:00.000Z",
 };
 
-describe("track schema", () => {
+function trackForm(fields: Record<string, string>) {
+  const form = new FormData();
+  const filled = {
+    name: "Computer Science",
+    code: "csc",
+    description: "",
+    ...fields,
+  };
+  for (const [field, value] of Object.entries(filled)) form.set(field, value);
+  return form;
+}
+
+describe("parseNewTrack", () => {
   it("normalizes new track values", () => {
     expect(
-      parseNewTrack({
-        name: "  Computer Science ",
-        code: " csc ",
-        description: "  Details  ",
-      }),
+      parseNewTrack(
+        trackForm({
+          name: "  Computer Science ",
+          code: " csc ",
+          description: "  Details  ",
+        }),
+      ),
     ).toEqual({
       kind: "valid",
       track: { name: "Computer Science", code: "CSC", description: "Details" },
     });
   });
 
-  it("only returns changed edit values and clears blank descriptions", () => {
-    expect(
-      parseTrackEdit(track, {
-        name: " Computer Science ",
-        code: "csc",
-        description: " ",
-      }),
-    ).toEqual({ kind: "valid", changes: { description: null } });
+  it("reads a blank description as absent", () => {
+    expect(parseNewTrack(trackForm({ description: "   " }))).toStrictEqual({
+      kind: "valid",
+      track: { name: "Computer Science", code: "CSC", description: undefined },
+    });
   });
 
   it("rejects a blank code", () => {
+    expect(parseNewTrack(trackForm({ code: "   " }))).toStrictEqual({
+      kind: "invalid",
+      errors: { code: "Enter a programme track code." },
+    });
+  });
+});
+
+describe("parseTrackEdit", () => {
+  it("only returns changed edit values and clears blank descriptions", () => {
     expect(
-      parseNewTrack({ name: "Computer Science", code: "   ", description: "" })
-        .kind,
-    ).toBe("invalid");
+      parseTrackEdit(
+        track,
+        trackForm({ name: " Computer Science ", description: " " }),
+      ),
+    ).toStrictEqual({ kind: "valid", changes: { description: null } });
+  });
+
+  it("does not produce a mutation when normalized values are unchanged", () => {
+    expect(
+      parseTrackEdit(track, trackForm({ description: "A programme track" })),
+    ).toStrictEqual({ kind: "unchanged" });
   });
 });
 
