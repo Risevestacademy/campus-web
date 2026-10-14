@@ -3,6 +3,8 @@ export {
   exceptionCodeSchema,
   parseExceptionCode,
 } from "./api-error";
+export { cohortStatusSchema } from "./cohort-status";
+export { paginationMetaSchema } from "./pagination";
 export {
   cohortRoleSchema,
   sessionScopeSchema,
