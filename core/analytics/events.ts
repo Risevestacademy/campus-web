@@ -5,6 +5,7 @@ export const ANALYTICS_EVENTS = {
   AUTH_LOGOUT: "auth.logout",
   AUTH_PASSWORD_RESET_COMPLETED: "auth.password_reset_completed",
   AUTH_PASSWORD_RESET_REQUESTED: "auth.password_reset_requested",
+  AUTH_SESSION_RENEWED: "auth.session_renewed",
   AUTH_SIGNUP_FAILED: "auth.signup_failed",
   AUTH_SIGNUP_SUBMITTED: "auth.signup_submitted",
   AUTH_SIGNUP_SUCCEEDED: "auth.signup_succeeded",
@@ -103,6 +104,10 @@ export interface AnalyticsEventMap {
     reset_method: "email" | "phone";
   };
   [ANALYTICS_EVENTS.AUTH_PASSWORD_RESET_COMPLETED]: Record<string, never>;
+  [ANALYTICS_EVENTS.AUTH_SESSION_RENEWED]: {
+    failed_attempts: number;
+    outcome: "expired" | "lapsed" | "renewed";
+  };
   [ANALYTICS_EVENTS.AUTH_LOGOUT]: {
     logout_source: "admin_action" | "session_expired" | "user_action";
   };

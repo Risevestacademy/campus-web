@@ -141,6 +141,40 @@ describe("RefreshSession: automatic refresh", () => {
     expect(navigation.refresh).toHaveBeenCalledOnce();
   });
 
+  it("refreshes inside the origin-wide session lock other tabs renew under", async () => {
+    const lockEvents: string[] = [];
+    Object.defineProperty(navigator, "locks", {
+      configurable: true,
+      value: {
+        request: async (name: string, task: () => Promise<unknown>) => {
+          lockEvents.push(`acquire ${name}`);
+          const result = await task();
+          lockEvents.push(`release ${name}`);
+          return result;
+        },
+      },
+    });
+    mockApi.server.use(
+      http.post(REFRESH_URL, () => {
+        lockEvents.push("POST refresh");
+        return refreshed();
+      }),
+    );
+
+    try {
+      renderRefresh();
+      await elapse();
+    } finally {
+      Reflect.deleteProperty(navigator, "locks");
+    }
+
+    expect(lockEvents).toEqual([
+      "acquire campus-session-renewal",
+      "POST refresh",
+      "release campus-session-renewal",
+    ]);
+  });
+
   // The refresh API answers 401 alike for a visitor who never signed in, so
   // sign-in must not claim a session expired.
   it("sends a rejected refresh to plain sign-in with the destination", async () => {

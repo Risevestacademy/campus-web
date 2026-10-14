@@ -20,6 +20,10 @@ const sessionSchema = z.looseObject({
   ),
 });
 
+const refreshSchema = z.looseObject({
+  expiresAt: z.iso.datetime({ offset: true }),
+});
+
 function parseJson(body: string): unknown {
   try {
     return JSON.parse(body);
@@ -37,4 +41,11 @@ export function parseSessionBody(
   return sessionSchema.safeParse(value).success
     ? (value as Session)
     : undefined;
+}
+
+export function parseRefreshExpiry(
+  body: string | undefined,
+): string | undefined {
+  const parsed = refreshSchema.safeParse(body ? parseJson(body) : undefined);
+  return parsed.success ? parsed.data.expiresAt : undefined;
 }

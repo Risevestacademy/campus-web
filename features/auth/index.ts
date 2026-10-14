@@ -3,6 +3,7 @@ export { CohortGate } from "./components/cohort-gate";
 export { InvitationGate } from "./components/invitation-gate";
 export { RefreshSession } from "./components/refresh-session";
 export { ResumeInvitation } from "./components/resume-invitation";
+export { SessionRenewal } from "./components/session-renewal";
 export { SessionUnavailable } from "./components/session-unavailable";
 export {
   normalizeCohortReturnTo,

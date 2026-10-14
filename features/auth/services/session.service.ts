@@ -1,7 +1,10 @@
 import type { ApiClient } from "@/core/api/client";
 import { parseRetryAfterMs } from "@/shared/lib/retry-after";
 
-import { parseSessionBody } from "../schemas/session.schema";
+import {
+  parseRefreshExpiry,
+  parseSessionBody,
+} from "../schemas/session.schema";
 import type { Session } from "../types/auth.types";
 
 export type SessionRead =
@@ -99,17 +102,19 @@ export async function readSession(api: ApiClient): Promise<SessionRead> {
 const COOKIE_CARRIES_TOKEN = {};
 
 export type SessionRefresh =
-  | { kind: "refreshed" }
+  | { kind: "refreshed"; expiresAt?: string }
   | { kind: "expired" }
   | { kind: "failed"; retryAfterMs?: number };
 
 async function postRefresh(api: ApiClient): Promise<SessionRefresh> {
   try {
-    const { response } = await api.POST("/v1/auth/refresh", {
+    const { data, response } = await api.POST("/v1/auth/refresh", {
       body: COOKIE_CARRIES_TOKEN,
-      parseAs: "stream",
+      parseAs: "text",
     });
-    if (response.ok) return { kind: "refreshed" };
+    if (response.ok) {
+      return { kind: "refreshed", expiresAt: parseRefreshExpiry(data) };
+    }
     if (response.status === 401) return { kind: "expired" };
 
     const retryAfterMs = parseRetryAfterMs(
@@ -122,16 +127,22 @@ async function postRefresh(api: ApiClient): Promise<SessionRefresh> {
   }
 }
 
+export type Serialize = <T>(task: () => Promise<T>) => Promise<T>;
+
+const runNow: Serialize = (task) => task();
+
 // The refresh token rotates, so a second concurrent POST would spend an
 // already-spent token and sign the visitor out. Concurrent callers (including
-// React StrictMode's double mount in development) share one request.
+// React StrictMode's double mount in development) share one request, which
+// serialize can queue behind other tabs.
 export function createSessionRefresher(
   api: ApiClient,
+  serialize: Serialize = runNow,
 ): () => Promise<SessionRefresh> {
   let inFlight: Promise<SessionRefresh> | undefined;
 
   return () => {
-    inFlight ??= postRefresh(api).finally(() => {
+    inFlight ??= serialize(() => postRefresh(api)).finally(() => {
       inFlight = undefined;
     });
     return inFlight;
