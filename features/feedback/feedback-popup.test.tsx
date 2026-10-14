@@ -156,7 +156,37 @@ describe("FeedbackPopup", () => {
     });
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Choose an image file.",
+      "Use a PNG, JPEG, WebP or GIF image.",
+    );
+  });
+
+  it("pastes the first supported image when the clipboard lists a TIFF first", async () => {
+    renderPopup();
+
+    fireEvent.paste(screen.getByLabelText("Title"), {
+      clipboardData: {
+        files: [
+          new File(["x"], "pod.tiff", { type: "image/tiff" }),
+          new File(["x"], "pod.png", { type: "image/png" }),
+        ],
+      },
+    });
+
+    expect(await screen.findByAltText("Screenshot preview")).toBeVisible();
+    expect(screen.getByText("pod.png")).toBeVisible();
+  });
+
+  it("explains which images work when only an unsupported one is pasted", () => {
+    renderPopup();
+
+    fireEvent.paste(screen.getByLabelText("Title"), {
+      clipboardData: {
+        files: [new File(["x"], "pod.heic", { type: "image/heic" })],
+      },
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Use a PNG, JPEG, WebP or GIF image.",
     );
   });
 

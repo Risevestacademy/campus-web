@@ -80,11 +80,14 @@ describe("screenshotProblem", () => {
     },
   );
 
-  it.each(["text/plain", "image/svg+xml"])("rejects %s", (type) => {
-    expect(screenshotProblem(new File(["x"], "a", { type }))).toBe(
-      "Choose an image file.",
-    );
-  });
+  it.each(["text/plain", "image/svg+xml", "image/heic", "image/tiff"])(
+    "rejects %s",
+    (type) => {
+      expect(screenshotProblem(new File(["x"], "a", { type }))).toBe(
+        "Use a PNG, JPEG, WebP or GIF image.",
+      );
+    },
+  );
 
   it("rejects a large image", () => {
     expect(

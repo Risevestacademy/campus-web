@@ -13,6 +13,10 @@ export const SCREENSHOT_TYPES = [
   "image/gif",
 ];
 
+export function isScreenshotType(type: string): boolean {
+  return SCREENSHOT_TYPES.includes(type);
+}
+
 export const feedbackKindSchema = z.enum(
   ["bug", "idea", "report"],
   "Choose what kind of feedback this is.",
@@ -48,7 +52,7 @@ export const feedbackSchema = z.object({
 
 const screenshotSchema = z
   .file()
-  .mime(SCREENSHOT_TYPES, "Choose an image file.")
+  .mime(SCREENSHOT_TYPES, "Use a PNG, JPEG, WebP or GIF image.")
   .max(SCREENSHOT_MAX_BYTES, "Keep the image under 5 MB.");
 
 export type FeedbackFieldErrors = FormErrors<typeof feedbackSchema>;
