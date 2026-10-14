@@ -1,23 +1,42 @@
 import { z } from "zod";
 
+import { paginationMetaSchema } from "@/core/api/schemas";
+
 import type {
   NewTrackRead,
   TrackEditRead,
   TrackFieldErrors,
+  TrackFieldValues,
   TrackPage,
   TrackPatch,
   TrackSummary,
 } from "../types/track.types";
 
-const fields = z.object({
-  name: z.string().trim().min(1, "Enter a programme track name."),
-  code: z
-    .string()
-    .trim()
-    .min(1, "Enter a programme track code.")
-    .transform((value) => value.toUpperCase()),
-  description: z.string().trim().optional(),
+export const trackSummarySchema = z.toZod<TrackSummary>()(
+  z.object({
+    id: z.string().min(1),
+    name: z.string(),
+    code: z.string(),
+    description: z.string().nullable(),
+  }),
+);
+
+const trackListSchema = z.object({
+  items: z.array(trackSummarySchema),
+  meta: paginationMetaSchema,
 });
+
+const fields = z.toZod<TrackFieldValues>()(
+  z.object({
+    name: z.string().trim().min(1, "Enter a programme track name."),
+    code: z
+      .string()
+      .trim()
+      .min(1, "Enter a programme track code.")
+      .transform((value) => value.toUpperCase()),
+    description: z.string().trim().optional(),
+  }),
+);
 function text(form: FormData, name: string) {
   const value = form.get(name);
   return typeof value === "string" ? value : "";
@@ -76,27 +95,8 @@ export function parseTrackEdit(
 }
 
 export function parseTrackList(body: unknown): TrackPage | undefined {
-  const parsed = z
-    .object({
-      items: z.array(
-        z.object({
-          id: z.string().min(1),
-          name: z.string(),
-          code: z.string(),
-          description: z.string().nullable(),
-        }),
-      ),
-      meta: z.object({
-        page: z.number().int().positive(),
-        totalPages: z.number().int().nonnegative(),
-      }),
-    })
-    .safeParse(body);
+  const parsed = trackListSchema.safeParse(body);
   return parsed.success
-    ? {
-        tracks: parsed.data.items,
-        page: parsed.data.meta.page,
-        totalPages: parsed.data.meta.totalPages,
-      }
+    ? { tracks: parsed.data.items, ...parsed.data.meta }
     : undefined;
 }

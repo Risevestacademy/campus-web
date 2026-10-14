@@ -1,11 +1,11 @@
 import type { components } from "@/core/api/client";
+import type { Simplify } from "@/core/api/schemas";
 
-export interface TrackSummary {
-  id: string;
-  name: string;
-  code: string;
-  description: string | null;
-}
+type Schemas = components["schemas"];
+
+export type TrackSummary = Simplify<
+  Pick<Schemas["TrackResponseDto"], "id" | "name" | "code" | "description">
+>;
 export interface TrackPage {
   tracks: TrackSummary[];
   page: number;
@@ -13,13 +13,9 @@ export interface TrackPage {
 }
 export type TrackListRead =
   ({ kind: "loaded" } & TrackPage) | { kind: "unavailable" };
-export interface TrackFieldValues {
-  name: string;
-  code: string;
-  description?: string;
-}
+export type TrackFieldValues = Schemas["CreateTrackDto"];
 export type NewTrack = TrackFieldValues;
-export type TrackPatch = components["schemas"]["UpdateTrackDto"];
+export type TrackPatch = Schemas["UpdateTrackDto"];
 export type TrackFieldErrors = Partial<Record<keyof TrackFieldValues, string>>;
 export type NewTrackRead =
   | { kind: "valid"; track: NewTrack }

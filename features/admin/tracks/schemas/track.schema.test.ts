@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseNewTrack, parseTrackEdit } from "./track.schema";
+import { parseNewTrack, parseTrackEdit, parseTrackList } from "./track.schema";
 
 const track = {
   id: "track-1",
@@ -40,5 +40,33 @@ describe("track schema", () => {
       parseNewTrack({ name: "Computer Science", code: "   ", description: "" })
         .kind,
     ).toBe("invalid");
+  });
+});
+
+describe("parseTrackList", () => {
+  function trackListBody(meta: Record<string, unknown> = {}) {
+    return {
+      items: [track],
+      meta: { page: 1, perPage: 20, total: 1, totalPages: 1, ...meta },
+    };
+  }
+
+  it("keeps only the fields the track list reads", () => {
+    expect(parseTrackList(trackListBody())).toStrictEqual({
+      tracks: [
+        {
+          id: "track-1",
+          name: "Computer Science",
+          code: "CSC",
+          description: "A programme track",
+        },
+      ],
+      page: 1,
+      totalPages: 1,
+    });
+  });
+
+  it("rejects a list with page 0", () => {
+    expect(parseTrackList(trackListBody({ page: 0 }))).toBeUndefined();
   });
 });

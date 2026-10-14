@@ -40,7 +40,9 @@ form and response data; `types/` holds outcomes. Server Components read with
 
 1. Outcome type in `types/`: `({ kind: "loaded" } & Data) | { kind: "unavailable" }`.
 2. Adapter in `services/` taking `ApiClient`; parse with a `schemas/`
-   function. A throw or a bad body is `unavailable`.
+   function. A throw or a bad body is `unavailable`. Bind the response schema
+   with `z.toZod` to a `Simplify<Pick<Dto, …>>` type; take enums and
+   pagination meta from `@/core/api/schemas`.
 3. Call it from a Server Component.
 
 ### Adding a mutation

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseChooserPage,
   parseCohortEdit,
+  parseCohortList,
   parseNewCohort,
 } from "./cohort.schema";
 
@@ -30,6 +31,51 @@ describe("parseChooserPage", () => {
     "9007199254740992",
   ])("falls back to page 1 for %j", (value) => {
     expect(parseChooserPage(value)).toBe(1);
+  });
+});
+
+function cohortListBody(item: Record<string, unknown> = {}) {
+  return {
+    items: [
+      {
+        id: "cohort-1",
+        name: "Cohort 1",
+        code: "C1",
+        startDate: "2026-09-01",
+        endDate: null,
+        status: "active",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        ...item,
+      },
+    ],
+    meta: { page: 2, perPage: 20, total: 21, totalPages: 2 },
+  };
+}
+
+describe("parseCohortList", () => {
+  it("keeps only the fields the cohort list reads", () => {
+    expect(parseCohortList(cohortListBody())).toStrictEqual({
+      cohorts: [
+        {
+          id: "cohort-1",
+          name: "Cohort 1",
+          code: "C1",
+          startDate: "2026-09-01",
+          endDate: null,
+          status: "active",
+        },
+      ],
+      page: 2,
+      totalPages: 2,
+    });
+  });
+
+  it.each([
+    ["an unknown status", { status: "archived" }],
+    ["a non-ISO start date", { startDate: "01/09/2026" }],
+  ])("rejects a cohort with %s", (_, item) => {
+    expect(parseCohortList(cohortListBody(item))).toBeUndefined();
   });
 });
 

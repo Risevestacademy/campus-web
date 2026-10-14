@@ -1,11 +1,13 @@
 import { z } from "zod";
 
+import { cohortStatusSchema, paginationMetaSchema } from "@/core/api/schemas";
+
 import type {
   CohortEditRead,
   CohortFieldErrors,
+  CohortFieldValues,
   CohortPage,
   CohortPatch,
-  CohortStatus,
   CohortSummary,
   NewCohort,
   NewCohortRead,
@@ -14,51 +16,49 @@ import type {
 const FIRST_PAGE = 1;
 const POSITIVE_INTEGER = /^[1-9]\d*$/;
 
-export const COHORT_STATUSES = [
-  "upcoming",
-  "active",
-  "completed",
-] as const satisfies readonly CohortStatus[];
+export const COHORT_STATUSES = cohortStatusSchema.options;
+
+const cohortSummarySchema = z.toZod<CohortSummary>()(
+  z.object({
+    id: z.string().min(1),
+    name: z.string(),
+    code: z.string(),
+    startDate: z.iso.date().nullable(),
+    endDate: z.iso.date().nullable(),
+    status: cohortStatusSchema,
+  }),
+);
 
 const cohortListSchema = z.object({
-  items: z.array(
-    z.object({
-      id: z.string().min(1),
-      name: z.string(),
-      code: z.string(),
-      startDate: z.iso.date().nullable(),
-      endDate: z.iso.date().nullable(),
-      status: z.enum(COHORT_STATUSES),
-    }),
-  ),
-  meta: z.object({
-    page: z.number().int().positive(),
-    totalPages: z.number().int().nonnegative(),
-  }),
+  items: z.array(cohortSummarySchema),
+  meta: paginationMetaSchema,
 });
 
 const cohortDate = z.iso.date("Enter a valid date.").optional();
 
 // YYYY-MM-DD strings sort as dates, so no Date (and no timezone) is involved.
-const cohortFieldsSchema = z
-  .object({
-    name: z.string().trim().min(1, "Enter a cohort name."),
-    code: z
-      .string()
-      .trim()
-      .min(1, "Enter a cohort code.")
-      .transform((code) => code.toUpperCase()),
-    startDate: cohortDate,
-    endDate: cohortDate,
-    status: z.enum(COHORT_STATUSES, "Choose a status."),
-  })
-  .refine(
-    ({ startDate, endDate }) => !startDate || !endDate || endDate >= startDate,
-    {
-      path: ["endDate"],
-      error: "End date must be on or after the start date.",
-    },
-  );
+const cohortFieldsSchema = z.toZod<CohortFieldValues>()(
+  z
+    .object({
+      name: z.string().trim().min(1, "Enter a cohort name."),
+      code: z
+        .string()
+        .trim()
+        .min(1, "Enter a cohort code.")
+        .transform((code) => code.toUpperCase()),
+      startDate: cohortDate,
+      endDate: cohortDate,
+      status: z.enum(COHORT_STATUSES, "Choose a status."),
+    })
+    .refine(
+      ({ startDate, endDate }) =>
+        !startDate || !endDate || endDate >= startDate,
+      {
+        path: ["endDate"],
+        error: "End date must be on or after the start date.",
+      },
+    ),
+);
 
 function formText(form: FormData, field: string): string {
   const value = form.get(field);
@@ -100,21 +100,9 @@ export function parseChooserPage(value: string | undefined): number {
 
 export function parseCohortList(body: unknown): CohortPage | undefined {
   const parsed = cohortListSchema.safeParse(body);
-  if (!parsed.success) return undefined;
-
-  const { items, meta } = parsed.data;
-  return {
-    cohorts: items.map(({ id, name, code, startDate, endDate, status }) => ({
-      id,
-      name,
-      code,
-      startDate,
-      endDate,
-      status,
-    })),
-    page: meta.page,
-    totalPages: meta.totalPages,
-  };
+  return parsed.success
+    ? { cohorts: parsed.data.items, ...parsed.data.meta }
+    : undefined;
 }
 
 export function parseNewCohort(form: FormData): NewCohortRead {

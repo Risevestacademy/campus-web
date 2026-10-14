@@ -1,23 +1,18 @@
 import type { components } from "@/core/api/client";
+import type { Simplify } from "@/core/api/schemas";
 
-export type CohortStatus = components["schemas"]["CohortStatus"];
+type Schemas = components["schemas"];
 
-export interface CohortFieldValues {
-  name: string;
-  code: string;
-  startDate?: string;
-  endDate?: string;
-  status: CohortStatus;
-}
+export type CohortStatus = Schemas["CohortStatus"];
 
-export interface CohortSummary {
-  id: string;
-  name: string;
-  code: string;
-  startDate: string | null;
-  endDate: string | null;
-  status: CohortStatus;
-}
+export type CohortFieldValues = Schemas["CreateCohortDto"];
+
+export type CohortSummary = Simplify<
+  Pick<
+    Schemas["CohortResponseDto"],
+    "id" | "name" | "code" | "startDate" | "endDate" | "status"
+  >
+>;
 
 export interface CohortPage {
   cohorts: CohortSummary[];
@@ -44,7 +39,7 @@ export type CohortCreationProblem =
 export type CohortCreation =
   { kind: "created" } | { kind: "problem"; problem: CohortCreationProblem };
 
-export type CohortPatch = components["schemas"]["UpdateCohortDto"];
+export type CohortPatch = Schemas["UpdateCohortDto"];
 
 export type CohortEditRead =
   | { kind: "valid"; changes: CohortPatch }
