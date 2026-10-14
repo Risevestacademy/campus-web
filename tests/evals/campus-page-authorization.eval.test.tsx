@@ -24,6 +24,7 @@ vi.mock("@/features/auth", () => ({
   requireRouteAccess: vi.fn(() =>
     Promise.resolve({ kind: "unavailable", retryHref: "/campus" }),
   ),
+  SessionRenewal: () => null,
   SessionUnavailable: () => <p role="alert">Route access unavailable</p>,
 }));
 vi.mock("@/features/campus", () => ({

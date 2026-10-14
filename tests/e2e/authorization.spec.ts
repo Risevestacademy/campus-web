@@ -3,6 +3,7 @@ import { type BrowserContext, expect, type Page } from "@playwright/test";
 import { enterCampus, joinButton, preJoinUrl } from "./support/campus-entry";
 import {
   cohortsPage,
+  expiringAt,
   membership,
   sessions,
   signIn,
@@ -542,7 +543,7 @@ test.describe("cohort pre-join", () => {
     ).toBeVisible();
   });
 
-  test("a session refresh round trip ends the Presence Session", async ({
+  test("a navigation after the access cookie lapses restores through refresh and pre-join", async ({
     page,
     context,
     fakeApi,
@@ -558,6 +559,28 @@ test.describe("cohort pre-join", () => {
 
     await expect(page).toHaveURL(preJoinUrl("/campus/c-3"));
     await expect(joinButton(page)).toBeVisible();
+  });
+
+  test("an ended session keeps the Presence Session and offers sign-in", async ({
+    page,
+    fakeApi,
+  }) => {
+    await fakeApi.scriptSession(
+      expiringAt(sessions.admin(), Date.now() + 8_000),
+    );
+    await fakeApi.scriptRefresh({ status: 401 });
+
+    await enterCampus(page, "/campus/c-3/overview");
+
+    await expect(
+      page.getByRole("heading", { name: "Your session ended" }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+    await expect(page).toHaveURL("/campus/c-3/overview");
+    await expect(
+      page.getByRole("complementary", { name: "Presence dock" }),
+    ).toBeVisible();
+    expect(await fakeApi.refreshPosts()).toHaveLength(1);
   });
 
   test("an explicit pre-join visit remains available after an active visit", async ({

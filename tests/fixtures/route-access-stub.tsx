@@ -26,6 +26,8 @@ export function CohortGate({ children }: { children: ReactNode }) {
   return children;
 }
 
+export const SessionRenewal = () => null;
+
 export const SessionUnavailable = () => null;
 
 export { normalizeCohortReturnTo } from "@/features/auth/schemas/return-to";

@@ -24,6 +24,12 @@ A limited Campus Access Session for a verified user who has not yet gained
 membership through an invitation.
 _Avoid_: Partial session, temporary login
 
+**Session Renewal**:
+Renewing a Full-Access Session's access before it lapses while a Cohort page
+stays open, so no navigation or Presence Session is interrupted. A cold load
+with lapsed access still goes through the refresh page.
+_Avoid_: Silent refresh, token refresh, keep-alive
+
 **Invite Link**:
 The emailed `/invitation?token=…` URL. Its token lets anyone holding it read
 the invitation, never act on it.
