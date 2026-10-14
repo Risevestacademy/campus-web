@@ -4,11 +4,11 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import { getServerApi } from "@/core/api/client/server";
+import { parsePageNumber } from "@/shared/lib/search-params";
 import { buttonVariants } from "@/shared/ui/button";
 
 import { cohortAdministrationHref } from "../../cohort-administration-href";
 import { listTracks } from "../../tracks/services/track-api.adapter";
-import { parseChooserPage } from "../schemas/cohort.schema";
 import { readCohortTracks } from "../services/cohort-track-api.adapter";
 import {
   AttachCohortTrackForm,
@@ -26,7 +26,7 @@ export async function CohortTrackAdministration({
   cohortId: string;
   page: string | undefined;
 }) {
-  const requestedPage = parseChooserPage(page);
+  const requestedPage = parsePageNumber(page);
   const api = await getServerApi();
   const [cohortRead, catalogueRead] = await Promise.all([
     readCohortTracks(api, cohortId),

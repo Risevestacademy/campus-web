@@ -6,7 +6,6 @@ import {
   CataloguePagination,
   CatalogueUnavailable,
 } from "../../catalogue/catalogue-presentation";
-import { parseChooserPage } from "../schemas/cohort.schema";
 import { listCohorts } from "../services/cohort-api.adapter";
 import type { CohortSummary } from "../types/cohort.types";
 import { CohortAdministrationCard } from "./cohort-administration-card";
@@ -50,9 +49,8 @@ function CohortGrid({
   );
 }
 
-export async function CohortCatalogue({ page }: { page: string | undefined }) {
-  const requestedPage = parseChooserPage(page);
-  const cohorts = await listCohorts(await getServerApi(), requestedPage);
+export async function CohortCatalogue({ page }: { page: number }) {
+  const cohorts = await listCohorts(await getServerApi(), page);
 
   return (
     <section aria-labelledby="cohort-chooser-heading" className="grid gap-6">
@@ -60,9 +58,7 @@ export async function CohortCatalogue({ page }: { page: string | undefined }) {
         Choose a cohort
       </h2>
       {cohorts.kind === "unavailable" ? (
-        <CatalogueUnavailable
-          retryHref={`/campus?view=cohorts&page=${requestedPage}`}
-        >
+        <CatalogueUnavailable retryHref={`/campus?view=cohorts&page=${page}`}>
           We couldn&apos;t load the cohorts. Please try again.
         </CatalogueUnavailable>
       ) : (

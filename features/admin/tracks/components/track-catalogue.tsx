@@ -17,23 +17,15 @@ function href(page: number) {
     query: { view: "tracks", page: String(page) },
   } as const;
 }
-export async function TrackCatalogue({
-  page,
-}: {
-  page: string | number | undefined;
-}) {
-  const requested =
-    typeof page === "number" ? page : Number(page) > 0 ? Number(page) : 1;
-  const result = await listTracks(await getServerApi(), requested);
+export async function TrackCatalogue({ page }: { page: number }) {
+  const result = await listTracks(await getServerApi(), page);
   return (
     <section aria-labelledby="track-catalogue-heading" className="grid gap-6">
       <h2 id="track-catalogue-heading" className="text-lg font-medium">
         Programme Tracks
       </h2>
       {result.kind === "unavailable" ? (
-        <CatalogueUnavailable
-          retryHref={`/campus?view=tracks&page=${requested}`}
-        >
+        <CatalogueUnavailable retryHref={`/campus?view=tracks&page=${page}`}>
           We couldn&apos;t load the Programme Tracks.
         </CatalogueUnavailable>
       ) : (

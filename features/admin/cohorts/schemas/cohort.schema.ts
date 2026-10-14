@@ -12,9 +12,6 @@ import type {
   NewCohortRead,
 } from "../types/cohort.types";
 
-const FIRST_PAGE = 1;
-const POSITIVE_INTEGER = /^[1-9]\d*$/;
-
 export const COHORT_STATUSES = cohortStatusSchema.options;
 
 const cohortSummarySchema = z.toZod<CohortSummary>()(
@@ -58,13 +55,6 @@ const cohortFieldsSchema = z.toZod<CohortFieldValues>()(
       },
     ),
 );
-
-export function parseChooserPage(value: string | undefined): number {
-  if (!value || !POSITIVE_INTEGER.test(value)) return FIRST_PAGE;
-
-  const page = Number(value);
-  return Number.isSafeInteger(page) ? page : FIRST_PAGE;
-}
 
 export function parseCohortList(body: unknown): CohortPage | undefined {
   const parsed = cohortListSchema.safeParse(body);

@@ -58,7 +58,7 @@ function backendPages(...pages: ReturnType<typeof cohortsPage>[]) {
   return mockApi.requests;
 }
 
-async function renderCatalogue(page?: string) {
+async function renderCatalogue(page = 1) {
   render(withQueryClient(await CohortCatalogue({ page })));
 }
 
@@ -86,7 +86,7 @@ describe("CohortCatalogue", () => {
   it("offers the requested page of every Cohort", async () => {
     const sent = backendPages(cohortsPage(2, 3, ["Gamma", "Delta"]));
 
-    await renderCatalogue("2");
+    await renderCatalogue(2);
 
     expect(cohortLinks()).toEqual([
       ["GammaGAMMA", "/campus/id-Gamma/join"],
@@ -94,16 +94,6 @@ describe("CohortCatalogue", () => {
     ]);
     expect(sent.map((request) => request.url)).toEqual([
       `${COHORTS_URL}?page=2`,
-    ]);
-  });
-
-  it("asks for page 1 when the page number is invalid", async () => {
-    const sent = backendPages(cohortsPage(1, 1, ["Alpha"]));
-
-    await renderCatalogue("abc");
-
-    expect(sent.map((request) => request.url)).toEqual([
-      `${COHORTS_URL}?page=1`,
     ]);
   });
 
@@ -121,7 +111,7 @@ describe("CohortCatalogue", () => {
     async (page, totalPages, previous, next) => {
       backendPages(cohortsPage(page, totalPages, ["Alpha"]));
 
-      await renderCatalogue(String(page));
+      await renderCatalogue(page);
 
       const pages = screen.getByRole("navigation", { name: "Cohort pages" });
       expect(within(pages).getByText(`Page ${page} of ${totalPages}`));
@@ -144,7 +134,7 @@ describe("CohortCatalogue", () => {
   it("puts the create tile before the Cohorts on every page", async () => {
     backendPages(cohortsPage(2, 3, ["Gamma", "Delta"]));
 
-    await renderCatalogue("2");
+    await renderCatalogue(2);
 
     expect(
       screen.getAllByRole("listitem").map((item) => item.textContent),
@@ -169,7 +159,7 @@ describe("CohortCatalogue", () => {
   it("fails closed with a retry of the same page when campus-api is down", async () => {
     backendPages();
 
-    await renderCatalogue("2");
+    await renderCatalogue(2);
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "We couldn't load the cohorts",

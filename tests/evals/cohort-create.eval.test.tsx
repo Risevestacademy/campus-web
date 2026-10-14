@@ -98,7 +98,7 @@ async function observeCreate(
   );
   render(
     <>
-      {withQueryClient(await CohortCatalogue({ page: String(page) }))}
+      {withQueryClient(await CohortCatalogue({ page }))}
       <Toaster />
     </>,
   );
