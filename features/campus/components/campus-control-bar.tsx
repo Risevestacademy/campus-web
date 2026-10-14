@@ -1,35 +1,17 @@
-import { ArrowBendUpRightIcon } from "@phosphor-icons/react/dist/ssr/ArrowBendUpRight";
 import { ChatIcon } from "@phosphor-icons/react/dist/ssr/Chat";
 import { HandPalmIcon } from "@phosphor-icons/react/dist/ssr/HandPalm";
 import { MinusIcon } from "@phosphor-icons/react/dist/ssr/Minus";
 import { MonitorArrowUpIcon } from "@phosphor-icons/react/dist/ssr/MonitorArrowUp";
 import { PlusIcon } from "@phosphor-icons/react/dist/ssr/Plus";
-import { cn } from "cn";
-import Link from "next/link";
 
-import { Avatar, AvatarBadge, AvatarFallback } from "@/shared/ui/avatar";
-import { Button, buttonVariants } from "@/shared/ui/button";
+import { Button } from "@/shared/ui/button";
 import { ButtonGroup } from "@/shared/ui/button-group";
 import { Separator } from "@/shared/ui/separator";
 
+import type { PresenceStatus } from "../types/active-campus.types";
+import { BackToCampusesControl } from "./back-to-campuses-control";
 import { MediaControls } from "./media-controls";
-
-type PresenceStatus = "active" | "busy" | "away";
-
-const presenceStatusConfig = {
-  active: {
-    badgeClassName: "bg-success",
-    label: "Active",
-  },
-  busy: {
-    badgeClassName: "bg-warning",
-    label: "Busy",
-  },
-  away: {
-    badgeClassName: "border-warning-icon border-2 bg-transparent",
-    label: "Away",
-  },
-} satisfies Record<PresenceStatus, { badgeClassName: string; label: string }>;
+import { PresenceMenuTrigger } from "./presence-menu-trigger";
 
 const campusActions = [
   { Icon: MonitorArrowUpIcon, label: "Share screen" },
@@ -41,29 +23,6 @@ type CampusControlBarProps = Readonly<{
   initials: string;
   status: PresenceStatus;
 }>;
-
-function PresenceMenuTrigger({ initials, status }: CampusControlBarProps) {
-  const statusConfig = presenceStatusConfig[status];
-
-  return (
-    <Button
-      type="button"
-      size="icon-sm"
-      aria-label={`Open presence settings. Current status: ${statusConfig.label}`}
-      title={`Presence: ${statusConfig.label}`}
-      className="bg-primary hover:bg-primary/80 p-0"
-    >
-      <Avatar size="lg" className="dark:after:border-transparent">
-        <AvatarFallback className="bg-primary text-primary-foreground">
-          {initials}
-        </AvatarFallback>
-        <AvatarBadge className={statusConfig.badgeClassName}>
-          <span className="sr-only">{statusConfig.label}</span>
-        </AvatarBadge>
-      </Avatar>
-    </Button>
-  );
-}
 
 function CampusActionControls() {
   return (
@@ -82,22 +41,6 @@ function CampusActionControls() {
         </Button>
       ))}
     </div>
-  );
-}
-
-function BackToCampusesControl() {
-  return (
-    <Link
-      href="/campus"
-      aria-label="Back to campuses"
-      title="Back to campuses"
-      className={cn(
-        buttonVariants({ size: "icon", variant: "ghost" }),
-        "bg-surface hover:ring-primary hover:ring-offset-background hover:ring hover:ring-offset-1 [&_svg:not([class*='size-'])]:size-5",
-      )}
-    >
-      <ArrowBendUpRightIcon aria-hidden />
-    </Link>
   );
 }
 

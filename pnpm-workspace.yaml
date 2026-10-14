@@ -4,3 +4,5 @@ allowBuilds:
   msw: false
   sharp: true
   unrs-resolver: true
+minimumReleaseAgeExclude:
+  - campus-world-map@0.1.1 || 0.2.0

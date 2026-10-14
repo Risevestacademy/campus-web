@@ -1,11 +1,11 @@
 import "server-only";
 
-import { cn } from "cn";
-import Link from "next/link";
-
 import { getServerApi } from "@/core/api/client/server";
-import { buttonVariants } from "@/shared/ui/button";
 
+import {
+  CataloguePagination,
+  CatalogueUnavailable,
+} from "../../catalogue/catalogue-presentation";
 import { parseChooserPage } from "../schemas/cohort.schema";
 import { listCohorts } from "../services/cohort-api.adapter";
 import type { CohortSummary } from "../types/cohort.types";
@@ -50,54 +50,6 @@ function CohortGrid({
   );
 }
 
-function CohortPagination({
-  page,
-  totalPages,
-}: {
-  page: number;
-  totalPages: number;
-}) {
-  if (totalPages <= 1) return null;
-
-  return (
-    <nav aria-label="Cohort pages" className="flex items-center gap-4">
-      {page > 1 ? (
-        <Link
-          href={catalogueHref(page - 1)}
-          className={buttonVariants({ variant: "outline" })}
-        >
-          Previous page
-        </Link>
-      ) : null}
-      <span className="text-foreground-secondary text-sm">
-        Page {page} of {totalPages}
-      </span>
-      {page < totalPages ? (
-        <Link
-          href={catalogueHref(page + 1)}
-          className={buttonVariants({ variant: "outline" })}
-        >
-          Next page
-        </Link>
-      ) : null}
-    </nav>
-  );
-}
-
-function CohortsUnavailable({ page }: { page: number }) {
-  return (
-    <div className="grid justify-items-start gap-4">
-      <p role="alert">We couldn&apos;t load the cohorts. Please try again.</p>
-      <a
-        href={`/campus?view=cohorts&page=${page}`}
-        className={cn(buttonVariants({ variant: "outline" }))}
-      >
-        Try again
-      </a>
-    </div>
-  );
-}
-
 export async function CohortCatalogue({ page }: { page: string | undefined }) {
   const requestedPage = parseChooserPage(page);
   const cohorts = await listCohorts(await getServerApi(), requestedPage);
@@ -108,11 +60,17 @@ export async function CohortCatalogue({ page }: { page: string | undefined }) {
         Choose a cohort
       </h2>
       {cohorts.kind === "unavailable" ? (
-        <CohortsUnavailable page={requestedPage} />
+        <CatalogueUnavailable
+          retryHref={`/campus?view=cohorts&page=${requestedPage}`}
+        >
+          We couldn&apos;t load the cohorts. Please try again.
+        </CatalogueUnavailable>
       ) : (
         <div className="grid gap-8">
           <CohortGrid cohorts={cohorts.cohorts} page={cohorts.page} />
-          <CohortPagination
+          <CataloguePagination
+            ariaLabel="Cohort pages"
+            hrefForPage={catalogueHref}
             page={cohorts.page}
             totalPages={cohorts.totalPages}
           />

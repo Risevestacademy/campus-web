@@ -26,7 +26,7 @@ rendering an export.
 | ------------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `cohorts/`   | Cohort CRUD, Cohort Track attach and detach                                                                         | `services/cohort-api.adapter.ts`, `services/cohort-track-api.adapter.ts` |
 | `tracks/`    | Programme Track CRUD                                                                                                | `services/track-api.adapter.ts`                                          |
-| `catalogue/` | the `/campus?view=&page=` switch                                                                                    | none                                                                     |
+| `catalogue/` | the `/campus?view=&page=` switch plus shared pagination and unavailable-state presentation                          | none                                                                     |
 | `overview/`  | the Administration overview's cards; their figures are mock data in `overview-data.ts` until campus-api has stats   | none                                                                     |
 | root files   | `use-admin-mutation.ts`, `admin-sidebar.tsx`, `cohort-administration-overview.tsx`, `cohort-administration-href.ts` | none                                                                     |
 
@@ -68,6 +68,8 @@ form and response data; `types/` holds outcomes. Server Components read with
 
 - Import no other feature; routes pass Auth and Campus UI in.
 - Transport clients never leave `services/` or a Server Component.
+- Cohort and Programme Track cards stay explicit; share only stable catalogue
+  framing rather than introducing a generic catalogue abstraction.
 - Mutations never retry, never update optimistically, and never cascade on a 409. campus-api stays the authorization authority.
 - Use `GLOSSARY.md` terms. Inside admin, Programme Track may shorten to
   `track`; next to media code, say `programmeTrack`.

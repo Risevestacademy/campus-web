@@ -1,15 +1,19 @@
 import type { ReactNode } from "react";
 
+import type { ActiveCampusViewModel } from "../types/active-campus.types";
 import { CampusControlBar } from "./campus-control-bar";
 import { MeetingHeader } from "./meeting-header";
 import { MeetingViewControls } from "./meeting-view-switch";
 
-const meetingParticipants = [
-  { id: "participant-a", initials: "A", name: "Participant A" },
-  { id: "participant-j", initials: "J", name: "Participant J" },
-] as const;
+export function ActiveCampus({
+  children,
+  viewModel,
+}: {
+  children: ReactNode;
+  viewModel: ActiveCampusViewModel;
+}) {
+  const { meeting, viewer } = viewModel;
 
-export function ActiveCampus({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-1">
       <div className="bg-cobalt-500/10 grid flex-1 grid-rows-[auto_1fr_auto] rounded-xl">
@@ -20,14 +24,14 @@ export function ActiveCampus({ children }: { children: ReactNode }) {
           >
             <div className="relative z-30">
               <MeetingHeader
-                title="Title for meeting"
-                participants={meetingParticipants}
-                remainingParticipantCount={2}
+                title={meeting.title}
+                participants={meeting.participants}
+                remainingParticipantCount={meeting.remainingParticipantCount}
               />
             </div>
             <MeetingViewControls
-              localParticipantId="participant-a"
-              participants={meetingParticipants}
+              localParticipantId={meeting.localParticipantId}
+              participants={meeting.participants}
             />
           </aside>
         </div>
@@ -41,7 +45,10 @@ export function ActiveCampus({ children }: { children: ReactNode }) {
             data-layout-anchor="campus-controls"
             className="absolute inset-x-0 bottom-0 p-2.5"
           >
-            <CampusControlBar initials="AJ" status="active" />
+            <CampusControlBar
+              initials={viewer.initials}
+              status={viewer.presenceStatus}
+            />
           </aside>
         </div>
       </div>

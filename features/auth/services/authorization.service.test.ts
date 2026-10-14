@@ -489,7 +489,7 @@ describe("authorizeRoute: campus index membership routing", () => {
     });
   });
 
-  it("sends a member with one unentered cohort to its pre-join screen", async () => {
+  it("sends a member with one cohort to its pre-join screen", async () => {
     backendReplies(ok(fullAccess("user", [COHORT_A])));
 
     await expect(authorize(campusIndex)).resolves.toEqual({
@@ -498,7 +498,7 @@ describe("authorizeRoute: campus index membership routing", () => {
     });
   });
 
-  it("sends a member with one entered cohort straight to its campus", async () => {
+  it("does not let a stale campus-entry cookie bypass pre-join", async () => {
     browserCookies({
       "campus_entry_11111111-1111-4111-8111-111111111111": "1",
       campus_session: "session-token",
@@ -507,7 +507,7 @@ describe("authorizeRoute: campus index membership routing", () => {
 
     await expect(authorize(campusIndex)).resolves.toEqual({
       kind: "redirect",
-      href: "/campus/11111111-1111-4111-8111-111111111111",
+      href: "/campus/11111111-1111-4111-8111-111111111111/join",
     });
   });
 

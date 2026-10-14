@@ -4,12 +4,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { browserApi } from "@/core/api/client/browser";
+import { useMountEffect } from "@/shared/lib/use-mount-effect";
 
 import {
   createSessionRefresher,
   type SessionRefresh,
 } from "../services/session.service";
-import { useMountEffect } from "./use-mount-effect";
 
 type SessionRefreshState =
   | { status: "pending"; failures: number }
@@ -17,6 +17,10 @@ type SessionRefreshState =
 
 const COOLDOWN_SCHEDULE_MS = [1000, 2000, 4000, 8000] as const;
 const MAX_COOLDOWN_MS = 8000;
+// A soft route transition can remount the refresh page while its rotating-token
+// request is in flight. The replacement mount must join that same request.
+const refreshSession = createSessionRefresher(browserApi);
+let latestAttempt = 0;
 
 function cooldownAfter(failures: number, retryAfterMs = 0): number {
   const scheduledMs = COOLDOWN_SCHEDULE_MS[
@@ -32,21 +36,27 @@ function signInHref(returnTo: string): Route {
 
 export function useSessionRefresh(returnTo: string) {
   const router = useRouter();
-  // One refresher per mounted page: StrictMode's double mount shares it, and
-  // no request state outlives the page.
-  const [refreshSession] = useState(() => createSessionRefresher(browserApi));
   const [state, setState] = useState<SessionRefreshState>({
     status: "pending",
     failures: 0,
   });
 
+  function replaceAfterRedirect(href: Route) {
+    // A proxy redirect can leave the App Router keyed to the requested URL
+    // instead of the visible refresh URL, making a return to that request a
+    // no-op. Native history calls are integrated with the App Router; refresh
+    // then loads the server tree for the replaced URL.
+    window.history.replaceState(null, "", href);
+    router.refresh();
+  }
+
   function settle(outcome: SessionRefresh, previousFailures: number) {
     switch (outcome.kind) {
       case "refreshed":
-        router.replace(returnTo as Route);
+        replaceAfterRedirect(returnTo as Route);
         return;
       case "expired":
-        router.replace(signInHref(returnTo));
+        replaceAfterRedirect(signInHref(returnTo));
         return;
       case "failed":
         setState({
@@ -60,11 +70,10 @@ export function useSessionRefresh(returnTo: string) {
   // The rotating refresh POST must never be replayed automatically.
   const refresh = useMutation({ mutationFn: refreshSession, retry: false });
 
-  // Per-call callbacks fire only for the latest mutate(), so StrictMode's
-  // second mount supersedes the first without a manual cancellation flag.
   function attempt(previousFailures: number) {
-    refresh.mutate(undefined, {
-      onSuccess: (outcome) => settle(outcome, previousFailures),
+    const attemptId = ++latestAttempt;
+    void refresh.mutateAsync().then((outcome) => {
+      if (attemptId === latestAttempt) settle(outcome, previousFailures);
     });
   }
 

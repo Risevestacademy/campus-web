@@ -6,10 +6,10 @@ and the Active Campus media UI inside it. Admin catalogues and pages belong to
 
 ## Interface
 
-| Entry         | Imported by           | Exports                                                                                                                    |
-| ------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `index.ts`    | routes                | `CohortChooser`, `CampusShell`, `ActiveCampus`, `CampusMediaSessionProvider`, `VisualsDisplay`, `SidebarCollapseButton`, … |
-| `document.ts` | `app/layout.tsx` only | `sidebarInitializerScript` (sizes the sidebar before hydration)                                                            |
+| Entry         | Imported by           | Exports                                                                                                                       |
+| ------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `index.ts`    | routes                | `CohortChooser`, `CampusShell`, `ActiveCampus`, `PresenceSession`, `PresenceSessionGate`, `PresenceDock`, `VisualsDisplay`, … |
+| `document.ts` | `app/layout.tsx` only | `sidebarInitializerScript` (sizes the sidebar before hydration)                                                               |
 
 ```tsx
 <CampusShell
@@ -19,27 +19,45 @@ and the Active Campus media UI inside it. Admin catalogues and pages belong to
   cohortId={id}
   initialSidebarMode="admin" // Cohort Administration only
 >
-  <ActiveCampus>{children}</ActiveCampus>
+  <ActiveCampus viewModel={activeCampusViewModel}>{children}</ActiveCampus>
 </CampusShell>
 ```
 
-`app/campus/[id]/(media-session)/layout.tsx` mounts `CampusMediaSessionProvider`
-above the Join Gate and Active Campus, so one session spans both.
+`app/campus/[id]/layout.tsx` mounts one `PresenceSession` per cohort, keyed by
+cohort ID, above the Join Gate and every cohort page. It owns admission, the
+media session, and the remote audio output, so moving between the map, the
+meeting view, and Cohort Administration keeps the call. Join grants one exact
+pending destination before navigating; `PresenceSessionGate` admits an exact
+match and connects the transport. Reloads, new tabs, other cohorts, and any
+navigation outside `/campus/[id]` start a new session that returns through
+pre-join.
+
+Every joined route group renders `PresenceSessionGate`; every one except the
+map renders `PresenceDock`. `tests/evals/presence-session-routes.eval.test.ts`
+enforces both.
+
+The active-campus route supplies `ActiveCampusViewModel`. Its current value is
+an explicit placeholder until meeting and Presence reads exist; leaf media UI
+must not create substitute domain state. Meeting layout and sidebar-opening
+transitions belong to `CampusViewProvider`, whose intent actions preserve the
+rule that an expanded meeting and open sidebar cannot coexist.
 
 Routes pass Auth-, Admin-, Feedback-, and Roster-owned UI in as props, because Campus may
 not import those features.
 
 ## Modules
 
-| Module                                                       | Owns                                                                                        | Seam                    |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | ----------------------- |
-| `components/cohort-chooser.tsx`, `cohort-card.tsx`, `types/` | member Cohort selection from session memberships                                            | none                    |
-| `components/campus-shell/`                                   | rail, sidebar, panel switching, collapse, and the layer that places the Feedback popup      | none                    |
-| `store/`, `hooks/use-sidebar-state.ts`                       | sidebar open, panel, and mode, persisted in `localStorage`                                  | `localStorage`          |
-| `store/feedback-panel-store.ts`                              | whether the Feedback popup is open (not persisted)                                          | none                    |
-| `components/` (media UI)                                     | `ActiveCampus`, control bar, media toggles and settings, meeting header, tiles, view switch | `useMediaSession`       |
-| `services/media-session/`                                    | capture, devices, publications ([README](services/media-session/README.md))                 | `MeetingMediaTransport` |
-| `testing/`                                                   | media session test utilities                                                                | none                    |
+| Module                                                       | Owns                                                                                            | Seam                                    |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `components/cohort-chooser.tsx`, `cohort-card.tsx`, `types/` | member Cohort selection from session memberships                                                | none                                    |
+| `components/campus-shell/`                                   | rail, sidebar, panel switching, collapse, and the layer that places the Feedback popup          | none                                    |
+| `store/`, `hooks/use-sidebar-state.ts`                       | sidebar open, panel, and mode, persisted in `localStorage`                                      | `localStorage`                          |
+| `store/feedback-panel-store.ts`                              | whether the Feedback popup is open (not persisted)                                              | none                                    |
+| `components/` (media UI)                                     | `ActiveCampus`, control bar, media toggles and settings, meeting header, tiles, view switch     | `useMediaSession`, `CampusViewProvider` |
+| `services/presence-session/`, `components/presence-session*` | per-cohort admission, session composition, gate ([README](services/presence-session/README.md)) | `useAdmission`                          |
+| `components/presence-dock.tsx`, `remote-audio-output.tsx`    | compact controls on non-map pages; one audio mix per session                                    | `useMediaSession`                       |
+| `services/media-session/`                                    | capture, devices, publications ([README](services/media-session/README.md))                     | `MeetingMediaTransport`                 |
+| `testing/`                                                   | media session test utilities                                                                    | none                                    |
 
 Flow: component → `useMediaSession(selector)` or sidebar hooks → store →
 browser media or `localStorage`.
@@ -68,11 +86,19 @@ browser media or `localStorage`.
 - Import no other feature.
 - The root layout imports `document.ts` only; never the `index.ts` barrel.
 - Sidebar state is read through `hooks/use-sidebar-state.ts` and written
-  through `store/sidebar-store.ts`.
+  through `CampusViewProvider` intent actions; the provider alone coordinates
+  sidebar writes with meeting layout.
+- Do not add a meeting lock control until a real meeting capability owns it.
 - Cohort Administration opens in Administration mode; Active Campus restores
   the stored mode. Members never get the Administration control.
 - The chooser never requests the Admin Cohort catalogue.
-- Use `GLOSSARY.md` terms (Active Campus, Campus Shell, Join Gate).
+- Server authorization runs before `PresenceSessionGate`. The pending
+  destination is workflow state and never authorization.
+- A new joined page goes in a route group whose layout renders
+  `PresenceSessionGate` and, unless it shows the map, `PresenceDock`.
+- Remote audio plays only from `RemoteAudioOutput`; tiles render video only.
+- Use `GLOSSARY.md` terms (Active Campus, Campus Shell, Join Gate, Presence
+  Session, Presence Dock).
 - Comment only a non-obvious why.
 
 ## Tests
@@ -83,8 +109,12 @@ pnpm vitest run --project=unit \
   tests/evals/meeting-header.eval.test.tsx \
   tests/evals/meeting-view-switch.eval.test.tsx \
   tests/evals/campus-control-bar.eval.test.tsx \
-  tests/evals/media-controls.eval.test.tsx
+  tests/evals/media-controls.eval.test.tsx \
+  tests/evals/join-gate.eval.test.tsx \
+  tests/evals/presence-session-routes.eval.test.ts
 ```
 
-The evals render the real media session and Active Campus layouts
-(`tests/fixtures/active-campus-layout.tsx`) with auth stubbed.
+The evals render the real Active Campus and Administration layouts
+(`tests/fixtures/active-campus-layout.tsx`,
+`tests/fixtures/administration-layout.tsx`) inside an injected Presence
+Session (`tests/fixtures/presence-session.tsx`) with auth stubbed.

@@ -607,6 +607,60 @@ export interface paths {
     patch: operations["UsersController_setSystemRole"];
     trace?: never;
   };
+  "/v1/users/{id}/suspend": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Suspend an account (admin only)
+     * @description Takes an account out of service. From the next request it cannot sign in or call the API, its sessions end now rather than when their tokens run out, and an open `world` socket closes on the next heartbeat.
+     *
+     *     The account keeps its cohorts and its role; only its status changes, and it lasts until an admin reinstates it. Suspending records who suspended it and the role they held then, which is what decides who may reinstate it.
+     *
+     *     Who may suspend whom: a super admin may suspend anybody but themselves, so a compromised root account can still be taken out by another; a plain admin may suspend anybody but themselves and super admins, so no single admin account can lock out every super admin and leave recovery to the database.
+     *
+     *     Refusals: a 409 for **yourself** — ask another admin, so nobody locks themselves out by a slip — and for **an account already suspended**, which has nothing left to do. A 403 for a plain admin acting on a super admin, for a caller whose own account is no longer active, and for a caller who is not an admin.
+     *
+     *     `reason` is optional, and is kept in the audit log beside the actor and the target — nowhere else on the account.
+     */
+    post: operations["UsersController_suspend"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/users/{id}/reinstate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reinstate a suspended account (admin only)
+     * @description Puts a suspended account back to active: from the next request it can sign in and call the API again.
+     *
+     *     Its sessions are not restored with it — the person signs in again rather than walking back in with tokens issued before the suspension — and an open `world` socket stays closed.
+     *
+     *     Who may reinstate whom: a super admin may reinstate anybody; a plain admin only an account that a plain admin suspended, so a suspension a super admin made is lifted only by a super admin. The role recorded at suspension time decides, not the role the suspending admin holds now.
+     *
+     *     Refusals: a 409 for **an account that is not suspended**, which has nothing to be put back. A 403 for a plain admin lifting a suspension a super admin made, for a caller whose own account is no longer active, and for a caller who is not an admin.
+     */
+    post: operations["UsersController_reinstate"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/users/me": {
     parameters: {
       query?: never;
@@ -649,6 +703,32 @@ export interface paths {
      *     Anything else answers 404 — no such account, a suspended one, or one the caller shares no cohort with — so a card cannot be used to find out who has an account.
      */
     get: operations["ProfileController_getCard"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/audit-log": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List audit entries (admin only)
+     * @description Who changed what: the admin setup (cohorts, tracks, invites) and the changes to people’s access that follow from it. Newest first, paginated. Read-only: entries cannot be edited or removed.
+     *
+     *     Filters are all optional and combine with AND. `subjectType` and `subjectId` together are one thing’s history. `from` and `to` are a half-open range: `from` is included, `to` is not.
+     *
+     *     History starts when the log was introduced. An empty history for something older does not mean nothing happened to it. An id that names nothing is an empty page, not a 404.
+     *
+     *     Sign-ins, reads, and accepting or declining an invite are not recorded, except where an accept revives a membership or grants the admin role.
+     */
+    get: operations["AuditLogController_list"];
     put?: never;
     post?: never;
     delete?: never;
@@ -952,13 +1032,26 @@ export interface components {
       id: string;
       /** @example new.student@campus.local */
       email: string;
-      /** @example 11111111-1111-4111-8111-111111111111 */
-      cohortId?: Record<string, never>;
-      cohortRole?: components["schemas"]["CohortRole"];
-      /** @example 22222222-2222-4222-8222-222222222222 */
-      cohortTrackId?: Record<string, never>;
-      /** @example 33333333-3333-4333-8333-333333333333 */
-      mentorshipGroupId?: Record<string, never>;
+      /**
+       * Format: uuid
+       * @description Null for an invite that grants a system role only.
+       * @example 11111111-1111-4111-8111-111111111111
+       */
+      cohortId: string | null;
+      /** @description Null for an invite that grants a system role only. */
+      cohortRole: components["schemas"]["CohortRole"] | null;
+      /**
+       * Format: uuid
+       * @description The cohort’s own link to a track, not the catalogue track. Null when the invite places nobody on a track.
+       * @example 22222222-2222-4222-8222-222222222222
+       */
+      cohortTrackId: string | null;
+      /**
+       * Format: uuid
+       * @description Null when the invite assigns no mentorship group.
+       * @example 33333333-3333-4333-8333-333333333333
+       */
+      mentorshipGroupId: string | null;
       systemRole: components["schemas"]["SystemRole"];
       status: components["schemas"]["InviteStatus"];
       /** @example 2026-09-29T12:00:00.000Z */
@@ -968,7 +1061,7 @@ export interface components {
        * @description Guest invites only; null otherwise. When the visit itself ends, which is not expiresAt above — that is how long the link stays redeemable, and it is clamped to never outlast this.
        * @example 2026-10-05T17:00:00.000Z
        */
-      guestAccessExpiresAt?: string | null;
+      guestAccessExpiresAt: string | null;
       /**
        * @description Shareable link embedding the RAW unhashed token. Shown exactly once — only the SHA-256 hash is stored in INVITES.token_hash.
        * @example http://localhost:3000/invitation?token=abc123
@@ -1032,34 +1125,6 @@ export interface components {
       /** @description One entry per row, in the order of the file. */
       rows: components["schemas"]["InviteImportRowDto"][];
     };
-    PaginationMetaDto: {
-      /**
-       * @description Current page number (1-based).
-       * @example 1
-       */
-      page: number;
-      /**
-       * @description Number of items per page.
-       * @example 20
-       */
-      perPage: number;
-      /**
-       * @description Total number of items across all pages.
-       * @example 152
-       */
-      total: number;
-      /**
-       * @description Total number of pages.
-       * @example 8
-       */
-      totalPages: number;
-    };
-    PaginatedResponseDto: {
-      /** @description The page of items. */
-      items: string[];
-      /** @description Pagination metadata. */
-      meta: components["schemas"]["PaginationMetaDto"];
-    };
     AdminInviteListItemDto: {
       /** @example 44444444-4444-4444-8444-444444444444 */
       id: string;
@@ -1112,6 +1177,34 @@ export interface components {
       flagMessage: string | null;
       /** @example 2026-09-22T12:00:00.000Z */
       createdAt: string;
+    };
+    PaginationMetaDto: {
+      /**
+       * @description Current page number (1-based).
+       * @example 1
+       */
+      page: number;
+      /**
+       * @description Number of items per page.
+       * @example 20
+       */
+      perPage: number;
+      /**
+       * @description Total number of items across all pages.
+       * @example 152
+       */
+      total: number;
+      /**
+       * @description Total number of pages.
+       * @example 8
+       */
+      totalPages: number;
+    };
+    PaginatedAdminInviteListItemDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["AdminInviteListItemDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
     };
     RevokeInviteResponseDto: {
       /** @example 44444444-4444-4444-8444-444444444444 */
@@ -1470,6 +1563,12 @@ export interface components {
        */
       updatedAt: string;
     };
+    PaginatedTrackResponseDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["TrackResponseDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
     UpdateTrackDto: {
       /** @example Software Engineering */
       name?: string;
@@ -1534,6 +1633,12 @@ export interface components {
        * @example 2026-09-22T12:00:00.000Z
        */
       updatedAt: string;
+    };
+    PaginatedCohortResponseDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["CohortResponseDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
     };
     CohortTrackResponseDto: {
       /**
@@ -1641,6 +1746,12 @@ export interface components {
        * @description Guests only: when the visit ends.
        */
       accessExpiresAt: string | null;
+    };
+    PaginatedRosterMemberDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["RosterMemberDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
     };
     /** @enum {string} */
     RosterScope: "live" | "ended" | "all";
@@ -1767,6 +1878,12 @@ export interface components {
        */
       memberships: components["schemas"]["UserMembershipDto"][];
     };
+    PaginatedUserListItemDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["UserListItemDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
     SetSystemRoleDto: {
       /**
        * @description `admin` to grant the admin role, `user` to revoke it. `super_admin` is not accepted: only the seed grants it.
@@ -1781,6 +1898,20 @@ export interface components {
       /** @example ada@campus.local */
       email: string;
       systemRole: components["schemas"]["SystemRole"];
+    };
+    SuspendUserDto: {
+      /**
+       * @description Why, in the admin’s own words. Kept in the audit log beside the actor and the target — nowhere else on the account — so a list or a card never shows it. Blank is taken as no reason rather than refused, since the field is optional.
+       * @example Posted the answer to a live assessment.
+       */
+      reason?: string;
+    };
+    UserStatusDto: {
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      id: string;
+      /** @example ada@campus.local */
+      email: string;
+      status: components["schemas"]["UserStatus"];
     };
     OwnProfileDto: {
       /** @example 22222222-2222-4222-8222-222222222222 */
@@ -1858,6 +1989,68 @@ export interface components {
       spriteKey: string | null;
       /** @description The cohorts the viewer shares with this person, most recently joined first. An admin, and the person themselves, see every live one. */
       memberships: components["schemas"]["ProfileCardMembershipDto"][];
+    };
+    /** @enum {string} */
+    AuditAction:
+      | "membership_revived"
+      | "system_role_changed"
+      | "user_suspended"
+      | "user_reinstated"
+      | "invite_created"
+      | "cohort_created"
+      | "cohort_track_attached"
+      | "cohort_track_detached"
+      | "track_created"
+      | "cohort_updated"
+      | "track_updated"
+      | "cohort_deleted"
+      | "track_deleted"
+      | "invite_revoked"
+      | "invite_flagged"
+      | "invite_resent"
+      | "guest_visit_extended";
+    /** @enum {string} */
+    AuditSubjectType:
+      "cohort_member" | "user" | "invite" | "cohort" | "cohort_track" | "track";
+    AuditLogEntryDto: {
+      /** Format: uuid */
+      id: string;
+      /**
+       * Format: uuid
+       * @description The account that did it. Null when no person did: the seed, a migration. Not always an admin: an invitee is the actor when they flag an invite or accept one.
+       */
+      actorUserId: string | null;
+      action: components["schemas"]["AuditAction"];
+      subjectType: components["schemas"]["AuditSubjectType"] | null;
+      /**
+       * Format: uuid
+       * @description Not checked against anything: the thing may since have been deleted.
+       */
+      subjectId: string | null;
+      /**
+       * @description What the action records beyond its subject. The shape is fixed per `action`; dates are ISO 8601 strings. Ids of people, never addresses or names — except free text an admin wrote about a person: `membership_revived.previous.dismissalReason` and `user_suspended.reason`.
+       * @example {
+       *       "name": "Software Engineering",
+       *       "code": "SE"
+       *     }
+       */
+      details: {
+        [key: string]: unknown;
+      } | null;
+      /** @description The request’s correlation id, which leads to its log lines. Null for entries written outside a request. Caller-supplied text: a pointer, not proof. */
+      correlationId: string | null;
+      /**
+       * Format: date-time
+       * @description When the change committed.
+       * @example 2026-10-07T09:30:00.000Z
+       */
+      createdAt: string;
+    };
+    PaginatedAuditLogEntryDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["AuditLogEntryDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
     };
   };
   responses: never;
@@ -2125,9 +2318,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["PaginatedResponseDto"] & {
-            items?: components["schemas"]["AdminInviteListItemDto"][];
-          };
+          "application/json": components["schemas"]["PaginatedAdminInviteListItemDto"];
         };
       };
       /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
@@ -2676,9 +2867,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["PaginatedResponseDto"] & {
-            items?: components["schemas"]["TrackResponseDto"][];
-          };
+          "application/json": components["schemas"]["PaginatedTrackResponseDto"];
         };
       };
       /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
@@ -2915,9 +3104,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["PaginatedResponseDto"] & {
-            items?: components["schemas"]["CohortResponseDto"][];
-          };
+          "application/json": components["schemas"]["PaginatedCohortResponseDto"];
         };
       };
       /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
@@ -3220,9 +3407,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["PaginatedResponseDto"] & {
-            items?: components["schemas"]["RosterMemberDto"][];
-          };
+          "application/json": components["schemas"]["PaginatedRosterMemberDto"];
         };
       };
       /** @description The id or a filter is malformed. */
@@ -3502,9 +3687,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["PaginatedResponseDto"] & {
-            items?: components["schemas"]["UserListItemDto"][];
-          };
+          "application/json": components["schemas"]["PaginatedUserListItemDto"];
         };
       };
       /** @description A filter is malformed: not a UUID, or not one of the enum. */
@@ -3596,6 +3779,150 @@ export interface operations {
         };
       };
       /** @description The target is a super admin, or is the caller. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  UsersController_suspend: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SuspendUserDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserStatusDto"];
+        };
+      };
+      /** @description The id is not a UUID, or reason is not a string of at most 500 characters. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /**
+       * @description Signed in, but not an admin.
+       *
+       *     These routes also refuse an admin: one whose rank is not high enough for the change, or whose own account is no longer active.
+       */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No user has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The target is the caller, or is already suspended. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  UsersController_reinstate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserStatusDto"];
+        };
+      };
+      /** @description The id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /**
+       * @description Signed in, but not an admin.
+       *
+       *     These routes also refuse an admin: one whose rank is not high enough for the change, or whose own account is no longer active.
+       */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No user has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The account is not suspended. */
       409: {
         headers: {
           [name: string]: unknown;
@@ -3714,6 +4041,69 @@ export interface operations {
       };
       /** @description No profile the caller may see under this id. */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  AuditLogController_list: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+        action?: components["schemas"]["AuditAction"];
+        /** @description Entries written by this account. */
+        actorUserId?: string;
+        /** @description Entries about this kind of thing. */
+        subjectType?: components["schemas"]["AuditSubjectType"];
+        /** @description Entries about the thing with this id. Send `subjectType` as well for one thing’s history. */
+        subjectId?: string;
+        /** @description Entries written at or after this instant. A bare date (`2026-10-01`) is midnight UTC; a timestamp must carry its zone. */
+        from?: string;
+        /** @description Entries written before this instant, which is left out, so ranges placed end to end never count an entry twice. All of 7 October is `from=2026-10-07&to=2026-10-08`. Must be after `from`. */
+        to?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedAuditLogEntryDto"];
+        };
+      };
+      /** @description A filter is malformed: not a UUID, not one of the enum, not a date or a timestamp with a zone, or `to` is not after `from`. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
         headers: {
           [name: string]: unknown;
         };

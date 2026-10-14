@@ -25,7 +25,6 @@ export function VisualsDisplay() {
       <figure className="bg-surface aspect-4/3 w-full max-w-160 overflow-hidden">
         <MediaPublicationOutput
           fallbackLabel={cameraFallbackLabels[cameraStatus]}
-          isLocal
           label="Camera preview"
           videoPublication={cameraPublication}
         />

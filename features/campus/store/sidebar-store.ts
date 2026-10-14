@@ -94,10 +94,6 @@ export function setSidebarOpen(sidebarOpen: boolean): void {
   writeStoredPreferences({ ...readStoredPreferences(), sidebarOpen });
 }
 
-export function toggleSidebar(): void {
-  setSidebarOpen(!getSidebarOpenSnapshot());
-}
-
 export function subscribeToSidebar(onStoreChange: () => void): () => void {
   function handleStorage(event: StorageEvent): void {
     if (event.key !== null && event.key !== SIDEBAR_STORAGE_KEY) return;

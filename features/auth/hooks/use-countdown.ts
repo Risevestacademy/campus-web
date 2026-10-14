@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { useMountEffect } from "./use-mount-effect";
+import { useMountEffect } from "@/shared/lib/use-mount-effect";
 
 const TICK_MS = 250;
 

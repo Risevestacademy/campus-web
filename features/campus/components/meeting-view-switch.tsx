@@ -2,29 +2,13 @@
 
 import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 import { SquaresFourIcon } from "@phosphor-icons/react/dist/ssr/SquaresFour";
-import { useState } from "react";
 
-import { useSidebarOpen } from "../hooks/use-sidebar-state";
-import { setSidebarOpen } from "../store/sidebar-store";
-import type { MeetingParticipant } from "./meeting-header";
-import {
-  type MeetingTileLayout,
-  type MeetingTileMotionConfig,
-  MeetingTiles,
-} from "./meeting-tiles";
+import type { MeetingParticipant } from "../types/active-campus.types";
+import { useCampusView } from "./campus-view-provider";
+import { type MeetingTileMotionConfig, MeetingTiles } from "./meeting-tiles";
 import styles from "./meeting-view-switch.module.css";
 
 type MeetingView = "map" | "grid";
-
-type MeetingViewState = Readonly<{
-  layout: MeetingTileLayout;
-  shouldAnimate: boolean;
-}>;
-
-const INITIAL_MEETING_VIEW_STATE: MeetingViewState = {
-  layout: { mode: "compact" },
-  shouldAnimate: true,
-};
 
 interface MeetingViewSwitchControlProps {
   activeView: MeetingView;
@@ -89,69 +73,34 @@ export function MeetingViewControls({
   motionConfig,
   participants,
 }: MeetingViewControlsProps) {
-  const [viewState, setViewState] = useState<MeetingViewState>(
-    INITIAL_MEETING_VIEW_STATE,
-  );
-  const activeView = viewState.layout.mode === "compact" ? "map" : "grid";
-
-  const isSidebarOpen = useSidebarOpen();
-  const [sidebarOpenAtLastRender, setSidebarOpenAtLastRender] =
-    useState(isSidebarOpen);
-
-  if (isSidebarOpen !== sidebarOpenAtLastRender) {
-    setSidebarOpenAtLastRender(isSidebarOpen);
-
-    if (isSidebarOpen && viewState.layout.mode !== "compact") {
-      setViewState({ layout: { mode: "compact" }, shouldAnimate: true });
-    }
-  }
+  const { focusParticipant, meetingLayout, shouldAnimate, showGrid, showMap } =
+    useCampusView();
+  const activeView = meetingLayout.mode === "compact" ? "map" : "grid";
 
   function updateActiveView(nextView: MeetingView, animateViewChange: boolean) {
-    setViewState({
-      layout:
-        nextView === "map"
-          ? { mode: "compact" }
-          : { mode: "expanded", focusedTileId: null },
-      shouldAnimate: animateViewChange,
-    });
-    if (nextView === "grid") setSidebarOpen(false);
+    if (nextView === "map") {
+      showMap(animateViewChange);
+    } else {
+      showGrid(animateViewChange);
+    }
   }
 
   function activateParticipantTile(
     participantId: MeetingParticipant["id"],
     animateViewChange: boolean,
   ) {
-    setViewState((currentState) => {
-      if (currentState.layout.mode === "compact") {
-        return {
-          layout: { mode: "expanded", focusedTileId: null },
-          shouldAnimate: animateViewChange,
-        };
-      }
-
-      return {
-        layout: {
-          mode: "expanded",
-          focusedTileId:
-            currentState.layout.focusedTileId === participantId
-              ? null
-              : participantId,
-        },
-        shouldAnimate: animateViewChange,
-      };
-    });
-    setSidebarOpen(false);
+    focusParticipant(participantId, animateViewChange);
   }
 
   return (
     <>
       <MeetingTiles
-        layout={viewState.layout}
+        layout={meetingLayout}
         localParticipantId={localParticipantId}
         motionConfig={motionConfig}
         onTileActivate={activateParticipantTile}
         participants={participants}
-        shouldAnimate={viewState.shouldAnimate}
+        shouldAnimate={shouldAnimate}
       />
       <MeetingViewSwitchControl
         activeView={activeView}

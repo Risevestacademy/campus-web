@@ -6,14 +6,16 @@ import { cn } from "cn";
 import { buttonVariants } from "@/shared/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
-import { setSidebarOpen } from "../../store/sidebar-store";
+import { useCampusView } from "../campus-view-provider";
 
 export function SidebarCollapseButton() {
+  const { closeSidebar } = useCampusView();
+
   return (
     <Tooltip>
       <TooltipTrigger
         aria-label="Collapse sidebar"
-        onClick={() => setSidebarOpen(false)}
+        onClick={closeSidebar}
         className={cn(
           buttonVariants({ variant: "ghost", size: "icon-sm" }),
           "text-icon-muted hover:text-icon shrink-0",

@@ -92,10 +92,12 @@ http://campus-server.railway.internal:8080
 The API repository owns the `PORT` contract. Capture it in the backend Railway
 IaC for every environment instead of maintaining it only in the dashboard.
 
-`campus-web` preserves its Railway-managed analytics values:
+`campus-web` preserves its Railway-managed public values:
 
 - `NEXT_PUBLIC_POSTHOG_HOST`
 - `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`
+- `NEXT_PUBLIC_SANITY_DATASET`
+- `NEXT_PUBLIC_SANITY_PROJECT_ID`
 
 It also preserves its Railway-managed Sanity configuration:
 

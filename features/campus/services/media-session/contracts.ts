@@ -139,8 +139,12 @@ export type RemotePublicationChange =
     }>;
 
 export interface MeetingMediaTransport {
-  handleLocalPublicationChange(change: LocalPublicationChange): void;
-  subscribeToRemotePublications(
-    listener: (change: RemotePublicationChange) => void,
+  // Called once per Presence Session, after Admission. The returned function
+  // disconnects and must release peer connections; never rely on page unload.
+  connect(
+    roomId: string,
+    onRemotePublicationChange: (change: RemotePublicationChange) => void,
   ): () => void;
+  // Called only while connected.
+  handleLocalPublicationChange(change: LocalPublicationChange): void;
 }

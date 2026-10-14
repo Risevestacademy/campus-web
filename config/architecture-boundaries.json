@@ -89,7 +89,10 @@
         "from": { "file": { "categories": ["root-layout"] } },
         "allow": {
           "to": {
-            "element": { "type": "feature", "fileInternalPath": "document.ts" }
+            "element": {
+              "type": "feature",
+              "fileInternalPath": "document.ts"
+            }
           }
         }
       },
