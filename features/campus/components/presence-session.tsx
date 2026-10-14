@@ -7,9 +7,10 @@ import { RemoteAudioOutput } from "./remote-audio-output";
 
 export function PresenceSession({
   children,
-}: Readonly<{ children: ReactNode }>) {
+  cohortId,
+}: Readonly<{ children: ReactNode; cohortId: string }>) {
   return (
-    <PresenceSessionProvider>
+    <PresenceSessionProvider cohortId={cohortId}>
       {children}
       <RemoteAudioOutput />
     </PresenceSessionProvider>

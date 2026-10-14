@@ -8,10 +8,11 @@ cohort, or any route outside `/campus/[id]` starts a new session.
 
 ## Interface
 
-- `PresenceSessionProvider`: creates the admission store and composes
-  `CampusMediaSessionProvider`.
+- `PresenceSessionProvider`: creates the admission store, the media store, and
+  the Presence Tab, and follows the tab's status.
 - `useAdmission(selector)`: `pendingDestination`, `admitted`, `grantEntry`,
-  `completeEntry`.
+  `completeEntry`, `clear`.
+- `usePresenceTab()`: `status`, `claim`, `takeOver`.
 - `AdmissionProvider`: injects a store for tests.
 
 `components/presence-session.tsx` adds the session's `RemoteAudioOutput`;

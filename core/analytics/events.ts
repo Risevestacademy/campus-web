@@ -11,6 +11,8 @@ export const ANALYTICS_EVENTS = {
   AUTH_SIGNUP_SUCCEEDED: "auth.signup_succeeded",
   AUTH_VERIFICATION_COMPLETED: "auth.verification_completed",
   AUTH_VERIFICATION_SENT: "auth.verification_sent",
+  CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN: "campus.presence_tab_conflict_shown",
+  CAMPUS_PRESENCE_TAB_MOVED: "campus.presence_tab_moved",
   CAMPUS_WORLD_MAP_FAILED: "campus_world.map_failed",
   CAMPUS_WORLD_MAP_LOADED: "campus_world.map_loaded",
   CAMPUS_WORLD_MAP_READY: "campus_world.map_ready",
@@ -31,6 +33,7 @@ export type AnalyticsIdentity = Readonly<{
 }>;
 
 export type AuthMethod = "email" | "google" | "rise_sso";
+export type PresenceTabSurface = "pre_join" | "taken_over";
 export type AnalyticsPlatform = "mobile" | "web";
 export type CampusWorldMapErrorKind =
   "config" | "layout" | "manifest" | "network" | "render";
@@ -110,6 +113,12 @@ export interface AnalyticsEventMap {
   };
   [ANALYTICS_EVENTS.AUTH_LOGOUT]: {
     logout_source: "admin_action" | "session_expired" | "user_action";
+  };
+  [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN]: {
+    surface: PresenceTabSurface;
+  };
+  [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_MOVED]: {
+    surface: PresenceTabSurface;
   };
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_LOADED]: CampusWorldMapLoadedProperties;
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_FAILED]: CampusWorldMapFailureProperties;
