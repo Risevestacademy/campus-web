@@ -19,14 +19,14 @@ Feedback.
 
 ## Modules
 
-| Module                                                | Owns                                                      | Seam                   |
-| ----------------------------------------------------- | --------------------------------------------------------- | ---------------------- |
-| `feedback-popup.tsx`                                  | the modal, history state, form and confirmation switching | none                   |
-| `feedback-form.tsx`, `screenshot-field.tsx`           | the form, its validation display, the screenshot picker   | none                   |
-| `feedback-list.tsx`, `feedback-detail.tsx`            | the feedback history and the selected item's details      | none                   |
-| `feedback-sent.tsx`                                   | the confirmation screen                                   | none                   |
-| `feedback.schema.ts`, `feedback-kinds.ts`, `types.ts` | validation, kind labels and icons, types                  | none                   |
-| `mock-feedback.ts`                                    | seeded history until campus-api exists                    | replaced by an adapter |
+| Module                                                        | Owns                                                      | Seam                   |
+| ------------------------------------------------------------- | --------------------------------------------------------- | ---------------------- |
+| `feedback-popup.tsx`                                          | the modal, history state, form and confirmation switching | none                   |
+| `feedback-form.tsx`, `screenshot-field.tsx`                   | the form, its validation display, the screenshot picker   | none                   |
+| `feedback-list.tsx`, `feedback-detail.tsx`                    | the feedback history and the selected item's details      | none                   |
+| `feedback-sent.tsx`                                           | the confirmation screen                                   | none                   |
+| `schemas/feedback.schema.ts`, `feedback-kinds.ts`, `types.ts` | validation, kind labels and icons, types                  | none                   |
+| `mock-feedback.ts`                                            | seeded history until campus-api exists                    | replaced by an adapter |
 
 campus-api has no feedback endpoints yet. Sending adds the item to in-memory
 state, so the list resets on reload, and the screenshot never leaves the
@@ -36,8 +36,10 @@ browser.
 
 ### Adding a kind of feedback
 
-1. Add it to `FeedbackKind` in `types.ts`.
-2. Add its entry to `feedbackKinds` in `feedback-kinds.ts`.
+1. Add it to `feedbackKindSchema` in `schemas/feedback.schema.ts`;
+   `FeedbackKind` follows.
+2. Add its entry to `KIND_DETAILS` in `feedback-kinds.ts`; typecheck fails
+   until you do.
 
 ### Replacing the mock
 
@@ -49,7 +51,8 @@ through a mutation hook with `browserApi`, following "Adding a mutation" in
 ### Rules
 
 - Import no other feature.
-- Validate in `feedback.schema.ts`, never in a component.
+- Validate in `schemas/feedback.schema.ts`, never in a component. Form
+  submits go through `parseForm` from `@/shared/lib/forms`.
 - Comment only a non-obvious why.
 
 ## Tests

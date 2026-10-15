@@ -28,26 +28,28 @@ export function CreateTrackForm({
   creation: TrackCreationControls;
 }) {
   const [errors, setErrors] = useState<TrackFieldErrors>({});
+  const [formError, setFormError] = useState<string>();
   const codeError =
     errors.code ??
     (creation.problem === "duplicate-code"
       ? "Another Programme Track already uses this code."
       : undefined);
-  const problemMessage = creation.problem
-    ? PROBLEM_MESSAGES[creation.problem]
-    : undefined;
+  const alertMessage =
+    formError ??
+    (creation.problem ? PROBLEM_MESSAGES[creation.problem] : undefined);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const read = parseNewTrack(new FormData(event.currentTarget));
     setErrors(read.kind === "invalid" ? read.errors : {});
+    setFormError(read.kind === "invalid" ? read.formError : undefined);
     if (read.kind === "valid") creation.create(read.track);
   }
   return (
     <form noValidate onSubmit={submit} className="grid gap-6">
-      {problemMessage ? (
+      {alertMessage ? (
         <p role="alert" className="text-destructive text-sm">
-          {problemMessage}
+          {alertMessage}
         </p>
       ) : null}
       <TrackFormFields errors={{ ...errors, code: codeError }} />

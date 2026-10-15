@@ -38,13 +38,12 @@ function parseJson(body: string): unknown {
 export function parseSessionBody(
   body: string | undefined,
 ): Session | undefined {
-  const parsed = sessionSchema.safeParse(body ? parseJson(body) : undefined);
-  return parsed.success ? parsed.data : undefined;
+  return sessionSchema.safeParse(body ? parseJson(body) : undefined).data;
 }
 
 export function parseRefreshExpiry(
   body: string | undefined,
 ): string | undefined {
-  const parsed = refreshSchema.safeParse(body ? parseJson(body) : undefined);
-  return parsed.success ? parsed.data.expiresAt : undefined;
+  return refreshSchema.safeParse(body ? parseJson(body) : undefined).data
+    ?.expiresAt;
 }

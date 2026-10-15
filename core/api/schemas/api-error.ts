@@ -30,6 +30,5 @@ const apiErrorResponseSchema = z.object({
 });
 
 export function parseExceptionCode(body: unknown): ExceptionCode | undefined {
-  const parsed = apiErrorResponseSchema.safeParse(body);
-  return parsed.success ? parsed.data.error.code : undefined;
+  return apiErrorResponseSchema.safeParse(body).data?.error.code;
 }
