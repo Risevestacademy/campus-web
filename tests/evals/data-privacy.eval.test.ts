@@ -7,6 +7,7 @@ import type { z } from "zod";
 import { validateBuildEnvironment } from "@/config/environment/validation";
 import { analyticsEventSchemas } from "@/core/analytics/events";
 import { scrubAnalyticsEvent } from "@/core/analytics/scrub";
+import { parseServerMessage, type ServerMessage } from "@/core/realtime";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/features/invitation/schemas/invite.schema";
 import { moveInviteTokenToCookie } from "@/features/invitation/services/invite-token-proxy.service";
 import { invitePreview, pendingInvite } from "@/tests/fixtures/invites";
+import { serverFrames } from "@/tests/fixtures/world-frames";
 
 vi.mock("server-only", () => ({}));
 
@@ -96,6 +98,53 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "identity.profile_setup_started": ["cohort_id", "role", "track_id"],
 };
 
+const PLAYER_PATHS = ["facing", "userId", "x", "y"];
+const AVATAR_PATHS = [...PLAYER_PATHS, "displayName", "spriteKey"].sort();
+
+function under(prefix: string, paths: string[]): string[] {
+  return paths.map((path) => `${prefix}.${path}`);
+}
+
+const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
+  appearance: ["displayName", "spriteKey", "type", "userId"],
+  error: ["code", "message", "type"],
+  joined: [...under("player", AVATAR_PATHS), "type"],
+  left: ["type", "userId"],
+  moveResult: ["outcome", ...under("player", PLAYER_PATHS), "seq", "type"],
+  moved: [...under("players[]", PLAYER_PATHS), "type"],
+  pong: ["type"],
+  replaced: ["type"],
+  snapshot: [
+    ...under("map", ["height", "id", "version", "width"]),
+    ...under("players[]", AVATAR_PATHS),
+    "type",
+  ],
+  welcome: [
+    "connectionId",
+    "displayName",
+    "heartbeatSeconds",
+    "spriteKey",
+    "stepMs",
+    "tickMs",
+    "type",
+    "userId",
+  ],
+};
+
+function withUnexpectedFields(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withUnexpectedFields);
+  if (value === null || typeof value !== "object") return value;
+  return {
+    ...Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [
+        key,
+        withUnexpectedFields(child),
+      ]),
+    ),
+    ...UNEXPECTED,
+  };
+}
+
 async function completeGoogleSignIn(
   backendDestination: string,
   ...upstreamSetCookies: string[]
@@ -175,6 +224,29 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       const invite = parsePendingInvite({ ...pendingInvite(), ...UNEXPECTED });
 
       expect(keyPaths(invite)).toEqual(PENDING_INVITE_ALLOW_LIST);
+    });
+  });
+
+  describe("world frames reach the client through an allow-list", () => {
+    it.each(Object.values(serverFrames))(
+      "keeps only the protocol fields of a $type frame",
+      (frame) => {
+        const parsed = parseServerMessage(
+          JSON.stringify(withUnexpectedFields(frame)),
+        );
+
+        expect(keyPaths(parsed)).toEqual(WORLD_FRAME_ALLOW_LIST[frame.type]);
+      },
+    );
+
+    it("cannot reach the prototype through a __proto__ key in a frame", () => {
+      const parsed = parseServerMessage(
+        '{"type":"left","userId":"u-1","__proto__":{"isAdmin":true}}',
+      );
+
+      expect(parsed).toEqual({ type: "left", userId: "u-1" });
+      expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+      expect(Object.hasOwn(parsed ?? {}, "__proto__")).toBe(false);
     });
   });
 
