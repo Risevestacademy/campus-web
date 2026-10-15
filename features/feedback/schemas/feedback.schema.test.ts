@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseFeedback,
+  pickScreenshot,
   SCREENSHOT_MAX_BYTES,
   screenshotProblem,
   TITLE_MAX_LENGTH,
@@ -97,5 +98,26 @@ describe("screenshotProblem", () => {
         }),
       ),
     ).toBe("Keep the image under 5 MB.");
+  });
+});
+
+describe("pickScreenshot", () => {
+  const tiff = new File(["x"], "pod.tiff", { type: "image/tiff" });
+  const png = new File(["x"], "pod.png", { type: "image/png" });
+  const text = new File(["x"], "notes.txt", { type: "text/plain" });
+
+  it("prefers a supported image over one listed before it", () => {
+    expect(pickScreenshot([tiff, png])).toBe(png);
+  });
+
+  it("falls back to an unsupported image so its problem can be shown", () => {
+    expect(pickScreenshot([text, tiff])).toBe(tiff);
+  });
+
+  it.each([
+    ["no files", []],
+    ["no images", [text]],
+  ])("picks nothing from %s", (_, files) => {
+    expect(pickScreenshot(files)).toBeUndefined();
   });
 });

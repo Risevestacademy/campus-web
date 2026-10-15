@@ -176,6 +176,36 @@ describe("FeedbackPopup", () => {
     expect(screen.getByText("pod.png")).toBeVisible();
   });
 
+  it("previews the first supported image when files are dropped", async () => {
+    renderPopup();
+
+    fireEvent.drop(screen.getByRole("button", { name: /Add a screenshot/ }), {
+      dataTransfer: {
+        files: [
+          new File(["x"], "pod.tiff", { type: "image/tiff" }),
+          new File(["x"], "pod.png", { type: "image/png" }),
+        ],
+      },
+    });
+
+    expect(await screen.findByAltText("Screenshot preview")).toBeVisible();
+    expect(screen.getByText("pod.png")).toBeVisible();
+  });
+
+  it("explains which images work when a non-image file is dropped", () => {
+    renderPopup();
+
+    fireEvent.drop(screen.getByRole("button", { name: /Add a screenshot/ }), {
+      dataTransfer: {
+        files: [new File(["x"], "notes.txt", { type: "text/plain" })],
+      },
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Use a PNG, JPEG, WebP or GIF image.",
+    );
+  });
+
   it("explains which images work when only an unsupported one is pasted", () => {
     renderPopup();
 

@@ -10,16 +10,16 @@ export const TITLE_MAX_LENGTH = 100;
 export const DETAILS_MAX_LENGTH = 2000;
 export const LOCATION_MAX_LENGTH = 100;
 export const SCREENSHOT_MAX_BYTES = 5 * 1024 * 1024;
-export const SCREENSHOT_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/gif",
-];
-
-export function isScreenshotType(type: string): boolean {
-  return SCREENSHOT_TYPES.includes(type);
-}
+const SCREENSHOT_FORMATS = {
+  "image/png": "PNG",
+  "image/jpeg": "JPEG",
+  "image/webp": "WebP",
+  "image/gif": "GIF",
+};
+export const SCREENSHOT_TYPES = Object.keys(SCREENSHOT_FORMATS);
+const SCREENSHOT_FORMAT_NAMES = new Intl.ListFormat("en-GB", {
+  type: "disjunction",
+}).format(Object.values(SCREENSHOT_FORMATS));
 
 export const feedbackKindSchema = z.enum(
   ["bug", "idea", "report"],
@@ -55,7 +55,7 @@ export const feedbackSchema = z.object({
 
 const screenshotSchema = z
   .file()
-  .mime(SCREENSHOT_TYPES, "Use a PNG, JPEG, WebP or GIF image.")
+  .mime(SCREENSHOT_TYPES, `Use a ${SCREENSHOT_FORMAT_NAMES} image.`)
   .max(SCREENSHOT_MAX_BYTES, "Keep the image under 5 MB.");
 
 type Feedback = z.output<typeof feedbackSchema>;
@@ -68,6 +68,17 @@ export type FeedbackRead =
 export function parseFeedback(form: FormData): FeedbackRead {
   const read = parseForm(feedbackSchema, form);
   return read.kind === "valid" ? { kind: "valid", feedback: read.data } : read;
+}
+
+// macOS lists a TIFF before the PNG of the same copy, so prefer a type we
+// take; fall back to any image so its problem can be shown.
+export function pickScreenshot(files: ArrayLike<File>): File | undefined {
+  const images = Array.from(files).filter((file) =>
+    file.type.startsWith("image/"),
+  );
+  return (
+    images.find((image) => SCREENSHOT_TYPES.includes(image.type)) ?? images[0]
+  );
 }
 
 export function screenshotProblem(file: File): string | undefined {

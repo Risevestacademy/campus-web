@@ -15,9 +15,9 @@ import {
   DETAILS_MAX_LENGTH,
   type FeedbackFieldErrors,
   feedbackKindSchema,
-  isScreenshotType,
   LOCATION_MAX_LENGTH,
   parseFeedback,
+  pickScreenshot,
   screenshotProblem,
   TITLE_MAX_LENGTH,
 } from "./schemas/feedback.schema";
@@ -59,14 +59,8 @@ export function FeedbackForm({
     }
   }
 
-  // macOS lists a TIFF before the PNG of the same copy; prefer a type we take,
-  // and fall back to any image so the rejection message still shows.
   function pasteScreenshot(event: ClipboardEvent<HTMLFormElement>) {
-    const images = Array.from(event.clipboardData.files).filter((candidate) =>
-      candidate.type.startsWith("image/"),
-    );
-    const file =
-      images.find((image) => isScreenshotType(image.type)) ?? images[0];
+    const file = pickScreenshot(event.clipboardData.files);
     if (!file) return;
 
     event.preventDefault();

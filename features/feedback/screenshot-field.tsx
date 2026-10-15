@@ -4,7 +4,7 @@ import { type DragEvent, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 
-import { SCREENSHOT_TYPES } from "./schemas/feedback.schema";
+import { pickScreenshot, SCREENSHOT_TYPES } from "./schemas/feedback.schema";
 
 export interface SelectedScreenshot {
   name: string;
@@ -28,7 +28,8 @@ export function ScreenshotField({
   function drop(event: DragEvent<HTMLButtonElement>) {
     event.preventDefault();
     setIsDragging(false);
-    const file = event.dataTransfer.files[0];
+    const { files } = event.dataTransfer;
+    const file = pickScreenshot(files) ?? files[0];
     if (file) onSelect(file);
   }
 
