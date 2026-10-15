@@ -1,14 +1,17 @@
 import { z } from "zod";
 
-type Field<S extends z.ZodObject> = keyof S["shape"] & string;
+type Field<S extends z.ZodObject> = keyof z.output<S> & string;
 
-export type FormErrors<S extends z.ZodObject> = Partial<
-  Record<Field<S>, string>
->;
+export type FormErrors<Values> = Partial<Record<keyof Values & string, string>>;
+
+export interface FormInvalid<Values> {
+  kind: "invalid";
+  errors: FormErrors<Values>;
+  formError?: string;
+}
 
 export type FormRead<S extends z.ZodObject> =
-  | { kind: "valid"; data: z.output<S> }
-  | { kind: "invalid"; errors: FormErrors<S>; formError?: string };
+  { kind: "valid"; data: z.output<S> } | FormInvalid<z.output<S>>;
 
 export function parseForm<S extends z.ZodObject>(
   schema: S,
@@ -37,8 +40,8 @@ function readFields(fields: string[], form: FormData) {
 function firstErrorPerField<S extends z.ZodObject>(
   schema: S,
   fieldErrors: Record<string, string[] | undefined>,
-): FormErrors<S> {
-  return Object.entries(fieldErrors).reduce<FormErrors<S>>(
+): FormErrors<z.output<S>> {
+  return Object.entries(fieldErrors).reduce<FormErrors<z.output<S>>>(
     (errors, [field, messages]) =>
       isField(schema, field) && messages?.[0]
         ? { ...errors, [field]: messages[0] }

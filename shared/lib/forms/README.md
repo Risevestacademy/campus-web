@@ -17,5 +17,9 @@ returns `{ kind: "valid", data }` or
   (a `.refine` without `path`) becomes `formError`; every form shows it in
   its alert slot, or submitting would do nothing visible.
 
+A feature types its own read with `FormErrors<Values>` and
+`FormInvalid<Values>`, keyed by its field-values type (the one its schema's
+`z.toZod<Values>()` checks), so the types file never imports the schema.
+
 `optionalText()` and `optionalIsoDate(error)` read an empty or blank field as
 absent.

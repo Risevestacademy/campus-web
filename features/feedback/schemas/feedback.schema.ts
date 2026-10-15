@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { type FormErrors, parseForm } from "@/shared/lib/forms";
+import {
+  type FormErrors,
+  type FormInvalid,
+  parseForm,
+} from "@/shared/lib/forms";
 
 export const TITLE_MAX_LENGTH = 100;
 export const DETAILS_MAX_LENGTH = 2000;
@@ -46,8 +50,7 @@ export const feedbackSchema = z.object({
       LOCATION_MAX_LENGTH,
       `Keep this under ${LOCATION_MAX_LENGTH} characters.`,
     ),
-  // An unticked checkbox is left out of the form entirely.
-  includeDeviceInfo: z.string().optional().transform(Boolean),
+  includeDeviceInfo: z.string().transform(Boolean),
 });
 
 const screenshotSchema = z
@@ -55,11 +58,12 @@ const screenshotSchema = z
   .mime(SCREENSHOT_TYPES, "Use a PNG, JPEG, WebP or GIF image.")
   .max(SCREENSHOT_MAX_BYTES, "Keep the image under 5 MB.");
 
-export type FeedbackFieldErrors = FormErrors<typeof feedbackSchema>;
+type Feedback = z.output<typeof feedbackSchema>;
+
+export type FeedbackFieldErrors = FormErrors<Feedback>;
 
 export type FeedbackRead =
-  | { kind: "valid"; feedback: z.output<typeof feedbackSchema> }
-  | { kind: "invalid"; errors: FeedbackFieldErrors; formError?: string };
+  { kind: "valid"; feedback: Feedback } | FormInvalid<Feedback>;
 
 export function parseFeedback(form: FormData): FeedbackRead {
   const read = parseForm(feedbackSchema, form);

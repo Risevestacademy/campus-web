@@ -1,5 +1,6 @@
 import type { components } from "@/core/api/client";
 import type { Simplify } from "@/core/api/schemas";
+import type { FormErrors, FormInvalid } from "@/shared/lib/forms";
 
 type Schemas = components["schemas"];
 
@@ -24,14 +25,10 @@ export type CohortListRead =
   ({ kind: "loaded" } & CohortPage) | { kind: "unavailable" };
 
 export type NewCohort = CohortFieldValues;
-export type CohortFieldErrors = Partial<
-  Record<keyof CohortFieldValues, string>
->;
-export type NewCohortErrors = CohortFieldErrors;
+export type CohortFieldErrors = FormErrors<CohortFieldValues>;
 
 export type NewCohortRead =
-  | { kind: "valid"; cohort: NewCohort }
-  | { kind: "invalid"; errors: NewCohortErrors; formError?: string };
+  { kind: "valid"; cohort: NewCohort } | FormInvalid<CohortFieldValues>;
 
 export type CohortCreationProblem =
   "duplicate-code" | "rejected" | "signed-out" | "forbidden" | "unavailable";
@@ -43,7 +40,7 @@ export type CohortPatch = Schemas["UpdateCohortDto"];
 
 export type CohortEditRead =
   | { kind: "valid"; changes: CohortPatch }
-  | { kind: "invalid"; errors: CohortFieldErrors; formError?: string }
+  | FormInvalid<CohortFieldValues>
   | { kind: "unchanged" };
 
 export type CohortMutationProblem =

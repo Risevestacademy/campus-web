@@ -9,7 +9,7 @@ import type { CohortCreationControls } from "../hooks/use-create-cohort";
 import { parseNewCohort } from "../schemas/cohort.schema";
 import type {
   CohortCreationProblem,
-  NewCohortErrors,
+  CohortFieldErrors,
 } from "../types/cohort.types";
 import { CohortFormFields } from "./cohort-form-fields";
 
@@ -28,7 +28,7 @@ export function CreateCohortForm({
 }: {
   creation: CohortCreationControls;
 }) {
-  const [errors, setErrors] = useState<NewCohortErrors>({});
+  const [errors, setErrors] = useState<CohortFieldErrors>({});
   const [formError, setFormError] = useState<string>();
   const { isPending, problem } = creation;
   const codeError =
