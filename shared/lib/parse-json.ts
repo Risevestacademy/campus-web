@@ -6,8 +6,7 @@ export function parseJson<Schema extends z.ZodType>(
 ): z.output<Schema> | undefined {
   if (!text) return undefined;
 
-  const parsed = schema.safeParse(readJson(text));
-  return parsed.success ? parsed.data : undefined;
+  return schema.safeParse(readJson(text)).data;
 }
 
 function readJson(text: string): unknown {
