@@ -268,13 +268,34 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       },
     );
 
-    it("rejects a dataset name that is not a single lowercase word", () => {
+    it("rejects an uppercase project ID, which no Sanity asset path would match", () => {
+      expect(() =>
+        validateBuildEnvironment({
+          ...protectedBuild,
+          NEXT_PUBLIC_SANITY_PROJECT_ID: "SJ3ZSZ66",
+        }),
+      ).toThrow("NEXT_PUBLIC_SANITY_PROJECT_ID");
+    });
+
+    it.each(["../production", "a/b", "staging?x"])(
+      "rejects the dataset name %s before it reaches a map URL path",
+      (dataset) => {
+        expect(() =>
+          validateBuildEnvironment({
+            ...protectedBuild,
+            NEXT_PUBLIC_SANITY_DATASET: dataset,
+          }),
+        ).toThrow("NEXT_PUBLIC_SANITY_DATASET");
+      },
+    );
+
+    it("accepts a dataset name Sanity allows, such as production_old", () => {
       expect(() =>
         validateBuildEnvironment({
           ...protectedBuild,
           NEXT_PUBLIC_SANITY_DATASET: "production_old",
         }),
-      ).toThrow("NEXT_PUBLIC_SANITY_DATASET");
+      ).not.toThrow();
     });
 
     it("rejects a PostHog host reached over plain HTTP", () => {

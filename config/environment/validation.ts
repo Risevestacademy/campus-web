@@ -2,9 +2,11 @@ import * as z from "zod";
 
 type BuildEnvironment = Readonly<Record<string, string | undefined>>;
 
-const SANITY_DATASET_PATTERN = /^[a-z]+$/;
-// Sanity's own rule; it also keeps the ID a single label of the map API host.
-const SANITY_PROJECT_ID_PATTERN = /^[-a-z0-9]+$/i;
+// Sanity's documented dataset rule. The dataset only reaches URL paths.
+const SANITY_DATASET_PATTERN = /^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$/;
+// Sanity issues lowercase IDs and the asset check compares paths exactly.
+// One hostname label, because the ID is the first label of the map API host.
+const SANITY_PROJECT_ID_PATTERN = /^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/;
 
 function requiredVariable(name: string) {
   const error = `${name} is required.`;
@@ -29,12 +31,13 @@ const protectedBuildEnvironmentSchema = z.object({
     "NEXT_PUBLIC_SANITY_PROJECT_ID",
   ).regex(SANITY_PROJECT_ID_PATTERN, {
     error:
-      "NEXT_PUBLIC_SANITY_PROJECT_ID must contain only letters, numbers, and hyphens.",
+      "NEXT_PUBLIC_SANITY_PROJECT_ID must contain only lowercase letters, numbers, and hyphens.",
   }),
   NEXT_PUBLIC_SANITY_DATASET: requiredVariable(
     "NEXT_PUBLIC_SANITY_DATASET",
   ).regex(SANITY_DATASET_PATTERN, {
-    error: "NEXT_PUBLIC_SANITY_DATASET must contain only lowercase letters.",
+    error:
+      "NEXT_PUBLIC_SANITY_DATASET must be 1 to 64 lowercase letters, numbers, hyphens, or underscores, starting and ending with a letter or number.",
   }),
 });
 
