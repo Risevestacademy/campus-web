@@ -22,17 +22,17 @@ describe("parseForm", () => {
     ).toStrictEqual({ kind: "valid", data: { name: "Ada" } });
   });
 
-  it("reports a missing required field as invalid", () => {
-    const schema = z.object({ name: z.string("Enter a name.") });
-
-    expect(parseForm(schema, formOf({}))).toStrictEqual({
+  it("reports a missing field with the field's own message", () => {
+    expect(parseForm(nameSchema, formOf({}))).toStrictEqual({
       kind: "invalid",
       errors: { name: "Enter a name." },
     });
   });
 
-  it("does not coerce a missing field to zero", () => {
-    const schema = z.object({ seats: z.coerce.number("Enter a number.") });
+  it("reports a missing number field when the schema rejects an empty one", () => {
+    const schema = z.object({
+      seats: z.string().min(1, "Enter a number.").pipe(z.coerce.number()),
+    });
 
     expect(parseForm(schema, formOf({}))).toStrictEqual({
       kind: "invalid",
@@ -40,12 +40,12 @@ describe("parseForm", () => {
     });
   });
 
-  it("passes every value of a repeated field", () => {
-    const schema = z.object({ tags: z.array(z.string()) });
-
-    expect(parseForm(schema, formOf({ tags: ["a", "b"] }))).toStrictEqual({
+  it("reads the first value of a repeated field", () => {
+    expect(
+      parseForm(nameSchema, formOf({ name: ["Ada", "Grace"] })),
+    ).toStrictEqual({
       kind: "valid",
-      data: { tags: ["a", "b"] },
+      data: { name: "Ada" },
     });
   });
 

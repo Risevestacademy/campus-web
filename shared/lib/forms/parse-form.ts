@@ -26,14 +26,11 @@ export function parseForm<S extends z.ZodObject>(
   };
 }
 
-// A missing field stays undefined so a required schema reports it, rather
-// than "" coercing to 0 or passing as an empty string.
+// A missing field (unticked checkbox, disabled input) reads as "" so the
+// field's own .min() message shows, not Zod's "expected string".
 function readFields(fields: string[], form: FormData) {
   return Object.fromEntries(
-    fields.map((field) => {
-      const values = form.getAll(field);
-      return [field, values.length > 1 ? values : values[0]];
-    }),
+    fields.map((field) => [field, form.get(field) ?? ""]),
   );
 }
 
