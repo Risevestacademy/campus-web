@@ -33,6 +33,15 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
+// Cells copied from Excel, Numbers or Word carry an image of themselves
+// beside the text; in a text field the text is what was meant.
+function isTextIntoField(event: ClipboardEvent<HTMLFormElement>): boolean {
+  const { target } = event;
+  const isTextField =
+    target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+  return isTextField && event.clipboardData.types.includes("text/plain");
+}
+
 export function FeedbackForm({
   onCancel,
   onSubmit,
@@ -60,6 +69,8 @@ export function FeedbackForm({
   }
 
   function pasteScreenshot(event: ClipboardEvent<HTMLFormElement>) {
+    if (isTextIntoField(event)) return;
+
     const file = pickScreenshot(event.clipboardData.files);
     if (!file) return;
 

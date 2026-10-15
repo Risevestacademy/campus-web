@@ -165,6 +165,7 @@ describe("FeedbackPopup", () => {
 
     fireEvent.paste(screen.getByLabelText("Title"), {
       clipboardData: {
+        types: ["Files"],
         files: [
           new File(["x"], "pod.tiff", { type: "image/tiff" }),
           new File(["x"], "pod.png", { type: "image/png" }),
@@ -206,11 +207,30 @@ describe("FeedbackPopup", () => {
     );
   });
 
+  it("pastes copied cells into a text field as text, not as an image", () => {
+    renderPopup();
+
+    const pastedAsImage = !fireEvent.paste(screen.getByLabelText("Title"), {
+      clipboardData: {
+        types: ["text/plain", "Files"],
+        files: [
+          new File(["x"], "cells.tiff", { type: "image/tiff" }),
+          new File(["x"], "cells.png", { type: "image/png" }),
+        ],
+        getData: () => "A1",
+      },
+    });
+
+    expect(pastedAsImage).toBe(false);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("explains which images work when only an unsupported one is pasted", () => {
     renderPopup();
 
     fireEvent.paste(screen.getByLabelText("Title"), {
       clipboardData: {
+        types: ["Files"],
         files: [new File(["x"], "pod.heic", { type: "image/heic" })],
       },
     });
