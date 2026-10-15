@@ -479,6 +479,59 @@ Realtime client → Authorized WebSocket/WebRTC provider
 Do not add a Next-owned endpoint when the operation belongs to Campus API.
 Dedicated Next Route Handlers require a concrete frontend-owned HTTP contract.
 
+# Validation and Data Privacy
+
+Every value that enters from outside the app is parsed with Zod where it
+enters, before any code reads it. Trust boundaries: Campus API responses, URL
+and search params, form data, browser storage, environment variables, and
+content published to Sanity.
+
+1. **Parse at the boundary.** Use `safeParse` where the value enters and decide
+   the failure there: a fallback, an `unavailable` outcome, or a typed error.
+   A schema that ends in `.catch(fallback)` cannot fail, so its helper may
+   call `.parse` (`parsePageNumber`). The build environment uses `safeParse`
+   and throws one error that lists every issue.
+2. **Strip, then use `parsed.data`.** Schemas use `z.object`, which drops
+   unknown keys. Never read the raw value after parsing, and never cast with
+   `as T` instead of parsing. Lint bans the loosening APIs listed in
+   `core/api/schemas/README.md`. The one cast is `readMapLayout`'s input in
+   `features/campus-world/services/map/load-campus-map.ts`: the same object is
+   parsed first, the package validates object layers itself, and the cast goes
+   once `campus-world-map` exports a type its loader accepts.
+3. **Keep only what is read.** A schema declares the fields the feature
+   renders or computes with. Widening one is a privacy decision: update
+   `tests/evals/data-privacy.eval.test.ts` in the same change.
+4. **Bind schemas to the API contract.** Wrap each response schema in
+   `z.toZod<Simplify<Pick<Dto, …>>>()` so an upstream change fails
+   `pnpm typecheck`. Shared enums and pagination meta come from
+   `core/api/schemas`.
+5. **Send an allow-list.** Request bodies and analytics events name what they
+   send (a `Pick` type, `changedFields`, a per-event schema). Never spread a
+   received object into a request, and never build one with `.omit`, which
+   sends any field added later.
+6. **Refine last.** Keep an unrefined base schema and add `.refine` at the
+   end; `.pick`, `.omit` and `parseForm` need the base shape.
+7. **No input in errors.** Error messages and Zod issues name the field, never
+   the value that failed. `reportInput` is banned.
+8. **One parse per page for params.** A page parses its search params once,
+   at the page or the one feature component it renders (`parsePageNumber`, a
+   page query schema), and passes typed values down. Nothing below that
+   parses URL text.
+9. **Forms go through `parseForm`.** One schema returns typed data or field
+   errors.
+10. **Storage is untrusted.** Read JSON from `localStorage` with
+    `parseJson(schema, text)` and fall back to defaults. Bound any stored value
+    that schedules work: a stored session expiry is ignored when it is more
+    than one access-token lifetime ahead. The sidebar's pre-hydration inline
+    script is the one hand-written guard, because it cannot import Zod.
+11. **Pin hosts.** A URL taken from data (a published manifest, an asset link)
+    must match the configured origin before anything fetches it.
+    Configuration that is interpolated into a hostname is validated at build
+    time.
+12. **Every boundary has an eval.** Hostile input for each boundary lives in
+    `eval:privacy`, `eval:storage`, `eval:admin` and `eval:campus-world`. A new
+    boundary adds its cases there.
+
 # Import Rules
 
 Allowed:
@@ -740,6 +793,7 @@ The frontend team should follow these rules consistently:
 13. Husky and Commitlint enforce repository standards locally.
 14. Realtime and API payloads must have typed contracts.
 15. Performance, cleanup and reconnection must be designed from the beginning.
+16. Untrusted input is parsed before use (see Validation and Data Privacy).
 
 The final architecture can be summarized as:
 

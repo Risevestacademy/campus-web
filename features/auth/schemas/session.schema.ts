@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { sessionScopeSchema, systemRoleSchema } from "@/core/api/schemas";
+import { parseJson } from "@/shared/lib/parse-json";
 
 import type { Session } from "../types/auth.types";
 
@@ -27,23 +28,14 @@ const refreshSchema = z.object({
   expiresAt: z.iso.datetime({ offset: true }),
 });
 
-function parseJson(body: string): unknown {
-  try {
-    return JSON.parse(body);
-  } catch {
-    return undefined;
-  }
-}
-
 export function parseSessionBody(
   body: string | undefined,
 ): Session | undefined {
-  return sessionSchema.safeParse(body ? parseJson(body) : undefined).data;
+  return parseJson(sessionSchema, body);
 }
 
 export function parseRefreshExpiry(
   body: string | undefined,
 ): string | undefined {
-  return refreshSchema.safeParse(body ? parseJson(body) : undefined).data
-    ?.expiresAt;
+  return parseJson(refreshSchema, body)?.expiresAt;
 }

@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
+import { validateBuildEnvironment } from "@/config/environment/validation";
 import { analyticsEventSchemas } from "@/core/analytics/events";
 import { scrubAnalyticsEvent } from "@/core/analytics/scrub";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
@@ -243,6 +244,67 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       });
 
       expect(JSON.stringify(event)).not.toContain(TOKEN);
+    });
+  });
+
+  describe("a protected build only sends traffic to the hosts it names", () => {
+    const protectedBuild = {
+      CI: "true",
+      NEXT_PUBLIC_POSTHOG_HOST: "https://eu.i.posthog.com",
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: "phc_project",
+      NEXT_PUBLIC_SANITY_DATASET: "staging",
+      NEXT_PUBLIC_SANITY_PROJECT_ID: "sj3zsz66",
+    };
+
+    it.each(["evil.example", "a/b", "x@evil.example", "x#"])(
+      "rejects the Sanity project ID %s before it reaches the map API host",
+      (projectId) => {
+        expect(() =>
+          validateBuildEnvironment({
+            ...protectedBuild,
+            NEXT_PUBLIC_SANITY_PROJECT_ID: projectId,
+          }),
+        ).toThrow("NEXT_PUBLIC_SANITY_PROJECT_ID");
+      },
+    );
+
+    it("rejects an uppercase project ID, which no Sanity asset path would match", () => {
+      expect(() =>
+        validateBuildEnvironment({
+          ...protectedBuild,
+          NEXT_PUBLIC_SANITY_PROJECT_ID: "SJ3ZSZ66",
+        }),
+      ).toThrow("NEXT_PUBLIC_SANITY_PROJECT_ID");
+    });
+
+    it.each(["../production", "a/b", "staging?x"])(
+      "rejects the dataset name %s before it reaches a map URL path",
+      (dataset) => {
+        expect(() =>
+          validateBuildEnvironment({
+            ...protectedBuild,
+            NEXT_PUBLIC_SANITY_DATASET: dataset,
+          }),
+        ).toThrow("NEXT_PUBLIC_SANITY_DATASET");
+      },
+    );
+
+    it("accepts a dataset name Sanity allows, such as production_old", () => {
+      expect(() =>
+        validateBuildEnvironment({
+          ...protectedBuild,
+          NEXT_PUBLIC_SANITY_DATASET: "production_old",
+        }),
+      ).not.toThrow();
+    });
+
+    it("rejects a PostHog host reached over plain HTTP", () => {
+      expect(() =>
+        validateBuildEnvironment({
+          ...protectedBuild,
+          NEXT_PUBLIC_POSTHOG_HOST: "http://eu.i.posthog.com",
+        }),
+      ).toThrow("NEXT_PUBLIC_POSTHOG_HOST");
     });
   });
 });

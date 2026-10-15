@@ -30,7 +30,7 @@ describe("TrackCatalogue", () => {
       ),
     );
 
-    render(withQueryClient(await TrackCatalogue({ page: "2" })));
+    render(withQueryClient(await TrackCatalogue({ page: 2 })));
 
     expect(
       await screen.findByText(

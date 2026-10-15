@@ -112,6 +112,12 @@ export function createSystemGateway(api: ApiClient): SystemGateway {
 OpenAPI generation makes unpublished paths and invalid request bodies fail
 TypeScript compilation.
 
+Generated types describe what campus-api promises, not what arrives. A gateway
+that returns more than a status parses the body with a feature schema that
+strips to the fields it reads, binding it to the DTO with `z.toZod`. Shared
+vocabulary (roles, statuses, pagination meta, the error envelope) lives in
+`core/api/schemas`; see its README.
+
 ## Browser queries
 
 Browser code injects `browserApi`. Its relative `/api` base URL

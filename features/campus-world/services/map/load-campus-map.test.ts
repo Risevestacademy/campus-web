@@ -7,6 +7,7 @@ import {
   sanityConfiguration,
   stubSanityFetch,
 } from "../../testing/sanity-map-fixture";
+import mapFixture from "./fixtures/campus-trimmed.json";
 import { loadCampusMap, sanityMapOrigins } from "./load-campus-map";
 
 describe("loadCampusMap", () => {
@@ -81,6 +82,56 @@ describe("loadCampusMap", () => {
     await expect(
       loadCampusMap({ kind: "entry" }, { ...sanityConfiguration, fetch }),
     ).rejects.toMatchObject({ kind: "network", mapId: "campus" });
+  });
+
+  it("refuses a map JSON hosted outside the Sanity dataset before fetching it", async () => {
+    const foreignMap = "https://evil.example/map.json";
+    const fetch = stubSanityFetch([{ ...entryManifest(), mapUrl: foreignMap }]);
+
+    await expect(
+      loadCampusMap({ kind: "entry" }, { ...sanityConfiguration, fetch }),
+    ).rejects.toMatchObject({ kind: "manifest", mapId: "campus" });
+    expect(
+      vi.mocked(fetch).mock.calls.map(([input]) => String(input)),
+    ).not.toContain(foreignMap);
+  });
+
+  it("refuses tileset artwork from another Sanity project", async () => {
+    const manifest = entryManifest();
+    const [first, ...rest] = manifest.tilesets;
+    const fetch = stubSanityFetch([
+      {
+        ...manifest,
+        tilesets: [
+          {
+            ...first!,
+            url: "https://cdn.sanity.io/images/other/staging/a.png",
+          },
+          ...rest,
+        ],
+      },
+    ]);
+
+    await expect(
+      loadCampusMap({ kind: "entry" }, { ...sanityConfiguration, fetch }),
+    ).rejects.toMatchObject({ kind: "manifest", mapId: "campus" });
+  });
+
+  it("reports tile data the renderer cannot draw as a layout failure", async () => {
+    const [ground, ...rest] = mapFixture.layers;
+    const brokenMap = {
+      ...mapFixture,
+      layers: [{ ...ground, data: "AAAA" }, ...rest],
+    };
+    const fetch = vi.fn(async (input: RequestInfo | URL) =>
+      String(input) === mapUrl
+        ? jsonResponse(brokenMap)
+        : jsonResponse({ result: [entryManifest()] }),
+    ) as unknown as typeof globalThis.fetch;
+
+    await expect(
+      loadCampusMap({ kind: "entry" }, { ...sanityConfiguration, fetch }),
+    ).rejects.toMatchObject({ kind: "layout", mapId: "campus" });
   });
 });
 
