@@ -105,13 +105,13 @@ export interface components {
       /** @description Which character to draw them as. Null when they have picked none; draw the default then, and for a key you have no sprite for. */
       spriteKey: string | null;
     };
-    /** @description Somebody's socket closed, or they entered a different cohort. */
+    /** @description Somebody's socket in your cohort closed. Entering another cohort is not leaving this one. */
     LeftMessage: {
       /** @constant */
       type: "left";
       userId: string;
     };
-    /** @description This account opened the campus somewhere else — another cohort, device or tab — and that connection has taken its place. The socket closes immediately afterwards with 4000 `entered_elsewhere`. Do NOT reconnect: the two connections would replace each other for as long as both stayed open. Show that they are in the campus elsewhere, and reconnect only when they ask to come back here. */
+    /** @description This account opened this cohort's campus somewhere else — another device or tab — and that connection has taken its place. Being in another cohort never causes this. The socket closes immediately afterwards with 4000 `entered_elsewhere`. Do NOT reconnect: the two connections would replace each other for as long as both stayed open. Show that they are in this campus elsewhere, and reconnect only when they ask to come back here. */
     ReplacedMessage: {
       /** @constant */
       type: "replaced";
