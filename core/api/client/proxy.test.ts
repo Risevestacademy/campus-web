@@ -612,6 +612,111 @@ describe("createApiProxy", () => {
     );
   });
 
+  describe("cookies spent by sign-in", () => {
+    const spentCookies = [
+      { name: "campus_invite_token", path: "/invitation" },
+      { name: "campus_other_spent", path: "/other" },
+    ];
+
+    function callbackReplying(upstream: () => Promise<Response>) {
+      const handler = createApiProxy({
+        ...baseOptions,
+        cookiesSpentBySignIn: spentCookies,
+        fetch: upstream,
+      });
+
+      return handler(
+        new Request(
+          "https://frontend.example.test/api/v1/auth/google/callback?code=google-code",
+          { headers: { cookie: "campus_oauth_state=oauth-state" } },
+        ),
+        {
+          params: Promise.resolve({
+            path: ["v1", "auth", "google", "callback"],
+          }),
+        },
+      );
+    }
+
+    function redirectSetting(location: string, ...setCookies: string[]) {
+      return () => {
+        const headers = new Headers({ location });
+        for (const setCookie of setCookies) {
+          headers.append("set-cookie", setCookie);
+        }
+        return Promise.resolve(new Response(null, { headers, status: 302 }));
+      };
+    }
+
+    function spentCookieHeaders(response: Response): string[] {
+      return response.headers
+        .getSetCookie()
+        .filter((setCookie) =>
+          spentCookies.some(({ name }) => setCookie.startsWith(`${name}=`)),
+        );
+    }
+
+    it("expires each one with its own path when the callback starts a session", async () => {
+      const response = await callbackReplying(
+        redirectSetting(
+          "https://frontend.example.test/invitation",
+          "campus_session=; Max-Age=0; Path=/",
+          "campus_session=session-token; HttpOnly; Path=/",
+        ),
+      );
+
+      expect(spentCookieHeaders(response)).toEqual([
+        "campus_invite_token=; HttpOnly; Secure; SameSite=Lax; Path=/invitation; Max-Age=0",
+        "campus_other_spent=; HttpOnly; Secure; SameSite=Lax; Path=/other; Max-Age=0",
+      ]);
+    });
+
+    it.each([
+      [
+        "a failed sign-in",
+        redirectSetting(
+          "https://frontend.example.test/sign-in?error=invite_required",
+        ),
+      ],
+      [
+        "a host-only session clear alone",
+        redirectSetting(
+          "https://frontend.example.test/sign-in?error=server_error",
+          "campus_session=; Max-Age=0; Path=/",
+        ),
+      ],
+      [
+        "an unreachable backend",
+        () => Promise.reject(new TypeError("fetch failed")),
+      ],
+    ])("keeps them after %s", async (_outcome, upstream) => {
+      const response = await callbackReplying(upstream);
+
+      expect(spentCookieHeaders(response)).toEqual([]);
+    });
+
+    it("leaves them alone outside the callback", async () => {
+      const handler = createApiProxy({
+        ...baseOptions,
+        cookiesSpentBySignIn: spentCookies,
+        fetch: redirectSetting(
+          "https://frontend.example.test/campus",
+          "campus_session=rotated-session; HttpOnly; Path=/",
+        ),
+      });
+
+      const response = await handler(
+        new Request("https://frontend.example.test/api/v1/auth/refresh", {
+          headers: { origin: "https://frontend.example.test" },
+          method: "POST",
+        }),
+        { params: Promise.resolve({ path: ["v1", "auth", "refresh"] }) },
+      );
+
+      expect(spentCookieHeaders(response)).toEqual([]);
+    });
+  });
+
   it("preserves conditional request and rate-limit response metadata", async () => {
     let outboundRequest: Request | undefined;
     const handler = createApiProxy({

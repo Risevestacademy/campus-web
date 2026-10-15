@@ -1,6 +1,7 @@
 import type { PostHog } from "posthog-js";
 
 import { readAnalyticsConfiguration } from "./configuration";
+import { errorName } from "./error-name";
 import {
   allowAnalyticsIdentity,
   allowAnalyticsProperties,
@@ -14,11 +15,6 @@ import {
 const PERSONAL_DATA_URL_PARAMS = ["token", "returnTo", "code", "state"];
 
 let browserAnalytics: Promise<PostHog | null> | null = null;
-
-// SDK errors can carry the request payload; the name is enough to triage.
-function errorName(error: unknown): string {
-  return error instanceof Error ? error.name : typeof error;
-}
 
 async function loadBrowserAnalytics(): Promise<PostHog | null> {
   const configuration = readAnalyticsConfiguration();

@@ -42,13 +42,11 @@ const acceptedSchema = z.object({
 });
 
 export function parseInvitePreview(value: unknown): InvitePreview | undefined {
-  const parsed = invitePreviewSchema.safeParse(value);
-  return parsed.success ? parsed.data : undefined;
+  return invitePreviewSchema.safeParse(value).data;
 }
 
 export function parsePendingInvite(value: unknown): PendingInvite | undefined {
-  const parsed = pendingInviteSchema.safeParse(value);
-  return parsed.success ? parsed.data : undefined;
+  return pendingInviteSchema.safeParse(value).data;
 }
 
 // The accepted cohort, or null for an invite that grants no cohort place.

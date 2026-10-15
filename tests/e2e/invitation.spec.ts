@@ -92,6 +92,24 @@ test.describe("invite link", () => {
     ).toMatchObject({ value: TOKEN, httpOnly: true, path: "/invitation" });
   });
 
+  test("forgets the token once Google sign-in returns, and resumes on /preview", async ({
+    page,
+    context,
+    fakeApi,
+  }) => {
+    await fakeApi.scriptInvitePreview(invites.preview("Cohort 3"));
+    await fakeApi.scriptSession(sessions.provisional());
+    await page.goto(INVITE_LINK);
+
+    await page.goto("/api/v1/auth/google/callback?code=google-code");
+
+    await expect(page).toHaveURL("/preview");
+    const cookies = await context.cookies();
+    expect(
+      cookies.find(({ name }) => name === "campus_invite_token"),
+    ).toBeUndefined();
+  });
+
   test("tells the browser never to send the token on as a Referer", async ({
     page,
     fakeApi,

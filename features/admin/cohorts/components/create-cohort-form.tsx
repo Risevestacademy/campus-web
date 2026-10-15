@@ -9,7 +9,7 @@ import type { CohortCreationControls } from "../hooks/use-create-cohort";
 import { parseNewCohort } from "../schemas/cohort.schema";
 import type {
   CohortCreationProblem,
-  NewCohortErrors,
+  CohortFieldErrors,
 } from "../types/cohort.types";
 import { CohortFormFields } from "./cohort-form-fields";
 
@@ -28,25 +28,28 @@ export function CreateCohortForm({
 }: {
   creation: CohortCreationControls;
 }) {
-  const [errors, setErrors] = useState<NewCohortErrors>({});
+  const [errors, setErrors] = useState<CohortFieldErrors>({});
+  const [formError, setFormError] = useState<string>();
   const { isPending, problem } = creation;
   const codeError =
     errors.code ?? (problem === "duplicate-code" ? DUPLICATE_CODE : undefined);
-  const problemMessage = problem ? PROBLEM_MESSAGES[problem] : undefined;
+  const alertMessage =
+    formError ?? (problem ? PROBLEM_MESSAGES[problem] : undefined);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const read = parseNewCohort(new FormData(event.currentTarget));
     setErrors(read.kind === "invalid" ? read.errors : {});
+    setFormError(read.kind === "invalid" ? read.formError : undefined);
     if (read.kind === "valid") creation.create(read.cohort);
   }
 
   return (
     <form noValidate onSubmit={submit} className="grid gap-6">
-      {problemMessage ? (
+      {alertMessage ? (
         <p role="alert" className="text-destructive text-sm">
-          {problemMessage}
+          {alertMessage}
         </p>
       ) : null}
       <CohortFormFields

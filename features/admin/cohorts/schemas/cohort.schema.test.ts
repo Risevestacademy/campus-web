@@ -76,11 +76,10 @@ describe("parseNewCohort", () => {
   });
 
   it("leaves out dates that were not entered", () => {
-    const parsed = parseNewCohort(cohortForm({}));
-
-    expect(
-      parsed.kind === "valid" && JSON.parse(JSON.stringify(parsed.cohort)),
-    ).toStrictEqual({ name: "Cohort 1", code: "C1", status: "upcoming" });
+    expect(parseNewCohort(cohortForm({}))).toStrictEqual({
+      kind: "valid",
+      cohort: { name: "Cohort 1", code: "C1", status: "upcoming" },
+    });
   });
 
   it("keeps the dates and status the admin chose", () => {

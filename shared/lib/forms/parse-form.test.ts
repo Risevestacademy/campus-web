@@ -3,9 +3,11 @@ import { z } from "zod";
 
 import { optionalIsoDate, optionalText, parseForm } from "./index";
 
-function formOf(fields: Record<string, string | File>) {
+function formOf(fields: Record<string, string | File | string[]>) {
   const form = new FormData();
-  for (const [field, value] of Object.entries(fields)) form.set(field, value);
+  for (const [field, value] of Object.entries(fields)) {
+    for (const entry of [value].flat()) form.append(field, entry);
+  }
   return form;
 }
 
@@ -20,10 +22,30 @@ describe("parseForm", () => {
     ).toStrictEqual({ kind: "valid", data: { name: "Ada" } });
   });
 
-  it("treats a missing field as empty", () => {
+  it("reports a missing field with the field's own message", () => {
     expect(parseForm(nameSchema, formOf({}))).toStrictEqual({
       kind: "invalid",
       errors: { name: "Enter a name." },
+    });
+  });
+
+  it("reports a missing number field when the schema rejects an empty one", () => {
+    const schema = z.object({
+      seats: z.string().min(1, "Enter a number.").pipe(z.coerce.number()),
+    });
+
+    expect(parseForm(schema, formOf({}))).toStrictEqual({
+      kind: "invalid",
+      errors: { seats: "Enter a number." },
+    });
+  });
+
+  it("reads the first value of a repeated field", () => {
+    expect(
+      parseForm(nameSchema, formOf({ name: ["Ada", "Grace"] })),
+    ).toStrictEqual({
+      kind: "valid",
+      data: { name: "Ada" },
     });
   });
 
@@ -52,7 +74,7 @@ describe("parseForm", () => {
     });
   });
 
-  it("drops an issue that names no field", () => {
+  it("returns an issue that names no field as the form error", () => {
     const schema = z
       .object({ name: z.string() })
       .refine(() => false, { error: "Form-level problem." });
@@ -60,6 +82,7 @@ describe("parseForm", () => {
     expect(parseForm(schema, formOf({ name: "Ada" }))).toStrictEqual({
       kind: "invalid",
       errors: {},
+      formError: "Form-level problem.",
     });
   });
 

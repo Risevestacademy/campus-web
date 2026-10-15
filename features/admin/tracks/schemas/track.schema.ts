@@ -3,6 +3,7 @@ import { z } from "zod";
 import { paginationMetaSchema } from "@/core/api/schemas";
 import { changedFields } from "@/shared/lib/changed-fields";
 import { optionalText, parseForm } from "@/shared/lib/forms";
+import { withoutUndefined } from "@/shared/lib/without-undefined";
 
 import type {
   NewTrackRead,
@@ -40,7 +41,9 @@ const trackFieldsSchema = z.toZod<TrackFieldValues>()(
 
 export function parseNewTrack(form: FormData): NewTrackRead {
   const read = parseForm(trackFieldsSchema, form);
-  return read.kind === "valid" ? { kind: "valid", track: read.data } : read;
+  return read.kind === "valid"
+    ? { kind: "valid", track: withoutUndefined(read.data) }
+    : read;
 }
 
 export function parseTrackEdit(

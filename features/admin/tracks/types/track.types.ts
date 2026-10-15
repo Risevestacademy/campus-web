@@ -1,5 +1,6 @@
 import type { components } from "@/core/api/client";
 import type { Simplify } from "@/core/api/schemas";
+import type { FormErrors, FormInvalid } from "@/shared/lib/forms";
 
 type Schemas = components["schemas"];
 
@@ -16,13 +17,12 @@ export type TrackListRead =
 export type TrackFieldValues = Schemas["CreateTrackDto"];
 export type NewTrack = TrackFieldValues;
 export type TrackPatch = Schemas["UpdateTrackDto"];
-export type TrackFieldErrors = Partial<Record<keyof TrackFieldValues, string>>;
+export type TrackFieldErrors = FormErrors<TrackFieldValues>;
 export type NewTrackRead =
-  | { kind: "valid"; track: NewTrack }
-  | { kind: "invalid"; errors: TrackFieldErrors };
+  { kind: "valid"; track: NewTrack } | FormInvalid<TrackFieldValues>;
 export type TrackEditRead =
   | { kind: "valid"; changes: TrackPatch }
-  | { kind: "invalid"; errors: TrackFieldErrors }
+  | FormInvalid<TrackFieldValues>
   | { kind: "unchanged" };
 export type TrackCreationProblem =
   "duplicate-code" | "rejected" | "signed-out" | "forbidden" | "unavailable";

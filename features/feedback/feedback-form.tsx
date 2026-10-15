@@ -17,6 +17,7 @@ import {
   feedbackKindSchema,
   LOCATION_MAX_LENGTH,
   parseFeedback,
+  pickScreenshot,
   screenshotProblem,
   TITLE_MAX_LENGTH,
 } from "./schemas/feedback.schema";
@@ -32,6 +33,15 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
+// Cells copied from Excel, Numbers or Word carry an image of themselves
+// beside the text; in a text field the text is what was meant.
+function isTextIntoField(event: ClipboardEvent<HTMLFormElement>): boolean {
+  const { target } = event;
+  const isTextField =
+    target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+  return isTextField && event.clipboardData.types.includes("text/plain");
+}
+
 export function FeedbackForm({
   onCancel,
   onSubmit,
@@ -42,6 +52,7 @@ export function FeedbackForm({
   const id = useId();
   const [kind, setKind] = useState<FeedbackKind>();
   const [errors, setErrors] = useState<FeedbackFieldErrors>({});
+  const [formError, setFormError] = useState<string>();
   const [screenshot, setScreenshot] = useState<SelectedScreenshot>();
   const [screenshotError, setScreenshotError] = useState<string>();
 
@@ -58,9 +69,9 @@ export function FeedbackForm({
   }
 
   function pasteScreenshot(event: ClipboardEvent<HTMLFormElement>) {
-    const file = Array.from(event.clipboardData.files).find((candidate) =>
-      candidate.type.startsWith("image/"),
-    );
+    if (isTextIntoField(event)) return;
+
+    const file = pickScreenshot(event.clipboardData.files);
     if (!file) return;
 
     event.preventDefault();
@@ -72,6 +83,7 @@ export function FeedbackForm({
     const read = parseFeedback(new FormData(event.currentTarget));
 
     setErrors(read.kind === "invalid" ? read.errors : {});
+    setFormError(read.kind === "invalid" ? read.formError : undefined);
     if (read.kind === "valid") onSubmit(read.feedback);
   }
 
@@ -82,6 +94,11 @@ export function FeedbackForm({
       onPaste={pasteScreenshot}
       className="grid content-start gap-5"
     >
+      {formError ? (
+        <p role="alert" className="text-destructive text-sm">
+          {formError}
+        </p>
+      ) : null}
       <fieldset className="grid gap-2">
         <legend className="mb-2 text-sm font-medium">
           What kind of feedback?

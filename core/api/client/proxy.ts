@@ -64,9 +64,20 @@ const MANAGED_COOKIE_ATTRIBUTES = new Set([
 
 type ParseReturnTo = (value: string | undefined) => string | undefined;
 
+interface ScopedCookie {
+  name: string;
+  path: string;
+}
+
+interface ProxyCookie extends ScopedCookie {
+  value: string;
+  maxAge: number;
+}
+
 interface ApiProxyOptions {
   baseUrl: string | (() => string);
   clock?: () => number;
+  cookiesSpentBySignIn?: readonly ScopedCookie[];
   fetch?: ClientOptions["fetch"];
   generateRequestId?: () => string;
   logger: Logger;
@@ -206,18 +217,14 @@ function copyAuthSetCookies(
   }
 }
 
-function serializeReturnCookie(
-  value: string,
-  secure: boolean,
-  maxAge: number,
-): string {
+function serializeProxyCookie(cookie: ProxyCookie, secure: boolean): string {
   return [
-    `${OAUTH_RETURN_COOKIE_NAME}=${encodeURIComponent(value)}`,
+    `${cookie.name}=${encodeURIComponent(cookie.value)}`,
     "HttpOnly",
     ...(secure ? ["Secure"] : []),
     "SameSite=Lax",
-    `Path=${OAUTH_RETURN_COOKIE_PATH}`,
-    `Max-Age=${maxAge}`,
+    `Path=${cookie.path}`,
+    `Max-Age=${cookie.maxAge}`,
   ].join("; ");
 }
 
@@ -228,10 +235,14 @@ function appendReturnCookie(
 ): void {
   headers.append(
     "set-cookie",
-    serializeReturnCookie(
-      returnTo ?? "",
+    serializeProxyCookie(
+      {
+        name: OAUTH_RETURN_COOKIE_NAME,
+        value: returnTo ?? "",
+        path: OAUTH_RETURN_COOKIE_PATH,
+        maxAge: returnTo ? OAUTH_RETURN_MAX_AGE_SECONDS : 0,
+      },
       secure,
-      returnTo ? OAUTH_RETURN_MAX_AGE_SECONDS : 0,
     ),
   );
 }
@@ -239,15 +250,37 @@ function appendReturnCookie(
 function appendRefreshAttemptedCookie(headers: Headers, secure: boolean): void {
   headers.append(
     "set-cookie",
-    [
-      `${REFRESH_ATTEMPTED_COOKIE}=1`,
-      "HttpOnly",
-      ...(secure ? ["Secure"] : []),
-      "SameSite=Lax",
-      `Path=${REFRESH_ATTEMPTED_PATH}`,
-      `Max-Age=${REFRESH_ATTEMPTED_MAX_AGE_SECONDS}`,
-    ].join("; "),
+    serializeProxyCookie(
+      {
+        name: REFRESH_ATTEMPTED_COOKIE,
+        value: "1",
+        path: REFRESH_ATTEMPTED_PATH,
+        maxAge: REFRESH_ATTEMPTED_MAX_AGE_SECONDS,
+      },
+      secure,
+    ),
   );
+}
+
+// An empty value is the backend clearing a host-only session before setting
+// the domain one, not a sign-in.
+function startsSession(upstreamHeaders: Headers): boolean {
+  return upstreamHeaders
+    .getSetCookie()
+    .some((setCookie) => Boolean(findCookieValue(setCookie, SESSION_COOKIE)));
+}
+
+function expireCookies(
+  headers: Headers,
+  cookies: readonly ScopedCookie[],
+  secure: boolean,
+): void {
+  for (const { name, path } of cookies) {
+    headers.append(
+      "set-cookie",
+      serializeProxyCookie({ name, value: "", path, maxAge: 0 }, secure),
+    );
+  }
 }
 
 function enforceAuthenticatedResponsePrivacy(
@@ -390,6 +423,7 @@ function rewriteSuccessfulOauthDestination(
 
 export function createApiProxy(options: ApiProxyOptions) {
   const clock = options.clock ?? Date.now;
+  const cookiesSpentBySignIn = options.cookiesSpentBySignIn ?? [];
   const fetchUpstream = options.fetch ?? ((request: Request) => fetch(request));
   const generateRequestId =
     options.generateRequestId ?? (() => globalThis.crypto.randomUUID());
@@ -457,6 +491,10 @@ export function createApiProxy(options: ApiProxyOptions) {
           options.parseReturnTo,
         );
         appendReturnCookie(responseHeaders, undefined, secure);
+
+        if (startsSession(upstreamResponse.headers)) {
+          expireCookies(responseHeaders, cookiesSpentBySignIn, secure);
+        }
       }
 
       responseHeaders.set("x-request-id", requestId);

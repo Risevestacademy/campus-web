@@ -42,7 +42,7 @@ describe("parseNewTrack", () => {
   it("reads a blank description as absent", () => {
     expect(parseNewTrack(trackForm({ description: "   " }))).toStrictEqual({
       kind: "valid",
-      track: { name: "Computer Science", code: "CSC", description: undefined },
+      track: { name: "Computer Science", code: "CSC" },
     });
   });
 

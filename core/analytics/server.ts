@@ -3,6 +3,7 @@ import "server-only";
 import { PostHog } from "posthog-node";
 
 import { readAnalyticsConfiguration } from "./configuration";
+import { errorName } from "./error-name";
 import {
   allowAnalyticsProperties,
   allowDistinctId,
@@ -52,7 +53,6 @@ export async function captureServerAnalyticsEvent<
       properties: allowedProperties,
     });
   } catch (error) {
-    const name = error instanceof Error ? error.name : typeof error;
-    console.error("PostHog server event capture failed.", name);
+    console.error("PostHog server event capture failed.", errorName(error));
   }
 }
