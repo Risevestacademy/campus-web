@@ -1,34 +1,26 @@
-import type { Icon } from "@phosphor-icons/react";
-import { ArrowsClockwiseIcon } from "@phosphor-icons/react/dist/ssr/ArrowsClockwise";
-import { ChecksIcon } from "@phosphor-icons/react/dist/ssr/Checks";
-import { WarningCircleIcon } from "@phosphor-icons/react/dist/ssr/WarningCircle";
-import { cn } from "cn";
+import type { Route } from "next";
+import Link from "next/link";
+import type { ReactNode } from "react";
 
-import { Button } from "@/shared/ui/button";
+import { buttonVariants } from "@/shared/ui/button";
 
-import type { AttentionItem, AttentionKind } from "./overview-data";
+import { feedbackTypeDetails } from "../feedback/components/feedback-type-badge";
+import type { FeedbackType } from "../feedback/types/feedback.types";
 
-const KIND_STYLES: Readonly<
-  Record<AttentionKind, { Icon: Icon; tileClassName: string }>
-> = {
-  report: {
-    Icon: WarningCircleIcon,
-    tileClassName: "bg-error-100 text-error-600 dark:bg-error-900/40",
-  },
-  attendance: {
-    Icon: ChecksIcon,
-    tileClassName: "bg-lemon-100 text-lemon-700 dark:bg-lemon-900/40",
-  },
-  sync: {
-    Icon: ArrowsClockwiseIcon,
-    tileClassName: "bg-cobalt-100 text-cobalt-600 dark:bg-cobalt-900/60",
-  },
-};
+export interface AttentionItem {
+  id: string;
+  type: FeedbackType;
+  title: string;
+  age: string;
+  href: Route;
+}
 
 export function NeedsAttentionCard({
   items,
+  emptyMessage,
 }: {
   items: readonly AttentionItem[];
+  emptyMessage: ReactNode;
 }) {
   return (
     <section
@@ -47,43 +39,48 @@ export function NeedsAttentionCard({
         </p>
       </header>
 
-      <ul className="grid gap-3">
-        {items.map((item) => {
-          const { Icon: ItemIcon, tileClassName } = KIND_STYLES[item.kind];
+      {items.length === 0 ? (
+        <p className="text-foreground-secondary text-sm">{emptyMessage}</p>
+      ) : (
+        <ul className="grid gap-3">
+          {items.map((item) => {
+            const { Icon, className, label } = feedbackTypeDetails(item.type);
 
-          return (
-            <li
-              key={item.id}
-              className="flex items-center gap-4 rounded-xl bg-[#EFFAFF] p-3 dark:bg-[#2B3B5F]"
-            >
-              <span
-                className={cn(
-                  "grid size-10 shrink-0 place-items-center rounded-xl",
-                  tileClassName,
-                )}
+            return (
+              <li
+                key={item.id}
+                className="flex items-center gap-4 rounded-xl bg-[#EFFAFF] p-3 dark:bg-[#2B3B5F]"
               >
-                <ItemIcon aria-hidden size={20} />
-              </span>
-              <span className="grid min-w-0 flex-1 gap-0.5">
-                <span className="truncate text-sm font-medium">
-                  {item.title}
+                <span
+                  role="img"
+                  aria-label={label}
+                  className={`grid size-10 shrink-0 place-items-center rounded-xl ${className}`}
+                >
+                  <Icon aria-hidden size={20} />
                 </span>
-                <span className="text-foreground-secondary truncate text-sm">
-                  {item.detail}
+                <span className="grid min-w-0 flex-1 gap-0.5">
+                  <span className="truncate text-sm font-medium">
+                    {item.title}
+                  </span>
+                  <span className="text-foreground-secondary truncate text-sm">
+                    {item.age}
+                  </span>
                 </span>
-              </span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="shrink-0"
-              >
-                {item.actionLabel}
-              </Button>
-            </li>
-          );
-        })}
-      </ul>
+                <Link
+                  href={item.href}
+                  aria-label={`Review ${item.title}`}
+                  className={buttonVariants({
+                    variant: "outline",
+                    size: "sm",
+                  })}
+                >
+                  Review
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }
