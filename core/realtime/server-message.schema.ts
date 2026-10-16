@@ -133,6 +133,36 @@ const serverMessageSchema = z.toZod<ServerMessage>()(
   ]),
 );
 
-export function parseServerMessage(text: string): ServerMessage | undefined {
-  return parseJson(serverMessageSchema, text);
+export type ServerMessageResult =
+  | { ok: true; message: ServerMessage }
+  | { ok: false; reason: "unknown-type" }
+  | { ok: false; reason: "invalid"; type?: ServerMessage["type"] };
+
+const frameTypeSchema = z.object({ type: z.string() });
+
+function isServerMessageType(type: string): type is ServerMessage["type"] {
+  return serverMessageSchema.options.some(
+    (option) => option.shape.type.value === type,
+  );
+}
+
+// Unknown types are skipped, but a known frame that fails to parse is a
+// fault: a corrupted welcome or snapshot leaves the client waiting forever.
+export function parseServerMessage(text: string): ServerMessageResult {
+  const frame = parseJson(z.unknown(), text);
+  const message = serverMessageSchema.safeParse(frame).data;
+
+  if (message) {
+    return { ok: true, message };
+  }
+
+  const type = frameTypeSchema.safeParse(frame).data?.type;
+
+  if (type === undefined) {
+    return { ok: false, reason: "invalid" };
+  }
+
+  return isServerMessageType(type)
+    ? { ok: false, reason: "invalid", type }
+    : { ok: false, reason: "unknown-type" };
 }

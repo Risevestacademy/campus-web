@@ -229,10 +229,16 @@ describe("Data privacy eval (threshold: every case holds)", () => {
   });
 
   describe("world frames reach the client through an allow-list", () => {
+    function parsedMessage(text: string): ServerMessage | undefined {
+      const result = parseServerMessage(text);
+
+      return result.ok ? result.message : undefined;
+    }
+
     it.each(Object.values(serverFrames))(
       "keeps only the protocol fields of a $type frame",
       (frame) => {
-        const parsed = parseServerMessage(
+        const parsed = parsedMessage(
           JSON.stringify(withUnexpectedFields(frame)),
         );
 
@@ -240,8 +246,21 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       },
     );
 
+    it("never carries the text of a frame it could not read", () => {
+      const unknownType = parseServerMessage(
+        JSON.stringify({ type: TOKEN, ...UNEXPECTED }),
+      );
+      const corruptedWelcome = parseServerMessage(
+        JSON.stringify({ type: "welcome", userId: TOKEN, ...UNEXPECTED }),
+      );
+
+      expect(JSON.stringify([unknownType, corruptedWelcome])).not.toMatch(
+        new RegExp(`${TOKEN}|${UNEXPECTED.phone.slice(1)}`),
+      );
+    });
+
     it("cannot reach the prototype through a __proto__ key in a frame", () => {
-      const parsed = parseServerMessage(
+      const parsed = parsedMessage(
         '{"type":"left","userId":"u-1","__proto__":{"isAdmin":true}}',
       );
 

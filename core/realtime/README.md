@@ -76,8 +76,15 @@ result.
   promise that it will never add a field.
 - `z.toZod` cannot see bounds. Tiles are non-negative safe integers; the
   tests cover that.
-- An unknown `type` parses to `undefined`. The socket client should log and
-  skip it, not close the socket.
+- `parseServerMessage` returns `{ ok: true, message }` or a failure:
+  - `{ reason: "unknown-type" }`: a message world added after the last
+    `pnpm world:types`. Log it and skip it; never close the socket.
+  - `{ reason: "invalid", type }`: a known message that failed to parse. A
+    fault, not noise: a corrupted `welcome` or `snapshot` would otherwise
+    leave the client waiting forever.
+  - `{ reason: "invalid" }` with no `type`: not JSON, or no string `type`.
+
+  A failure never carries the frame's text, so nothing unparsed reaches logs.
 
 Outbound frames are built from the `ClientMessage` type and need no parser.
 

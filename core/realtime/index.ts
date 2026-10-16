@@ -18,4 +18,7 @@ export type {
   SnapshotMessage,
   WelcomeMessage,
 } from "./generated/world-protocol";
-export { parseServerMessage } from "./server-message.schema";
+export {
+  parseServerMessage,
+  type ServerMessageResult,
+} from "./server-message.schema";

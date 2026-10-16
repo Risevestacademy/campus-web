@@ -14,20 +14,40 @@ describe("parseServerMessage", () => {
   it.each(Object.values(serverFrames))(
     "reads a $type frame as the server sent it",
     (frame) => {
-      expect(parseServerMessage(frameText(frame))).toEqual(frame);
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: true,
+        message: frame,
+      });
     },
   );
 
   it("drops a field the server adds later instead of rejecting the frame", () => {
     const frame = { ...serverFrames.left, sessionToken: "secret" };
 
-    expect(parseServerMessage(frameText(frame))).toEqual(serverFrames.left);
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: serverFrames.left,
+    });
   });
 
-  it("ignores a message type the client does not know", () => {
-    expect(
-      parseServerMessage(frameText({ type: "teleport", userId: "x" })),
-    ).toBeUndefined();
+  it.each(["teleport", "constructor", "toString", "__proto__"])(
+    "reports %j as a type the client does not know, so it can be skipped",
+    (type) => {
+      expect(parseServerMessage(frameText({ type, userId: "x" }))).toEqual({
+        ok: false,
+        reason: "unknown-type",
+      });
+    },
+  );
+
+  it("names a known frame that arrived corrupted, so a broken welcome is not mistaken for noise", () => {
+    const { connectionId: _connectionId, ...welcome } = serverFrames.welcome;
+
+    expect(parseServerMessage(frameText(welcome))).toEqual({
+      ok: false,
+      reason: "invalid",
+      type: "welcome",
+    });
   });
 
   it.each([
@@ -40,15 +60,21 @@ describe("parseServerMessage", () => {
       players: [{ ...serverFrames.moved.players[0], x }],
     };
 
-    expect(parseServerMessage(frameText(frame))).toBeUndefined();
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: false,
+      reason: "invalid",
+      type: "moved",
+    });
   });
 
   it("refuses an avatar whose nullable name is missing rather than null", () => {
     const { displayName: _displayName, ...player } = serverFrames.joined.player;
 
-    expect(
-      parseServerMessage(frameText({ type: "joined", player })),
-    ).toBeUndefined();
+    expect(parseServerMessage(frameText({ type: "joined", player }))).toEqual({
+      ok: false,
+      reason: "invalid",
+      type: "joined",
+    });
   });
 
   it("refuses a facing the protocol does not define", () => {
@@ -57,10 +83,20 @@ describe("parseServerMessage", () => {
       player: { ...serverFrames.moveResult.player, facing: "north" },
     };
 
-    expect(parseServerMessage(frameText(frame))).toBeUndefined();
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: false,
+      reason: "invalid",
+      type: "moveResult",
+    });
   });
 
-  it.each(["", "not json", "[]", "null"])("reads %j as no message", (text) => {
-    expect(parseServerMessage(text)).toBeUndefined();
-  });
+  it.each(["", "not json", "[]", "null", '{"type":5}', '{"userId":"x"}'])(
+    "reads %j as an invalid frame with no type",
+    (text) => {
+      expect(parseServerMessage(text)).toEqual({
+        ok: false,
+        reason: "invalid",
+      });
+    },
+  );
 });
