@@ -70,6 +70,5 @@ const campusTiledMapSchema = z.object({
 export function parseCampusTiledMap(
   value: unknown,
 ): CampusTiledMap | undefined {
-  const parsed = campusTiledMapSchema.safeParse(value);
-  return parsed.success ? parsed.data : undefined;
+  return campusTiledMapSchema.safeParse(value).data;
 }

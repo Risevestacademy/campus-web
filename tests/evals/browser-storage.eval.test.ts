@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { sharedSessionExpiry } from "@/features/auth/services/browser-session";
+import { parseStoredSidebarPreferences } from "@/features/campus/schemas/sidebar-preferences.schema";
 import { loadMediaDevicePreferences } from "@/features/campus/services/media-session/media-device-preferences";
 
 // Anyone with the page open (an extension, a script, a stale build) can edit
@@ -64,6 +65,38 @@ describe("Browser storage eval (threshold: every case holds)", () => {
         expect(id).not.toMatch(INVENTED_PLACEHOLDER_ID);
         expect(id).not.toBe("injected");
       }
+    });
+  });
+
+  describe("stored sidebar preferences only ever restore a known panel and mode", () => {
+    const DEFAULTS = {
+      activePanel: "map",
+      sidebarMode: undefined,
+      sidebarOpen: true,
+    };
+
+    it.each([
+      "not json",
+      "null",
+      "[]",
+      '"chat"',
+      '{"activePanel":"admin-secrets","sidebarMode":"root"}',
+      '{"sidebarOpen":"false"}',
+      '{"__proto__":{"sidebarOpen":false}}',
+    ])("reads %s as the defaults", (value) => {
+      expect(parseStoredSidebarPreferences(value)).toEqual(DEFAULTS);
+    });
+
+    it("keeps each valid field when another one is corrupted", () => {
+      expect(
+        parseStoredSidebarPreferences(
+          '{"activePanel":"chat","sidebarMode":"admin","sidebarOpen":"yes"}',
+        ),
+      ).toEqual({
+        activePanel: "chat",
+        sidebarMode: "admin",
+        sidebarOpen: true,
+      });
     });
   });
 });

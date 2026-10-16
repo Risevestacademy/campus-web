@@ -62,6 +62,10 @@ barrel; other features do not import its internals.
   assets of the configured Sanity project and dataset before anything fetches
   them, and the renderer only receives what `parseCampusTiledMap` returns. Add
   a field to `schemas/campus-map.schema.ts` before the renderer reads it.
+  The one exception is the object layers: `readMapLayout` from
+  `campus-world-map` validates them and throws a `LayoutError`, and its input
+  is cast because the package's `loadPublishedMap<T>` rejects its own map
+  type. Remove the cast when the package exports a type its loader accepts.
 - Treat readiness as parsed manifest/map data, a resolved KAPLAY module, and
   either every tileset decoded or the runtime holding that version. Query
   success alone is insufficient. Do not add artificial delays or progress.

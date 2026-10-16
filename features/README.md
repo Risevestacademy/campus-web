@@ -41,6 +41,11 @@ Evals under `tests/evals/` are the one exception: they may import a
 feature's internals, because they measure behaviour the barrel does not
 expose.
 
+A feature's `schemas/` parse every value that enters from outside the app,
+where it enters, following "Validation and Data Privacy" in
+`docs/architectural-plan.md`. Shared API vocabulary comes from
+`core/api/schemas`; generic parsing helpers come from `shared/lib`.
+
 Two other entry points exist, each enforced by
 `config/architecture-boundaries.json`:
 
