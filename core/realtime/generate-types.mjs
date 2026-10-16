@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 
 import openapiTS, { astToString } from "openapi-typescript";
@@ -14,15 +15,20 @@ function pointAtComponents(key, value) {
     : value;
 }
 
+const SCHEMA_FETCH_TIMEOUT_MS = 10_000;
+
 const schemaUrl = readWorldSchemaUrl(process.env);
-const response = await fetch(schemaUrl);
+const response = await fetch(schemaUrl, {
+  signal: AbortSignal.timeout(SCHEMA_FETCH_TIMEOUT_MS),
+});
 
 if (!response.ok) {
   throw new Error(`${schemaUrl} answered HTTP ${response.status}.`);
 }
 
+const schemaText = await response.text();
 const { title, description, definitions } = JSON.parse(
-  await response.text(),
+  schemaText,
   pointAtComponents,
 );
 
@@ -37,4 +43,12 @@ const schema = await openapiTS(
 );
 const outputUrl = new URL("./generated/world-protocol.ts", import.meta.url);
 
-await writeFile(outputUrl, astToString(schema));
+// A hash, not the URL: it names the server commit without naming a host.
+const schemaHash = createHash("sha256").update(schemaText).digest("hex");
+const provenance = [
+  `// From world's protocol.schema.json, sha256 ${schemaHash}.`,
+  "// Find the campus-server commit: git show <ref>:apps/world/protocol.schema.json | shasum -a 256",
+  "",
+].join("\n");
+
+await writeFile(outputUrl, `${provenance}\n${astToString(schema)}`);

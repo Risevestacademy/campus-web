@@ -37,6 +37,17 @@ the JSON Schema world serves from the code deployed there. Generate against
 the environment you build for: one that is ahead of production describes
 frames production does not send yet.
 
+The generated file starts with the sha256 of the schema it was built from.
+world serves its committed `apps/world/protocol.schema.json` byte for byte,
+so the hash names the campus-server commit. A hash that matches no commit on
+campus-server's `dev` came from an unmerged branch: regenerate before
+committing. The fetch gives up after 10 seconds.
+
+```bash
+git -C <campus-server> show origin/dev:apps/world/protocol.schema.json \
+  | shasum -a 256
+```
+
 ```bash
 # world from the server repo, run with PORT=8001
 NEXT_PUBLIC_WORLD_URL=http://localhost:8001

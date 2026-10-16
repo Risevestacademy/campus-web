@@ -1,3 +1,6 @@
+// From world's protocol.schema.json, sha256 9f519d649caf65231b5d33187f9a91891c4342bfab0c7513242f6b511e90c1a3.
+// Find the campus-server commit: git show <ref>:apps/world/protocol.schema.json | shasum -a 256
+
 export type paths = Record<string, never>;
 export type webhooks = Record<string, never>;
 export interface components {
