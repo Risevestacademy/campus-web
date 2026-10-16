@@ -4,14 +4,16 @@ This directory owns the frontend's contract with `world`, the realtime
 service behind the campus map: who is here and where they stand. `world` is
 the service; `realtime` is this layer.
 
-There is no socket client yet. Today it holds the generated protocol types
-and the parser for inbound frames.
+There is no socket client yet. Today it holds the generated protocol types,
+the parser for inbound frames, and the policy for a closed socket.
 
 ## Interface
 
 ```ts
 import {
+  classifyClose,
   parseServerMessage,
+  reconnectDelay,
   type ClientMessage,
   type ServerMessage,
 } from "@/core/realtime";
@@ -20,9 +22,10 @@ import {
 - `ServerMessage`, `ClientMessage`, one type per message (`WelcomeMessage`,
   `MoveResultMessage`, …), and `Player`, `Avatar`, `Direction`,
   `MoveOutcome`: generated from world's protocol.
-- `parseServerMessage(text)`: one socket frame's text as a `ServerMessage`,
-  or `undefined` for anything else (not JSON, an unknown `type`, a field of
-  the wrong shape).
+- `parseServerMessage(text)`: one socket frame's text as a
+  `ServerMessageResult`; see [Inbound frames](#inbound-frames).
+- `classifyClose({ code, reason })` and `reconnectDelay(attempt, random)`:
+  what to do when the socket closes; see [Close policy](#close-policy).
 
 ## Protocol types
 
@@ -99,11 +102,46 @@ result.
 
 Outbound frames are built from the `ClientMessage` type and need no parser.
 
+## Close policy
+
+`classifyClose({ code, reason })` turns a close event into one
+`CloseAction`, one row per line of the close table in the server repo's
+`docs/world-protocol.md`:
+
+| Close                                                       | `CloseAction`             |
+| ----------------------------------------------------------- | ------------------------- |
+| 1008 `no_token`, `session_revoked`                          | `sign-in`                 |
+| 1008 `token_not_usable`, `session_expired`, `session_ended` | `reconnect-after-refresh` |
+| 1008 `wrong_scope`                                          | `onboarding`              |
+| 1008 `account_suspended`, `account_gone`                    | `sign-out`                |
+| 1008 `not_a_member`                                         | `choose-cohort`           |
+| 1008 `origin_not_allowed`, `no_cohort`                      | `stop`                    |
+| 1008 `rate_limited`                                         | `reconnect`               |
+| 4000, whatever the reason                                   | `entered-elsewhere`       |
+| 1001, 1006, 1009, 1011                                      | `reconnect`               |
+| 1008 with a reason not listed                               | `stop`                    |
+| any other code                                              | `reconnect`               |
+
+- Only a 1008's reason is read, and it must match exactly. Every other code
+  decides alone, so 4000 never reconnects, whatever reason it carries: two
+  tabs that both reconnected would replace each other forever.
+- The codes and reasons in `close-codes.ts` are copied by hand from world's
+  `apps/world/src/socket/`. They are not in the published schema, so no test
+  can pin them to the server. A reason world renames lands on `stop`.
+
+`reconnectDelay(attempt, random)` is the wait before the `attempt`th
+reconnect in a row (from 1), given a `random` in [0, 1) the caller draws. The
+ceiling starts at 1 s and doubles up to 16 s; the delay is half the ceiling
+plus a random share of the other half. Even at the slowest draw, the first
+four attempts start within 15 s, half of world's 30 s grace, so a blip
+resumes where the member stood. No delay is under 500 ms.
+
 ## Tests
 
 ```bash
 pnpm vitest run --project=unit core/realtime
 pnpm eval:privacy
+pnpm eval:realtime
 ```
 
 `contract.typecheck.ts` is checked by `pnpm typecheck`: a message world does

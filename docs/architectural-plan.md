@@ -300,7 +300,10 @@ Next proxy, authenticated by the `campus_session` cookie.
 ```text
 core/realtime/
 ├── README.md                   regenerating, inbound-frame rules, tests
-├── index.ts                    public entry: protocol types, parseServerMessage
+├── index.ts                    public entry: protocol types, parseServerMessage,
+│                               classifyClose, reconnectDelay
+├── close-codes.ts              world's close codes and 1008 reasons, copied
+├── close-policy.ts             classifyClose, reconnectDelay
 ├── configuration.ts            world origin from NEXT_PUBLIC_WORLD_URL
 ├── contract.typecheck.ts       outbound frames the protocol forbids fail tsc
 ├── generate-types.mjs          pnpm world:types: world /schema.json → types
