@@ -14,6 +14,7 @@ acceptance belongs to `invitation`.
 | `AdministrationCatalogue`      | `app/campus/page.tsx`                       |
 | `AdminSidebar`                 | both `app/campus/[id]` layouts              |
 | `CohortAdministrationOverview` | `app/campus/[id]/(administration)/overview` |
+| `FeedbackAdministration`       | `app/campus/[id]/(administration)/feedback` |
 | `CohortTrackAdministration`    | `app/campus/[id]/(administration)/tracks`   |
 | `CohortCatalogue`              | the Cohort create eval                      |
 
@@ -28,6 +29,7 @@ rendering an export.
 | `tracks/`    | Programme Track CRUD                                                                                                | `services/track-api.adapter.ts`                                          |
 | `catalogue/` | the `/campus?view=&page=` switch plus shared pagination and unavailable-state presentation                          | none                                                                     |
 | `overview/`  | the Administration overview's cards; their figures are mock data in `overview-data.ts` until campus-api has stats   | none                                                                     |
+| `feedback/`  | the Feedback & reports page: queue, report table, detail, resolve and reopen; a report's `about` is read as `Who    | Where` (`feedback-about.ts`)                                             | `services/feedback-api.adapter.ts` |
 | root files   | `use-admin-mutation.ts`, `admin-sidebar.tsx`, `cohort-administration-overview.tsx`, `cohort-administration-href.ts` | none                                                                     |
 
 Inside a module: `components/` → `hooks/` → `services/`. `schemas/` parses

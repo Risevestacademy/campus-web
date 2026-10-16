@@ -1,5 +1,6 @@
 "use client";
 
+import { ChatsIcon } from "@phosphor-icons/react/dist/ssr/Chats";
 import { GaugeIcon } from "@phosphor-icons/react/dist/ssr/Gauge";
 import { StackIcon } from "@phosphor-icons/react/dist/ssr/Stack";
 import { cn } from "cn";
@@ -20,6 +21,11 @@ function navigationItems(cohortId: string) {
       href: cohortAdministrationHref(cohortId, "tracks"),
       label: "Programme Tracks",
       Icon: StackIcon,
+    },
+    {
+      href: cohortAdministrationHref(cohortId, "feedback"),
+      label: "Feedback & reports",
+      Icon: ChatsIcon,
     },
   ] as const;
 }
