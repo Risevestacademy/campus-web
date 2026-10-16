@@ -12,16 +12,18 @@ import { CampusWorld } from "./campus-world";
 const mapUrl = "https://cdn.sanity.io/files/sj3zsz66/staging/map.json";
 const transparentPixel =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+const manifestTilesets = mapFixture.tilesets.map(({ image }) => ({
+  tiledImagePath: image,
+  url: `https://cdn.sanity.io/images/sj3zsz66/staging/${image}`,
+}));
+const tilesetUrls = new Set(manifestTilesets.map(({ url }) => url));
 
 const manifest = {
   heightTiles: mapFixture.height,
   isEntry: true,
   mapId: "campus",
   mapUrl,
-  tilesets: mapFixture.tilesets.map(({ image }) => ({
-    tiledImagePath: image,
-    url: transparentPixel,
-  })),
+  tilesets: manifestTilesets,
   version: "storybook-version",
   widthTiles: mapFixture.width,
 };
@@ -29,8 +31,8 @@ const manifest = {
 const storyFetch = (async (input: RequestInfo | URL) => {
   const url = String(input);
 
-  if (url.startsWith("data:image/")) {
-    return globalThis.fetch(input);
+  if (tilesetUrls.has(url)) {
+    return globalThis.fetch(transparentPixel);
   }
 
   return new Response(

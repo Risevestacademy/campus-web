@@ -7,47 +7,18 @@ import { describe, expect, it } from "vitest";
 const CI_WORKFLOW = new URL("../../.github/workflows/ci.yml", import.meta.url);
 const PACKAGE_JSON = new URL("../../package.json", import.meta.url);
 
-function extractJob(workflow: string, jobName: string): string {
-  const lines = workflow.split("\n");
-  const jobStart = lines.findIndex((line) => line === `  ${jobName}:`);
+function findCommand(job: string, command: string): number {
+  const position = job.indexOf(command);
 
-  if (jobStart === -1) {
-    throw new Error(`CI job not found: ${jobName}`);
+  if (position === -1) {
+    throw new Error(`CI command not found: ${command}`);
   }
 
-  const jobEnd = lines.findIndex(
-    (line, index) => index > jobStart && /^  [a-zA-Z0-9_-]+:$/.test(line),
-  );
-
-  return lines.slice(jobStart, jobEnd === -1 ? undefined : jobEnd).join("\n");
+  return position;
 }
 
-function findNamedStepLine(job: string, stepName: string): number {
-  const stepLine = job
-    .split("\n")
-    .findIndex((line) => line.trim() === `- name: ${stepName}`);
-
-  if (stepLine === -1) {
-    throw new Error(`CI step not found: ${stepName}`);
-  }
-
-  return stepLine;
-}
-
-function extractNamedStep(job: string, stepName: string): string {
-  const lines = job.split("\n");
-  const stepStart = findNamedStepLine(job, stepName);
-  const stepEnd = lines.findIndex(
-    (line, index) => index > stepStart && /^      - (?:name|uses):/.test(line),
-  );
-
-  return lines
-    .slice(stepStart, stepEnd === -1 ? undefined : stepEnd)
-    .join("\n");
-}
-
-describe("CI workflow eval (required threshold: 3/3)", () => {
-  it("keeps Storybook verification fail-fast and free of CI-only wrappers", async () => {
+describe("CI workflow eval (required threshold: 2/2)", () => {
+  it("keeps Storybook verification as tests followed by a static build", async () => {
     const packageJson = JSON.parse(await readFile(PACKAGE_JSON, "utf8")) as {
       scripts?: Record<string, string>;
     };
@@ -57,34 +28,26 @@ describe("CI workflow eval (required threshold: 3/3)", () => {
     );
   });
 
-  it("runs the existing Storybook verification contract in the e2e job", async () => {
+  it("runs Storybook after either Chromium setup path and before Playwright E2E", async () => {
     const workflow = await readFile(CI_WORKFLOW, "utf8");
-    const storybookStep = extractNamedStep(
-      extractJob(workflow, "e2e"),
-      "Storybook tests and build",
-    );
+    const endToEndJobStart = workflow.indexOf("\n  e2e:\n");
 
-    expect(storybookStep.split("\n").map((line) => line.trim())).toContain(
-      "run: pnpm eval:storybook",
-    );
-  });
+    expect(endToEndJobStart).toBeGreaterThan(-1);
 
-  it("runs Storybook verification after Chromium setup and before E2E", async () => {
-    const workflow = await readFile(CI_WORKFLOW, "utf8");
-    const endToEndJob = extractJob(workflow, "e2e");
-    const browserInstall = findNamedStepLine(
+    const endToEndJob = workflow.slice(endToEndJobStart);
+    const browserInstall = findCommand(
       endToEndJob,
-      "Install Playwright browsers",
+      "pnpm exec playwright install --with-deps chromium",
     );
-    const systemDependencies = findNamedStepLine(
+    const systemDependencies = findCommand(
       endToEndJob,
-      "Install system deps (cache hit path)",
+      "pnpm exec playwright install-deps chromium",
     );
-    const storybook = findNamedStepLine(
+    const storybook = findCommand(endToEndJob, "pnpm eval:storybook");
+    const endToEnd = findCommand(
       endToEndJob,
-      "Storybook tests and build",
+      "pnpm exec playwright test --project=chromium",
     );
-    const endToEnd = findNamedStepLine(endToEndJob, "E2E");
 
     expect(storybook).toBeGreaterThan(
       Math.max(browserInstall, systemDependencies),

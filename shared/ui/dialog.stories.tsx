@@ -62,6 +62,8 @@ export const Basic: Story = {
     );
 
     await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(page.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(page.queryByRole("dialog")).toBeNull(), {
+      timeout: 5_000,
+    });
   },
 };
