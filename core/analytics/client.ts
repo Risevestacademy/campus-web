@@ -1,11 +1,18 @@
 import type { PostHog } from "posthog-js";
 
 import { readAnalyticsConfiguration } from "./configuration";
-import type {
-  AnalyticsEventMap,
-  AnalyticsEventName,
-  AnalyticsIdentity,
+import { errorName } from "./error-name";
+import {
+  allowAnalyticsIdentity,
+  allowAnalyticsProperties,
+  type AnalyticsEventMap,
+  type AnalyticsEventName,
+  type AnalyticsIdentity,
 } from "./events";
+
+// Invite links and returnTo values carry tokens and paths. Masking covers the
+// first URL PostHog persists at init, which runs before before_send.
+const PERSONAL_DATA_URL_PARAMS = ["token", "returnTo", "code", "state"];
 
 let browserAnalytics: Promise<PostHog | null> | null = null;
 
@@ -17,19 +24,28 @@ async function loadBrowserAnalytics(): Promise<PostHog | null> {
   }
 
   try {
-    const { default: posthog } = await import("posthog-js");
+    const [{ default: posthog }, { scrubAnalyticsEvent }] = await Promise.all([
+      import("posthog-js"),
+      import("./scrub"),
+    ]);
     posthog.init(configuration.projectToken, {
       api_host: configuration.host,
       autocapture: false,
+      before_send: scrubAnalyticsEvent,
+      capture_dead_clicks: false,
+      capture_exceptions: false,
+      capture_heatmaps: false,
       capture_pageleave: false,
       capture_pageview: "history_change",
+      custom_personal_data_properties: PERSONAL_DATA_URL_PARAMS,
       defaults: "2026-01-30",
       disable_session_recording: true,
+      mask_personal_data_properties: true,
       person_profiles: "identified_only",
     });
     return posthog;
   } catch (error) {
-    console.error("PostHog browser initialization failed.", error);
+    console.error("PostHog browser initialization failed.", errorName(error));
     return null;
   }
 }
@@ -53,7 +69,7 @@ function withBrowserAnalytics(
     try {
       operation(posthog);
     } catch (error) {
-      console.error(failureMessage, error);
+      console.error(failureMessage, errorName(error));
     }
   });
 }
@@ -61,8 +77,11 @@ function withBrowserAnalytics(
 export function captureBrowserAnalyticsEvent<
   EventName extends AnalyticsEventName,
 >(eventName: EventName, properties: AnalyticsEventMap[EventName]): void {
+  const allowed = allowAnalyticsProperties(eventName, properties);
+  if (!allowed) return;
+
   withBrowserAnalytics("PostHog browser event capture failed.", (posthog) =>
-    posthog.capture(eventName, properties),
+    posthog.capture(eventName, allowed),
   );
 }
 
@@ -71,19 +90,15 @@ export function identifyAnalyticsUser(identity: AnalyticsIdentity): void {
     return;
   }
 
-  const distinctId = identity.id.trim();
-
-  if (!distinctId) {
-    console.error("PostHog user identification skipped: distinct ID is empty.");
-    return;
-  }
+  const allowed = allowAnalyticsIdentity(identity);
+  if (!allowed) return;
 
   withBrowserAnalytics("PostHog browser identification failed.", (posthog) =>
-    posthog.identify(distinctId, {
-      account_status: identity.accountStatus,
-      cohort_id: identity.cohortId,
-      role: identity.role,
-      track_id: identity.trackId,
+    posthog.identify(allowed.id, {
+      account_status: allowed.accountStatus,
+      cohort_id: allowed.cohortId,
+      role: allowed.role,
+      track_id: allowed.trackId,
     }),
   );
 }

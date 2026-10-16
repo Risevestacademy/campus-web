@@ -367,6 +367,7 @@ describe("SessionRenewalTimer: ended session", () => {
 });
 
 const SHARED_EXPIRY_KEY = "campus.session-expires-at";
+const FAR_FUTURE = Date.parse("2099-01-01T00:00:00.000Z");
 
 function stubWebLocks() {
   Object.defineProperty(navigator, "locks", {
@@ -451,14 +452,35 @@ describe("SessionRenewalTimer: other tabs", () => {
     );
   });
 
-  it("starts from a later expiry another tab already shared", async () => {
-    localStorage.setItem(SHARED_EXPIRY_KEY, String(NOW + 20 * MINUTE));
-    refreshReplies(refreshedUntil(at(35 * MINUTE)));
+  it("ignores a stored expiry further ahead than an access token lives", async () => {
+    localStorage.setItem(SHARED_EXPIRY_KEY, String(FAR_FUTURE));
+    refreshReplies(refreshedUntil(at(28 * MINUTE)));
     renderRenewal(at(15 * MINUTE));
 
-    await elapse(20 * MINUTE);
+    await elapse(14 * MINUTE);
 
-    expect(refreshOffsets()).toEqual([18 * MINUTE]);
+    expect(refreshOffsets()).toEqual([13 * MINUTE]);
+  });
+
+  it("still renews when a far-future expiry appears in storage before it is due", async () => {
+    refreshReplies(refreshedUntil(at(28 * MINUTE)));
+    renderRenewal(at(15 * MINUTE));
+    await elapse(12 * MINUTE);
+
+    localStorage.setItem(SHARED_EXPIRY_KEY, String(FAR_FUTURE));
+    await elapse(2 * MINUTE);
+
+    expect(refreshOffsets()).toEqual([13 * MINUTE]);
+  });
+
+  it("starts from a later expiry another tab already shared", async () => {
+    localStorage.setItem(SHARED_EXPIRY_KEY, String(NOW + 14 * MINUTE));
+    refreshReplies(refreshedUntil(at(26 * MINUTE)));
+    renderRenewal(at(5 * MINUTE));
+
+    await elapse(13 * MINUTE);
+
+    expect(refreshOffsets()).toEqual([12 * MINUTE]);
   });
 });
 

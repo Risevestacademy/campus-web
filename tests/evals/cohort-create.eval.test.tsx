@@ -91,6 +91,7 @@ async function observeCreate(
   reply: Reply,
   input: NewCohortInput,
   page: number,
+  disabled: string[],
 ): Promise<string> {
   mockApi.server.use(
     http.get(LIST_URL, json(listPage(page), 200)),
@@ -98,13 +99,16 @@ async function observeCreate(
   );
   render(
     <>
-      {withQueryClient(await CohortCatalogue({ page: String(page) }))}
+      {withQueryClient(await CohortCatalogue({ page }))}
       <Toaster />
     </>,
   );
-  await openCreateCohort();
+  const dialog = await openCreateCohort();
 
   fillNewCohort(input);
+  for (const label of disabled) {
+    dialog.getByLabelText(label).setAttribute("disabled", "");
+  }
   submitNewCohort();
   submitNewCohort();
 
@@ -155,6 +159,7 @@ interface Expectation {
   expected: string;
   input?: NewCohortInput;
   page?: number;
+  disabled?: string[];
 }
 
 const OUTAGE =
@@ -213,14 +218,22 @@ const ANSWERS: Expectation[] = [
     input: { ...VALID, startDate: "2026-09-02", endDate: "2026-09-01" },
     expected: "errors: End date must be on or after the start date. (0 POST)",
   },
+  {
+    name: "name input disabled",
+    reply: created,
+    disabled: ["Name"],
+    expected: "errors: Enter a cohort name. (0 POST)",
+  },
 ];
 
 // One test per answer: each gets its own time budget and names itself on failure.
 describe("Cohort create eval (threshold: 0 mismatched outcomes, at most 1 POST per double-click, 0 POSTs for invalid input)", () => {
   it.each(ANSWERS)(
     "$name",
-    async ({ reply, expected, input = VALID, page = 1 }) => {
-      await expect(observeCreate(reply, input, page)).resolves.toBe(expected);
+    async ({ reply, expected, input = VALID, page = 1, disabled = [] }) => {
+      await expect(observeCreate(reply, input, page, disabled)).resolves.toBe(
+        expected,
+      );
     },
   );
 });

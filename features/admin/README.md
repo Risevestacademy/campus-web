@@ -40,7 +40,9 @@ form and response data; `types/` holds outcomes. Server Components read with
 
 1. Outcome type in `types/`: `({ kind: "loaded" } & Data) | { kind: "unavailable" }`.
 2. Adapter in `services/` taking `ApiClient`; parse with a `schemas/`
-   function. A throw or a bad body is `unavailable`.
+   function. A throw or a bad body is `unavailable`. Bind the response schema
+   with `z.toZod` to a `Simplify<Pick<Dto, …>>` type; take enums and
+   pagination meta from `@/core/api/schemas`.
 3. Call it from a Server Component.
 
 ### Adding a mutation
@@ -59,6 +61,10 @@ form and response data; `types/` holds outcomes. Server Components read with
 
 1. Page in `app/campus/[id]/(administration)/<page>/`; it calls
    `requireRouteAccess({ kind: "system-admin" })` itself.
+   The page passes `?page=` as text to the one feature component it renders,
+   which parses it once with `parsePageNumber` from
+   `@/shared/lib/search-params` and passes the `number` down; catalogues
+   never take URL text.
 2. Add `<page>` to `CohortAdministrationPage` in
    `cohort-administration-href.ts` and a link in `admin-sidebar.tsx`.
 3. Follow "Protecting a new page" in `features/auth/README.md`;

@@ -1,27 +1,13 @@
 import { cn } from "cn";
 
 import { GoogleSVG } from "@/assets/svgs/google";
-import { parseReturnTo, redirectSignedInVisitor } from "@/features/auth";
+import {
+  authErrorMessage,
+  parseReturnTo,
+  redirectSignedInVisitor,
+} from "@/features/auth";
 import { firstSearchParameter } from "@/shared/lib/search-params";
 import { buttonVariants } from "@/shared/ui/button";
-
-const AUTH_ERROR_MESSAGES: Readonly<Record<string, string>> = {
-  account_suspended: "This account is currently suspended.",
-  denied: "Google sign-in was cancelled.",
-  exchange_failed: "Google sign-in could not be completed. Please try again.",
-  expired_state: "Your sign-in attempt expired. Please try again.",
-  incomplete_profile: "Your Google profile is missing required information.",
-  invalid_request: "The sign-in request was invalid. Please try again.",
-  invalid_state:
-    "Your sign-in attempt could not be verified. Please try again.",
-  invite_required: "You need an invitation to access Campus.",
-  missing_code: "Google did not return a sign-in code. Please try again.",
-  rate_limited: "Too many sign-in attempts. Please wait and try again.",
-  server_error: "Sign-in is temporarily unavailable. Please try again.",
-  unverified_email: "Verify your Google email address before signing in.",
-};
-
-const UNKNOWN_AUTH_ERROR = "Sign-in could not be completed. Please try again.";
 
 interface SignInPageProps {
   searchParams: Promise<{
@@ -42,10 +28,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const returnTo = firstSearchParameter(query.returnTo);
   await redirectSignedInVisitor(returnTo);
 
-  const errorCode = firstSearchParameter(query.error);
-  const errorMessage = errorCode
-    ? (AUTH_ERROR_MESSAGES[errorCode] ?? UNKNOWN_AUTH_ERROR)
-    : undefined;
+  const errorMessage = authErrorMessage(firstSearchParameter(query.error));
   const googleAuthHref = createGoogleAuthHref(parseReturnTo(returnTo));
 
   return (

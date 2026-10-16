@@ -9,6 +9,7 @@ import {
   type WorldMapManifest,
 } from "campus-world-map";
 
+import { parseCampusTiledMap } from "../../schemas/campus-map.schema";
 import { CampusMapError } from "./campus-map-error";
 import {
   type LayerBands,
@@ -43,18 +44,70 @@ export interface LoadedCampusMap {
   tilesets: TilesetFrameTable[];
 }
 
-interface LoadCampusMapDependencies {
+interface SanitySource {
   dataset: string;
+  projectId: string;
+}
+
+interface LoadCampusMapDependencies extends SanitySource {
   fetch: typeof fetch;
   onStageChange?: (stage: "manifest" | "map") => void;
-  projectId: string;
   signal?: AbortSignal;
 }
 
+const SANITY_CDN_ORIGIN = "https://cdn.sanity.io";
+const SANITY_ASSET_KINDS = ["files", "images"] as const;
+
 export function sanityMapOrigins(projectId: string | undefined): string[] {
   return projectId
-    ? [`https://${projectId}.api.sanity.io`, "https://cdn.sanity.io"]
+    ? [`https://${projectId}.api.sanity.io`, SANITY_CDN_ORIGIN]
     : [];
+}
+
+function isDatasetAsset(
+  url: string,
+  { dataset, projectId }: SanitySource,
+): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  return (
+    parsed.origin === SANITY_CDN_ORIGIN &&
+    SANITY_ASSET_KINDS.some((kind) =>
+      parsed.pathname.startsWith(`/${kind}/${projectId}/${dataset}/`),
+    )
+  );
+}
+
+function assertDatasetAssets(
+  manifest: WorldMapManifest,
+  source: SanitySource,
+): void {
+  const urls = [manifest.mapUrl, ...manifest.tilesets.map(({ url }) => url)];
+
+  if (!urls.every((url) => isDatasetAsset(url, source))) {
+    throw new CampusMapError(
+      "manifest",
+      "The published campus map links to assets outside its dataset.",
+    );
+  }
+}
+
+function readCampusTiledMap(value: unknown): CampusTiledMap {
+  const map = parseCampusTiledMap(value);
+
+  if (!map) {
+    throw new CampusMapError(
+      "layout",
+      "The published campus map has tile data the renderer cannot draw.",
+    );
+  }
+
+  return map;
 }
 
 function checkedFetch(
@@ -134,9 +187,14 @@ export async function loadCampusMap(
     dependencies.onStageChange?.("manifest");
     const manifest = await loadManifest(source, dependencies, fetch);
     mapId = manifest.mapId;
+    assertDatasetAssets(manifest, dependencies);
     dependencies.onStageChange?.("map");
-    const map = await loadPublishedMap<CampusTiledMap>(manifest, { fetch });
-    const layout = readMapLayout(map);
+    const published = await loadPublishedMap(manifest, { fetch });
+    const map = readCampusTiledMap(published);
+    // The parsed map drops object layers; readMapLayout validates those itself.
+    const layout = readMapLayout(
+      published as Parameters<typeof readMapLayout>[0],
+    );
 
     return {
       bands: splitLayerBands(map),

@@ -7,6 +7,7 @@ describe("parseAdministrationQuery", () => {
     [undefined, undefined, { view: "cohorts", page: 1 }],
     ["cohorts", "2", { view: "cohorts", page: 2 }],
     ["tracks", "3", { view: "tracks", page: 3 }],
+    ["tracks", undefined, { view: "tracks", page: 1 }],
   ])("accepts %j/%j", (view, page, expected) => {
     expect(parseAdministrationQuery(view, page)).toEqual(expected);
   });

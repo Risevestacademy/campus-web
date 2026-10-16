@@ -37,8 +37,26 @@ transactional outbox instead of best-effort PostHog delivery.
 ## Collection policy
 
 The initial configuration captures pageviews and explicitly declared events.
-Autocapture, page-leave capture, and session replay are disabled. Person
-profiles are created only for identified users.
+Autocapture, page-leave capture, session replay, heatmaps, dead-click and
+exception capture are disabled. Person profiles are created only for
+identified users.
+
+Every event passes three privacy layers:
+
+1. `analyticsEventSchemas` in `events.ts` is the allow-list. Each event is a
+   `z.object` of enums, numbers, opaque IDs and short labels; capture strips
+   any undeclared key and drops an event that fails, logging only issue codes
+   and paths, never values. The distinct ID and identity are checked the same
+   way, so an email can never become a distinct ID.
+2. `before_send` runs `scrubAnalyticsEvent` (`scrub.ts`), which removes the
+   query string and hash from every URL-shaped property, keeping only `page`
+   and `view`.
+3. `mask_personal_data_properties` with `token`, `returnTo`, `code` and
+   `state` covers the first URL PostHog stores at init, before `before_send`
+   runs.
+
+Adding an event or property means adding it to `analyticsEventSchemas` and to
+the allow-list in `tests/evals/data-privacy.eval.test.ts`.
 
 An absent `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` disables browser and server
 analytics during local development. CI and Vercel builds require both
@@ -133,7 +151,7 @@ Verify that:
 
 ## Verification
 
-Run the unit tests and contract evaluation, then use a normal browser with
+Run the unit tests, the contract evaluation and `pnpm eval:privacy`, then use a normal browser with
 the non-production project token configured. Confirm:
 
 1. One initial `$pageview` appears.
@@ -143,3 +161,5 @@ the non-production project token configured. Confirm:
 5. Identifying and resetting a test account does not leak identity to the
    next anonymous session.
 6. A protected build fails when either analytics variable is missing.
+7. Opening an invite link produces a `$pageview` whose `$current_url` holds no
+   `token`.

@@ -37,18 +37,18 @@ access.session;
 
 ## Modules
 
-| Module                              | Owns                                                       | Seam                                           |
-| ----------------------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
-| `services/route-policy.ts`          | the policy above, as pure functions                        | none: shared by the proxy and `authorizeRoute` |
-| `services/authorization.service.ts` | one `cache()`d session read per request, request signals   | `getServerApi()`                               |
-| `services/session.service.ts`       | `/v1/auth/me` with retries, refresh POST, logout POST      | `ApiClient`                                    |
-| `services/campus-proxy.service.ts`  | session refresh redirects and trusted render headers       | `NextRequest`                                  |
-| `services/session-renewal.ts`       | Session Renewal: when to renew, retries, cross-tab skips   | ports: refresh, lock, shared expiry, wake      |
-| `services/browser-session.ts`       | browser adapters for those ports; the refresh singletons   | `browserApi`, Web Locks, `localStorage`        |
-| `services/refresh-cooldown.ts`      | the 1/2/4/8 s backoff, stretched by `Retry-After`          | none                                           |
-| `schemas/`                          | session parsing; return-destination rules (`return-to.ts`) | none                                           |
-| `components/`                       | gates, `SessionRenewal`, refresh page, account menu        | none                                           |
-| `hooks/`                            | refresh, renewal and logout; countdown                     | `browserApi`, shared `useMountEffect`          |
+| Module                              | Owns                                                          | Seam                                           |
+| ----------------------------------- | ------------------------------------------------------------- | ---------------------------------------------- |
+| `services/route-policy.ts`          | the policy above, as pure functions                           | none: shared by the proxy and `authorizeRoute` |
+| `services/authorization.service.ts` | one `cache()`d session read per request, request signals      | `getServerApi()`                               |
+| `services/session.service.ts`       | `/v1/auth/me` with retries, refresh POST, logout POST         | `ApiClient`                                    |
+| `services/campus-proxy.service.ts`  | session refresh redirects and trusted render headers          | `NextRequest`                                  |
+| `services/session-renewal.ts`       | Session Renewal: when to renew, retries, cross-tab skips      | ports: refresh, lock, shared expiry, wake      |
+| `services/browser-session.ts`       | browser adapters for those ports; the refresh singletons      | `browserApi`, Web Locks, `localStorage`        |
+| `services/refresh-cooldown.ts`      | the 1/2/4/8 s backoff, stretched by `Retry-After`             | none                                           |
+| `schemas/`                          | session parsing; return-destination rules; sign-in error copy | none                                           |
+| `components/`                       | gates, `SessionRenewal`, refresh page, account menu           | none                                           |
+| `hooks/`                            | refresh, renewal and logout; countdown                        | `browserApi`, shared `useMountEffect`          |
 
 Flow: page → gate or `requireRouteAccess` → `authorizeRoute` →
 `route-policy` + `session.service`.
@@ -57,7 +57,8 @@ Session Renewal: the cohort layout's `SessionRenewal` (server) seeds
 `SessionRenewalTimer` (client) with the cached session's `expiresAt`; its hook
 starts `createSessionRenewal`, which POSTs the refresh at
 `expiresAt − min(2 min, remaining / 4)` under the `campus-session-renewal` Web
-Lock, skips when another tab already renewed (`localStorage`), and re-checks on
+Lock, skips when another tab already renewed (`localStorage`, ignored when more
+than one 15-minute access-token lifetime ahead), and re-checks on
 `visibilitychange`, `focus`, `online` and `pageshow`. It never navigates, so
 the Presence Session keeps running. `/session/refresh` remains the cold-load
 path: a reload, a new tab, or a wake after the access cookie already lapsed.
@@ -111,6 +112,12 @@ layout and its page in parallel, and keeps layouts across soft navigation.
 ### Rules
 
 - An outage is never "signed out"; malformed sessions count as outages.
+- `Session` holds only the fields routes and screens read. `session.schema.ts`
+  strips the rest of `/v1/auth/me`; widen it there, and in
+  `tests/evals/data-privacy.eval.test.ts`, never by casting the raw body.
+- A `?error=` code is looked up through its Zod enum, so an unknown code
+  (including a prototype key) gets the generic message and is never echoed.
+- Invite return destinations (`/invitation`, `/preview`) keep no query string.
 - The proxy checks cookies only and never calls the backend, not even to
   refresh (see "What the proxy is for"); `eval:session-renewal` enforces it.
   Session Renewal keeps the access cookie alive in the browser instead.
@@ -159,6 +166,7 @@ layout and its page in parallel, and keeps layouts across soft navigation.
 pnpm vitest run --project unit features/auth ./proxy.test.ts
 pnpm eval:route-protection
 pnpm eval:session-renewal
+pnpm eval:privacy
 pnpm eval:architecture
 pnpm build && pnpm playwright test tests/e2e/authorization.spec.ts tests/e2e/pre-join-media.spec.ts
 ```

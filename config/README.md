@@ -3,6 +3,8 @@
 Repository-level configuration and deterministic build validation belong here.
 
 - `architecture-boundaries.json` defines allowed dependency directions.
+- `zod-restrictions.json` lists the Zod calls lint bans; see
+  `core/api/schemas/README.md`.
 - `environment/public.ts` is the only browser-safe environment access layer.
 - `environment/build.ts` assembles values used during CI and Vercel builds.
 - `environment/validation.ts` validates protected builds.

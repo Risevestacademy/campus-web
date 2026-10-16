@@ -112,6 +112,12 @@ export function createSystemGateway(api: ApiClient): SystemGateway {
 OpenAPI generation makes unpublished paths and invalid request bodies fail
 TypeScript compilation.
 
+Generated types describe what campus-api promises, not what arrives. A gateway
+that returns more than a status parses the body with a feature schema that
+strips to the fields it reads, binding it to the DTO with `z.toZod`. Shared
+vocabulary (roles, statuses, pagination meta, the error envelope) lives in
+`core/api/schemas`; see its README.
+
 ## Browser queries
 
 Browser code injects `browserApi`. Its relative `/api` base URL
@@ -236,6 +242,14 @@ redirects to the stored Campus destination or `/campus`. Backend invitation, sig
 error, and unexpected destinations remain unchanged. The return cookie is
 cleared on every callback response.
 
+A sign-in can also spend frontend cookies the proxy never reads. The optional
+`cookiesSpentBySignIn` option lists them as `{ name, path }`, and the route
+passes `INVITE_TOKEN_COOKIE_SCOPE` from `@/features/invitation`. When the
+callback starts a session (the backend sets a non-empty `campus_session`), the
+proxy expires each one on its own path with the same `HttpOnly`, `SameSite`,
+and `Secure` attributes. A failed sign-in or an unreachable backend leaves
+them, so the user can retry.
+
 For local OAuth verification, run campus-api on a different port from Next.js:
 
 ```text
@@ -291,6 +305,7 @@ Ownership is split so each concern has exactly one home:
 | Reading the session (`GET /v1/auth/me`), retries, route decisions                  | `features/auth` (`authorizeRoute`, server-only)                      |
 | Refreshing the session (`POST /v1/auth/refresh`)                                   | `features/auth` refresh page, through `browserApi`                   |
 | Which return destinations are safe                                                 | `features/auth` (`parseReturnTo`), injected into the proxy           |
+| Which cookies a sign-in spends                                                     | each feature (`INVITE_TOKEN_COOKIE_SCOPE`), injected into the proxy  |
 
 Rules:
 

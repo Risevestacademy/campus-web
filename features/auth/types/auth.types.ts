@@ -1,8 +1,24 @@
 import type { Route } from "next";
 
 import type { components } from "@/core/api/client";
+import type { Simplify } from "@/core/api/schemas";
 
-export type Session = components["schemas"]["SessionResponseDto"];
+type Schemas = components["schemas"];
+
+// Only the fields routes and screens read; everything else stays out of the
+// render tree.
+export type Session = Simplify<
+  Pick<Schemas["SessionResponseDto"], "scope" | "expiresAt" | "inviteId"> & {
+    user: Pick<
+      Schemas["SessionUserDto"],
+      "email" | "displayName" | "systemRole"
+    >;
+    memberships: Pick<
+      Schemas["SessionCohortPlaceDto"],
+      "cohortId" | "cohort"
+    >[];
+  }
+>;
 
 export type InvitationPath = "/invitation" | "/preview";
 

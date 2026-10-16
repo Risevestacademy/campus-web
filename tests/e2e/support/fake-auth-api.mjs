@@ -119,6 +119,16 @@ function replyToLogout(response) {
   response.end();
 }
 
+// Google sign-in always succeeds and, like campus-api with an invite still
+// to answer, sends the browser back to /invitation.
+function replyToGoogleCallback(response) {
+  response.writeHead(302, {
+    location: "/invitation",
+    "set-cookie": "campus_session=session-token; Path=/; HttpOnly",
+  });
+  response.end();
+}
+
 function replyToSession(request, response) {
   if (!sessionReply || !hasSessionCookie(request)) {
     sendJson(response, 401, { error: { code: "UNAUTHENTICATED" } });
@@ -237,6 +247,11 @@ const server = createServer(async (request, response) => {
 
   if (request.method === "POST" && path === "/v1/auth/logout") {
     replyToLogout(response);
+    return;
+  }
+
+  if (request.method === "GET" && path === "/v1/auth/google/callback") {
+    replyToGoogleCallback(response);
     return;
   }
 

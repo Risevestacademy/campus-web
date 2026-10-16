@@ -1,12 +1,16 @@
+import type { components } from "@/core/api/client";
+import type { Simplify } from "@/core/api/schemas";
+
 import type { TrackSummary } from "../../tracks/types/track.types";
 
-export interface CohortTrackAssociation {
-  id: string;
-  track: TrackSummary;
-}
+type Schemas = components["schemas"];
+
+export type CohortTrackAssociation = Simplify<
+  Pick<Schemas["CohortTrackResponseDto"], "id"> & { track: TrackSummary }
+>;
 
 export interface CohortTrackCollection {
-  cohort: { id: string; name: string; code: string };
+  cohort: Pick<Schemas["CohortDetailResponseDto"], "id" | "name" | "code">;
   tracks: CohortTrackAssociation[];
 }
 

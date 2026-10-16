@@ -168,15 +168,49 @@ const systemAdministrator = {
   kind: "system-admin",
 } as unknown as RouteAuthorizationRequest;
 
+type CohortPlace = typeof COHORT_A;
+
 function fullAccess(
   systemRole: "user" | "admin" | "super_admin",
-  memberships: readonly object[],
+  memberships: readonly CohortPlace[],
 ) {
   return {
     ...fullAccessSession,
     user: { ...fullAccessSession.user, systemRole },
     membership: null,
     memberships,
+  };
+}
+
+interface SessionReply {
+  scope: string;
+  expiresAt: string;
+  inviteId: string | null;
+  user: { email: string; displayName: string | null; systemRole: string };
+  memberships: readonly CohortPlace[];
+}
+
+// What the session parser keeps of a backend reply.
+function seenByRoutes({
+  scope,
+  expiresAt,
+  inviteId,
+  user,
+  memberships,
+}: SessionReply) {
+  return {
+    scope,
+    expiresAt,
+    inviteId,
+    user: {
+      email: user.email,
+      displayName: user.displayName,
+      systemRole: user.systemRole,
+    },
+    memberships: memberships.map(({ cohortId, cohort }) => ({
+      cohortId,
+      cohort,
+    })),
   };
 }
 
@@ -207,12 +241,12 @@ afterAll(() => {
 });
 
 describe("authorizeRoute: signed-in sessions", () => {
-  it("allows a full-access session and returns every session field", async () => {
+  it("allows a full-access session with only the fields routes and screens read", async () => {
     backendReplies(ok(fullAccessSession));
 
     await expect(authorize()).resolves.toEqual({
       kind: "allow",
-      session: fullAccessSession,
+      session: seenByRoutes(fullAccessSession),
     });
   });
 
@@ -485,7 +519,7 @@ describe("authorizeRoute: campus index membership routing", () => {
 
     await expect(authorize(campusIndex)).resolves.toEqual({
       kind: "allow",
-      session,
+      session: seenByRoutes(session),
     });
   });
 
@@ -538,7 +572,7 @@ describe("authorizeRoute: campus index membership routing", () => {
 
       await expect(authorize(campusIndex)).resolves.toEqual({
         kind: "allow",
-        session,
+        session: seenByRoutes(session),
       });
     },
   );
@@ -549,7 +583,7 @@ describe("authorizeRoute: campus index membership routing", () => {
 
     await expect(authorize(campusIndex)).resolves.toEqual({
       kind: "allow",
-      session,
+      session: seenByRoutes(session),
     });
   });
 });
@@ -561,7 +595,7 @@ describe("authorizeRoute: cohort membership", () => {
 
     await expect(authorize(cohort(COHORT_B.cohortId))).resolves.toEqual({
       kind: "allow",
-      session,
+      session: seenByRoutes(session),
     });
   });
 
@@ -589,7 +623,7 @@ describe("authorizeRoute: cohort membership", () => {
 
       await expect(authorize(cohort("any-cohort"))).resolves.toEqual({
         kind: "allow",
-        session,
+        session: seenByRoutes(session),
       });
     },
   );
@@ -647,7 +681,7 @@ describe("authorizeRoute: System Administrator routes", () => {
 
       await expect(authorize(systemAdministrator)).resolves.toEqual({
         kind: "allow",
-        session,
+        session: seenByRoutes(session),
       });
     },
   );
@@ -665,7 +699,7 @@ describe("authorizeRoute: invitation routes", () => {
 
     await expect(authorize(preview)).resolves.toEqual({
       kind: "allow",
-      session: provisionalSession,
+      session: seenByRoutes(provisionalSession),
     });
   });
 
@@ -674,7 +708,7 @@ describe("authorizeRoute: invitation routes", () => {
 
     await expect(authorize(preview)).resolves.toEqual({
       kind: "allow",
-      session: invitedFullAccess,
+      session: seenByRoutes(invitedFullAccess),
     });
   });
 
@@ -861,7 +895,7 @@ describe("requireRouteAccess", () => {
 
     await expect(settle(requireRouteAccess(ownCohort))).resolves.toEqual({
       kind: "allow",
-      session: fullAccessSession,
+      session: seenByRoutes(fullAccessSession),
     });
   });
 

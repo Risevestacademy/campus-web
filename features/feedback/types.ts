@@ -1,4 +1,11 @@
-export type FeedbackKind = "bug" | "idea" | "report";
+import type { z } from "zod";
+
+import type {
+  feedbackKindSchema,
+  feedbackSchema,
+} from "./schemas/feedback.schema";
+
+export type FeedbackKind = z.output<typeof feedbackKindSchema>;
 
 export interface FeedbackItem {
   id: string;
@@ -9,10 +16,4 @@ export interface FeedbackItem {
   submittedLabel: string;
 }
 
-export interface NewFeedback {
-  kind: FeedbackKind;
-  title: string;
-  details: string;
-  location: string;
-  includeDeviceInfo: boolean;
-}
+export type NewFeedback = z.output<typeof feedbackSchema>;

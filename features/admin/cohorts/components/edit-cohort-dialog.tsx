@@ -43,6 +43,7 @@ export function EditCohortDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const [errors, setErrors] = useState<CohortFieldErrors>({});
+  const [formError, setFormError] = useState<string>();
   const [unchanged, setUnchanged] = useState(false);
   const editing = useEditCohort({
     cohort,
@@ -54,6 +55,7 @@ export function EditCohortDialog({
     if (!next) {
       editing.reset();
       setErrors({});
+      setFormError(undefined);
       setUnchanged(false);
     }
     onOpenChange(next);
@@ -62,8 +64,9 @@ export function EditCohortDialog({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const read = parseCohortEdit(new FormData(event.currentTarget), cohort);
+    const read = parseCohortEdit(cohort, new FormData(event.currentTarget));
     setErrors(read.kind === "invalid" ? read.errors : {});
+    setFormError(read.kind === "invalid" ? read.formError : undefined);
     setUnchanged(read.kind === "unchanged");
     if (read.kind === "valid") {
       editing.edit(read.changes);
@@ -77,9 +80,9 @@ export function EditCohortDialog({
     (editing.problem === "conflict"
       ? "Another Cohort already uses this code."
       : undefined);
-  const problemMessage = editing.problem
-    ? PROBLEM_MESSAGES[editing.problem]
-    : undefined;
+  const alertMessage =
+    formError ??
+    (editing.problem ? PROBLEM_MESSAGES[editing.problem] : undefined);
 
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
@@ -91,9 +94,9 @@ export function EditCohortDialog({
           </DialogDescription>
         </DialogHeader>
         <form noValidate onSubmit={submit} className="grid gap-6">
-          {problemMessage ? (
+          {alertMessage ? (
             <p role="alert" className="text-destructive text-sm">
-              {problemMessage}
+              {alertMessage}
             </p>
           ) : null}
           {unchanged ? (

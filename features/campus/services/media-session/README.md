@@ -53,6 +53,9 @@ coexists with `camera`; it does not replace it.
 
 - Every Presence Session starts with camera and microphone off; capture
   intent is never persisted, only device IDs.
+- Stored device IDs are untrusted: `media-device-preferences.ts` reads them
+  with `parseJson` and falls back to the defaults. A new stored field gets a
+  schema entry before anything reads it.
 - Nothing reaches the transport before `connect`.
 - Turning a source off stops and removes its track and publication.
 - Input replacement keeps the current track until the new one succeeds.

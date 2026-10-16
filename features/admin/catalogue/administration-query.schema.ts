@@ -1,23 +1,22 @@
-export type AdministrationView = "cohorts" | "tracks";
-export interface AdministrationQuery {
-  view: AdministrationView;
-  page: number;
-}
+import { z } from "zod";
 
-const POSITIVE_INTEGER = /^[1-9]\d*$/;
+import { FIRST_PAGE, pageNumberSchema } from "@/shared/lib/search-params";
+
+const DEFAULT_QUERY = { view: "cohorts", page: FIRST_PAGE } as const;
+
+// One bad parameter resets both, so a broken link never lands mid-way into Tracks.
+const administrationQuerySchema = z
+  .object({
+    view: z.enum(["cohorts", "tracks"]).default(DEFAULT_QUERY.view),
+    page: pageNumberSchema.default(FIRST_PAGE),
+  })
+  .catch(DEFAULT_QUERY);
+
+export type AdministrationQuery = z.output<typeof administrationQuerySchema>;
 
 export function parseAdministrationQuery(
   view: string | undefined,
   page: string | undefined,
 ): AdministrationQuery {
-  if (
-    (view !== undefined && view !== "cohorts" && view !== "tracks") ||
-    (page !== undefined && !POSITIVE_INTEGER.test(page))
-  ) {
-    return { view: "cohorts", page: 1 };
-  }
-  const parsedPage = page === undefined ? 1 : Number(page);
-  return Number.isSafeInteger(parsedPage)
-    ? { view: view === "tracks" ? "tracks" : "cohorts", page: parsedPage }
-    : { view: "cohorts", page: 1 };
+  return administrationQuerySchema.parse({ view, page });
 }

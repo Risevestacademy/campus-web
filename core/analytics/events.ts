@@ -1,3 +1,7 @@
+import { z } from "zod";
+
+import { cohortRoleSchema, systemRoleSchema } from "../api/schemas";
+
 export const ANALYTICS_EVENTS = {
   AUTH_LOGIN_FAILED: "auth.login_failed",
   AUTH_LOGIN_SUBMITTED: "auth.login_submitted",
@@ -24,120 +28,205 @@ export const ANALYTICS_EVENTS = {
 export type AnalyticsEventName =
   (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
 
-export type AnalyticsIdentity = Readonly<{
-  accountStatus?: string;
-  cohortId?: string;
-  id: string;
-  role: string;
-  trackId?: string;
-}>;
+// Opaque IDs and short labels only: neither pattern admits "@", spaces, or a
+// URL, so an email, a name, or a link cannot ride along in a free-text field.
+const OPAQUE_ID_PATTERN = /^[\w-]{1,128}$/;
+const LABEL_PATTERN = /^[\w.-]{1,128}$/;
 
-export type AuthMethod = "email" | "google" | "rise_sso";
-export type PresenceTabSurface = "pre_join" | "taken_over";
-export type AnalyticsPlatform = "mobile" | "web";
-export type CampusWorldMapErrorKind =
-  "config" | "layout" | "manifest" | "network" | "render";
+const opaqueIdSchema = z.string().trim().regex(OPAQUE_ID_PATTERN);
+const labelSchema = z.string().regex(LABEL_PATTERN);
+const durationMsSchema = z.number().nonnegative();
+const countSchema = z.number().int().nonnegative();
+const roleSchema = z.enum([
+  ...cohortRoleSchema.options,
+  ...systemRoleSchema.options,
+]);
 
-export interface CampusWorldMapLoadedProperties {
-  load_ms: number;
-  map_id: string;
-  tilesets: number;
-  version: string;
+const authMethodSchema = z.enum(["email", "google", "rise_sso"]);
+const platformSchema = z.enum(["mobile", "web"]);
+const presenceTabSurfaceSchema = z.enum(["pre_join", "taken_over"]);
+const verificationTypeSchema = z.enum(["email", "invite", "phone"]);
+const campusWorldMapErrorKindSchema = z.enum([
+  "config",
+  "layout",
+  "manifest",
+  "network",
+  "render",
+]);
+const loginErrorCodeSchema = z.enum([
+  "ACCOUNT_DISABLED",
+  "ACCOUNT_NOT_FOUND",
+  "EMAIL_NOT_VERIFIED",
+  "INVALID_CREDENTIALS",
+  "RATE_LIMITED",
+  "SERVER_ERROR",
+  "SESSION_EXPIRED",
+]);
+const signupErrorCodeSchema = z.enum([
+  "EMAIL_ALREADY_EXISTS",
+  "INVALID_ACCOUNT_DATA",
+  "INVALID_INVITE",
+  "RATE_LIMITED",
+  "SERVER_ERROR",
+]);
+
+const placementSchema = z.object({
+  cohort_id: opaqueIdSchema.optional(),
+  role: roleSchema,
+  track_id: opaqueIdSchema.optional(),
+});
+
+const campusWorldMapLoadedSchema = z.object({
+  load_ms: durationMsSchema,
+  map_id: labelSchema,
+  tilesets: countSchema,
+  version: labelSchema,
+});
+
+const campusWorldMapFailureSchema = z.object({
+  error_kind: campusWorldMapErrorKindSchema,
+  map_id: labelSchema.nullable(),
+});
+
+// Parsing strips every key a schema does not name, so these objects are the
+// complete list of what may leave the app for PostHog.
+export const analyticsEventSchemas = {
+  [ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED]: z.object({
+    auth_method: authMethodSchema,
+    entry_source: labelSchema.optional(),
+    platform: platformSchema,
+  }),
+  [ANALYTICS_EVENTS.AUTH_LOGIN_SUCCEEDED]: placementSchema.extend({
+    account_status: labelSchema.optional(),
+    auth_method: authMethodSchema,
+    user_id: opaqueIdSchema,
+  }),
+  [ANALYTICS_EVENTS.AUTH_LOGIN_FAILED]: z.object({
+    auth_method: authMethodSchema,
+    error_code: loginErrorCodeSchema,
+  }),
+  [ANALYTICS_EVENTS.AUTH_SIGNUP_SUBMITTED]: z.object({
+    auth_method: authMethodSchema,
+    platform: platformSchema,
+  }),
+  [ANALYTICS_EVENTS.AUTH_SIGNUP_SUCCEEDED]: z.object({
+    auth_method: authMethodSchema,
+    role: roleSchema,
+    user_id: opaqueIdSchema,
+  }),
+  [ANALYTICS_EVENTS.AUTH_SIGNUP_FAILED]: z.object({
+    auth_method: authMethodSchema,
+    error_code: signupErrorCodeSchema,
+  }),
+  [ANALYTICS_EVENTS.AUTH_VERIFICATION_SENT]: z.object({
+    verification_type: verificationTypeSchema,
+  }),
+  [ANALYTICS_EVENTS.AUTH_VERIFICATION_COMPLETED]: z.object({
+    verification_type: verificationTypeSchema,
+  }),
+  [ANALYTICS_EVENTS.AUTH_PASSWORD_RESET_REQUESTED]: z.object({
+    reset_method: z.enum(["email", "phone"]),
+  }),
+  [ANALYTICS_EVENTS.AUTH_PASSWORD_RESET_COMPLETED]: z.object({}),
+  [ANALYTICS_EVENTS.AUTH_SESSION_RENEWED]: z.object({
+    failed_attempts: countSchema,
+    outcome: z.enum(["expired", "lapsed", "renewed"]),
+  }),
+  [ANALYTICS_EVENTS.AUTH_LOGOUT]: z.object({
+    logout_source: z.enum(["admin_action", "session_expired", "user_action"]),
+  }),
+  [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN]: z.object({
+    surface: presenceTabSurfaceSchema,
+  }),
+  [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_MOVED]: z.object({
+    surface: presenceTabSurfaceSchema,
+  }),
+  [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_LOADED]: campusWorldMapLoadedSchema,
+  [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_FAILED]: campusWorldMapFailureSchema,
+  [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_READY]: z.object({
+    first_frame_ms: durationMsSchema,
+    map_id: labelSchema,
+    version: labelSchema,
+  }),
+  [ANALYTICS_EVENTS.COHORT_CREATED]: z.object({
+    cohort_status: z.enum(["active", "completed", "upcoming"]),
+  }),
+  [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_STARTED]: placementSchema,
+  [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_COMPLETED]: placementSchema,
+} satisfies Record<AnalyticsEventName, z.ZodObject>;
+
+type EventProperties<Schema extends z.ZodObject> =
+  keyof z.input<Schema> extends never ? Record<string, never> : z.input<Schema>;
+
+export type AnalyticsEventMap = {
+  [Name in AnalyticsEventName]: EventProperties<
+    (typeof analyticsEventSchemas)[Name]
+  >;
+};
+
+export const analyticsIdentitySchema = z.object({
+  accountStatus: labelSchema.optional(),
+  cohortId: opaqueIdSchema.optional(),
+  id: opaqueIdSchema,
+  role: roleSchema,
+  trackId: opaqueIdSchema.optional(),
+});
+
+export type AnalyticsIdentity = Readonly<
+  z.input<typeof analyticsIdentitySchema>
+>;
+export type AuthMethod = z.output<typeof authMethodSchema>;
+export type AnalyticsPlatform = z.output<typeof platformSchema>;
+export type PresenceTabSurface = z.output<typeof presenceTabSurfaceSchema>;
+export type CampusWorldMapErrorKind = z.output<
+  typeof campusWorldMapErrorKindSchema
+>;
+export type CampusWorldMapLoadedProperties = z.output<
+  typeof campusWorldMapLoadedSchema
+>;
+export type CampusWorldMapFailureProperties = z.output<
+  typeof campusWorldMapFailureSchema
+>;
+export type LoginErrorCode = z.output<typeof loginErrorCodeSchema>;
+export type SignupErrorCode = z.output<typeof signupErrorCodeSchema>;
+
+type IssueSummary = { code: string; path: string };
+
+// Codes and paths only: an issue message can quote the rejected value.
+function summarizeIssues(issues: z.ZodError["issues"]): IssueSummary[] {
+  return issues.map(({ code, path }) => ({
+    code,
+    path: path.map(String).join("."),
+  }));
 }
 
-export interface CampusWorldMapFailureProperties {
-  error_kind: CampusWorldMapErrorKind;
-  map_id: string | null;
+function allow<Schema extends z.ZodType>(
+  schema: Schema,
+  value: unknown,
+  subject: string,
+): z.output<Schema> | undefined {
+  const parsed = schema.safeParse(value);
+  if (parsed.success) return parsed.data;
+
+  console.error(
+    `${subject} dropped: outside the analytics contract.`,
+    summarizeIssues(parsed.error.issues),
+  );
+  return undefined;
 }
 
-export type LoginErrorCode =
-  | "ACCOUNT_DISABLED"
-  | "ACCOUNT_NOT_FOUND"
-  | "EMAIL_NOT_VERIFIED"
-  | "INVALID_CREDENTIALS"
-  | "RATE_LIMITED"
-  | "SERVER_ERROR"
-  | "SESSION_EXPIRED";
+export function allowAnalyticsProperties(
+  eventName: AnalyticsEventName,
+  properties: unknown,
+): Record<string, unknown> | undefined {
+  const schema: z.ZodObject = analyticsEventSchemas[eventName];
+  return allow(schema, properties, `Analytics event ${eventName}`);
+}
 
-export type SignupErrorCode =
-  | "EMAIL_ALREADY_EXISTS"
-  | "INVALID_ACCOUNT_DATA"
-  | "INVALID_INVITE"
-  | "RATE_LIMITED"
-  | "SERVER_ERROR";
+export function allowAnalyticsIdentity(identity: unknown) {
+  return allow(analyticsIdentitySchema, identity, "Analytics identity");
+}
 
-export interface AnalyticsEventMap {
-  [ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED]: {
-    auth_method: AuthMethod;
-    entry_source?: string;
-    platform: AnalyticsPlatform;
-  };
-  [ANALYTICS_EVENTS.AUTH_LOGIN_SUCCEEDED]: {
-    account_status?: string;
-    auth_method: AuthMethod;
-    cohort_id?: string;
-    role: string;
-    track_id?: string;
-    user_id: string;
-  };
-  [ANALYTICS_EVENTS.AUTH_LOGIN_FAILED]: {
-    auth_method: AuthMethod;
-    error_code: LoginErrorCode;
-  };
-  [ANALYTICS_EVENTS.AUTH_SIGNUP_SUBMITTED]: {
-    auth_method: AuthMethod;
-    platform: AnalyticsPlatform;
-  };
-  [ANALYTICS_EVENTS.AUTH_SIGNUP_SUCCEEDED]: {
-    auth_method: AuthMethod;
-    role: string;
-    user_id: string;
-  };
-  [ANALYTICS_EVENTS.AUTH_SIGNUP_FAILED]: {
-    auth_method: AuthMethod;
-    error_code: SignupErrorCode;
-  };
-  [ANALYTICS_EVENTS.AUTH_VERIFICATION_SENT]: {
-    verification_type: "email" | "invite" | "phone";
-  };
-  [ANALYTICS_EVENTS.AUTH_VERIFICATION_COMPLETED]: {
-    verification_type: "email" | "invite" | "phone";
-  };
-  [ANALYTICS_EVENTS.AUTH_PASSWORD_RESET_REQUESTED]: {
-    reset_method: "email" | "phone";
-  };
-  [ANALYTICS_EVENTS.AUTH_PASSWORD_RESET_COMPLETED]: Record<string, never>;
-  [ANALYTICS_EVENTS.AUTH_SESSION_RENEWED]: {
-    failed_attempts: number;
-    outcome: "expired" | "lapsed" | "renewed";
-  };
-  [ANALYTICS_EVENTS.AUTH_LOGOUT]: {
-    logout_source: "admin_action" | "session_expired" | "user_action";
-  };
-  [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN]: {
-    surface: PresenceTabSurface;
-  };
-  [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_MOVED]: {
-    surface: PresenceTabSurface;
-  };
-  [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_LOADED]: CampusWorldMapLoadedProperties;
-  [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_FAILED]: CampusWorldMapFailureProperties;
-  [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_READY]: {
-    first_frame_ms: number;
-    map_id: string;
-    version: string;
-  };
-  [ANALYTICS_EVENTS.COHORT_CREATED]: {
-    cohort_status: "active" | "completed" | "upcoming";
-  };
-  [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_STARTED]: {
-    cohort_id?: string;
-    role: string;
-    track_id?: string;
-  };
-  [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_COMPLETED]: {
-    cohort_id?: string;
-    role: string;
-    track_id?: string;
-  };
+export function allowDistinctId(distinctId: unknown): string | undefined {
+  return allow(opaqueIdSchema, distinctId, "Analytics distinct ID");
 }

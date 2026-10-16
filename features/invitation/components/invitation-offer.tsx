@@ -5,6 +5,7 @@ import type { ApiClient } from "@/core/api/client";
 import { buttonVariants } from "@/shared/ui/button";
 
 import { previewInvite } from "../services/invite.service";
+import { INVITATION_PATH } from "../services/invite-token-cookie";
 import type { InvitePreview } from "../types/invite.types";
 import { GOOGLE_SIGN_IN_HREF } from "./google-sign-in";
 import {
@@ -14,10 +15,6 @@ import {
   roleLabel,
 } from "./invite-details";
 import { inviteReadProblem } from "./invite-read-problem";
-
-function offerHref(token: string): string {
-  return `/invitation?${new URLSearchParams({ token }).toString()}`;
-}
 
 const CAMPUS_SUMMARY =
   "Campus by Rise is a shared virtual space for your cohort classes, mentor sessions and resources all live in one place.";
@@ -48,7 +45,7 @@ export async function InvitationOffer({
 }) {
   const read = await previewInvite(api, token);
   if (read.kind === "problem") {
-    return inviteReadProblem(read.problem, offerHref(token));
+    return inviteReadProblem(read.problem, INVITATION_PATH);
   }
 
   const { heading, body } = offerCopy(read.invite);

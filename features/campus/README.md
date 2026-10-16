@@ -54,6 +54,7 @@ not import those features.
 | `components/cohort-chooser.tsx`, `cohort-card.tsx`, `types/`                              | member Cohort selection from session memberships                                                              | none                                    |
 | `components/campus-shell/`                                                                | rail, sidebar, panel switching, collapse, and the layer that places the Feedback popup                        | none                                    |
 | `store/`, `hooks/use-sidebar-state.ts`                                                    | sidebar open, panel, and mode, persisted in `localStorage`                                                    | `localStorage`                          |
+| `schemas/sidebar-preferences.schema.ts`                                                   | parsing stored sidebar preferences; each bad field falls back alone                                           | `parseJson`                             |
 | `store/feedback-panel-store.ts`                                                           | whether the Feedback popup is open (not persisted)                                                            | none                                    |
 | `components/` (media UI)                                                                  | `ActiveCampus`, control bar, media toggles and settings, meeting header, tiles, view switch                   | `useMediaSession`, `CampusViewProvider` |
 | `services/presence-session/`, `components/presence-session*`, `components/*presence-tab*` | per-cohort admission, Presence Tab, session composition, gate ([README](services/presence-session/README.md)) | `useAdmission`, `usePresenceTab`        |
@@ -68,8 +69,8 @@ browser media or `localStorage`.
 
 ### Adding a rail panel
 
-1. Add the id to `SidebarPanelId` and `SIDEBAR_PANEL_IDS` in
-   `store/sidebar-preferences.ts`.
+1. Add the id to `SIDEBAR_PANEL_IDS` in `store/sidebar-preferences.ts`;
+   `SidebarPanelId` and the stored-preferences schema follow.
 2. Add the rail item to `components/campus-shell/rail-items.ts`.
 3. Panel content owned by another feature arrives as a `CampusShell` prop
    (like `OverviewPanel`); until it exists the shell shows a coming-soon

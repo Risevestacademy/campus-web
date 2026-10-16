@@ -10,15 +10,17 @@ import { Label } from "@/shared/ui/label";
 import { Textarea } from "@/shared/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 
+import { feedbackKinds } from "./feedback-kinds";
 import {
   DETAILS_MAX_LENGTH,
   type FeedbackFieldErrors,
+  feedbackKindSchema,
   LOCATION_MAX_LENGTH,
   parseFeedback,
+  pickScreenshot,
   screenshotProblem,
   TITLE_MAX_LENGTH,
-} from "./feedback.schema";
-import { feedbackKinds } from "./feedback-kinds";
+} from "./schemas/feedback.schema";
 import { ScreenshotField, type SelectedScreenshot } from "./screenshot-field";
 import type { FeedbackKind, NewFeedback } from "./types";
 
@@ -31,9 +33,13 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
-function fieldText(data: FormData, name: string): string {
-  const value = data.get(name);
-  return typeof value === "string" ? value : "";
+// Cells copied from Excel, Numbers or Word carry an image of themselves
+// beside the text; in a text field the text is what was meant.
+function isTextIntoField(event: ClipboardEvent<HTMLFormElement>): boolean {
+  const { target } = event;
+  const isTextField =
+    target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+  return isTextField && event.clipboardData.types.includes("text/plain");
 }
 
 export function FeedbackForm({
@@ -46,6 +52,7 @@ export function FeedbackForm({
   const id = useId();
   const [kind, setKind] = useState<FeedbackKind>();
   const [errors, setErrors] = useState<FeedbackFieldErrors>({});
+  const [formError, setFormError] = useState<string>();
   const [screenshot, setScreenshot] = useState<SelectedScreenshot>();
   const [screenshotError, setScreenshotError] = useState<string>();
 
@@ -62,9 +69,9 @@ export function FeedbackForm({
   }
 
   function pasteScreenshot(event: ClipboardEvent<HTMLFormElement>) {
-    const file = Array.from(event.clipboardData.files).find((candidate) =>
-      candidate.type.startsWith("image/"),
-    );
+    if (isTextIntoField(event)) return;
+
+    const file = pickScreenshot(event.clipboardData.files);
     if (!file) return;
 
     event.preventDefault();
@@ -73,16 +80,10 @@ export function FeedbackForm({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const read = parseFeedback({
-      kind,
-      title: fieldText(data, "title"),
-      details: fieldText(data, "details"),
-      location: fieldText(data, "location"),
-      includeDeviceInfo: data.has("includeDeviceInfo"),
-    });
+    const read = parseFeedback(new FormData(event.currentTarget));
 
     setErrors(read.kind === "invalid" ? read.errors : {});
+    setFormError(read.kind === "invalid" ? read.formError : undefined);
     if (read.kind === "valid") onSubmit(read.feedback);
   }
 
@@ -93,6 +94,11 @@ export function FeedbackForm({
       onPaste={pasteScreenshot}
       className="grid content-start gap-5"
     >
+      {formError ? (
+        <p role="alert" className="text-destructive text-sm">
+          {formError}
+        </p>
+      ) : null}
       <fieldset className="grid gap-2">
         <legend className="mb-2 text-sm font-medium">
           What kind of feedback?
@@ -100,7 +106,8 @@ export function FeedbackForm({
         <ToggleGroup
           value={kind ? [kind] : []}
           onValueChange={(next) => {
-            if (next[0]) setKind(next[0] as FeedbackKind);
+            const picked = feedbackKindSchema.safeParse(next[0]);
+            if (picked.success) setKind(picked.data);
           }}
           aria-label="Kind of feedback"
           className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3"
@@ -117,6 +124,7 @@ export function FeedbackForm({
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
+        <input type="hidden" name="kind" value={kind ?? ""} />
         {errors.kind ? (
           <p role="alert" className="text-destructive text-sm">
             {errors.kind}

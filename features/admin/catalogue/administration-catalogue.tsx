@@ -15,7 +15,7 @@ export async function AdministrationCatalogue({
   const catalogue =
     query.view === "tracks"
       ? await TrackCatalogue({ page: query.page })
-      : await CohortCatalogue({ page: String(query.page) });
+      : await CohortCatalogue({ page: query.page });
   return (
     <section className="grid gap-8">
       <nav aria-label="Campus catalogues" className="flex gap-4">

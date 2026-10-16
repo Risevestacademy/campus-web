@@ -1,3 +1,7 @@
+import { z } from "zod";
+
+import { parseJson } from "@/shared/lib/parse-json";
+
 export type MediaDevicePreferences = Readonly<{
   cameraDeviceId: string;
   microphoneDeviceId: string;
@@ -18,26 +22,28 @@ export const DEFAULT_MEDIA_DEVICE_PREFERENCES: MediaDevicePreferences = {
 // select a device that does not exist.
 const INVENTED_PLACEHOLDER_ID = /^(?:audioinput|videoinput|audiooutput)-\d+$/;
 
-function readDeviceId(value: unknown) {
-  return typeof value === "string" && !INVENTED_PLACEHOLDER_ID.test(value)
-    ? value
-    : "";
-}
+const deviceIdSchema = z
+  .string()
+  .refine((id) => !INVENTED_PLACEHOLDER_ID.test(id))
+  .catch("");
+
+const storedPreferencesSchema = z.object({
+  cameraDeviceId: deviceIdSchema,
+  microphoneDeviceId: deviceIdSchema,
+  speakerDeviceId: deviceIdSchema,
+});
 
 export function loadMediaDevicePreferences(): MediaDevicePreferences {
   if (typeof window === "undefined") return DEFAULT_MEDIA_DEVICE_PREFERENCES;
 
   try {
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
-    const value = window.localStorage.getItem(STORAGE_KEY);
-    if (!value) return DEFAULT_MEDIA_DEVICE_PREFERENCES;
-
-    const stored = JSON.parse(value) as Partial<MediaDevicePreferences>;
-    return {
-      cameraDeviceId: readDeviceId(stored.cameraDeviceId),
-      microphoneDeviceId: readDeviceId(stored.microphoneDeviceId),
-      speakerDeviceId: readDeviceId(stored.speakerDeviceId),
-    };
+    return (
+      parseJson(
+        storedPreferencesSchema,
+        window.localStorage.getItem(STORAGE_KEY),
+      ) ?? DEFAULT_MEDIA_DEVICE_PREFERENCES
+    );
   } catch {
     return DEFAULT_MEDIA_DEVICE_PREFERENCES;
   }

@@ -79,9 +79,41 @@ describe("previewInvite", () => {
     });
     mockApi.server.use(http.post(PREVIEW_URL, json(adminInvite)));
 
-    await expect(previewInvite(api, TOKEN)).resolves.toEqual({
+    await expect(previewInvite(api, TOKEN)).resolves.toStrictEqual({
       kind: "loaded",
-      invite: adminInvite,
+      invite: {
+        cohort: null,
+        track: null,
+        cohortRole: null,
+        systemRole: "admin",
+        invitedBy: { firstName: null, lastName: null },
+      },
+    });
+  });
+
+  it("keeps the invitee's email and expiry out of the preview", async () => {
+    mockApi.server.use(http.post(PREVIEW_URL, json(invitePreview())));
+
+    await expect(previewInvite(api, TOKEN)).resolves.toStrictEqual({
+      kind: "loaded",
+      invite: {
+        cohort: { name: "Cohort 2" },
+        track: { name: "Backend Engineering" },
+        cohortRole: "student",
+        systemRole: "user",
+        invitedBy: { firstName: "Ejemen", lastName: "Iboi" },
+      },
+    });
+  });
+
+  it("treats a track that is not an object as unusable", async () => {
+    mockApi.server.use(
+      http.post(PREVIEW_URL, json({ ...invitePreview(), track: "BE" })),
+    );
+
+    await expect(previewInvite(api, TOKEN)).resolves.toEqual({
+      kind: "problem",
+      problem: "unavailable",
     });
   });
 });
@@ -90,9 +122,21 @@ describe("readPendingInvite", () => {
   it("reads the invite the session carries", async () => {
     mockApi.server.use(http.get(VALIDATE_URL, json(pendingInvite())));
 
-    await expect(readPendingInvite(api)).resolves.toEqual({
+    await expect(readPendingInvite(api)).resolves.toStrictEqual({
       kind: "loaded",
-      invite: pendingInvite(),
+      invite: {
+        id: "2b339f4a-d1e1-4763-a68e-5bfe0480b7fd",
+        cohort: { name: "Cohort 2" },
+        track: { name: "Backend Engineering" },
+        cohortRole: "student",
+        systemRole: "user",
+        user: {
+          email: "ada@campus.local",
+          displayName: "Ada Lovelace",
+          firstName: "Ada",
+          lastName: "Lovelace",
+        },
+      },
     });
   });
 
@@ -131,6 +175,22 @@ describe("acceptInvite", () => {
       destination,
     });
   });
+
+  it.each(["constructor", "__proto__", "toString"])(
+    "treats a 409 coded %s as unavailable, not a prototype lookup",
+    async (code) => {
+      mockApi.server.use(
+        http.post(DECISION_URL, () =>
+          Response.json({ error: { code, message: "x" } }, { status: 409 }),
+        ),
+      );
+
+      await expect(acceptInvite(api, INVITE_ID)).resolves.toEqual({
+        kind: "problem",
+        problem: "unavailable",
+      });
+    },
+  );
 
   it("does not treat a decline answer as an accept", async () => {
     mockApi.server.use(
