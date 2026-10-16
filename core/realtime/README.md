@@ -41,8 +41,8 @@ frames production does not send yet.
 # world from the server repo, run with PORT=8001
 NEXT_PUBLIC_WORLD_URL=http://localhost:8001
 
-# the dev deployment
-NEXT_PUBLIC_WORLD_URL=https://ws.dev.campusbyrise.com
+# the dev deployment: the staging value set on campus-web in Railway
+NEXT_PUBLIC_WORLD_URL=https://<dev world host>
 ```
 
 Only HTTPS origins and plain HTTP on loopback are accepted. A

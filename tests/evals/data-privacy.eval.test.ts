@@ -340,7 +340,31 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: "phc_project",
       NEXT_PUBLIC_SANITY_DATASET: "staging",
       NEXT_PUBLIC_SANITY_PROJECT_ID: "sj3zsz66",
+      NEXT_PUBLIC_WORLD_URL: "https://ws.campus.example",
     };
+
+    it("accepts a public HTTPS world origin", () => {
+      expect(() => validateBuildEnvironment(protectedBuild)).not.toThrow();
+    });
+
+    it.each([
+      "http://localhost:8001",
+      "https://world.railway.internal",
+      "https://world.railway.internal.",
+      "https://user:secret@ws.campus.example",
+      "https://ws.campus.example/socket",
+      "https://ws.campus.example/?cohortId=1",
+    ])(
+      "rejects the world URL %s before the browser opens a socket to it",
+      (worldUrl) => {
+        expect(() =>
+          validateBuildEnvironment({
+            ...protectedBuild,
+            NEXT_PUBLIC_WORLD_URL: worldUrl,
+          }),
+        ).toThrow("NEXT_PUBLIC_WORLD_URL");
+      },
+    );
 
     it.each(["evil.example", "a/b", "x@evil.example", "x#"])(
       "rejects the Sanity project ID %s before it reaches the map API host",
