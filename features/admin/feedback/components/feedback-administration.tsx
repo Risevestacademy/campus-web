@@ -32,11 +32,6 @@ const FILTER_LABELS: Readonly<Record<FeedbackFilter, string>> = {
   idea: "Ideas",
 };
 
-const SUBTITLES: Readonly<Record<FeedbackTab, string>> = {
-  feedback: "What students and staff send from the Feedback button on Campus",
-  reports: "People reports from Campus · only admins see who reported",
-};
-
 function Notice({ children }: { children: ReactNode }) {
   return (
     <p
@@ -268,17 +263,13 @@ export function FeedbackAdministrationView({
       aria-labelledby="feedback-heading"
       className="grid content-start gap-6 p-10"
     >
-      <header className="grid gap-1.5">
+      <header>
         <h1
           id="feedback-heading"
           className="font-display text-3xl font-semibold"
         >
           Feedback &amp; reports
         </h1>
-        <p className="text-foreground-secondary flex items-center gap-2">
-          <span aria-hidden className="bg-success-500 size-2 rounded-full" />
-          {SUBTITLES[query.tab]}
-        </p>
       </header>
 
       <nav
@@ -299,7 +290,7 @@ export function FeedbackAdministrationView({
           active={query.tab === "reports"}
           label="Reports"
           count={view.counts.openReports}
-          countClassName="text-error-700 dark:text-error-300"
+          countClassName="bg-error-100 text-error-700 dark:bg-error-900/40 dark:text-error-300"
         />
       </nav>
 

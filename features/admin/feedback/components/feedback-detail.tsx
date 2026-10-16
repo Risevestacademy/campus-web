@@ -1,7 +1,7 @@
 import type { Icon } from "@phosphor-icons/react";
 import { ClockIcon } from "@phosphor-icons/react/dist/ssr/Clock";
 import { LaptopIcon } from "@phosphor-icons/react/dist/ssr/Laptop";
-import { MapPinIcon } from "@phosphor-icons/react/dist/ssr/MapPin";
+import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 import { cn } from "cn";
 import type { ReactNode } from "react";
 
@@ -124,7 +124,7 @@ export function FeedbackDetail({
       </p>
 
       <dl className="grid gap-3 sm:grid-cols-3">
-        <Fact Icon={MapPinIcon} label="Where">
+        <Fact Icon={MapTrifoldIcon} label="Where">
           {describeWhere(feedback)}
         </Fact>
         <Fact Icon={LaptopIcon} label="Device">

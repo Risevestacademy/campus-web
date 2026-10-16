@@ -27,29 +27,44 @@ export function ReportsTable({
 }) {
   return (
     <div className="border-border overflow-x-auto rounded-3xl border p-3 dark:border-[#2B3B5F]">
-      <table className="w-full min-w-208 text-left text-sm">
+      <table className="w-full min-w-208 border-separate border-spacing-0 text-left text-sm">
         <caption className="sr-only">Reports</caption>
         <thead>
-          <tr className="text-foreground-secondary bg-[#EFFAFF] text-xs tracking-wider uppercase dark:bg-[#2B3B5F]">
+          <tr className="text-foreground-secondary text-xs tracking-wider uppercase">
             <th
               scope="col"
-              className="min-w-44 rounded-l-xl px-4 py-3 font-medium"
+              className="min-w-44 rounded-l-[0.5rem] bg-[#EFFAFF] px-4 py-3 font-medium dark:bg-[#2B3B5F]"
             >
               Report
             </th>
-            <th scope="col" className="min-w-40 px-4 py-3 font-medium">
+            <th
+              scope="col"
+              className="min-w-40 bg-[#EFFAFF] px-4 py-3 font-medium dark:bg-[#2B3B5F]"
+            >
               Reported
             </th>
-            <th scope="col" className="min-w-32 px-4 py-3 font-medium">
+            <th
+              scope="col"
+              className="min-w-32 bg-[#EFFAFF] px-4 py-3 font-medium dark:bg-[#2B3B5F]"
+            >
               Where
             </th>
-            <th scope="col" className="px-4 py-3 font-medium">
+            <th
+              scope="col"
+              className="bg-[#EFFAFF] px-4 py-3 font-medium dark:bg-[#2B3B5F]"
+            >
               Status
             </th>
-            <th scope="col" className="px-4 py-3 font-medium">
+            <th
+              scope="col"
+              className="bg-[#EFFAFF] px-4 py-3 font-medium dark:bg-[#2B3B5F]"
+            >
               Received
             </th>
-            <th scope="col" className="rounded-r-xl px-4 py-3">
+            <th
+              scope="col"
+              className="rounded-r-[0.5rem] bg-[#EFFAFF] px-4 py-3 dark:bg-[#2B3B5F]"
+            >
               <span className="sr-only">Actions</span>
             </th>
           </tr>
@@ -64,14 +79,11 @@ export function ReportsTable({
                 : undefined);
 
             return (
-              <tr
-                key={report.id}
-                className="border-border border-b last:border-b-0 dark:border-[#2B3B5F]"
-              >
-                <td className="px-4 py-4 font-medium [overflow-wrap:anywhere]">
+              <tr key={report.id} className="group/row">
+                <td className="border-border border-b px-4 py-4 font-medium [overflow-wrap:anywhere] group-last/row:border-b-0 dark:border-[#2B3B5F]">
                   {report.title}
                 </td>
-                <td className="px-4 py-4">
+                <td className="border-border border-b px-4 py-4 group-last/row:border-b-0 dark:border-[#2B3B5F]">
                   {reportedName ? (
                     <span className="flex items-center gap-3">
                       <Avatar size="default">
@@ -91,16 +103,16 @@ export function ReportsTable({
                     <span className="text-foreground-secondary">Not named</span>
                   )}
                 </td>
-                <td className="text-foreground-secondary px-4 py-4 [overflow-wrap:anywhere]">
+                <td className="border-border text-foreground-secondary border-b px-4 py-4 [overflow-wrap:anywhere] group-last/row:border-b-0 dark:border-[#2B3B5F]">
                   {where ?? "—"}
                 </td>
-                <td className="px-4 py-4">
+                <td className="border-border border-b px-4 py-4 group-last/row:border-b-0 dark:border-[#2B3B5F]">
                   <FeedbackStatusLabel status={report.status} />
                 </td>
-                <td className="text-foreground-secondary px-4 py-4">
+                <td className="border-border text-foreground-secondary border-b px-4 py-4 group-last/row:border-b-0 dark:border-[#2B3B5F]">
                   {describeAge(report.createdAt, now)}
                 </td>
-                <td className="px-4 py-4 text-right">
+                <td className="border-border border-b px-4 py-4 text-right group-last/row:border-b-0 dark:border-[#2B3B5F]">
                   <Link
                     href={feedbackAdministrationHref(cohortId, {
                       tab: "reports",
