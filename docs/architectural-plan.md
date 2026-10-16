@@ -486,12 +486,16 @@ variables, and content published to Sanity.
 
 1. **Parse at the boundary.** Use `safeParse` where the value enters and decide
    the failure there: a fallback, an `unavailable` outcome, or a typed error.
-   Use `parse` only where failure should stop the process (the build
-   environment).
+   A schema that ends in `.catch(fallback)` cannot fail, so its helper may
+   call `.parse` (`parsePageNumber`). The build environment uses `safeParse`
+   and throws one error that lists every issue.
 2. **Strip, then use `parsed.data`.** Schemas use `z.object`, which drops
    unknown keys. Never read the raw value after parsing, and never cast with
-   `as T` instead of parsing. Lint bans `looseObject`, `strictObject`,
-   `.passthrough()`, `.strict()` and `.merge()`.
+   `as T` instead of parsing. Lint bans the loosening APIs listed in
+   `core/api/schemas/README.md`. The one cast is `readMapLayout`'s input in
+   `features/campus-world/services/map/load-campus-map.ts`: the same object is
+   parsed first, the package validates object layers itself, and the cast goes
+   once `campus-world-map` exports a type its loader accepts.
 3. **Keep only what is read.** A schema declares the fields the feature
    renders or computes with. Widening one is a privacy decision: update
    `tests/evals/data-privacy.eval.test.ts` in the same change.
@@ -507,15 +511,17 @@ variables, and content published to Sanity.
    end; `.pick`, `.omit` and `parseForm` need the base shape.
 7. **No input in errors.** Error messages and Zod issues name the field, never
    the value that failed. `reportInput` is banned.
-8. **One parse per page for params.** A page parses its search params once at
-   its entry (`parsePageNumber`, a page query schema) and passes typed values
-   down. Components below it never parse URL text.
+8. **One parse per page for params.** A page parses its search params once,
+   at the page or the one feature component it renders (`parsePageNumber`, a
+   page query schema), and passes typed values down. Nothing below that
+   parses URL text.
 9. **Forms go through `parseForm`.** One schema returns typed data or field
    errors.
 10. **Storage is untrusted.** Read JSON from `localStorage` with
     `parseJson(schema, text)` and fall back to defaults. Bound any stored value
     that schedules work: a stored session expiry is ignored when it is more
-    than one access-token lifetime ahead.
+    than one access-token lifetime ahead. The sidebar's pre-hydration inline
+    script is the one hand-written guard, because it cannot import Zod.
 11. **Pin hosts.** A URL taken from data (a published manifest, an asset link)
     must match the configured origin before anything fetches it.
     Configuration that is interpolated into a hostname is validated at build

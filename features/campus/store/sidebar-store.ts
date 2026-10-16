@@ -1,9 +1,9 @@
 "use client";
 
+import { parseStoredSidebarPreferences } from "../schemas/sidebar-preferences.schema";
 import {
   DEFAULT_ACTIVE_PANEL,
   DEFAULT_SIDEBAR_OPEN,
-  parseStoredSidebarPreferences,
   SIDEBAR_CHANGE_EVENT,
   SIDEBAR_STORAGE_KEY,
   type SidebarMode,

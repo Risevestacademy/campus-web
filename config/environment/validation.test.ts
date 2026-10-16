@@ -10,6 +10,9 @@ const completeProtectedEnvironment = {
   NEXT_PUBLIC_SANITY_PROJECT_ID: "sj3zsz66",
 };
 
+const DATASET_MESSAGE =
+  "NEXT_PUBLIC_SANITY_DATASET must be 1 to 64 lowercase letters, numbers, hyphens, or underscores, starting and ending with a letter or number.";
+
 describe("build environment validation", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -74,27 +77,42 @@ describe("build environment validation", () => {
         "Invalid build environment:",
         '- NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN must start with "phc_".',
         "- NEXT_PUBLIC_POSTHOG_HOST must be a valid HTTPS URL.",
-        "- NEXT_PUBLIC_SANITY_DATASET must contain only lowercase letters.",
+        `- ${DATASET_MESSAGE}`,
       ].join("\n"),
     );
   });
 
-  it("rejects a Sanity project ID that is not a single hostname label", () => {
-    expect(() =>
-      validateBuildEnvironment({
-        ...completeProtectedEnvironment,
-        NEXT_PUBLIC_SANITY_PROJECT_ID: "evil.example/x",
-      }),
-    ).toThrow(
-      [
-        "Invalid build environment:",
-        "- NEXT_PUBLIC_SANITY_PROJECT_ID must contain only letters, numbers, and hyphens.",
-      ].join("\n"),
-    );
-  });
+  it.each(["evil.example/x", "SJ3ZSZ66", "-sj3zsz66", "sj3zsz66-"])(
+    "rejects the Sanity project ID %s",
+    (projectId) => {
+      expect(() =>
+        validateBuildEnvironment({
+          ...completeProtectedEnvironment,
+          NEXT_PUBLIC_SANITY_PROJECT_ID: projectId,
+        }),
+      ).toThrow(
+        [
+          "Invalid build environment:",
+          "- NEXT_PUBLIC_SANITY_PROJECT_ID must contain only lowercase letters, numbers, and hyphens.",
+        ].join("\n"),
+      );
+    },
+  );
 
-  it.each(["staging_2", "prod-eu", "v2", "Staging"])(
-    "rejects the dataset name %s because it is not a single lowercase word",
+  it.each(["staging_2", "prod-eu", "v2", "production-v2", "a".repeat(64)])(
+    "accepts the Sanity dataset name %s",
+    (dataset) => {
+      expect(() =>
+        validateBuildEnvironment({
+          ...completeProtectedEnvironment,
+          NEXT_PUBLIC_SANITY_DATASET: dataset,
+        }),
+      ).not.toThrow();
+    },
+  );
+
+  it.each(["Staging", "-staging", "staging-", "a.b", "a".repeat(65)])(
+    "rejects the dataset name %s, which Sanity does not allow",
     (dataset) => {
       expect(() =>
         validateBuildEnvironment({
@@ -102,10 +120,7 @@ describe("build environment validation", () => {
           NEXT_PUBLIC_SANITY_DATASET: dataset,
         }),
       ).toThrow(
-        [
-          "Invalid build environment:",
-          "- NEXT_PUBLIC_SANITY_DATASET must contain only lowercase letters.",
-        ].join("\n"),
+        ["Invalid build environment:", `- ${DATASET_MESSAGE}`].join("\n"),
       );
     },
   );
