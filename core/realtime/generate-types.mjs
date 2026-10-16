@@ -14,7 +14,7 @@ function pointAtComponents(key, value) {
     : value;
 }
 
-const schemaUrl = readWorldSchemaUrl();
+const schemaUrl = readWorldSchemaUrl(process.env);
 const response = await fetch(schemaUrl);
 
 if (!response.ok) {

@@ -8,6 +8,7 @@ import { validateBuildEnvironment } from "@/config/environment/validation";
 import { analyticsEventSchemas } from "@/core/analytics/events";
 import { scrubAnalyticsEvent } from "@/core/analytics/scrub";
 import { parseServerMessage, type ServerMessage } from "@/core/realtime";
+import { readWorldOrigin } from "@/core/realtime/configuration";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
 import {
@@ -316,6 +317,19 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       });
 
       expect(JSON.stringify(event)).not.toContain(TOKEN);
+    });
+  });
+
+  describe("the world origin only names a host the browser can reach", () => {
+    it.each([
+      "http://world.railway.internal:8001",
+      "https://world.railway.internal",
+      "https://WORLD.RAILWAY.INTERNAL",
+      "https://world.railway.internal.",
+    ])("refuses the Railway private host %s", (origin) => {
+      expect(() => readWorldOrigin({ NEXT_PUBLIC_WORLD_URL: origin })).toThrow(
+        "NEXT_PUBLIC_WORLD_URL",
+      );
     });
   });
 

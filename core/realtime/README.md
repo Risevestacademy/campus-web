@@ -46,8 +46,12 @@ NEXT_PUBLIC_WORLD_URL=https://ws.dev.campusbyrise.com
 ```
 
 Only HTTPS origins and plain HTTP on loopback are accepted. A
-`*.railway.internal` host is refused: the browser opens the socket, and it
-cannot resolve Railway's private DNS.
+`*.railway.internal` host is refused over any protocol: the browser opens the
+socket, and it cannot resolve Railway's private DNS.
+
+`readWorldOrigin` takes the environment as an argument. Browser code passes
+`publicEnvironment` from `config/environment/public.ts`, because Next only
+inlines a literal `process.env.NEXT_PUBLIC_WORLD_URL`.
 
 The schema is draft-07 JSON Schema. The generator wraps its `definitions` in
 an OpenAPI 3.1 document so the `openapi-typescript` that builds the Campus

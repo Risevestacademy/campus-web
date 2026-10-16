@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { readWorldOrigin, readWorldSchemaUrl } from "./configuration";
 
 const INVALID_ORIGIN_MESSAGE =
-  "NEXT_PUBLIC_WORLD_URL must be an HTTPS or loopback HTTP origin.";
+  "NEXT_PUBLIC_WORLD_URL must be a public HTTPS or loopback HTTP origin.";
 
 describe("readWorldOrigin", () => {
   it("returns a normalized HTTPS origin", () => {
@@ -38,6 +38,7 @@ describe("readWorldOrigin", () => {
       "a Railway private host the browser cannot reach",
       "http://world.railway.internal:8001",
     ],
+    ["a Railway private host over HTTPS", "https://world.railway.internal"],
     ["a WebSocket scheme instead of the HTTP origin", "wss://ws.example.test"],
     ["credentials", "https://user:secret@ws.example.test"],
     ["a path", "https://ws.example.test/socket"],
