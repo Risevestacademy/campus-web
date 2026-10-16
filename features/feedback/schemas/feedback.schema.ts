@@ -9,6 +9,7 @@ import {
 export const TITLE_MAX_LENGTH = 100;
 export const DETAILS_MAX_LENGTH = 2000;
 export const LOCATION_MAX_LENGTH = 100;
+export const REPORTED_MAX_LENGTH = 80;
 export const SCREENSHOT_MAX_BYTES = 5 * 1024 * 1024;
 const SCREENSHOT_FORMATS = {
   "image/png": "PNG",
@@ -26,32 +27,45 @@ export const feedbackKindSchema = z.enum(
   "Choose what kind of feedback this is.",
 );
 
-export const feedbackSchema = z.object({
-  kind: feedbackKindSchema,
-  title: z
-    .string()
-    .trim()
-    .min(1, "Give your feedback a short title.")
-    .max(
-      TITLE_MAX_LENGTH,
-      `Keep the title under ${TITLE_MAX_LENGTH} characters.`,
-    ),
-  details: z
-    .string()
-    .trim()
-    .max(
-      DETAILS_MAX_LENGTH,
-      `Keep the details under ${DETAILS_MAX_LENGTH} characters.`,
-    ),
-  location: z
-    .string()
-    .trim()
-    .max(
-      LOCATION_MAX_LENGTH,
-      `Keep this under ${LOCATION_MAX_LENGTH} characters.`,
-    ),
-  includeDeviceInfo: z.string().transform(Boolean),
-});
+export const feedbackSchema = z
+  .object({
+    kind: feedbackKindSchema,
+    title: z
+      .string()
+      .trim()
+      .min(1, "Give your feedback a short title.")
+      .max(
+        TITLE_MAX_LENGTH,
+        `Keep the title under ${TITLE_MAX_LENGTH} characters.`,
+      ),
+    details: z
+      .string()
+      .trim()
+      .min(1, "Tell us a little more so we can look into it.")
+      .max(
+        DETAILS_MAX_LENGTH,
+        `Keep the details under ${DETAILS_MAX_LENGTH} characters.`,
+      ),
+    location: z
+      .string()
+      .trim()
+      .max(
+        LOCATION_MAX_LENGTH,
+        `Keep this under ${LOCATION_MAX_LENGTH} characters.`,
+      ),
+    reported: z
+      .string()
+      .trim()
+      .max(
+        REPORTED_MAX_LENGTH,
+        `Keep this under ${REPORTED_MAX_LENGTH} characters.`,
+      ),
+    includeDeviceInfo: z.string().transform(Boolean),
+  })
+  .refine(({ kind, reported }) => kind !== "report" || reported !== "", {
+    path: ["reported"],
+    error: "Tell us who you are reporting.",
+  });
 
 const screenshotSchema = z
   .file()

@@ -13,8 +13,9 @@ function feedbackForm(fields: Record<string, string>) {
   const filled = {
     kind: "idea",
     title: "  Show who's in a pod  ",
-    details: "",
+    details: "  It happens often.  ",
     location: "Map view",
+    reported: "",
     includeDeviceInfo: "on",
     ...fields,
   };
@@ -23,26 +24,53 @@ function feedbackForm(fields: Record<string, string>) {
 }
 
 describe("parseFeedback", () => {
-  it("trims the text and accepts empty details", () => {
+  it("trims the text", () => {
     expect(parseFeedback(feedbackForm({}))).toStrictEqual({
       kind: "valid",
       feedback: {
         kind: "idea",
         title: "Show who's in a pod",
-        details: "",
+        details: "It happens often.",
         location: "Map view",
+        reported: "",
         includeDeviceInfo: true,
       },
     });
   });
 
-  it("requires a kind and a title", () => {
-    expect(parseFeedback(feedbackForm({ kind: "", title: "  " }))).toEqual({
+  it("requires a kind, a title and details", () => {
+    expect(
+      parseFeedback(feedbackForm({ kind: "", title: "  ", details: " " })),
+    ).toEqual({
       kind: "invalid",
       errors: {
         kind: "Choose what kind of feedback this is.",
         title: "Give your feedback a short title.",
+        details: "Tell us a little more so we can look into it.",
       },
+    });
+  });
+
+  it("requires who is reported on a report only", () => {
+    expect(parseFeedback(feedbackForm({ kind: "report" }))).toEqual({
+      kind: "invalid",
+      errors: { reported: "Tell us who you are reporting." },
+    });
+    expect(
+      parseFeedback(feedbackForm({ kind: "report", reported: "  Ramnan  " })),
+    ).toMatchObject({
+      kind: "valid",
+      feedback: { kind: "report", reported: "Ramnan" },
+    });
+    expect(parseFeedback(feedbackForm({ kind: "bug" })).kind).toBe("valid");
+  });
+
+  it("keeps who is reported short", () => {
+    expect(
+      parseFeedback(feedbackForm({ kind: "report", reported: "x".repeat(81) })),
+    ).toEqual({
+      kind: "invalid",
+      errors: { reported: "Keep this under 80 characters." },
     });
   });
 

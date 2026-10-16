@@ -11,6 +11,7 @@ import {
   createAdmissionStore,
 } from "@/features/campus/services/presence-session/admission-store";
 import { AdmissionProvider } from "@/features/campus/services/presence-session/presence-session-provider";
+import { withQueryClient } from "@/tests/fixtures/query-client";
 
 export function createPresenceMediaTestStore() {
   return createMediaSessionStore();
@@ -27,15 +28,16 @@ export function createAdmittedTestStore(destination = "/campus/c-1") {
   return store;
 }
 
-// Stands in for app/campus/[id]/layout.tsx with stores a test can observe.
+// Stands in for app/campus/layout.tsx (the query client) and
+// app/campus/[id]/layout.tsx with stores a test can observe.
 export function presenceSession(
   children: ReactNode,
   mediaStore: StoreApi<MediaSessionState> = createPresenceMediaTestStore(),
   admissionStore: AdmissionStore = createPresenceAdmissionTestStore(),
 ) {
-  return (
+  return withQueryClient(
     <AdmissionProvider store={admissionStore}>
       <MediaSessionProvider store={mediaStore}>{children}</MediaSessionProvider>
-    </AdmissionProvider>
+    </AdmissionProvider>,
   );
 }
