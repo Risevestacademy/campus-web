@@ -3,8 +3,9 @@
 Owns preparing and drawing the published campus map. The Join Gate prepares
 the current Sanity entry map before revealing its media controls. Active
 Campus reuses that prepared resource and draws it on one KAPLAY runtime per
-page. This feature does not own authentication, media, player movement,
-input, or sockets.
+page. It owns the grid rules movement follows: predicting a step, correcting
+it against world's `moveResult`, and walking somebody else's `moved` gap. It
+does not own authentication, media, input, or sockets.
 
 ## Interface
 
@@ -33,15 +34,15 @@ frame (`first_frame_ms`), once per ready start.
 
 ## Modules
 
-| Module        | Owns                                                            |
-| ------------- | --------------------------------------------------------------- |
-| `components/` | Preparation gate and accessible map status, render only         |
-| `game/`       | The page's KAPLAY runtime, sprite upload, and culled drawing    |
-| `hooks/`      | Preparation query, game lifecycle, and store subscription       |
-| `schemas/`    | The Tiled map fields the renderer reads                         |
-| `services/`   | Preparation, errors, loading, bands, draw lists, camera, theme  |
-| `store/`      | Lifecycle transitions, attempt IDs, and stale-result guards     |
-| `testing/`    | Sanity fixtures, fake KAPLAY, fake runtime, and a fake map band |
+| Module        | Owns                                                                                |
+| ------------- | ----------------------------------------------------------------------------------- |
+| `components/` | Preparation gate and accessible map status, render only                             |
+| `game/`       | The page's KAPLAY runtime, sprite upload, and culled drawing                        |
+| `hooks/`      | Preparation query, game lifecycle, and store subscription                           |
+| `schemas/`    | The Tiled map fields the renderer reads                                             |
+| `services/`   | Preparation, errors, loading, bands, draw lists, camera, theme, movement grid rules |
+| `store/`      | Lifecycle transitions, attempt IDs, and stale-result guards                         |
+| `testing/`    | Sanity fixtures, fake KAPLAY, fake runtime, and a fake map band                     |
 
 The feature may import `core` and `shared`. Routes compose it through the
 barrel; other features do not import its internals.
@@ -93,12 +94,19 @@ initialized`. The runtime moves its one canvas between containers, clears
   token for this public dataset.
 - Add deterministic logic to `services/` and test stable outputs there before
   connecting it to KAPLAY.
+- Movement lives in `services/movement/`, as pure functions of tiles:
+  `stepFrom`, `predictStep`, `reconcile` and `walkPath`. Walls come only from
+  `blocked` in `campus-world-map`, the test world uses, through `isWalkable`,
+  which adds the map edge. Never write a second wall test. `reconcile`
+  follows world's `docs/world-protocol.md` "Moving yourself" and never reads
+  `outcome`: world's `player` wins on every answer.
 
 ## Tests
 
 ```bash
 pnpm test features/campus-world
 pnpm test tests/evals/campus-world.eval.test.tsx
+pnpm eval:campus-world
 pnpm test:storybook
 pnpm test:e2e
 ```
@@ -106,8 +114,12 @@ pnpm test:e2e
 Unit tests cover the runtime (one context, sprite reuse, stale starts, render
 recovery), preparation, cancellation, readiness, progress, analytics,
 lifecycle, bands, layer draw order, tile transforms, frames, camera, and the
-theme background. Shared fakes live in `testing/`. The eval replays Strict
-Mode, re-entry, and retry against the real runtime. The Storybook browser test
+theme background, and the movement grid rules. Shared fakes and the
+movement test layout live in `testing/`. The eval replays Strict
+Mode, re-entry, and retry against the real runtime. The movement eval replays
+recorded `moveResult` sessions (a blocked step mid-burst, `too_fast` and
+recovery, an outcome added upstream) and remote `moved` gaps, and fails on a
+correction after a right prediction or a diagonal step. The Storybook browser test
 remounts in real Chromium and fails on the KAPLAY warning. Playwright covers
 request reuse across Join and repeat entry, rendering, resize, and the
 warning.
