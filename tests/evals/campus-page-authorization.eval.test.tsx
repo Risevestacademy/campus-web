@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ActiveCampusMeetingPage from "@/app/campus/[id]/(active-campus)/meeting/page";
 import ActiveCampusPage from "@/app/campus/[id]/(active-campus)/page";
+import FeedbackPage from "@/app/campus/[id]/(administration)/feedback/page";
 import AdministrationOverviewPage from "@/app/campus/[id]/(administration)/overview/page";
 import CohortTracksPage from "@/app/campus/[id]/(administration)/tracks/page";
 import JoinPage from "@/app/campus/[id]/join/page";
@@ -74,6 +75,11 @@ const PAGES: Record<string, ProtectedPage> = {
   },
   "app/campus/[id]/(administration)/overview/page.tsx": {
     render: () => AdministrationOverviewPage({ params }),
+    denial: ROUTE_DENIAL,
+    routeAccessCalls: SYSTEM_ADMIN,
+  },
+  "app/campus/[id]/(administration)/feedback/page.tsx": {
+    render: () => FeedbackPage({ params, searchParams }),
     denial: ROUTE_DENIAL,
     routeAccessCalls: SYSTEM_ADMIN,
   },

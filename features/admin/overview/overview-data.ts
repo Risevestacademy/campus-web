@@ -7,16 +7,6 @@ export interface OverviewStat {
   caption: string;
 }
 
-export type AttentionKind = "report" | "attendance" | "sync";
-
-export interface AttentionItem {
-  id: string;
-  kind: AttentionKind;
-  title: string;
-  detail: string;
-  actionLabel: string;
-}
-
 export type ScheduleTone = "cobalt" | "violet" | "error";
 
 export interface ScheduleItem {
@@ -48,35 +38,6 @@ export const mockOverview = {
       label: "Attendance",
       value: "86%",
       caption: "avg this week",
-    },
-    {
-      id: "review",
-      label: "Needs review",
-      value: "3",
-      caption: "reports · 5 feedback",
-    },
-  ],
-  attention: [
-    {
-      id: "mentor-pod-report",
-      kind: "report",
-      title: "Report in Mentor pod 2",
-      detail: "Raised by a student · 12 min ago",
-      actionLabel: "Review",
-    },
-    {
-      id: "low-attendance",
-      kind: "attendance",
-      title: "6 students below 70% attendance",
-      detail: "UX Writing and Data Analysis",
-      actionLabel: "View",
-    },
-    {
-      id: "classroom-sync",
-      kind: "sync",
-      title: "2 people not synced from Classroom",
-      detail: "New invites from today",
-      actionLabel: "Retry",
     },
   ],
   today: {
@@ -116,6 +77,5 @@ export const mockOverview = {
 } as const satisfies {
   period: string;
   stats: readonly OverviewStat[];
-  attention: readonly AttentionItem[];
   today: { label: string; schedule: readonly ScheduleItem[] };
 };

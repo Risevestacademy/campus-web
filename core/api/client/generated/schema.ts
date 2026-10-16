@@ -552,6 +552,146 @@ export interface paths {
     patch: operations["CohortsController_extendVisit"];
     trace?: never;
   };
+  "/v1/cohorts/{cohortId}/members/{userId}/dismiss": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Dismiss a student (admin only)
+     * @description Ends a membership by marking it dismissed. The cohort and the member come from the URL; the status and the end date are the server’s, and `status` or `endDate` in the body are ignored.
+     *
+     *     The row is kept. The roster files it under `state=ended` with the status and the reason, and the default roster no longer lists it.
+     *
+     *     Students only: staff and guests are refused with a 409. A `reason` is required.
+     *
+     *     The member’s sessions end with the change, in the same transaction, so their next request is refused; an open `world` socket closes on the next heartbeat. If they cannot be ended, nothing changes and the call answers 500, and it can be tried again. An admin’s sessions are left alone: admins are let in on their role, not on a membership.
+     *
+     *     Refusals: a 404 when nobody in the cohort holds this membership; a 409 when it has already ended, when a student-only status is aimed at staff or a guest, or when the caller targets their own membership; a 400 for a malformed body, or a dismissal with no reason.
+     */
+    post: operations["CohortsController_dismiss"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/members/{userId}/withdraw": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Withdraw a student (admin only)
+     * @description Ends a membership by marking it withdrawn. The cohort and the member come from the URL; the status and the end date are the server’s, and `status` or `endDate` in the body are ignored.
+     *
+     *     The row is kept. The roster files it under `state=ended` with the status and the reason, and the default roster no longer lists it.
+     *
+     *     Students only: staff and guests are refused with a 409. `reason` is optional.
+     *
+     *     The member’s sessions end with the change, in the same transaction, so their next request is refused; an open `world` socket closes on the next heartbeat. If they cannot be ended, nothing changes and the call answers 500, and it can be tried again. An admin’s sessions are left alone: admins are let in on their role, not on a membership.
+     *
+     *     Refusals: a 404 when nobody in the cohort holds this membership; a 409 when it has already ended, when a student-only status is aimed at staff or a guest, or when the caller targets their own membership; a 400 for a malformed body, or a dismissal with no reason.
+     */
+    post: operations["CohortsController_withdraw"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/members/{userId}/defer": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Defer a student (admin only)
+     * @description Ends a membership by marking it deferred. The cohort and the member come from the URL; the status and the end date are the server’s, and `status` or `endDate` in the body are ignored.
+     *
+     *     The row is kept. The roster files it under `state=ended` with the status and the reason, and the default roster no longer lists it.
+     *
+     *     Students only: staff and guests are refused with a 409. `reason` is optional.
+     *
+     *     The member’s sessions end with the change, in the same transaction, so their next request is refused; an open `world` socket closes on the next heartbeat. If they cannot be ended, nothing changes and the call answers 500, and it can be tried again. An admin’s sessions are left alone: admins are let in on their role, not on a membership.
+     *
+     *     Refusals: a 404 when nobody in the cohort holds this membership; a 409 when it has already ended, when a student-only status is aimed at staff or a guest, or when the caller targets their own membership; a 400 for a malformed body, or a dismissal with no reason.
+     */
+    post: operations["CohortsController_defer"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/members/{userId}/graduate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Graduate a student (admin only)
+     * @description Ends a membership by marking it graduated. The cohort and the member come from the URL; the status and the end date are the server’s, and `status` or `endDate` in the body are ignored.
+     *
+     *     The row is kept. The roster files it under `state=ended` with the status and the reason, and the default roster no longer lists it.
+     *
+     *     Students only: staff and guests are refused with a 409. `reason` is optional.
+     *
+     *     The member’s sessions end with the change, in the same transaction, so their next request is refused; an open `world` socket closes on the next heartbeat. If they cannot be ended, nothing changes and the call answers 500, and it can be tried again. An admin’s sessions are left alone: admins are let in on their role, not on a membership.
+     *
+     *     Refusals: a 404 when nobody in the cohort holds this membership; a 409 when it has already ended, when a student-only status is aimed at staff or a guest, or when the caller targets their own membership; a 400 for a malformed body, or a dismissal with no reason.
+     */
+    post: operations["CohortsController_graduate"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/members/{userId}/remove": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Remove a member (admin only)
+     * @description Ends a membership by marking it removed. The cohort and the member come from the URL; the status and the end date are the server’s, and `status` or `endDate` in the body are ignored.
+     *
+     *     The row is kept. The roster files it under `state=ended` with the status and the reason, and the default roster no longer lists it.
+     *
+     *     Applies to any member — student, staff or guest. `reason` is optional.
+     *
+     *     The member’s sessions end with the change, in the same transaction, so their next request is refused; an open `world` socket closes on the next heartbeat. If they cannot be ended, nothing changes and the call answers 500, and it can be tried again. An admin’s sessions are left alone: admins are let in on their role, not on a membership.
+     *
+     *     Refusals: a 404 when nobody in the cohort holds this membership; a 409 when it has already ended, when a student-only status is aimed at staff or a guest, or when the caller targets their own membership; a 400 for a malformed body, or a dismissal with no reason.
+     */
+    post: operations["CohortsController_removeMember"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/users": {
     parameters: {
       query?: never;
@@ -680,7 +820,7 @@ export interface paths {
     head?: never;
     /**
      * Update your own profile
-     * @description A partial update: names, display name, phone and bio. Leave a field out to keep it; send `null` or an empty string to clear it. Values are trimmed.
+     * @description A partial update: names, display name, phone, bio and sprite. Leave a field out to keep it; send `null` or an empty string to clear it. Values are trimmed.
      *
      *     The address cannot be changed here: it is the Google account the person signs in with. Roles and memberships are not the person’s to edit, and neither, yet, is the photo.
      */
@@ -735,6 +875,70 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  "/v1/feedback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List feedback (admin only)
+     * @description Everything members have sent, newest first, paginated. Filters are optional and combine with AND: `type`, `status`, and `submittedBy` for everything one account has sent.
+     *
+     *     Each row has who sent it and, for a report that names an account, who it names. The `details` are on the single read.
+     *
+     *     A report that names the admin asking is left out, and not counted.
+     */
+    get: operations["FeedbackController_list"];
+    put?: never;
+    /**
+     * Send feedback
+     * @description For any signed-in member: a `bug` (something is broken), an `idea` (something could be better) or a `report` (somebody did something they should not have).
+     *
+     *     `title` and `details` are required. `about` is the "who or where" line, offered on every type and required on none: who a report is about, where a bug happened.
+     *
+     *     Who sent it is taken from the session and cannot be set. `context` and `cohortId` are for the client to fill in, not the member: where they were when they sent it. `cohortId` has to be a cohort the sender is in, unless the sender is an admin: admins enter any cohort’s campus without being in it, so any cohort that exists is taken from them.
+     *
+     *     A `report` may also name an account with `reportedUserId`. That person is not told, and nobody but an admin can read what was sent. Admins are emailed that a report has arrived, without what it says; an admin the report names is left out, and cannot read or resolve it.
+     *
+     *     The answer confirms it arrived. A member cannot read back what they have sent.
+     */
+    post: operations["FeedbackController_send"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/feedback/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read one piece of feedback (admin only)
+     * @description The whole of it: what was written, who sent it, where their client said they were, and who resolved it if anybody has.
+     *
+     *     `context` and `userAgent` are what the sender’s client reported, and are checked against nothing.
+     */
+    get: operations["FeedbackController_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Resolve or reopen feedback (admin only)
+     * @description Marks a piece of feedback `resolved`, recording who did it and when, or puts it back to `open`, which clears both.
+     *
+     *     Setting the status it already has changes nothing and records nothing. A change writes an audit entry naming the admin and the feedback, and nothing of what the feedback says.
+     */
+    patch: operations["FeedbackController_setStatus"];
     trace?: never;
   };
 }
@@ -1788,6 +1992,38 @@ export interface components {
        */
       accessExpiresAt: string;
     };
+    EndMembershipDto: {
+      /**
+       * @description Why, in the admin’s own words. Required for a dismissal, optional for the other four. Kept on the membership and in the audit log, so the roster shows it under state=ended. Blank is taken as no reason rather than refused.
+       * @example Posted the answer to a live assessment.
+       */
+      reason?: string;
+    };
+    EndMembershipResponseDto: {
+      /**
+       * @description The membership's own id.
+       * @example 55555555-5555-4555-8555-555555555555
+       */
+      id: string;
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId: string;
+      /** @example 44444444-4444-4444-8444-444444444444 */
+      userId: string;
+      role: components["schemas"]["CohortRole"];
+      /** @description The student status the end set; null for a removal, which carries no student status. */
+      status: components["schemas"]["StudentStatus"] | null;
+      /**
+       * Format: date-time
+       * @description When the membership ended.
+       * @example 2026-10-13T12:00:00.000Z
+       */
+      leftAt: string;
+      /**
+       * @description What the admin wrote, or null when they wrote nothing.
+       * @example Posted the answer to a live assessment.
+       */
+      reason: string | null;
+    };
     UpdateCohortDto: {
       /** @example Cohort 1 */
       name?: string;
@@ -1936,8 +2172,17 @@ export interface components {
        * @example https://lh3.googleusercontent.com/a/example
        */
       avatarUrl: string | null;
-      /** @example null */
-      spriteKey: string | null;
+      /**
+       * @description The character they walk the campus as. Null when they have picked none, or picked one that is no longer offered.
+       * @example null
+       * @enum {string|null}
+       */
+      spriteKey:
+        | "placeholder-1"
+        | "placeholder-2"
+        | "placeholder-3"
+        | "placeholder-4"
+        | null;
       systemRole: components["schemas"]["SystemRole"];
       /** @description Every cohort they hold a live place in. */
       memberships: components["schemas"]["UserMembershipDto"][];
@@ -1963,6 +2208,17 @@ export interface components {
        */
       phone?: string | null;
       bio?: string | null;
+      /**
+       * @description The character they walk the campus as. Anybody in the campus with them sees the change straight away.
+       * @example placeholder-1
+       * @enum {string|null}
+       */
+      spriteKey?:
+        | "placeholder-1"
+        | "placeholder-2"
+        | "placeholder-3"
+        | "placeholder-4"
+        | null;
     };
     ProfileCardMembershipDto: {
       cohort: components["schemas"]["UserMembershipCohortDto"];
@@ -1985,8 +2241,17 @@ export interface components {
       bio: string | null;
       /** @example null */
       avatarUrl: string | null;
-      /** @example null */
-      spriteKey: string | null;
+      /**
+       * @description The character they walk the campus as. Null when they have picked none, or picked one that is no longer offered.
+       * @example null
+       * @enum {string|null}
+       */
+      spriteKey:
+        | "placeholder-1"
+        | "placeholder-2"
+        | "placeholder-3"
+        | "placeholder-4"
+        | null;
       /** @description The cohorts the viewer shares with this person, most recently joined first. An admin, and the person themselves, see every live one. */
       memberships: components["schemas"]["ProfileCardMembershipDto"][];
     };
@@ -2008,10 +2273,19 @@ export interface components {
       | "invite_revoked"
       | "invite_flagged"
       | "invite_resent"
-      | "guest_visit_extended";
+      | "guest_visit_extended"
+      | "membership_ended"
+      | "feedback_resolved"
+      | "feedback_reopened";
     /** @enum {string} */
     AuditSubjectType:
-      "cohort_member" | "user" | "invite" | "cohort" | "cohort_track" | "track";
+      | "cohort_member"
+      | "user"
+      | "invite"
+      | "cohort"
+      | "cohort_track"
+      | "track"
+      | "feedback";
     AuditLogEntryDto: {
       /** Format: uuid */
       id: string;
@@ -2051,6 +2325,152 @@ export interface components {
       items: components["schemas"]["AuditLogEntryDto"][];
       /** @description Pagination metadata. */
       meta: components["schemas"]["PaginationMetaDto"];
+    };
+    /** @enum {string} */
+    FeedbackType: "bug" | "idea" | "report";
+    FeedbackContextDto: {
+      /**
+       * @description The page or screen they were on.
+       * @example /campus
+       */
+      path?: string;
+      /**
+       * @description The map they were on, from `snapshot.map.id`.
+       * @example campus
+       */
+      mapId?: string;
+      /**
+       * @description That map’s version, from `snapshot.map.version`.
+       * @example d686dbad05445e71
+       */
+      mapVersion?: string;
+      /**
+       * @description The tile they stood on.
+       * @example 75
+       */
+      x?: number;
+      /** @example 59 */
+      y?: number;
+    };
+    CreateFeedbackDto: {
+      type: components["schemas"]["FeedbackType"];
+      /** @example The library door will not open */
+      title: string;
+      /** @example I walk up to it from the courtyard and nothing happens. */
+      details: string;
+      /**
+       * @description Who or where, in the member’s own words: who a report is about, where a bug happened. Offered on every type and required on none. Blank is taken as not given.
+       * @example The library, by the east door
+       */
+      about?: string;
+      /**
+       * Format: uuid
+       * @description The account a report is about, when the member picked a person rather than typing a name. Only on a `report`. That person is not told.
+       * @example 22222222-2222-4222-8222-222222222222
+       */
+      reportedUserId?: string;
+      /**
+       * Format: uuid
+       * @description The cohort they were in when they sent it. One the sender is in, or any cohort from an admin.
+       * @example 11111111-1111-4111-8111-111111111111
+       */
+      cohortId?: string;
+      /** @description Where they were, filled in by the client rather than typed. A hint for whoever reads a bug. */
+      context?: components["schemas"]["FeedbackContextDto"];
+    };
+    FeedbackReceiptDto: {
+      /** Format: uuid */
+      id: string;
+      type: components["schemas"]["FeedbackType"];
+      /** @example The library door will not open */
+      title: string;
+      /**
+       * Format: date-time
+       * @example 2026-10-12T09:30:00.000Z
+       */
+      createdAt: string;
+    };
+    /** @enum {string} */
+    FeedbackStatus: "open" | "resolved";
+    FeedbackPersonDto: {
+      /** Format: uuid */
+      id: string;
+      /** @example ada@campus.local */
+      email: string;
+      /** @example Ada Lovelace */
+      displayName: string | null;
+    };
+    FeedbackListItemDto: {
+      /** Format: uuid */
+      id: string;
+      type: components["schemas"]["FeedbackType"];
+      /** @example The library door will not open */
+      title: string;
+      /**
+       * @description Who or where, as the member put it. Null when not given.
+       * @example The library, by the east door
+       */
+      about: string | null;
+      status: components["schemas"]["FeedbackStatus"];
+      submittedBy: components["schemas"]["FeedbackPersonDto"];
+      /** @description The account a report names, if it names one. */
+      reportedUser: components["schemas"]["FeedbackPersonDto"] | null;
+      /**
+       * Format: date-time
+       * @example 2026-10-12T09:30:00.000Z
+       */
+      createdAt: string;
+    };
+    PaginatedFeedbackListItemDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["FeedbackListItemDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    FeedbackDto: {
+      /** Format: uuid */
+      id: string;
+      type: components["schemas"]["FeedbackType"];
+      /** @example The library door will not open */
+      title: string;
+      /**
+       * @description Who or where, as the member put it. Null when not given.
+       * @example The library, by the east door
+       */
+      about: string | null;
+      status: components["schemas"]["FeedbackStatus"];
+      submittedBy: components["schemas"]["FeedbackPersonDto"];
+      /** @description The account a report names, if it names one. */
+      reportedUser: components["schemas"]["FeedbackPersonDto"] | null;
+      /**
+       * Format: date-time
+       * @example 2026-10-12T09:30:00.000Z
+       */
+      createdAt: string;
+      /** @example I walk up to it from the courtyard and nothing happens. */
+      details: string;
+      /**
+       * Format: uuid
+       * @description The cohort they were in, if their client said.
+       */
+      cohortId: string | null;
+      /** @description Where the member’s client said they were. Not checked against anything. */
+      context: components["schemas"]["FeedbackContextDto"] | null;
+      /**
+       * @description The browser or app that sent it.
+       * @example Mozilla/5.0 (Macintosh; …) Chrome/141.0
+       */
+      userAgent: string | null;
+      /** @description The admin who marked it resolved. Null while it is open. */
+      resolvedBy: components["schemas"]["FeedbackPersonDto"] | null;
+      /**
+       * Format: date-time
+       * @example 2026-10-13T11:00:00.000Z
+       */
+      resolvedAt: string | null;
+    };
+    UpdateFeedbackStatusDto: {
+      status: components["schemas"]["FeedbackStatus"];
     };
   };
   responses: never;
@@ -3656,6 +4076,361 @@ export interface operations {
       };
     };
   };
+  CohortsController_dismiss: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EndMembershipDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EndMembershipResponseDto"];
+        };
+      };
+      /** @description cohortId or userId is not a UUID, reason is not a string of at most 500 characters, or reason is missing on a dismissal. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nobody in that cohort holds this membership. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The membership has already ended, the status does not apply to its role, or the caller is ending their own membership. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_withdraw: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EndMembershipDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EndMembershipResponseDto"];
+        };
+      };
+      /** @description cohortId or userId is not a UUID, reason is not a string of at most 500 characters, or reason is missing on a dismissal. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nobody in that cohort holds this membership. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The membership has already ended, the status does not apply to its role, or the caller is ending their own membership. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_defer: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EndMembershipDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EndMembershipResponseDto"];
+        };
+      };
+      /** @description cohortId or userId is not a UUID, reason is not a string of at most 500 characters, or reason is missing on a dismissal. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nobody in that cohort holds this membership. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The membership has already ended, the status does not apply to its role, or the caller is ending their own membership. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_graduate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EndMembershipDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EndMembershipResponseDto"];
+        };
+      };
+      /** @description cohortId or userId is not a UUID, reason is not a string of at most 500 characters, or reason is missing on a dismissal. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nobody in that cohort holds this membership. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The membership has already ended, the status does not apply to its role, or the caller is ending their own membership. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_removeMember: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EndMembershipDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EndMembershipResponseDto"];
+        };
+      };
+      /** @description cohortId or userId is not a UUID, reason is not a string of at most 500 characters, or reason is missing on a dismissal. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nobody in that cohort holds this membership. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The membership has already ended, the status does not apply to its role, or the caller is ending their own membership. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
   UsersController_list: {
     parameters: {
       query?: {
@@ -3982,7 +4757,7 @@ export interface operations {
           "application/json": components["schemas"]["OwnProfileDto"];
         };
       };
-      /** @description A field is too long, or the phone is not a phone number. */
+      /** @description A field is too long, the phone is not a phone number, or the sprite is not one of the allowed keys. */
       400: {
         headers: {
           [name: string]: unknown;
@@ -4104,6 +4879,230 @@ export interface operations {
       };
       /** @description Signed in, but not an admin. */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  FeedbackController_list: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+        type?: components["schemas"]["FeedbackType"];
+        status?: components["schemas"]["FeedbackStatus"];
+        /** @description Everything this account has sent. */
+        submittedBy?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedFeedbackListItemDto"];
+        };
+      };
+      /** @description A filter is not one of its values, or not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  FeedbackController_send: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateFeedbackDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FeedbackReceiptDto"];
+        };
+      };
+      /** @description A field is missing, blank or too long; `type` is not one of the three; `reportedUserId` is on something that is not a report or names no account; `cohortId` names no cohort, or, from anybody but an admin, a cohort the sender is not in; or `context` is not one object. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description This account has sent ten in the last hour. Counted per account, whatever the type. */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  FeedbackController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FeedbackDto"];
+        };
+      };
+      /** @description The id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No feedback has this id, or it is a report that names the admin asking. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  FeedbackController_setStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateFeedbackStatusDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FeedbackDto"];
+        };
+      };
+      /** @description The id is not a UUID, or `status` is not one of the two. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No feedback has this id, or it is a report that names the admin asking. */
+      404: {
         headers: {
           [name: string]: unknown;
         };

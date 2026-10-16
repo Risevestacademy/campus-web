@@ -19,18 +19,23 @@ Feedback.
 
 ## Modules
 
-| Module                                                        | Owns                                                      | Seam                   |
-| ------------------------------------------------------------- | --------------------------------------------------------- | ---------------------- |
-| `feedback-popup.tsx`                                          | the modal, history state, form and confirmation switching | none                   |
-| `feedback-form.tsx`, `screenshot-field.tsx`                   | the form, its validation display, the screenshot picker   | none                   |
-| `feedback-list.tsx`, `feedback-detail.tsx`                    | the feedback history and the selected item's details      | none                   |
-| `feedback-sent.tsx`                                           | the confirmation screen                                   | none                   |
-| `schemas/feedback.schema.ts`, `feedback-kinds.ts`, `types.ts` | validation, kind labels and icons, types                  | none                   |
-| `mock-feedback.ts`                                            | seeded history until campus-api exists                    | replaced by an adapter |
+| Module                                                        | Owns                                                           | Seam                               |
+| ------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------- |
+| `feedback-popup.tsx`                                          | the modal, history state, form and confirmation switching      | none                               |
+| `feedback-form.tsx`, `screenshot-field.tsx`                   | the form, its validation display, the screenshot picker        | none                               |
+| `feedback-list.tsx`, `feedback-detail.tsx`                    | the feedback history and the selected item's details           | none                               |
+| `feedback-sent.tsx`                                           | the confirmation screen                                        | none                               |
+| `schemas/feedback.schema.ts`, `feedback-kinds.ts`, `types.ts` | validation, kind labels and icons, types                       | none                               |
+| `services/`, `hooks/`                                         | sending to `POST /v1/feedback` and its pending and error state | `services/feedback-api.adapter.ts` |
 
-campus-api has no feedback endpoints yet. Sending adds the item to in-memory
-state, so the list resets on reload, and the screenshot never leaves the
-browser.
+Sending calls `POST /v1/feedback` through the browser proxy. A report asks who
+is being reported as well as where, but campus-api has one free-text `about`
+field, so `services/feedback-api.adapter.ts` packs a report's `about` as
+`Who | Where`, and `admin` splits it on the first `|`. Replace this when the
+backend gains separate fields. Members cannot
+read feedback back, so the history lists only what this session sent and
+resets on reload. Admins read it in `admin`. Screenshots are not sent: the
+backend has nowhere to store them yet, so the picker only previews.
 
 ## Contributing
 
@@ -40,13 +45,6 @@ browser.
    `FeedbackKind` follows.
 2. Add its entry to `KIND_DETAILS` in `feedback-kinds.ts`; typecheck fails
    until you do.
-
-### Replacing the mock
-
-Read the history in a Server Component and pass it to the popup, and send
-through a mutation hook with `browserApi`, following "Adding a mutation" in
-`features/admin/README.md`. Delete `mock-feedback.ts` and the in-memory
-`send`.
 
 ### Rules
 
@@ -59,4 +57,10 @@ through a mutation hook with `browserApi`, following "Adding a mutation" in
 
 ```bash
 pnpm vitest run --project=unit features/feedback
+pnpm eval:feedback
 ```
+
+`eval:feedback` renders the real popup against a mock campus-api and holds
+every case: a refused submit sends nothing, an accepted one sends exactly one
+request, screenshots are chosen, refused and previewed as designed, and the
+screenshot never leaves the browser.
