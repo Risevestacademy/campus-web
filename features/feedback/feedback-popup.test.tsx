@@ -328,7 +328,89 @@ describe("FeedbackPopup", () => {
       },
     });
 
-    expect(screen.getByRole("alert")).toHaveTextContent(/image/i);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Use a PNG, JPEG, WebP or GIF image.",
+    );
+  });
+
+  it("pastes the first supported image when the clipboard lists a TIFF first", async () => {
+    renderPopup();
+
+    fireEvent.paste(screen.getByLabelText("Title"), {
+      clipboardData: {
+        types: ["Files"],
+        files: [
+          new File(["x"], "pod.tiff", { type: "image/tiff" }),
+          new File(["x"], "pod.png", { type: "image/png" }),
+        ],
+      },
+    });
+
+    expect(await screen.findByAltText("Screenshot preview")).toBeVisible();
+    expect(screen.getByText("pod.png")).toBeVisible();
+  });
+
+  it("previews the first supported image when files are dropped", async () => {
+    renderPopup();
+
+    fireEvent.drop(screen.getByRole("button", { name: /Add a screenshot/ }), {
+      dataTransfer: {
+        files: [
+          new File(["x"], "pod.tiff", { type: "image/tiff" }),
+          new File(["x"], "pod.png", { type: "image/png" }),
+        ],
+      },
+    });
+
+    expect(await screen.findByAltText("Screenshot preview")).toBeVisible();
+    expect(screen.getByText("pod.png")).toBeVisible();
+  });
+
+  it("explains which images work when a non-image file is dropped", () => {
+    renderPopup();
+
+    fireEvent.drop(screen.getByRole("button", { name: /Add a screenshot/ }), {
+      dataTransfer: {
+        files: [new File(["x"], "notes.txt", { type: "text/plain" })],
+      },
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Use a PNG, JPEG, WebP or GIF image.",
+    );
+  });
+
+  it("pastes copied cells into a text field as text, not as an image", () => {
+    renderPopup();
+
+    const pastedAsImage = !fireEvent.paste(screen.getByLabelText("Title"), {
+      clipboardData: {
+        types: ["text/plain", "Files"],
+        files: [
+          new File(["x"], "cells.tiff", { type: "image/tiff" }),
+          new File(["x"], "cells.png", { type: "image/png" }),
+        ],
+        getData: () => "A1",
+      },
+    });
+
+    expect(pastedAsImage).toBe(false);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("explains which images work when only an unsupported one is pasted", () => {
+    renderPopup();
+
+    fireEvent.paste(screen.getByLabelText("Title"), {
+      clipboardData: {
+        types: ["Files"],
+        files: [new File(["x"], "pod.heic", { type: "image/heic" })],
+      },
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Use a PNG, JPEG, WebP or GIF image.",
+    );
   });
 
   it("previews a chosen screenshot and lets it be removed", async () => {
