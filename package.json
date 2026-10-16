@@ -34,6 +34,7 @@
     "eval:api-client": "vitest run tests/evals/api-client-foundation.eval.test.ts",
     "eval:route-protection": "vitest run --project=unit tests/evals/campus-route-protection.eval.test.ts tests/evals/campus-page-authorization.eval.test.tsx tests/evals/join-gate.eval.test.tsx",
     "eval:invitation": "vitest run --project=unit tests/evals/invitation.eval.test.tsx",
+    "eval:feedback": "vitest run --project=unit tests/evals/feedback.eval.test.tsx",
     "eval:privacy": "vitest run --project=unit tests/evals/data-privacy.eval.test.ts",
     "eval:admin": "vitest run --project=unit tests/evals/admin-mutations.eval.test.tsx tests/evals/cohort-create.eval.test.tsx tests/evals/admin-layout.eval.test.tsx tests/evals/admin-sidebar-navigation.eval.test.tsx tests/evals/admin-page-params.eval.test.ts",
     "eval:component-stories": "vitest run --project=unit tests/evals/component-story-coverage.eval.test.ts",

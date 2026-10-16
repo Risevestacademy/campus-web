@@ -57,4 +57,10 @@ backend has nowhere to store them yet, so the picker only previews.
 
 ```bash
 pnpm vitest run --project=unit features/feedback
+pnpm eval:feedback
 ```
+
+`eval:feedback` renders the real popup against a mock campus-api and holds
+every case: a refused submit sends nothing, an accepted one sends exactly one
+request, screenshots are chosen, refused and previewed as designed, and the
+screenshot never leaves the browser.
