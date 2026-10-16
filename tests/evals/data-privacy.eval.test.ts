@@ -259,6 +259,21 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       );
     });
 
+    it("reads an outcome or error code it does not know as unknown, never as the text world sent", () => {
+      const parsed = [
+        parsedMessage(
+          JSON.stringify({ ...serverFrames.moveResult, outcome: TOKEN }),
+        ),
+        parsedMessage(JSON.stringify({ ...serverFrames.error, code: TOKEN })),
+      ];
+
+      expect(parsed).toEqual([
+        { ...serverFrames.moveResult, outcome: "unknown" },
+        { ...serverFrames.error, code: "unknown" },
+      ]);
+      expect(JSON.stringify(parsed)).not.toContain(TOKEN);
+    });
+
     it("cannot reach the prototype through a __proto__ key in a frame", () => {
       const parsed = parsedMessage(
         '{"type":"left","userId":"u-1","__proto__":{"isAdmin":true}}',

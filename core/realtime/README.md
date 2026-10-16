@@ -19,10 +19,10 @@ import {
 
 - `ServerMessage`, `ClientMessage`, one type per message (`WelcomeMessage`,
   `MoveResultMessage`, …), and `Player`, `Avatar`, `Direction`,
-  `MoveOutcome`: generated from world's protocol.
-- `parseServerMessage(text)`: one socket frame's text as a `ServerMessage`,
-  or `undefined` for anything else (not JSON, an unknown `type`, a field of
-  the wrong shape).
+  `MoveOutcome`, `ErrorCode`: generated from world's protocol. `MoveOutcome`
+  and `ErrorCode` also hold `"unknown"` (see Inbound frames).
+- `parseServerMessage(text)`: one socket frame's text as
+  `{ ok: true, message }`, or a failure saying why it could not be read.
 
 ## Protocol types
 
@@ -87,6 +87,12 @@ result.
   promise that it will never add a field.
 - `z.toZod` cannot see bounds. Tiles are non-negative safe integers; the
   tests cover that.
+- An `outcome` or error `code` string world added after the last
+  `pnpm world:types` reads as `"unknown"`, so a `moveResult` still answers its
+  move. The value world sent is dropped. `MoveOutcome` and `ErrorCode` are the
+  generated unions plus `"unknown"`, so a value `pnpm world:types` adds fails
+  `pnpm typecheck` until the schema's list names it. `Direction` stays closed:
+  a new direction breaks the grid model and needs a client release.
 - `parseServerMessage` returns `{ ok: true, message }` or a failure:
   - `{ reason: "unknown-type" }`: a message world added after the last
     `pnpm world:types`. Log it and skip it; never close the socket.

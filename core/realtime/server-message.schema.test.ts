@@ -90,6 +90,37 @@ describe("parseServerMessage", () => {
     });
   });
 
+  it("reads an outcome world added after the last world:types as unknown, so the move it answers still resolves", () => {
+    const frame = { ...serverFrames.moveResult, outcome: "teleported" };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: { ...serverFrames.moveResult, outcome: "unknown" },
+    });
+  });
+
+  it("reads an error code world added after the last world:types as unknown", () => {
+    const frame = { ...serverFrames.error, code: "RATE_LIMITED" };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: { ...serverFrames.error, code: "unknown" },
+    });
+  });
+
+  it.each([
+    ["no outcome", undefined],
+    ["a numeric outcome", 2],
+  ])("refuses a moveResult with %s", (_case, outcome) => {
+    const frame = { ...serverFrames.moveResult, outcome };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: false,
+      reason: "invalid",
+      type: "moveResult",
+    });
+  });
+
   it.each(["", "not json", "[]", "null", '{"type":5}', '{"userId":"x"}'])(
     "reads %j as an invalid frame with no type",
     (text) => {
