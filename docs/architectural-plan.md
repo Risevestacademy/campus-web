@@ -299,7 +299,10 @@ Next proxy, authenticated by the `campus_session` cookie.
 
 ```text
 core/realtime/
+├── README.md                   regenerating, inbound-frame rules, tests
+├── index.ts                    public entry: protocol types, parseServerMessage
 ├── configuration.ts            world origin from NEXT_PUBLIC_WORLD_URL
+├── contract.typecheck.ts       outbound frames the protocol forbids fail tsc
 ├── generate-types.mjs          pnpm world:types: world /schema.json → types
 ├── generated/world-protocol.ts the protocol, generated, never edited
 └── server-message.schema.ts    parseServerMessage, Zod bound to the types
