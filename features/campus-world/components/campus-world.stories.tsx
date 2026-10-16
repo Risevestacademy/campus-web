@@ -10,6 +10,7 @@ import mapFixture from "../services/map/fixtures/campus-trimmed.json";
 import { CampusWorld } from "./campus-world";
 
 const mapUrl = "https://cdn.sanity.io/files/sj3zsz66/staging/map.json";
+const tilesetUrl = "https://cdn.sanity.io/images/sj3zsz66/staging/";
 const transparentPixel =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 
@@ -20,7 +21,7 @@ const manifest = {
   mapUrl,
   tilesets: mapFixture.tilesets.map(({ image }) => ({
     tiledImagePath: image,
-    url: transparentPixel,
+    url: `${tilesetUrl}${image.split("/").at(-1)}`,
   })),
   version: "storybook-version",
   widthTiles: mapFixture.width,
@@ -29,8 +30,8 @@ const manifest = {
 const storyFetch = (async (input: RequestInfo | URL) => {
   const url = String(input);
 
-  if (url.startsWith("data:image/")) {
-    return globalThis.fetch(input);
+  if (url.startsWith(tilesetUrl)) {
+    return globalThis.fetch(transparentPixel);
   }
 
   return new Response(
