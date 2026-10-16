@@ -31,6 +31,7 @@
     "test:e2e:ui": "pnpm build && playwright test --ui",
     "eval:analytics": "vitest run core/analytics/contract.eval.test.ts",
     "eval:architecture": "eslint . --max-warnings=0 && vitest run --project=unit tests/evals/proxy-entry-boundary.eval.test.ts tests/evals/root-layout-entry-boundary.eval.test.ts",
+    "eval:ci": "vitest run --project=unit tests/evals/ci-workflow.eval.test.ts",
     "eval:api-client": "vitest run tests/evals/api-client-foundation.eval.test.ts",
     "eval:route-protection": "vitest run --project=unit tests/evals/campus-route-protection.eval.test.ts tests/evals/campus-page-authorization.eval.test.tsx tests/evals/join-gate.eval.test.tsx",
     "eval:invitation": "vitest run --project=unit tests/evals/invitation.eval.test.tsx",

@@ -164,6 +164,9 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium
 
+      - name: Storybook tests and build
+        run: pnpm eval:storybook
+
       - name: E2E
         run: |
           pnpm build
@@ -173,5 +176,7 @@ jobs:
         if: failure()
         with:
           name: playwright-report
-          path: playwright-report/
+          path: |
+            playwright-report/
+            test-results/storybook/
           retention-days: 7
