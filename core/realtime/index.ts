@@ -1,3 +1,8 @@
+export {
+  classifyClose,
+  type CloseAction,
+  reconnectDelay,
+} from "./close-policy";
 export type {
   AppearanceMessage,
   Avatar,
