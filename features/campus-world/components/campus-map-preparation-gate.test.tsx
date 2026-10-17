@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import Link from "next/link";
 import { describe, expect, it, vi } from "vitest";
 
-import type { CampusWorldDependencies as Dependencies } from "../hooks/campus-world-dependencies";
+import type { CampusMapDependencies as Dependencies } from "../hooks/campus-world-dependencies";
 import { campusMapPreparationQueryKey } from "../hooks/use-campus-map-preparation";
 import type {
   CampusMapModule,

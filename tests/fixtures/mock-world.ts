@@ -8,34 +8,13 @@ import {
   type RealtimeEvent,
 } from "@/core/realtime";
 
+import { serverFrames } from "./world-frames";
+
 export const WORLD_SOCKET_URL =
   "wss://ws.example.test/socket?cohortId=cohort-1";
 
-export const WELCOME = {
-  type: "welcome",
-  userId: "user-1",
-  connectionId: "connection-1",
-  heartbeatSeconds: 25,
-  stepMs: 150,
-  tickMs: 100,
-  displayName: "Ada",
-  spriteKey: null,
-} as const;
-
-export const SNAPSHOT = {
-  type: "snapshot",
-  map: { id: "campus", version: "v1", width: 60, height: 40 },
-  players: [
-    {
-      userId: "user-1",
-      x: 3,
-      y: 4,
-      facing: "down",
-      displayName: "Ada",
-      spriteKey: null,
-    },
-  ],
-} as const;
+export const WELCOME = serverFrames.welcome;
+export const SNAPSHOT = serverFrames.snapshot;
 
 export type MockConnection = WebSocketHandlerConnection;
 type WorldBehaviour = (connection: MockConnection) => void;

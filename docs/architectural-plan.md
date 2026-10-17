@@ -363,19 +363,20 @@ protocol rather than an optimization.
 
 ## Presence
 
-Responsible for:
+`core/presence/` holds who is in a cohort's campus and where world last placed
+them, applied from realtime messages. It is in `core/` because the campus
+map, the Presence Session that feeds it, and the roster all read it, and
+features may not import each other.
 
-- Connected students.
-- Join/leave events.
-- Remote user information.
-- Online/offline status.
-- Position snapshots.
+- `participants`: `Map<UserId, { userId, displayName, spriteKey }>`.
+- `positions`: `Map<UserId, { x, y, facing }>`, in tiles.
 
-Suggested storage:
-
-Record\<UserId, ParticipantPresence\>
-
-instead of repeatedly searching large arrays.
+Two maps, so React subscribes to who is here without rendering on every
+`moved`. Tile positions are world's answer, not frame state: KAPLAY reads
+them each frame and keeps pixels and walking itself. A `snapshot` replaces
+both maps, so a reconnect never shows anyone twice. `presenceFor(cohortId)`
+outlives the map's mount, so the map is populated again on the way back from
+another page.
 
 ## Proximity
 

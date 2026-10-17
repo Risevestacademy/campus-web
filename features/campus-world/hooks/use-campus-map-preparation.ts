@@ -8,10 +8,10 @@ import {
   type CampusMapPreparationProgress,
   isPreparedCampusMapRenderReady,
 } from "../services/map/prepare-campus-map";
-import type { CampusWorldDependencies } from "./campus-world-dependencies";
+import type { CampusMapDependencies } from "./campus-world-dependencies";
 
 export function campusMapPreparationQueryKey(
-  configuration: CampusWorldDependencies["configuration"],
+  configuration: CampusMapDependencies["configuration"],
   source: MapSource,
 ) {
   return [
@@ -27,7 +27,7 @@ export function campusMapPreparationQueryKey(
 
 function campusMapPreparationQueryOptions(
   source: MapSource,
-  dependencies: CampusWorldDependencies,
+  dependencies: CampusMapDependencies,
   onProgress?: (progress: CampusMapPreparationProgress) => void,
 ) {
   return queryOptions({
@@ -42,7 +42,7 @@ function campusMapPreparationQueryOptions(
 
 export function useCampusMapPreparation(
   source: MapSource,
-  dependencies: CampusWorldDependencies,
+  dependencies: CampusMapDependencies,
   onProgress?: (progress: CampusMapPreparationProgress) => void,
 ) {
   const preparation = useQuery({
@@ -68,7 +68,7 @@ export function useCampusMapPreparation(
 
 export function useCachedCampusMap(
   source: MapSource,
-  dependencies: CampusWorldDependencies,
+  dependencies: CampusMapDependencies,
 ) {
   return useQuery({
     ...campusMapPreparationQueryOptions(source, dependencies),
