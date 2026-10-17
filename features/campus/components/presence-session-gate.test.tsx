@@ -10,7 +10,9 @@ import {
   PresenceTabProvider,
 } from "../services/presence-session/presence-session-provider";
 import type { PresenceTabStatus } from "../services/presence-session/presence-tab";
+import { WorldSessionProvider } from "../services/world-session/world-session-provider";
 import { createTestPresenceTab } from "../testing/presence-tab-test-utils";
+import { createTestWorldSession } from "../testing/world-session-test-utils";
 import { PresenceSessionGate } from "./presence-session-gate";
 
 const navigation = vi.hoisted(() => ({
@@ -39,19 +41,23 @@ function presenceGate(
     transport: { connect, handleLocalPublicationChange() {} },
   });
   const presenceTab = createTestPresenceTab(status);
+  const world = createTestWorldSession();
 
   return {
     admissionStore,
     connect,
     mediaStore,
     presenceTab,
+    world,
     view: (
       <AdmissionProvider store={admissionStore}>
         <MediaSessionProvider store={mediaStore}>
           <PresenceTabProvider tab={presenceTab}>
-            <PresenceSessionGate cohortId="c-1">
-              <p>Cohort page</p>
-            </PresenceSessionGate>
+            <WorldSessionProvider world={world}>
+              <PresenceSessionGate cohortId="c-1">
+                <p>Cohort page</p>
+              </PresenceSessionGate>
+            </WorldSessionProvider>
           </PresenceTabProvider>
         </MediaSessionProvider>
       </AdmissionProvider>
@@ -64,7 +70,17 @@ function takeOverFromAnotherTab(gate: ReturnType<typeof presenceGate>) {
   act(() => {
     gate.mediaStore.getState().stop();
     gate.admissionStore.getState().clear();
+    gate.world.close();
     gate.presenceTab.setStatus("taken-over");
+  });
+}
+
+// What world's 4000 and followWorldOutcome do to the session.
+function enterFromAnotherDevice(gate: ReturnType<typeof presenceGate>) {
+  act(() => {
+    gate.mediaStore.getState().stop();
+    gate.admissionStore.getState().clear();
+    gate.world.stop("entered-elsewhere");
   });
 }
 
@@ -80,13 +96,14 @@ describe("PresenceSessionGate", () => {
   });
 
   it("redirects an unjoined deep link through pre-join without connecting", () => {
-    const { connect, view } = presenceGate();
+    const { connect, view, world } = presenceGate();
 
     expect(() => render(view)).toThrowError(
       "NEXT_REDIRECT:/campus/c-1/join?returnTo=%2Fcampus%2Fc-1%2Fmeeting",
     );
     expect(screen.queryByText("Cohort page")).not.toBeInTheDocument();
     expect(connect).not.toHaveBeenCalled();
+    expect(world.connects()).toBe(0);
   });
 
   it("returns an unjoined administration page through pre-join to itself", () => {
@@ -111,11 +128,12 @@ describe("PresenceSessionGate", () => {
 
   it("admits the exact pending destination and connects the session to the cohort", () => {
     navigation.searchParams = new URLSearchParams("tab=people");
-    const { admissionStore, connect, view } = presenceGate();
+    const { admissionStore, connect, view, world } = presenceGate();
     admissionStore.getState().grantEntry("/campus/c-1/meeting?tab=people");
 
     render(view);
 
+    expect(world.connects()).toBe(1);
     expect(screen.getByText("Cohort page")).toBeVisible();
     expect(admissionStore.getState()).toMatchObject({
       admitted: true,
@@ -191,6 +209,7 @@ describe("PresenceSessionGate", () => {
 
       expect(await screen.findByText("Cohort page")).toBeVisible();
       expect(gate.presenceTab.takeOver).toHaveBeenCalledOnce();
+      expect(gate.world.connects()).toBe(2);
       expect(gate.admissionStore.getState()).toMatchObject({
         admitted: true,
         pendingDestination: null,
@@ -226,6 +245,57 @@ describe("PresenceSessionGate", () => {
       expect(await screen.findByText("Cohort page")).toBeVisible();
       expect(navigation.redirect).not.toHaveBeenCalled();
       expect(gate.connect).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("when the member opens the campus on another device", () => {
+    function joinedGate() {
+      const gate = presenceGate();
+      gate.admissionStore.getState().grantEntry("/campus/c-1/meeting");
+      render(gate.view);
+      enterFromAnotherDevice(gate);
+      gate.connect.mockClear();
+      return gate;
+    }
+
+    it("shows the choice in world's words instead of the page", () => {
+      joinedGate();
+
+      expect(
+        screen.getByRole("heading", {
+          name: "You opened this campus somewhere else",
+        }),
+      ).toBeVisible();
+      expect(screen.queryByText("Cohort page")).not.toBeInTheDocument();
+    });
+
+    it("rejoins here on Use here without taking a lock this tab holds", async () => {
+      const gate = joinedGate();
+
+      fireEvent.click(screen.getByRole("button", { name: "Use here" }));
+
+      expect(await screen.findByText("Cohort page")).toBeVisible();
+      expect(gate.presenceTab.takeOver).not.toHaveBeenCalled();
+      expect(gate.world.reconnects()).toBe(1);
+      expect(gate.admissionStore.getState().admitted).toBe(true);
+      expect(gate.connect).toHaveBeenCalledExactlyOnceWith(
+        "c-1",
+        expect.any(Function),
+      );
+    });
+
+    it("never reconnects world when another cohort page mounts", () => {
+      const gate = joinedGate();
+      gate.admissionStore.getState().grantEntry("/campus/c-1/overview");
+      navigation.pathname = "/campus/c-1/overview";
+
+      render(gate.view);
+
+      expect(gate.world.getStatus()).toEqual({
+        phase: "closed",
+        outcome: "entered-elsewhere",
+      });
+      expect(gate.world.reconnects()).toBe(0);
     });
   });
 });

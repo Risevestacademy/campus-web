@@ -99,6 +99,10 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "cohort.created": ["cohort_status"],
   "identity.profile_setup_completed": ["cohort_id", "role", "track_id"],
   "identity.profile_setup_started": ["cohort_id", "role", "track_id"],
+  "realtime.closed": ["action", "code", "reason"],
+  "realtime.connected": ["cohort_id", "reconnect"],
+  "realtime.gave_up": ["attempts"],
+  "realtime.reconnected": ["attempts"],
 };
 
 const PLAYER_PATHS = ["facing", "userId", "x", "y"];

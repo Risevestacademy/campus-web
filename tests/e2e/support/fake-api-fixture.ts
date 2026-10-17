@@ -2,7 +2,10 @@ import {
   type APIRequestContext,
   type BrowserContext,
   test as base,
+  type WebSocketRoute,
 } from "@playwright/test";
+
+import { serverFrames } from "../../fixtures/world-frames";
 
 export const FAKE_API_ORIGIN = `http://127.0.0.1:${process.env.FAKE_API_PORT ?? 3101}`;
 
@@ -233,7 +236,23 @@ export class FakeApi {
   }
 }
 
-export const test = base.extend<{ fakeApi: FakeApi }>({
+const WORLD_SOCKET = /\/socket\?cohortId=/;
+
+function admitToWorld(socket: WebSocketRoute) {
+  socket.send(JSON.stringify(serverFrames.welcome));
+  socket.send(JSON.stringify(serverFrames.snapshot));
+}
+
+export const test = base.extend<{ fakeApi: FakeApi; world: void }>({
+  // Builds carry a real NEXT_PUBLIC_WORLD_URL; without this, Join would open a
+  // socket to it with no session and reload on world's no_token.
+  world: [
+    async ({ context }, provide) => {
+      await context.routeWebSocket(WORLD_SOCKET, admitToWorld);
+      await provide();
+    },
+    { auto: true },
+  ],
   // Named `provide`, not Playwright's usual `use`, so react-hooks lint does not
   // mistake the fixture callback for React's use() hook.
   fakeApi: async ({ playwright }, provide) => {

@@ -8,10 +8,10 @@ reads and acceptance belong to `invitation`.
 
 ## Interface
 
-| Entry      | Imported by         | Exports                                                                                                                                        |
-| ---------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.ts` | route code          | `requireRouteAccess`, `CohortGate`, `SessionRenewal`, `InvitationGate`, `ResumeInvitation`, `redirectSignedInVisitor`, `SessionUnavailable`, … |
-| `proxy.ts` | the root `proxy.ts` | `guardCampusRequest` (no React, no `server-only`)                                                                                              |
+| Entry      | Imported by         | Exports                                                                                                                                                                  |
+| ---------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `index.ts` | route code          | `requireRouteAccess`, `CohortGate`, `SessionRenewal`, `SessionRefreshProvider`, `InvitationGate`, `ResumeInvitation`, `redirectSignedInVisitor`, `SessionUnavailable`, … |
+| `proxy.ts` | the root `proxy.ts` | `guardCampusRequest` (no React, no `server-only`)                                                                                                                        |
 
 ```tsx
 const access = await requireRouteAccess({ kind: "system-admin" });
@@ -37,18 +37,19 @@ access.session;
 
 ## Modules
 
-| Module                              | Owns                                                          | Seam                                           |
-| ----------------------------------- | ------------------------------------------------------------- | ---------------------------------------------- |
-| `services/route-policy.ts`          | the policy above, as pure functions                           | none: shared by the proxy and `authorizeRoute` |
-| `services/authorization.service.ts` | one `cache()`d session read per request, request signals      | `getServerApi()`                               |
-| `services/session.service.ts`       | `/v1/auth/me` with retries, refresh POST, logout POST         | `ApiClient`                                    |
-| `services/campus-proxy.service.ts`  | session refresh redirects and trusted render headers          | `NextRequest`                                  |
-| `services/session-renewal.ts`       | Session Renewal: when to renew, retries, cross-tab skips      | ports: refresh, lock, shared expiry, wake      |
-| `services/browser-session.ts`       | browser adapters for those ports; the refresh singletons      | `browserApi`, Web Locks, `localStorage`        |
-| `services/refresh-cooldown.ts`      | the 1/2/4/8 s backoff, stretched by `Retry-After`             | none                                           |
-| `schemas/`                          | session parsing; return-destination rules; sign-in error copy | none                                           |
-| `components/`                       | gates, `SessionRenewal`, refresh page, account menu           | none                                           |
-| `hooks/`                            | refresh, renewal and logout; countdown                        | `browserApi`, shared `useMountEffect`          |
+| Module                                    | Owns                                                          | Seam                                           |
+| ----------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------- |
+| `services/route-policy.ts`                | the policy above, as pure functions                           | none: shared by the proxy and `authorizeRoute` |
+| `services/authorization.service.ts`       | one `cache()`d session read per request, request signals      | `getServerApi()`                               |
+| `services/session.service.ts`             | `/v1/auth/me` with retries, refresh POST, logout POST         | `ApiClient`                                    |
+| `services/campus-proxy.service.ts`        | session refresh redirects and trusted render headers          | `NextRequest`                                  |
+| `services/session-renewal.ts`             | Session Renewal: when to renew, retries, cross-tab skips      | ports: refresh, lock, shared expiry, wake      |
+| `services/browser-session.ts`             | browser adapters for those ports; the refresh singletons      | `browserApi`, Web Locks, `localStorage`        |
+| `services/refresh-cooldown.ts`            | the 1/2/4/8 s backoff, stretched by `Retry-After`             | none                                           |
+| `schemas/`                                | session parsing; return-destination rules; sign-in error copy | none                                           |
+| `components/`                             | gates, `SessionRenewal`, refresh page, account menu           | none                                           |
+| `components/session-refresh-provider.tsx` | fills the shared refresh port with the locked refresher       | `shared/lib/session-refresh`                   |
+| `hooks/`                                  | refresh, renewal and logout; countdown                        | `browserApi`, shared `useMountEffect`          |
 
 Flow: page → gate or `requireRouteAccess` → `authorizeRoute` →
 `route-policy` + `session.service`.
@@ -62,6 +63,12 @@ than one 15-minute access-token lifetime ahead), and re-checks on
 `visibilitychange`, `focus`, `online` and `pageshow`. It never navigates, so
 the Presence Session keeps running. `/session/refresh` remains the cold-load
 path: a reload, a new tab, or a wake after the access cookie already lapsed.
+
+`SessionRefreshProvider` lends the same locked refresher to features that may
+not import auth, through `useRefreshSession()` in `shared/lib/session-refresh`.
+It answers `true` only for a renewed session. The cohort layout wraps the
+Presence Session in it, so world's `session_ended` and `session_expired` closes
+renew in place; with no provider the port answers `false`.
 
 ### What the proxy is for
 

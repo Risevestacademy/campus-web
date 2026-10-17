@@ -15,7 +15,10 @@ import {
   PresenceTabProvider,
 } from "@/features/campus/services/presence-session/presence-session-provider";
 import type { PresenceTab } from "@/features/campus/services/presence-session/presence-tab";
+import type { WorldSession } from "@/features/campus/services/world-session/world-session";
+import { WorldSessionProvider } from "@/features/campus/services/world-session/world-session-provider";
 import { createTestPresenceTab } from "@/features/campus/testing/presence-tab-test-utils";
+import { createTestWorldSession } from "@/features/campus/testing/world-session-test-utils";
 
 export function createPresenceMediaTestStore() {
   return createMediaSessionStore();
@@ -38,11 +41,14 @@ export function presenceSession(
   mediaStore: StoreApi<MediaSessionState> = createPresenceMediaTestStore(),
   admissionStore: AdmissionStore = createPresenceAdmissionTestStore(),
   presenceTab: PresenceTab = createTestPresenceTab(),
+  world: WorldSession = createTestWorldSession(),
 ) {
   return (
     <AdmissionProvider store={admissionStore}>
       <MediaSessionProvider store={mediaStore}>
-        <PresenceTabProvider tab={presenceTab}>{children}</PresenceTabProvider>
+        <PresenceTabProvider tab={presenceTab}>
+          <WorldSessionProvider world={world}>{children}</WorldSessionProvider>
+        </PresenceTabProvider>
       </MediaSessionProvider>
     </AdmissionProvider>
   );

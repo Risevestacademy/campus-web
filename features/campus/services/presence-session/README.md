@@ -1,7 +1,8 @@
 # Presence Session
 
-Owns one browser document's joined presence in one cohort: Admission plus the
-cohort media session. `app/campus/[id]/layout.tsx` mounts it once per cohort
+Owns one browser document's joined presence in one cohort: Admission, the
+cohort media session, and the cohort's world session (the map,
+[README](../world-session/README.md)). `app/campus/[id]/layout.tsx` mounts it once per cohort
 (through `PresenceSession`), so it survives client navigation between pre-join,
 the map, the meeting view, and Cohort Administration. A reload, other cohort,
 or any route outside `/campus/[id]` starts a new session. A second tab on the
@@ -9,8 +10,10 @@ same cohort never starts one; see [Presence Tab](#presence-tab).
 
 ## Interface
 
-- `PresenceSessionProvider`: creates the admission store, the media store, and
-  the Presence Tab, and follows the tab's status.
+- `PresenceSessionProvider`: creates the admission store, the media store, the
+  Presence Tab and the world session, and follows the tab's status and world's
+  outcomes. It needs the shared refresh port (`SessionRefreshProvider` from
+  auth, composed by the cohort layout).
 - `useAdmission(selector)`: `pendingDestination`, `admitted`, `grantEntry`,
   `completeEntry`, `clear`.
 - `usePresenceTab()`: `status`, `claim`, `takeOver`.
@@ -18,7 +21,7 @@ same cohort never starts one; see [Presence Tab](#presence-tab).
 
 `components/presence-session.tsx` adds the session's `RemoteAudioOutput`;
 `components/presence-session-gate.tsx` admits an exact grant and connects the
-transport.
+transport and world.
 
 ## Modules
 
@@ -27,7 +30,8 @@ transport.
 | `admission-store.ts`            | pending destination and admitted flag           |
 | `presence-tab.ts`               | which tab holds the cohort, over injected ports |
 | `browser-presence-tab.ts`       | Web Locks, `BroadcastChannel`, wake events      |
-| `follow-presence-tab.ts`        | ends or restarts media and Admission on status  |
+| `follow-presence-tab.ts`        | ends or restarts media, Admission and world     |
+| `follow-world-outcome.ts`       | what each terminal world outcome does           |
 | `presence-session-provider.tsx` | per-cohort store creation and media composition |
 
 ## Presence Tab
@@ -52,6 +56,23 @@ Web Lock `campus-presence:<cohortId>`; tabs on other cohorts are unaffected.
   `pageshow`) triggers one. A closed or crashed holder sends no notice, so
   the other tab sees the cohort free when the member returns to it.
 - Use here joins with camera and microphone off.
+
+## World outcomes
+
+| Outcome                             | Presence Session                                                |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `entered-elsewhere` (world 4000)    | ends the call in place; "You opened this campus somewhere else" |
+| `choose-cohort`                     | full load of `/campus`                                          |
+| `sign-in`, `onboarding`, `sign-out` | full load of the current page; the route guard decides          |
+| `gave-up`, `stop`                   | nothing; the map's status offers Reconnect                      |
+
+- The Web Lock only sees this browser; 4000 is the same rule across devices.
+  Use here on that surface re-admits and reconnects media and world without
+  `takeOver()`, since this tab already holds the lock.
+- Nothing but Use here reconnects after a 4000: two devices replace each
+  other only on a press.
+- A reload cannot loop: Admission is never persisted, so it lands on
+  pre-join at worst.
 
 ## Session Renewal
 
@@ -78,4 +99,5 @@ pnpm vitest run --project=unit \
   features/campus/components/pre-join-presence-tab.test.tsx \
   features/campus/components/presence-tab-choice.test.tsx
 pnpm eval:presence-tab
+pnpm eval:realtime
 ```

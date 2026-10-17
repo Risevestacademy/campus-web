@@ -1,4 +1,8 @@
-import { CohortGate, SessionRenewal } from "@/features/auth";
+import {
+  CohortGate,
+  SessionRefreshProvider,
+  SessionRenewal,
+} from "@/features/auth";
 import { PresenceSession } from "@/features/campus";
 
 // One Presence Session per cohort spans pre-join and every cohort page, so
@@ -15,9 +19,11 @@ export default async function CohortLayout({
   return (
     <CohortGate cohortId={id}>
       <SessionRenewal cohortId={id} />
-      <PresenceSession cohortId={id} key={id}>
-        {children}
-      </PresenceSession>
+      <SessionRefreshProvider>
+        <PresenceSession cohortId={id} key={id}>
+          {children}
+        </PresenceSession>
+      </SessionRefreshProvider>
     </CohortGate>
   );
 }

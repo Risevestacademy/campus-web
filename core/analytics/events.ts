@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { cohortRoleSchema, systemRoleSchema } from "../api/schemas";
+import { CLOSE_REASONS } from "../realtime/close-codes";
+import { CLOSE_ACTIONS } from "../realtime/close-policy";
 
 export const ANALYTICS_EVENTS = {
   AUTH_LOGIN_FAILED: "auth.login_failed",
@@ -21,6 +23,10 @@ export const ANALYTICS_EVENTS = {
   CAMPUS_WORLD_MAP_LOADED: "campus_world.map_loaded",
   CAMPUS_WORLD_MAP_READY: "campus_world.map_ready",
   COHORT_CREATED: "cohort.created",
+  REALTIME_CLOSED: "realtime.closed",
+  REALTIME_CONNECTED: "realtime.connected",
+  REALTIME_GAVE_UP: "realtime.gave_up",
+  REALTIME_RECONNECTED: "realtime.reconnected",
   IDENTITY_PROFILE_SETUP_COMPLETED: "identity.profile_setup_completed",
   IDENTITY_PROFILE_SETUP_STARTED: "identity.profile_setup_started",
 } as const;
@@ -53,6 +59,8 @@ const campusWorldMapErrorKindSchema = z.enum([
   "network",
   "render",
 ]);
+const realtimeCloseReasonSchema = z.enum([...CLOSE_REASONS, "unknown"]);
+const realtimeCloseActionSchema = z.enum(CLOSE_ACTIONS);
 const loginErrorCodeSchema = z.enum([
   "ACCOUNT_DISABLED",
   "ACCOUNT_NOT_FOUND",
@@ -153,6 +161,17 @@ export const analyticsEventSchemas = {
   }),
   [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_STARTED]: placementSchema,
   [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_COMPLETED]: placementSchema,
+  [ANALYTICS_EVENTS.REALTIME_CONNECTED]: z.object({
+    cohort_id: opaqueIdSchema,
+    reconnect: z.boolean(),
+  }),
+  [ANALYTICS_EVENTS.REALTIME_CLOSED]: z.object({
+    action: realtimeCloseActionSchema,
+    code: z.number().int().min(1000).max(4999),
+    reason: realtimeCloseReasonSchema,
+  }),
+  [ANALYTICS_EVENTS.REALTIME_RECONNECTED]: z.object({ attempts: countSchema }),
+  [ANALYTICS_EVENTS.REALTIME_GAVE_UP]: z.object({ attempts: countSchema }),
 } satisfies Record<AnalyticsEventName, z.ZodObject>;
 
 type EventProperties<Schema extends z.ZodObject> =

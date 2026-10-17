@@ -12,6 +12,7 @@ import {
   settle,
 } from "@/features/campus/testing/fake-presence-locks";
 import { createCountingMediaSession } from "@/features/campus/testing/presence-tab-test-utils";
+import { createTestWorldSession } from "@/features/campus/testing/world-session-test-utils";
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
 const CAMPUS_FEATURE = path.join(PROJECT_ROOT, "features/campus");
@@ -93,7 +94,8 @@ function createBrowser() {
       },
     });
     void media.store.getState().start();
-    const stopFollowing = followPresenceTab(tab, media.store, admission);
+    const world = createTestWorldSession();
+    const stopFollowing = followPresenceTab(tab, media.store, admission, world);
     const close = tab.open();
     const showsMediaControls = () =>
       tab.getStatus() === "vacant" || tab.getStatus() === "held";
@@ -101,6 +103,8 @@ function createBrowser() {
     return {
       cohortId,
       media,
+      liveWorldSockets: () =>
+        ["idle", "closed"].includes(world.getStatus().phase) ? 0 : 1,
       status: tab.getStatus,
       actions: {
         async camera() {
@@ -112,20 +116,25 @@ function createBrowser() {
           stopFollowing();
           lockManager.crash(name);
           media.store.getState().stop();
+          world.close();
           wakeListeners.forEach((listener) => listener());
         },
         async join() {
-          if (await tab.claim()) media.store.getState().connect(cohortId);
+          if (!(await tab.claim())) return;
+          media.store.getState().connect(cohortId);
+          world.connect();
         },
         async leave() {
           close();
           stopFollowing();
           media.store.getState().stop();
+          world.close();
         },
         async open() {},
         async useHere() {
           await tab.takeOver();
           media.store.getState().connect(cohortId);
+          world.connect();
         },
       } satisfies Record<Action, () => Promise<void>>,
     };
@@ -173,6 +182,7 @@ function presenceViolations(tabs: Map<string, SimulatedTab>): string[] {
     const live = {
       connections: sum(cohortTabs, (tab) => tab.media.liveConnections()),
       holders: holders.length,
+      worldSockets: sum(cohortTabs, (tab) => tab.liveWorldSockets()),
       tracksOutsideHolder: holders.length
         ? sum(cohortTabs, (tab) =>
             tab.status() === "held" ? 0 : tab.media.liveTracks(),
@@ -182,6 +192,7 @@ function presenceViolations(tabs: Map<string, SimulatedTab>): string[] {
     const isValid =
       live.connections <= 1 &&
       live.holders <= 1 &&
+      live.worldSockets <= 1 &&
       live.tracksOutsideHolder === 0;
     return isValid ? [] : [`${cohortId}: ${JSON.stringify(live)}`];
   });
@@ -225,6 +236,11 @@ describe("Presence Tab eval (threshold: every case passes)", () => {
       expect(
         [...tabs]
           .filter(([, tab]) => tab.media.liveConnections() > 0)
+          .map(([name]) => name),
+      ).toEqual(connected);
+      expect(
+        [...tabs]
+          .filter(([, tab]) => tab.liveWorldSockets() > 0)
           .map(([name]) => name),
       ).toEqual(connected);
     },

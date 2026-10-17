@@ -4,6 +4,7 @@ import {
   createCountingMediaSession,
   createTestPresenceTab,
 } from "../../testing/presence-tab-test-utils";
+import { createTestWorldSession } from "../../testing/world-session-test-utils";
 import { createAdmissionStore } from "./admission-store";
 import { followPresenceTab } from "./follow-presence-tab";
 
@@ -16,20 +17,23 @@ async function joinedSession() {
   await media.store.getState().start();
   media.store.getState().connect("c-3");
   await media.store.getState().toggleSource("camera");
-  followPresenceTab(tab, media.store, admission);
+  const world = createTestWorldSession();
+  world.connect();
+  followPresenceTab(tab, media.store, admission, world);
 
-  return { admission, media, tab };
+  return { admission, media, tab, world };
 }
 
 describe("followPresenceTab", () => {
   it("ends the session when another tab takes it over", async () => {
-    const { admission, media, tab } = await joinedSession();
+    const { admission, media, tab, world } = await joinedSession();
 
     tab.setStatus("taken-over");
 
     expect(media.liveTracks()).toBe(0);
     expect(media.liveConnections()).toBe(0);
     expect(admission.getState().admitted).toBe(false);
+    expect(world.getStatus()).toEqual({ phase: "idle" });
   });
 
   it("releases the pre-join preview when another tab joins", async () => {
@@ -39,11 +43,13 @@ describe("followPresenceTab", () => {
     admission.getState().grantEntry("/campus/c-3");
     await media.store.getState().start();
     await media.store.getState().toggleSource("camera");
-    followPresenceTab(tab, media.store, admission);
+    const world = createTestWorldSession({ phase: "connecting", attempt: 0 });
+    followPresenceTab(tab, media.store, admission, world);
 
     tab.setStatus("elsewhere");
 
     expect(media.liveTracks()).toBe(0);
+    expect(world.getStatus()).toEqual({ phase: "idle" });
     expect(admission.getState().pendingDestination).toBe("/campus/c-3");
   });
 
@@ -64,7 +70,12 @@ describe("followPresenceTab", () => {
     const admission = createAdmissionStore();
     await media.store.getState().start();
     await media.store.getState().toggleSource("camera");
-    const stopFollowing = followPresenceTab(tab, media.store, admission);
+    const stopFollowing = followPresenceTab(
+      tab,
+      media.store,
+      admission,
+      createTestWorldSession(),
+    );
 
     stopFollowing();
     tab.setStatus("taken-over");

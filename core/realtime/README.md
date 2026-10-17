@@ -130,6 +130,9 @@ Outbound frames are built from the `ClientMessage` type and need no parser.
 - Only a 1008's reason is read, and it must match exactly. Every other code
   decides alone, so 4000 never reconnects, whatever reason it carries: two
   tabs that both reconnected would replace each other forever.
+- `CLOSE_REASONS` lists every reason a reported close can carry, world's and
+  the client's own; `isCloseReason` checks one. Analytics sends a reason only
+  from this list, anything else as `unknown`.
 - The codes and reasons in `close-codes.ts` are copied by hand from world's
   `apps/world/src/socket/`. They are not in the published schema, so no test
   can pin them to the server. A reason world renames lands on `stop`.
@@ -199,8 +202,8 @@ A socket the client closes itself loses its listeners first, so its echoed
 close is never read: one close is reported once, and a dead socket cannot
 start a second one.
 
-`createJsonLogger` writes to `process.stdout`; in the browser, pass a `Logger`
-that writes somewhere the browser has.
+`createJsonLogger` writes to `process.stdout`; in the browser, pass
+`createConsoleLogger()` from `core/observability`.
 
 ## Tests
 

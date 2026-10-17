@@ -1,14 +1,17 @@
 import { CLOSE_CODE, type PolicyViolationReason } from "./close-codes";
 
-export type CloseAction =
-  | "reconnect"
-  | "reconnect-after-refresh"
-  | "sign-in"
-  | "onboarding"
-  | "sign-out"
-  | "choose-cohort"
-  | "entered-elsewhere"
-  | "stop";
+export const CLOSE_ACTIONS = [
+  "reconnect",
+  "reconnect-after-refresh",
+  "sign-in",
+  "onboarding",
+  "sign-out",
+  "choose-cohort",
+  "entered-elsewhere",
+  "stop",
+] as const;
+
+export type CloseAction = (typeof CLOSE_ACTIONS)[number];
 
 export interface SocketClose {
   code: number;

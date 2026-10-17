@@ -49,21 +49,18 @@ interface MockClientOptions {
 export function startMockWorld() {
   const link = ws.link(new URL("/socket", WORLD_SOCKET_URL).href);
   const server = setupServer();
-  const clients: RealtimeClient[] = [];
+  const closeables: { close(): void }[] = [];
 
   beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
   afterEach(() => {
-    for (const client of clients.splice(0)) client.close();
+    for (const closeable of closeables.splice(0)) closeable.close();
     server.resetHandlers();
     vi.useRealTimers();
   });
   afterAll(() => server.close());
 
-  function startClient({
-    world = () => {},
-    refreshSession = async () => true,
-    onEvent = () => {},
-  }: MockClientOptions = {}) {
+  // Answers every socket with world; the counts are what reached it.
+  function serveWorld(world: WorldBehaviour = () => {}) {
     const connections: string[] = [];
     let live = 0;
     let mostLive = 0;
@@ -79,29 +76,47 @@ export function startMockWorld() {
       }),
     );
 
+    return { connections, mostLiveSockets: () => mostLive };
+  }
+
+  // Closed after each test, so no socket or retry outlives it.
+  function closeAfterTest<Closeable extends { close(): void }>(
+    closeable: Closeable,
+  ): Closeable {
+    closeables.push(closeable);
+    return closeable;
+  }
+
+  function startClient({
+    world,
+    refreshSession = async () => true,
+    onEvent = () => {},
+  }: MockClientOptions = {}) {
+    const { connections, mostLiveSockets } = serveWorld(world);
     const events: RealtimeEvent[] = [];
     const logger = { error: vi.fn(), info: vi.fn(), warn: vi.fn() };
-    const client = createRealtimeClient({
-      url: WORLD_SOCKET_URL,
-      createSocket: (url) => new WebSocket(url),
-      logger,
-      onEvent(event) {
-        events.push(event);
-        onEvent(event, client);
-      },
-      refreshSession,
-      random: () => 0,
-    });
-    clients.push(client);
+    const client = closeAfterTest(
+      createRealtimeClient({
+        url: WORLD_SOCKET_URL,
+        createSocket: (url) => new WebSocket(url),
+        logger,
+        onEvent(event) {
+          events.push(event);
+          onEvent(event, client);
+        },
+        refreshSession,
+        random: () => 0,
+      }),
+    );
 
     return {
       client,
       connections,
       logger,
       events: () => events,
-      mostLiveSockets: () => mostLive,
+      mostLiveSockets,
     };
   }
 
-  return { startClient };
+  return { closeAfterTest, serveWorld, startClient };
 }

@@ -9,6 +9,7 @@ import { Button, buttonVariants } from "@/shared/ui/button";
 const HEADINGS = {
   elsewhere: "You're in this cohort in another tab",
   "taken-over": "You joined from another tab",
+  "entered-elsewhere": "You opened this campus somewhere else",
 } as const;
 
 export type PresenceTabChoiceStatus = keyof typeof HEADINGS;
