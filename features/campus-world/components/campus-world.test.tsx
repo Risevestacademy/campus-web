@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { createPresenceStore } from "@/core/presence";
+
 import type { CampusGame, CampusRuntime } from "../game/campus-runtime";
 import type { CampusWorldDependencies } from "../hooks/campus-world-dependencies";
 import { campusMapPreparationQueryKey } from "../hooks/use-campus-map-preparation";
@@ -36,6 +38,7 @@ function renderWorld(
     configuration: sanityConfiguration,
     fetch: vi.fn(),
     loadImage: vi.fn(),
+    presence: () => createPresenceStore(),
     runtime: fakeCampusRuntime(),
     ...overrides,
   };
@@ -130,6 +133,21 @@ describe("CampusWorld", () => {
     expect(
       screen.queryByRole("status", { name: "Starting campus" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("draws the presence of the cohort it shows", () => {
+    const game = startedGame();
+    const store = createPresenceStore();
+    const presence = vi.fn(() => store);
+
+    renderWorld({ presence, runtime: game.runtime });
+
+    expect(presence).toHaveBeenCalledWith("cohort-1");
+    expect(game.start).toHaveBeenCalledWith(
+      region(),
+      expect.anything(),
+      expect.objectContaining({ readPresence: store.getState }),
+    );
   });
 
   it("reports the time from game start to the first frame", async () => {

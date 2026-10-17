@@ -300,12 +300,18 @@ Next proxy, authenticated by the `campus_session` cookie.
 ```text
 core/realtime/
 ├── README.md                   regenerating, inbound-frame rules, tests
-├── index.ts                    public entry: protocol types, parseServerMessage
-├── configuration.ts            world origin from NEXT_PUBLIC_WORLD_URL
+├── index.ts                    public entry: protocol types, parseServerMessage,
+│                               classifyClose, reconnectDelay, createRealtimeClient
+├── close-codes.ts              world's close codes and 1008 reasons, copied;
+│                               the client's own closes
+├── close-policy.ts             classifyClose, reconnectDelay
+├── configuration.ts            world origin and socket URL from NEXT_PUBLIC_WORLD_URL
 ├── contract.typecheck.ts       outbound frames the protocol forbids fail tsc
 ├── generate-types.mjs          pnpm world:types: world /schema.json → types
 ├── generated/world-protocol.ts the protocol, generated, never edited
-└── server-message.schema.ts    parseServerMessage, Zod bound to the types
+├── realtime-client.ts          createRealtimeClient: connect, retry, report
+├── server-message.schema.ts    parseServerMessage, Zod bound to the types
+└── world-connection.ts         one socket: frames, handshake, timers (internal)
 ```
 
 Features should not directly depend on a WebSocket provider.
@@ -357,19 +363,20 @@ protocol rather than an optimization.
 
 ## Presence
 
-Responsible for:
+`core/presence/` holds who is in a cohort's campus and where world last placed
+them, applied from realtime messages. It is in `core/` because the campus
+map, the Presence Session that feeds it, and the roster all read it, and
+features may not import each other.
 
-- Connected students.
-- Join/leave events.
-- Remote user information.
-- Online/offline status.
-- Position snapshots.
+- `participants`: `Map<UserId, { userId, displayName, spriteKey }>`.
+- `positions`: `Map<UserId, { x, y, facing }>`, in tiles.
 
-Suggested storage:
-
-Record\<UserId, ParticipantPresence\>
-
-instead of repeatedly searching large arrays.
+Two maps, so React subscribes to who is here without rendering on every
+`moved`. Tile positions are world's answer, not frame state: KAPLAY reads
+them each frame and keeps pixels and walking itself. A `snapshot` replaces
+both maps, so a reconnect never shows anyone twice. `presenceFor(cohortId)`
+outlives the map's mount, so the map is populated again on the way back from
+another page.
 
 ## Proximity
 

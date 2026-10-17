@@ -14,8 +14,10 @@ Implemented concerns:
   across features.
 - `observability`: structured application logging. See
   `observability/README.md`.
-- `realtime`: generated world socket protocol types and the parser for
-  inbound frames. See `realtime/README.md`.
+- `presence`: who is in a cohort's campus and where world last placed them,
+  applied from realtime messages. See `presence/README.md`.
+- `realtime`: generated world socket protocol types, the parser for inbound
+  frames, the close policy and the socket client. See `realtime/README.md`.
 
 Planned concerns are `game` and `media`. Create each concern only when its first
 implementation is required.

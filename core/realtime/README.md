@@ -4,14 +4,17 @@ This directory owns the frontend's contract with `world`, the realtime
 service behind the campus map: who is here and where they stand. `world` is
 the service; `realtime` is this layer.
 
-There is no socket client yet. Today it holds the generated protocol types
-and the parser for inbound frames.
+It holds the generated protocol types, the parser for inbound frames, the
+policy for a closed socket, and the socket client that applies all three.
 
 ## Interface
 
 ```ts
 import {
+  classifyClose,
+  createRealtimeClient,
   parseServerMessage,
+  reconnectDelay,
   type ClientMessage,
   type ServerMessage,
 } from "@/core/realtime";
@@ -20,9 +23,14 @@ import {
 - `ServerMessage`, `ClientMessage`, one type per message (`WelcomeMessage`,
   `MoveResultMessage`, …), and `Player`, `Avatar`, `Direction`,
   `MoveOutcome`: generated from world's protocol.
-- `parseServerMessage(text)`: one socket frame's text as a `ServerMessage`,
-  or `undefined` for anything else (not JSON, an unknown `type`, a field of
-  the wrong shape).
+- `parseServerMessage(text)`: one socket frame's text as a
+  `ServerMessageResult`; see [Inbound frames](#inbound-frames).
+- `classifyClose({ code, reason })` and `reconnectDelay(attempt, random)`:
+  what to do when the socket closes; see [Close policy](#close-policy).
+- `createRealtimeClient(options)`: one cohort's socket, from connect to the
+  last retry; see [Socket client](#socket-client).
+- `readWorldSocketUrl(environment, cohortId)` in `configuration.ts`: the
+  socket's `wss://<world>/socket?cohortId=…` (`ws://` on loopback).
 
 ## Protocol types
 
@@ -99,12 +107,112 @@ result.
 
 Outbound frames are built from the `ClientMessage` type and need no parser.
 
+## Close policy
+
+`classifyClose({ code, reason })` turns a close event into one
+`CloseAction`, one row per line of the close table in the server repo's
+`docs/world-protocol.md`:
+
+| Close                                                       | `CloseAction`             |
+| ----------------------------------------------------------- | ------------------------- |
+| 1008 `no_token`, `session_revoked`                          | `sign-in`                 |
+| 1008 `token_not_usable`, `session_expired`, `session_ended` | `reconnect-after-refresh` |
+| 1008 `wrong_scope`                                          | `onboarding`              |
+| 1008 `account_suspended`, `account_gone`                    | `sign-out`                |
+| 1008 `not_a_member`                                         | `choose-cohort`           |
+| 1008 `origin_not_allowed`, `no_cohort`                      | `stop`                    |
+| 1008 `rate_limited`                                         | `reconnect`               |
+| 4000, whatever the reason                                   | `entered-elsewhere`       |
+| 1001, 1006, 1009, 1011                                      | `reconnect`               |
+| 1008 with a reason not listed                               | `stop`                    |
+| any other code                                              | `reconnect`               |
+
+- Only a 1008's reason is read, and it must match exactly. Every other code
+  decides alone, so 4000 never reconnects, whatever reason it carries: two
+  tabs that both reconnected would replace each other forever.
+- The codes and reasons in `close-codes.ts` are copied by hand from world's
+  `apps/world/src/socket/`. They are not in the published schema, so no test
+  can pin them to the server. A reason world renames lands on `stop`.
+
+`reconnectDelay(attempt, random)` is the wait before the `attempt`th
+reconnect in a row (from 1), given a `random` in [0, 1) the caller draws. The
+ceiling starts at 1 s and doubles up to 16 s; the delay is half the ceiling
+plus a random share of the other half. Even at the slowest draw, the first
+four attempts start within 15 s, half of world's 30 s grace, so a blip
+resumes where the member stood. No delay is under 500 ms.
+
+## Socket client
+
+```ts
+const client = createRealtimeClient({
+  url: readWorldSocketUrl(publicEnvironment, cohortId),
+  createSocket: (url) => new WebSocket(url),
+  logger,
+  onEvent,
+  refreshSession,
+});
+
+client.connect();
+useSyncExternalStore(client.subscribe, client.getStatus);
+```
+
+Features never construct a `WebSocket`; whoever composes the client passes
+`createSocket`. `onEvent` receives, in order:
+
+| Event                           | When                                                    |
+| ------------------------------- | ------------------------------------------------------- |
+| `message {message}`             | every frame that parsed, `welcome` and `snapshot` too   |
+| `connected {attempt}`           | both `welcome` and `snapshot` arrived; 0 is the first   |
+| `closed {code, reason, action}` | every close but `close()`'s own, with its `CloseAction` |
+| `stopped {outcome, attempts}`   | once per terminal outcome; nothing retries after it     |
+
+`getStatus()` is `idle`, `connecting {attempt}`, `connected`, `reconnecting
+{attempt}` or `closed {outcome}`. It is the same object until it changes.
+
+- **Frames.** Each is parsed once. An unknown type, a frame with no type,
+  text that is not JSON and binary data are logged as
+  `realtime.frame_skipped {reason}` and skipped. A known type that fails is
+  logged as `realtime.frame_invalid {type}` and skipped, unless it is the
+  `welcome` or `snapshot` still awaited. No log record carries frame text.
+- **Handshake.** `welcome` and `snapshot` must both arrive within 10 s of
+  creating the socket, which also covers an upgrade that never opens. An
+  invalid one closes with 4001 `invalid_handshake`, a late one with 4002
+  `handshake_timeout`. Both are reported as `closed` and retried.
+- **Retries.** `reconnect` waits `reconnectDelay(attempt)` and connects again.
+  `reconnect-after-refresh` calls `refreshSession` first: `false` or a
+  rejection stops with `sign-in`. Both count toward the cap: after 10
+  attempts in a row it stops with `gave-up`. The count resets only once a
+  socket stays open 60 s; resetting on `snapshot` would let a `rate_limited`
+  or 1009 loop retry at the first delay forever.
+- **Terminal actions** stop with their outcome. `entered-elsewhere` never
+  reconnects on its own.
+- **`connect()`** does nothing while a socket is live or a retry is
+  scheduled. From `closed` it is the member's own reconnect ("Use here",
+  "Reconnect"): it connects at once, counts as attempt 1, and starts a fresh
+  budget.
+- **`send(message)`** writes one JSON frame while the socket is open and
+  returns `false` otherwise. Nothing is queued, so no move outlives a drop.
+- **`close()`** ends the socket with 1000 `presence_ended`, cancels any retry
+  or refresh in flight, and returns to `idle`. It reports no `closed`.
+
+A socket the client closes itself loses its listeners first, so its echoed
+close is never read: one close is reported once, and a dead socket cannot
+start a second one.
+
+`createJsonLogger` writes to `process.stdout`; in the browser, pass a `Logger`
+that writes somewhere the browser has.
+
 ## Tests
 
 ```bash
 pnpm vitest run --project=unit core/realtime
 pnpm eval:privacy
+pnpm eval:realtime
 ```
+
+The client's tests and eval drive it against msw's `ws.link`
+(`tests/fixtures/mock-world.ts`) with vitest's fake timers; msw delivers
+socket events in microtasks, which fake timers leave running.
 
 `contract.typecheck.ts` is checked by `pnpm typecheck`: a message world does
 not accept fails compilation.

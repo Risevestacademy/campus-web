@@ -13,6 +13,7 @@ import { type ReactNode, StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import ActiveCampusPage from "@/app/campus/[id]/(active-campus)/page";
+import { createPresenceStore } from "@/core/presence";
 import { CampusWorld } from "@/features/campus-world/components/campus-world";
 import {
   type CampusRuntime,
@@ -62,6 +63,8 @@ vi.mock("@/features/campus-world", () => ({
 
 const projectRoot = path.resolve(import.meta.dirname, "../..");
 
+// The lower band, the avatar layer and the upper band.
+const OBJECTS_PER_MAP = 3;
 function sourceFiles(directory: string): string[] {
   return readdirSync(path.join(projectRoot, directory), {
     recursive: true,
@@ -89,14 +92,18 @@ function preparedQueryClient(prepared: PreparedCampusMap) {
 
 function renderWorld(
   queryClient: QueryClient,
-  dependencies: Omit<CampusWorldDependencies, "configuration">,
+  dependencies: Omit<CampusWorldDependencies, "configuration" | "presence">,
 ) {
   return render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <CampusWorld
           cohortId="cohort-1"
-          dependencies={{ ...dependencies, configuration: sanityConfiguration }}
+          dependencies={{
+            ...dependencies,
+            configuration: sanityConfiguration,
+            presence: createPresenceStore,
+          }}
         />
       </QueryClientProvider>
     </StrictMode>,
@@ -235,6 +242,7 @@ describe("Campus world eval (required threshold: 13/13)", () => {
               configuration: sanityConfiguration,
               fetch,
               loadImage,
+              presence: createPresenceStore,
               runtime: fakeCampusRuntime({ start }),
             }}
           />
@@ -275,7 +283,7 @@ describe("Campus world eval (required threshold: 13/13)", () => {
 
       expect(kaplay.kaplay).toHaveBeenCalledTimes(kaplayStarts);
       expect(kaplay.contexts).toHaveLength(kaplayStarts);
-      expect(kaplay.contexts.at(-1)!.liveObjects()).toBe(2);
+      expect(kaplay.contexts.at(-1)!.liveObjects()).toBe(OBJECTS_PER_MAP);
       expect(
         captureEvent.mock.calls.filter(
           ([name]) => name === "campus_world.map_ready",

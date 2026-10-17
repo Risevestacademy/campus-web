@@ -17,8 +17,10 @@ export function CampusWorld({
   cohortId,
   dependencies = defaultCampusWorldDependencies,
 }: CampusWorldProps) {
-  const { mapId, mountGame, mountVersion, retry, status } =
-    useCampusGame(dependencies);
+  const { mapId, mountGame, mountVersion, retry, status } = useCampusGame(
+    dependencies,
+    cohortId,
+  );
   const isStarting = status === "loading-map" || status === "idle";
 
   return (
