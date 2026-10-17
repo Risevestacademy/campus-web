@@ -1,5 +1,10 @@
 import * as z from "zod";
 
+import {
+  isRailwayPrivate,
+  parseBareOrigin,
+} from "../../shared/lib/parse-origin";
+
 type BuildEnvironment = Readonly<Record<string, string | undefined>>;
 
 // Sanity's documented dataset rule. The dataset only reaches URL paths.
@@ -7,6 +12,17 @@ const SANITY_DATASET_PATTERN = /^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$/;
 // Sanity issues lowercase IDs and the asset check compares paths exactly.
 // One hostname label, because the ID is the first label of the map API host.
 const SANITY_PROJECT_ID_PATTERN = /^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/;
+
+// Stricter than readWorldOrigin: a deployed build never points at loopback.
+function isPublicHttpsOrigin(value: string): boolean {
+  const url = parseBareOrigin(value);
+
+  return (
+    url?.protocol === "https:" &&
+    z.regexes.domain.test(url.hostname) &&
+    !isRailwayPrivate(url)
+  );
+}
 
 function requiredVariable(name: string) {
   const error = `${name} is required.`;
@@ -39,6 +55,10 @@ const protectedBuildEnvironmentSchema = z.object({
     error:
       "NEXT_PUBLIC_SANITY_DATASET must be 1 to 64 lowercase letters, numbers, hyphens, or underscores, starting and ending with a letter or number.",
   }),
+  NEXT_PUBLIC_WORLD_URL: requiredVariable("NEXT_PUBLIC_WORLD_URL").refine(
+    isPublicHttpsOrigin,
+    { error: "NEXT_PUBLIC_WORLD_URL must be a public HTTPS origin." },
+  ),
 });
 
 function isProtectedBuild(environment: BuildEnvironment): boolean {

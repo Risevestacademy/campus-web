@@ -293,45 +293,46 @@ keep frame-by-frame game state out of it.
 
 # Realtime Architecture
 
-Realtime communication belongs in:
+Realtime communication belongs in `core/realtime/`. The browser opens one
+WebSocket to the `world` service per cohort, directly rather than through the
+Next proxy, authenticated by the `campus_session` cookie.
 
+```text
 core/realtime/
-
-Example:
-
-realtime-client.ts  
-realtime-events.ts  
-realtime.types.ts
+├── README.md                   regenerating, inbound-frame rules, tests
+├── index.ts                    public entry: protocol types, parseServerMessage
+├── configuration.ts            world origin from NEXT_PUBLIC_WORLD_URL
+├── contract.typecheck.ts       outbound frames the protocol forbids fail tsc
+├── generate-types.mjs          pnpm world:types: world /schema.json → types
+├── generated/world-protocol.ts the protocol, generated, never edited
+└── server-message.schema.ts    parseServerMessage, Zod bound to the types
+```
 
 Features should not directly depend on a WebSocket provider.
 
 Instead:
 
-Feature  
-↓  
-Realtime Client  
-↓  
+```text
+Feature
+↓
+Realtime Client
+↓
 WebSocket Provider
+```
 
-Possible events:
+Every frame is one JSON object with a `type`. Use the protocol's own names,
+never invented event names:
 
-campus:user:joined  
-campus:user:left
+- server sends: `welcome`, `snapshot`, `joined`, `left`, `appearance`,
+  `moved`, `moveResult`, `pong`, `error`, `replaced`;
+- client sends: `ping`, `move`.
 
-presence:update
+A new message arrives by regenerating the types, not by editing a union by
+hand. Inbound frames are a trust boundary: each is parsed once with
+`parseServerMessage` where it arrives (see Validation and Data Privacy).
 
-proximity:entered  
-proximity:left
-
-desk:occupied  
-desk:vacated
-
-classroom:joined  
-classroom:left
-
-chat:message
-
-All realtime payloads should have TypeScript contracts.
+What a client must do with each message (order, step correction, close codes,
+reconnecting) is documented by the server repo's `docs/world-protocol.md`.
 
 #
 
@@ -482,9 +483,9 @@ Dedicated Next Route Handlers require a concrete frontend-owned HTTP contract.
 # Validation and Data Privacy
 
 Every value that enters from outside the app is parsed with Zod where it
-enters, before any code reads it. Trust boundaries: Campus API responses, URL
-and search params, form data, browser storage, environment variables, and
-content published to Sanity.
+enters, before any code reads it. Trust boundaries: Campus API responses, world
+socket frames, URL and search params, form data, browser storage, environment
+variables, and content published to Sanity.
 
 1. **Parse at the boundary.** Use `safeParse` where the value enters and decide
    the failure there: a fallback, an `unavailable` outcome, or a typed error.
