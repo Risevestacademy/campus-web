@@ -1,4 +1,4 @@
-import type { ClientMessage } from "./index";
+import type { ClientMessage, MoveOutcome } from "./index";
 
 const ping: ClientMessage = { type: "ping" };
 const move: ClientMessage = { type: "move", direction: "up", seq: 0 };
@@ -18,3 +18,8 @@ const moveToTile: ClientMessage = { type: "move", x: 4, y: 7, seq: 1 };
 void teleport;
 void unnumberedMove;
 void moveToTile;
+
+// @ts-expect-error An outcome is one the protocol defines, or "unknown".
+const inventedOutcome: MoveOutcome = "teleported";
+
+void inventedOutcome;

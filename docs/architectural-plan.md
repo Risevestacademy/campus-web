@@ -262,9 +262,9 @@ Keyboard
 ↓  
 Kaplay movement  
 ↓  
-Player position  
+Predicted step  
 ↓  
-Throttled realtime publisher
+`move {direction, seq}`, paced to `welcome.stepMs`
 
 # Campus Runtime Lifecycle
 
@@ -750,8 +750,8 @@ Performance must be treated as an architectural requirement.
 
 - Avoid React updates every frame.
 - Keep game state inside Kaplay.
-- Throttle network position updates.
-- Interpolate remote movement.
+- Send moves, never positions, paced to `welcome.stepMs`.
+- Walk remote movement one orthogonal tile at a time.
 - Dynamically load Kaplay only on Campus routes.
 
 ### Media
