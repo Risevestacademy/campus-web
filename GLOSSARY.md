@@ -60,8 +60,14 @@ _Avoid_: Campus room, main campus
 **Presence Session**:
 One browser document's joined, real-time presence in one Cohort. It starts at
 Join, continues across every page of that Cohort, and ends on Leave, on
-leaving the Cohort, on reload, or in a new tab.
+leaving the Cohort, on reload, or when another tab takes it over.
 _Avoid_: Campus session, call, Campus Access Session
+
+**Presence Tab**:
+The one browser tab holding a member's Presence Session for a Cohort. Another
+tab on that Cohort may move the session to itself, but a browser never holds
+two for the same Cohort; each Cohort may have its own.
+_Avoid_: Joined tab, active tab, primary tab
 
 **Admission**:
 The Presence Session's record that Join completed. Join grants one exact

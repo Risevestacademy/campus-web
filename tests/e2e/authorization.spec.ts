@@ -1,6 +1,15 @@
 import { type BrowserContext, expect, type Page } from "@playwright/test";
 
-import { enterCampus, joinButton, preJoinUrl } from "./support/campus-entry";
+import {
+  enterCampus,
+  joinButton,
+  JOINED_ELSEWHERE,
+  moveHereButton,
+  openSecondTab,
+  preJoinUrl,
+  presenceTabChoice,
+  TAKEN_OVER,
+} from "./support/campus-entry";
 import {
   cohortsPage,
   expiringAt,
@@ -644,16 +653,126 @@ test.describe("cohort pre-join", () => {
     await expect(joinButton(page)).toBeVisible();
   });
 
-  test("a new tab requires its own Join action", async ({ page, context }) => {
+  test("a second tab on the same cohort offers to move the session", async ({
+    page,
+    context,
+  }) => {
     await enterCampus(page, MEETING);
-    const secondPage = await context.newPage();
-    await installSanityMapStub(secondPage);
+    const secondPage = await openSecondTab(context);
 
     try {
       await secondPage.goto(MEETING);
 
       await expect(secondPage).toHaveURL(preJoinUrl(MEETING));
+      await expect(
+        presenceTabChoice(secondPage, JOINED_ELSEWHERE),
+      ).toBeVisible();
+      await expect(joinButton(secondPage)).toHaveCount(0);
+
+      await moveHereButton(secondPage).click();
+
+      await expect(secondPage).toHaveURL(MEETING);
+      await expect(meetingHeading(secondPage)).toBeVisible();
+      await expect(presenceTabChoice(page, TAKEN_OVER)).toBeVisible();
+      await expect(meetingHeading(page)).toHaveCount(0);
+    } finally {
+      await secondPage.close();
+    }
+  });
+
+  test("a taken-over tab takes the session back in place", async ({
+    page,
+    context,
+  }) => {
+    await enterCampus(page, MEETING);
+    const secondPage = await openSecondTab(context);
+
+    try {
+      await secondPage.goto(preJoinUrl(MEETING));
+      await moveHereButton(secondPage).click();
+      await expect(meetingHeading(secondPage)).toBeVisible();
+
+      await moveHereButton(page).click();
+
+      await expect(page).toHaveURL(MEETING);
+      await expect(meetingHeading(page)).toBeVisible();
+      await expect(presenceTabChoice(secondPage, TAKEN_OVER)).toBeVisible();
+      await expect(meetingHeading(secondPage)).toHaveCount(0);
+    } finally {
+      await secondPage.close();
+    }
+  });
+
+  test("a second cohort in another tab joins normally", async ({
+    page,
+    context,
+    fakeApi,
+  }) => {
+    await fakeApi.scriptSession(sessions.member(COHORT_3, COHORT_4));
+    await enterCampus(page, "/campus/c-3");
+    const secondPage = await openSecondTab(context);
+
+    try {
+      await enterCampus(secondPage, "/campus/c-4");
+
+      await expect(campusMap(secondPage)).toBeVisible();
+      await expect(campusMap(page)).toBeVisible();
+      await expect(presenceTabChoice(page, TAKEN_OVER)).toHaveCount(0);
+    } finally {
+      await secondPage.close();
+    }
+  });
+
+  test("leaving the joined tab lets the other tab join", async ({
+    page,
+    context,
+    fakeApi,
+  }) => {
+    await fakeApi.scriptSession(sessions.member(COHORT_3, COHORT_4));
+    await enterCampus(page, MEETING);
+    const secondPage = await openSecondTab(context);
+
+    try {
+      await secondPage.goto(preJoinUrl(MEETING));
+      await expect(
+        presenceTabChoice(secondPage, JOINED_ELSEWHERE),
+      ).toBeVisible();
+
+      await page.getByRole("link", { name: "Back to campuses" }).click();
+      await expect(page).toHaveURL("/campus");
+
       await expect(joinButton(secondPage)).toBeVisible();
+      await expect(presenceTabChoice(secondPage, JOINED_ELSEWHERE)).toHaveCount(
+        0,
+      );
+    } finally {
+      await secondPage.close();
+    }
+  });
+
+  test("closing the joined tab lets the other tab join once the member returns to it", async ({
+    page,
+    context,
+  }) => {
+    await enterCampus(page, MEETING);
+    const secondPage = await openSecondTab(context);
+
+    try {
+      await secondPage.goto(preJoinUrl(MEETING));
+      await expect(
+        presenceTabChoice(secondPage, JOINED_ELSEWHERE),
+      ).toBeVisible();
+
+      await page.close();
+
+      // A closed tab sends no notice, and headless browsers never focus a
+      // page, so this stands in for the member switching back to the tab.
+      await expect(async () => {
+        await secondPage.evaluate(() =>
+          window.dispatchEvent(new Event("focus")),
+        );
+        await expect(joinButton(secondPage)).toBeVisible({ timeout: 2_000 });
+      }).toPass();
     } finally {
       await secondPage.close();
     }

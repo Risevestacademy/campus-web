@@ -6,9 +6,10 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
 
 ## Interface
 
-- `CampusMediaSessionProvider`: one media session, composed by
-  `PresenceSessionProvider` above the Join Gate and every cohort page; leaving
-  the cohort stops capture and disconnects.
+- `MediaSessionProvider`: one media session per Presence Session.
+  `PresenceSessionProvider` creates the store above the Join Gate and every
+  cohort page and runs `useMediaSessionLifecycle`; leaving the cohort stops
+  capture and disconnects.
 - `useMediaSession(selector)`: selected state and commands. Commands
   (`toggleSource`, `selectInputDevice`, `chooseAudioOutput`) resolve to the
   `MediaSessionErrorCode` they produced, or `null`.

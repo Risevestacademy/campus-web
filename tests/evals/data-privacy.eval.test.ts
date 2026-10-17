@@ -91,6 +91,8 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "auth.signup_succeeded": ["auth_method", "role", "user_id"],
   "auth.verification_completed": ["verification_type"],
   "auth.verification_sent": ["verification_type"],
+  "campus.presence_tab_conflict_shown": ["surface"],
+  "campus.presence_tab_moved": ["surface"],
   "campus_world.map_failed": ["error_kind", "map_id"],
   "campus_world.map_loaded": ["load_ms", "map_id", "tilesets", "version"],
   "campus_world.map_ready": ["first_frame_ms", "map_id", "version"],

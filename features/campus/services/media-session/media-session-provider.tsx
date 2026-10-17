@@ -1,14 +1,10 @@
 "use client";
 
-import { createContext, type ReactNode, useContext, useState } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import { useStore } from "zustand";
 import type { StoreApi } from "zustand/vanilla";
 
-import {
-  createMediaSessionStore,
-  type MediaSessionState,
-} from "./media-session-store";
-import { useMediaSessionLifecycle } from "./use-media-session-lifecycle";
+import type { MediaSessionState } from "./media-session-store";
 
 const MediaSessionContext = createContext<StoreApi<MediaSessionState> | null>(
   null,
@@ -28,15 +24,6 @@ export function MediaSessionProvider({
       {children}
     </MediaSessionContext.Provider>
   );
-}
-
-export function CampusMediaSessionProvider({
-  children,
-}: Readonly<{ children: ReactNode }>) {
-  const [store] = useState(createMediaSessionStore);
-  useMediaSessionLifecycle(store);
-
-  return <MediaSessionProvider store={store}>{children}</MediaSessionProvider>;
 }
 
 function useMediaSessionStore() {

@@ -1,11 +1,16 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MeetingMediaTransport } from "../services/media-session/contracts";
 import { MediaSessionProvider } from "../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../services/media-session/media-session-store";
 import { createAdmissionStore } from "../services/presence-session/admission-store";
-import { AdmissionProvider } from "../services/presence-session/presence-session-provider";
+import {
+  AdmissionProvider,
+  PresenceTabProvider,
+} from "../services/presence-session/presence-session-provider";
+import type { PresenceTabStatus } from "../services/presence-session/presence-tab";
+import { createTestPresenceTab } from "../testing/presence-tab-test-utils";
 import { PresenceSessionGate } from "./presence-session-gate";
 
 const navigation = vi.hoisted(() => ({
@@ -22,7 +27,10 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => navigation.searchParams,
 }));
 
-function presenceGate(admissionStore = createAdmissionStore()) {
+function presenceGate(
+  admissionStore = createAdmissionStore(),
+  status: PresenceTabStatus = "held",
+) {
   const connect = vi.fn<MeetingMediaTransport["connect"]>(
     () => () => undefined,
   );
@@ -30,20 +38,34 @@ function presenceGate(admissionStore = createAdmissionStore()) {
     mediaDevices: null,
     transport: { connect, handleLocalPublicationChange() {} },
   });
+  const presenceTab = createTestPresenceTab(status);
 
   return {
     admissionStore,
     connect,
+    mediaStore,
+    presenceTab,
     view: (
       <AdmissionProvider store={admissionStore}>
         <MediaSessionProvider store={mediaStore}>
-          <PresenceSessionGate cohortId="c-1">
-            <p>Cohort page</p>
-          </PresenceSessionGate>
+          <PresenceTabProvider tab={presenceTab}>
+            <PresenceSessionGate cohortId="c-1">
+              <p>Cohort page</p>
+            </PresenceSessionGate>
+          </PresenceTabProvider>
         </MediaSessionProvider>
       </AdmissionProvider>
     ),
   };
+}
+
+// What followPresenceTab does to the session when another tab takes it.
+function takeOverFromAnotherTab(gate: ReturnType<typeof presenceGate>) {
+  act(() => {
+    gate.mediaStore.getState().stop();
+    gate.admissionStore.getState().clear();
+    gate.presenceTab.setStatus("taken-over");
+  });
 }
 
 describe("PresenceSessionGate", () => {
@@ -139,5 +161,71 @@ describe("PresenceSessionGate", () => {
     expect(screen.getByText("Cohort page")).toBeVisible();
     expect(navigation.redirect).not.toHaveBeenCalled();
     expect(connect).toHaveBeenCalledOnce();
+  });
+
+  describe("when another tab takes the session", () => {
+    it("shows the choice instead of the page", () => {
+      const gate = presenceGate();
+      gate.admissionStore.getState().grantEntry("/campus/c-1/meeting");
+      render(gate.view);
+
+      takeOverFromAnotherTab(gate);
+
+      expect(
+        screen.getByRole("heading", { name: "You joined from another tab" }),
+      ).toBeVisible();
+      expect(screen.queryByText("Cohort page")).not.toBeInTheDocument();
+    });
+
+    it("re-admits the current page and connects once on Use here", async () => {
+      navigation.searchParams = new URLSearchParams("tab=people");
+      const gate = presenceGate();
+      gate.admissionStore
+        .getState()
+        .grantEntry("/campus/c-1/meeting?tab=people");
+      render(gate.view);
+      takeOverFromAnotherTab(gate);
+      gate.connect.mockClear();
+
+      fireEvent.click(screen.getByRole("button", { name: "Use here" }));
+
+      expect(await screen.findByText("Cohort page")).toBeVisible();
+      expect(gate.presenceTab.takeOver).toHaveBeenCalledOnce();
+      expect(gate.admissionStore.getState()).toMatchObject({
+        admitted: true,
+        pendingDestination: null,
+      });
+      expect(gate.connect).toHaveBeenCalledExactlyOnceWith(
+        "c-1",
+        expect.any(Function),
+      );
+    });
+
+    it("never connects before the session has moved", () => {
+      const gate = presenceGate();
+      gate.admissionStore.getState().grantEntry("/campus/c-1/meeting");
+      render(gate.view);
+      takeOverFromAnotherTab(gate);
+      gate.connect.mockClear();
+      gate.presenceTab.takeOver.mockReturnValue(new Promise(() => {}));
+
+      fireEvent.click(screen.getByRole("button", { name: "Use here" }));
+
+      expect(gate.connect).not.toHaveBeenCalled();
+      expect(gate.admissionStore.getState().admitted).toBe(false);
+    });
+
+    it("offers the choice on a cohort page reached after the takeover", async () => {
+      navigation.pathname = "/campus/c-1/overview";
+      const gate = presenceGate(createAdmissionStore(), "taken-over");
+      render(gate.view);
+
+      expect(navigation.redirect).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Use here" }));
+
+      expect(await screen.findByText("Cohort page")).toBeVisible();
+      expect(navigation.redirect).not.toHaveBeenCalled();
+      expect(gate.connect).toHaveBeenCalledOnce();
+    });
   });
 });

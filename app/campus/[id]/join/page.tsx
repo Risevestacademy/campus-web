@@ -1,5 +1,9 @@
 import { CohortGate, normalizeCohortReturnTo } from "@/features/auth";
-import { CampusJoinButton, VisualsDisplay } from "@/features/campus";
+import {
+  CampusJoinButton,
+  PreJoinPresenceTab,
+  VisualsDisplay,
+} from "@/features/campus";
 import { CampusMapPreparationGate } from "@/features/campus-world";
 import { firstSearchParameter } from "@/shared/lib/search-params";
 
@@ -20,13 +24,15 @@ export default async function JoinPage({
 
   return (
     <CohortGate cohortId={id}>
-      <CampusMapPreparationGate>
-        <main className="grid h-dvh content-center gap-6">
-          <VisualsDisplay />
+      <PreJoinPresenceTab destination={destination}>
+        <CampusMapPreparationGate>
+          <main className="grid h-dvh content-center gap-6">
+            <VisualsDisplay />
 
-          <CampusJoinButton destination={destination} />
-        </main>
-      </CampusMapPreparationGate>
+            <CampusJoinButton destination={destination} />
+          </main>
+        </CampusMapPreparationGate>
+      </PreJoinPresenceTab>
     </CohortGate>
   );
 }
