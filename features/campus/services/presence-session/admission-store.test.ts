@@ -30,6 +30,18 @@ describe("admission store", () => {
     expect(store.getState().pendingDestination).toBe("/campus/c-1");
   });
 
+  it("clears Admission and any pending grant", () => {
+    const store = createAdmissionStore();
+    store.getState().grantEntry("/campus/c-1");
+    store.getState().completeEntry("/campus/c-1");
+    store.getState().grantEntry("/campus/c-1/meeting");
+
+    store.getState().clear();
+
+    expect(store.getState().admitted).toBe(false);
+    expect(store.getState().pendingDestination).toBeNull();
+  });
+
   it("does not admit without a grant", () => {
     const store = createAdmissionStore();
 

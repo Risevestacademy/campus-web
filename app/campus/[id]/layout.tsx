@@ -15,7 +15,9 @@ export default async function CohortLayout({
   return (
     <CohortGate cohortId={id}>
       <SessionRenewal cohortId={id} />
-      <PresenceSession key={id}>{children}</PresenceSession>
+      <PresenceSession cohortId={id} key={id}>
+        {children}
+      </PresenceSession>
     </CohortGate>
   );
 }

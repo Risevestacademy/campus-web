@@ -1,6 +1,14 @@
 import { expect, type Page } from "@playwright/test";
 
-import { joinButton, preJoinUrl } from "./support/campus-entry";
+import {
+  joinButton,
+  JOINED_ELSEWHERE,
+  moveHereButton,
+  openSecondTab,
+  preJoinUrl,
+  presenceTabChoice,
+  TAKEN_OVER,
+} from "./support/campus-entry";
 import {
   expiringAt,
   membership,
@@ -33,24 +41,39 @@ test.use({
 const CAMPUS = "/campus/c-3";
 const ACCESS_TOKEN_LIFETIME_MS = 10_000;
 
+interface CaptureLog {
+  capturedTracks: MediaStreamTrack[];
+  getUserMediaCalls: number;
+}
+
 // Counts camera and microphone captures, so a test can prove the same capture
 // stayed live instead of being restarted.
 async function countMediaCaptures(page: Page) {
   await page.addInitScript(() => {
     const mediaDevices = navigator.mediaDevices;
     const getUserMedia = mediaDevices.getUserMedia.bind(mediaDevices);
-    const counter = window as unknown as { getUserMediaCalls: number };
-    counter.getUserMediaCalls = 0;
-    mediaDevices.getUserMedia = (constraints) => {
-      counter.getUserMediaCalls += 1;
-      return getUserMedia(constraints);
+    const log = window as unknown as CaptureLog;
+    log.capturedTracks = [];
+    log.getUserMediaCalls = 0;
+    mediaDevices.getUserMedia = async (constraints) => {
+      log.getUserMediaCalls += 1;
+      const stream = await getUserMedia(constraints);
+      log.capturedTracks.push(...stream.getTracks());
+      return stream;
     };
   });
   return () =>
-    page.evaluate(
-      () =>
-        (window as unknown as { getUserMediaCalls: number }).getUserMediaCalls,
-    );
+    page.evaluate(() => (window as unknown as CaptureLog).getUserMediaCalls);
+}
+
+// Needs countMediaCaptures installed on the page first.
+function liveCaptures(page: Page) {
+  return page.evaluate(
+    () =>
+      (window as unknown as CaptureLog).capturedTracks.filter(
+        (track) => track.readyState === "live",
+      ).length,
+  );
 }
 
 async function joinWithCamera(page: Page) {
@@ -173,4 +196,42 @@ test("Session Renewal keeps the camera live past the access token's lifetime", a
   await page.reload();
   await expect(page).toHaveURL(preJoinUrl(`${CAMPUS}/overview`));
   await expect(joinButton(page)).toBeVisible();
+});
+
+test("one camera capture per cohort across tabs", async ({
+  page,
+  context,
+  baseURL,
+  fakeApi,
+}) => {
+  await signIn(context, baseURL);
+  await fakeApi.scriptSession(sessions.member(membership("c-3", "Cohort 3")));
+  await installSanityMapStub(page);
+  const firstTabCaptures = await countMediaCaptures(page);
+  await joinWithCamera(page);
+  const secondPage = await openSecondTab(context);
+  const secondTabCaptures = await countMediaCaptures(secondPage);
+
+  try {
+    await secondPage.goto(CAMPUS);
+
+    await expect(presenceTabChoice(secondPage, JOINED_ELSEWHERE)).toBeVisible();
+    await expect(
+      secondPage.getByRole("button", { name: "Turn on camera" }),
+    ).toHaveCount(0);
+    expect(await secondTabCaptures()).toBe(0);
+
+    await moveHereButton(secondPage).click();
+
+    await expect(secondPage).toHaveURL(CAMPUS);
+    await expect(
+      secondPage.getByRole("button", { name: "Turn on camera" }),
+    ).toBeVisible();
+    await expect(presenceTabChoice(page, TAKEN_OVER)).toBeVisible();
+    await expect.poll(() => liveCaptures(page)).toBe(0);
+    expect(await firstTabCaptures()).toBe(1);
+    expect(await secondTabCaptures()).toBe(0);
+  } finally {
+    await secondPage.close();
+  }
 });
