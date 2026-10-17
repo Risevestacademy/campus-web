@@ -6,19 +6,25 @@ import { useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 
-import { useAdmission } from "../services/presence-session/presence-session-provider";
+import {
+  useAdmission,
+  usePresenceTab,
+} from "../services/presence-session/presence-session-provider";
 
 export function CampusJoinButton({
   destination,
 }: Readonly<{ destination: string }>) {
   const router = useRouter();
   const grantEntry = useAdmission((state) => state.grantEntry);
+  const { claim } = usePresenceTab();
   const [isJoining, setIsJoining] = useState(false);
 
-  function joinCampus() {
+  // A tab that loses the claim shows the choice instead of this button.
+  async function joinCampus() {
     if (isJoining) return;
 
     setIsJoining(true);
+    if (!(await claim())) return;
     grantEntry(destination);
     router.push(destination as Route);
   }
