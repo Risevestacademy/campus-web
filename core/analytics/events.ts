@@ -15,6 +15,8 @@ export const ANALYTICS_EVENTS = {
   AUTH_SIGNUP_SUCCEEDED: "auth.signup_succeeded",
   AUTH_VERIFICATION_COMPLETED: "auth.verification_completed",
   AUTH_VERIFICATION_SENT: "auth.verification_sent",
+  CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN: "campus.presence_tab_conflict_shown",
+  CAMPUS_PRESENCE_TAB_MOVED: "campus.presence_tab_moved",
   CAMPUS_WORLD_MAP_FAILED: "campus_world.map_failed",
   CAMPUS_WORLD_MAP_LOADED: "campus_world.map_loaded",
   CAMPUS_WORLD_MAP_READY: "campus_world.map_ready",
@@ -42,6 +44,7 @@ const roleSchema = z.enum([
 
 const authMethodSchema = z.enum(["email", "google", "rise_sso"]);
 const platformSchema = z.enum(["mobile", "web"]);
+const presenceTabSurfaceSchema = z.enum(["pre_join", "taken_over"]);
 const verificationTypeSchema = z.enum(["email", "invite", "phone"]);
 const campusWorldMapErrorKindSchema = z.enum([
   "config",
@@ -132,6 +135,12 @@ export const analyticsEventSchemas = {
   [ANALYTICS_EVENTS.AUTH_LOGOUT]: z.object({
     logout_source: z.enum(["admin_action", "session_expired", "user_action"]),
   }),
+  [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN]: z.object({
+    surface: presenceTabSurfaceSchema,
+  }),
+  [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_MOVED]: z.object({
+    surface: presenceTabSurfaceSchema,
+  }),
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_LOADED]: campusWorldMapLoadedSchema,
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_FAILED]: campusWorldMapFailureSchema,
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_READY]: z.object({
@@ -168,6 +177,7 @@ export type AnalyticsIdentity = Readonly<
 >;
 export type AuthMethod = z.output<typeof authMethodSchema>;
 export type AnalyticsPlatform = z.output<typeof platformSchema>;
+export type PresenceTabSurface = z.output<typeof presenceTabSurfaceSchema>;
 export type CampusWorldMapErrorKind = z.output<
   typeof campusWorldMapErrorKindSchema
 >;

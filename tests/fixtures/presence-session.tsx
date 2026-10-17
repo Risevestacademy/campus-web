@@ -10,7 +10,12 @@ import {
   type AdmissionStore,
   createAdmissionStore,
 } from "@/features/campus/services/presence-session/admission-store";
-import { AdmissionProvider } from "@/features/campus/services/presence-session/presence-session-provider";
+import {
+  AdmissionProvider,
+  PresenceTabProvider,
+} from "@/features/campus/services/presence-session/presence-session-provider";
+import type { PresenceTab } from "@/features/campus/services/presence-session/presence-tab";
+import { createTestPresenceTab } from "@/features/campus/testing/presence-tab-test-utils";
 
 export function createPresenceMediaTestStore() {
   return createMediaSessionStore();
@@ -32,10 +37,13 @@ export function presenceSession(
   children: ReactNode,
   mediaStore: StoreApi<MediaSessionState> = createPresenceMediaTestStore(),
   admissionStore: AdmissionStore = createPresenceAdmissionTestStore(),
+  presenceTab: PresenceTab = createTestPresenceTab(),
 ) {
   return (
     <AdmissionProvider store={admissionStore}>
-      <MediaSessionProvider store={mediaStore}>{children}</MediaSessionProvider>
+      <MediaSessionProvider store={mediaStore}>
+        <PresenceTabProvider tab={presenceTab}>{children}</PresenceTabProvider>
+      </MediaSessionProvider>
     </AdmissionProvider>
   );
 }

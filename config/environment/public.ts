@@ -17,4 +17,7 @@ export const publicEnvironment = Object.freeze({
   NEXT_PUBLIC_SANITY_PROJECT_ID: normalizeEnvironmentValue(
     process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
   ),
+  NEXT_PUBLIC_WORLD_URL: normalizeEnvironmentValue(
+    process.env.NEXT_PUBLIC_WORLD_URL,
+  ),
 });

@@ -60,6 +60,14 @@ describe("parseExceptionCode", () => {
     ).toBe("INVITE_REVOKED");
   });
 
+  it("reads the SERVICE_UNAVAILABLE code campus-api sends when a dependency is down", () => {
+    expect(
+      parseExceptionCode({
+        error: { code: "SERVICE_UNAVAILABLE", message: "x" },
+      }),
+    ).toBe("SERVICE_UNAVAILABLE");
+  });
+
   it.each([
     ["an unknown code", { error: { code: "TEAPOT" } }],
     ["a prototype key", { error: { code: "constructor" } }],

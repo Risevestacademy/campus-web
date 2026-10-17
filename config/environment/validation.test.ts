@@ -8,10 +8,13 @@ const completeProtectedEnvironment = {
   NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: "phc_project",
   NEXT_PUBLIC_SANITY_DATASET: "staging",
   NEXT_PUBLIC_SANITY_PROJECT_ID: "sj3zsz66",
+  NEXT_PUBLIC_WORLD_URL: "https://ws.example.test",
 };
 
 const DATASET_MESSAGE =
   "NEXT_PUBLIC_SANITY_DATASET must be 1 to 64 lowercase letters, numbers, hyphens, or underscores, starting and ending with a letter or number.";
+const WORLD_URL_MESSAGE =
+  "NEXT_PUBLIC_WORLD_URL must be a public HTTPS origin.";
 
 describe("build environment validation", () => {
   afterEach(() => {
@@ -26,6 +29,7 @@ describe("build environment validation", () => {
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_HOST", "");
     vi.stubEnv("NEXT_PUBLIC_SANITY_PROJECT_ID", "");
     vi.stubEnv("NEXT_PUBLIC_SANITY_DATASET", "");
+    vi.stubEnv("NEXT_PUBLIC_WORLD_URL", "");
 
     await expect(import("../../next.config")).rejects.toThrow(
       [
@@ -34,6 +38,7 @@ describe("build environment validation", () => {
         "- NEXT_PUBLIC_POSTHOG_HOST is required.",
         "- NEXT_PUBLIC_SANITY_PROJECT_ID is required.",
         "- NEXT_PUBLIC_SANITY_DATASET is required.",
+        "- NEXT_PUBLIC_WORLD_URL is required.",
       ].join("\n"),
     );
   });
@@ -70,6 +75,7 @@ describe("build environment validation", () => {
         NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: "invalid-token",
         NEXT_PUBLIC_SANITY_DATASET: "Invalid Dataset",
         NEXT_PUBLIC_SANITY_PROJECT_ID: "sj3zsz66",
+        NEXT_PUBLIC_WORLD_URL: "http://localhost:8001",
         VERCEL: "1",
       }),
     ).toThrow(
@@ -78,6 +84,7 @@ describe("build environment validation", () => {
         '- NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN must start with "phc_".',
         "- NEXT_PUBLIC_POSTHOG_HOST must be a valid HTTPS URL.",
         `- ${DATASET_MESSAGE}`,
+        `- ${WORLD_URL_MESSAGE}`,
       ].join("\n"),
     );
   });
@@ -125,6 +132,26 @@ describe("build environment validation", () => {
     },
   );
 
+  it.each([
+    ["the local world from .env.example", "http://localhost:8001"],
+    ["HTTPS on loopback", "https://localhost"],
+    [
+      "a Railway private host the browser cannot reach",
+      "https://world.railway.internal",
+    ],
+    ["a path", "https://ws.example.test/socket"],
+    ["a WebSocket scheme", "wss://ws.example.test"],
+  ])("rejects a world URL naming %s", (_case, worldUrl) => {
+    expect(() =>
+      validateBuildEnvironment({
+        ...completeProtectedEnvironment,
+        NEXT_PUBLIC_WORLD_URL: worldUrl,
+      }),
+    ).toThrow(
+      ["Invalid build environment:", `- ${WORLD_URL_MESSAGE}`].join("\n"),
+    );
+  });
+
   it("reports a malformed host once", () => {
     expect(() =>
       validateBuildEnvironment({
@@ -155,6 +182,7 @@ describe("build environment validation", () => {
           NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: "phc_project",
           NEXT_PUBLIC_SANITY_DATASET: "staging",
           NEXT_PUBLIC_SANITY_PROJECT_ID: "sj3zsz66",
+          NEXT_PUBLIC_WORLD_URL: "https://ws.example.test",
         }),
       ).not.toThrow();
     },

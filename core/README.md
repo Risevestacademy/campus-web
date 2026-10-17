@@ -14,8 +14,10 @@ Implemented concerns:
   across features.
 - `observability`: structured application logging. See
   `observability/README.md`.
+- `realtime`: generated world socket protocol types and the parser for
+  inbound frames. See `realtime/README.md`.
 
-Planned concerns are `game`, `media`, and `realtime`. Create each concern only when its first
+Planned concerns are `game` and `media`. Create each concern only when its first
 implementation is required.
 
 Core may import from `shared`. It must never import from `features` or `app`.
