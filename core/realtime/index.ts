@@ -24,6 +24,14 @@ export type {
   WelcomeMessage,
 } from "./generated/world-protocol";
 export {
+  createRealtimeClient,
+  type RealtimeClient,
+  type RealtimeClientOptions,
+  type RealtimeEvent,
+  type RealtimeOutcome,
+  type RealtimeStatus,
+} from "./realtime-client";
+export {
   parseServerMessage,
   type ServerMessageResult,
 } from "./server-message.schema";

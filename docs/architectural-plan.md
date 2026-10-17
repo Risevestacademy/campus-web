@@ -301,14 +301,17 @@ Next proxy, authenticated by the `campus_session` cookie.
 core/realtime/
 ├── README.md                   regenerating, inbound-frame rules, tests
 ├── index.ts                    public entry: protocol types, parseServerMessage,
-│                               classifyClose, reconnectDelay
-├── close-codes.ts              world's close codes and 1008 reasons, copied
+│                               classifyClose, reconnectDelay, createRealtimeClient
+├── close-codes.ts              world's close codes and 1008 reasons, copied;
+│                               the client's own closes
 ├── close-policy.ts             classifyClose, reconnectDelay
-├── configuration.ts            world origin from NEXT_PUBLIC_WORLD_URL
+├── configuration.ts            world origin and socket URL from NEXT_PUBLIC_WORLD_URL
 ├── contract.typecheck.ts       outbound frames the protocol forbids fail tsc
 ├── generate-types.mjs          pnpm world:types: world /schema.json → types
 ├── generated/world-protocol.ts the protocol, generated, never edited
-└── server-message.schema.ts    parseServerMessage, Zod bound to the types
+├── realtime-client.ts          createRealtimeClient: connect, retry, report
+├── server-message.schema.ts    parseServerMessage, Zod bound to the types
+└── world-connection.ts         one socket: frames, handshake, timers (internal)
 ```
 
 Features should not directly depend on a WebSocket provider.

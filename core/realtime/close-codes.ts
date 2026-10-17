@@ -23,3 +23,10 @@ export type PolicyViolationReason =
   | "no_cohort"
   | "not_a_member"
   | "rate_limited";
+
+// The client's own closes. 4000-4999 is private use, and world takes only 4000.
+export const CLIENT_CLOSE = {
+  invalidHandshake: { code: 4001, reason: "invalid_handshake" },
+  handshakeTimeout: { code: 4002, reason: "handshake_timeout" },
+  presenceEnded: { code: 1000, reason: "presence_ended" },
+} as const;
