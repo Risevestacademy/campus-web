@@ -55,6 +55,9 @@ Web Lock `campus-presence:<cohortId>`; tabs on other cohorts are unaffected.
   `BroadcastChannel` or a wake event (`visibilitychange`, `focus`,
   `pageshow`) triggers one. A closed or crashed holder sends no notice, so
   the other tab sees the cohort free when the member returns to it.
+- A holder that leaves normally waits until its own query no longer sees the
+  released lock before notifying other tabs. The number of checks is bounded,
+  and a failed query falls back to notifying.
 - Use here joins with camera and microphone off.
 
 ## World outcomes

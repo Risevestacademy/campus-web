@@ -11,8 +11,8 @@ import {
   type PresenceTabPorts,
 } from "./presence-tab";
 
-function createBrowser() {
-  const lockManager = createFakeLockManager();
+function createBrowser({ releaseLag = 0 }: { releaseLag?: number } = {}) {
+  const lockManager = createFakeLockManager({ releaseLag });
   const openNotices = createFakeNoticeBus();
   let nextClient = 0;
 
@@ -178,6 +178,20 @@ describe("Presence Tab", () => {
 
   it("frees the cohort for other tabs when the holder leaves", async () => {
     const { lockManager, openTab } = createBrowser();
+    const first = openTab("c-3");
+    await first.tab.claim();
+    const second = openTab("c-3");
+    await settle();
+
+    first.close();
+    await settle();
+
+    expect(lockManager.holderOf("campus-presence:c-3")).toBeUndefined();
+    expect(second.tab.getStatus()).toBe("vacant");
+  });
+
+  it("frees the cohort for other tabs when the release shows late", async () => {
+    const { lockManager, openTab } = createBrowser({ releaseLag: 2 });
     const first = openTab("c-3");
     await first.tab.claim();
     const second = openTab("c-3");

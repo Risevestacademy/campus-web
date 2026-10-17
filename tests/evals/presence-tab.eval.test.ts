@@ -74,8 +74,8 @@ const SCENARIOS: { name: string; steps: string[]; connected: string[] }[] = [
   },
 ];
 
-function createBrowser() {
-  const lockManager = createFakeLockManager();
+function createBrowser(releaseLag: number) {
+  const lockManager = createFakeLockManager({ releaseLag });
   const openNotices = createFakeNoticeBus();
   const wakeListeners = new Set<() => void>();
 
@@ -148,8 +148,9 @@ type SimulatedTab = ReturnType<ReturnType<typeof createBrowser>["openTab"]>;
 async function play(
   steps: string[],
   afterEachStep: (tabs: Map<string, SimulatedTab>) => void,
+  releaseLag: number,
 ) {
-  const browser = createBrowser();
+  const browser = createBrowser(releaseLag);
   const tabs = new Map<string, SimulatedTab>();
 
   for (const step of steps) {
@@ -223,28 +224,37 @@ function filesMatching(pattern: RegExp): string[] {
 }
 
 describe("Presence Tab eval (threshold: every case passes)", () => {
-  it.each(SCENARIOS)(
-    "$name: only the joined tab captures or connects, after every step",
-    async ({ connected, steps }) => {
-      const violations: string[] = [];
+  describe.each([
+    { releaseLag: 0, releaseVisibility: "immediate" },
+    { releaseLag: 2, releaseVisibility: "lagging" },
+  ])("with $releaseVisibility release visibility", ({ releaseLag }) => {
+    it.each(SCENARIOS)(
+      "$name: only the joined tab captures or connects, after every step",
+      async ({ connected, steps }) => {
+        const violations: string[] = [];
 
-      const tabs = await play(steps, (liveTabs) => {
-        violations.push(...presenceViolations(liveTabs));
-      });
+        const tabs = await play(
+          steps,
+          (liveTabs) => {
+            violations.push(...presenceViolations(liveTabs));
+          },
+          releaseLag,
+        );
 
-      expect(violations).toEqual([]);
-      expect(
-        [...tabs]
-          .filter(([, tab]) => tab.media.liveConnections() > 0)
-          .map(([name]) => name),
-      ).toEqual(connected);
-      expect(
-        [...tabs]
-          .filter(([, tab]) => tab.liveWorldSockets() > 0)
-          .map(([name]) => name),
-      ).toEqual(connected);
-    },
-  );
+        expect(violations).toEqual([]);
+        expect(
+          [...tabs]
+            .filter(([, tab]) => tab.media.liveConnections() > 0)
+            .map(([name]) => name),
+        ).toEqual(connected);
+        expect(
+          [...tabs]
+            .filter(([, tab]) => tab.liveWorldSockets() > 0)
+            .map(([name]) => name),
+        ).toEqual(connected);
+      },
+    );
+  });
 
   it("keeps the lock and its browser APIs inside the Presence Tab adapters", () => {
     expect(filesMatching(/campus-presence:/)).toEqual([

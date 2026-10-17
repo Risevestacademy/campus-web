@@ -40,6 +40,16 @@ interface Hold {
   settled: Promise<unknown>;
 }
 
+const RELEASE_VISIBILITY_QUERIES = 3;
+
+async function waitUntilReleased(locks: PresenceLocks, name: string) {
+  for (let query = 0; query < RELEASE_VISIBILITY_QUERIES; query += 1) {
+    const snapshot = await locks.query().catch(() => undefined);
+    if (!snapshot) return;
+    if (!snapshot.held?.some((lock) => lock.name === name)) return;
+  }
+}
+
 export function presenceLockName(cohortId: string): string {
   return `campus-presence:${cohortId}`;
 }
@@ -145,9 +155,11 @@ export function createPresenceTab(
         current = undefined;
         if (!hold) return channel.close();
 
-        // Other tabs re-probe on the notice, so it waits for the release.
+        // WebKit may settle the request before its lock process exposes the
+        // release. Querying here orders another tab's later probe after it.
         hold.release();
-        const announceRelease = () => {
+        const announceRelease = async () => {
+          await waitUntilReleased(locks, name);
           channel.notify();
           channel.close();
         };
