@@ -106,6 +106,7 @@ export function createFrontendProject(environment: RailwayEnvironment) {
       NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: preserve(),
       NEXT_PUBLIC_SANITY_DATASET: preserve(),
       NEXT_PUBLIC_SANITY_PROJECT_ID: preserve(),
+      NEXT_PUBLIC_WORLD_URL: preserve(),
       ...(sleepsWhenIdle ? sleepFriendlyWebEnvironment : {}),
     },
   });

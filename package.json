@@ -12,6 +12,7 @@
   "packageManager": "pnpm@11.25.0",
   "scripts": {
     "api:types": "node --env-file-if-exists=.env.local core/api/client/generate-types.mjs && prettier core/api/client/generated/schema.ts --write",
+    "world:types": "node --env-file-if-exists=.env.local core/realtime/generate-types.mjs && prettier core/realtime/generated/world-protocol.ts --write",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

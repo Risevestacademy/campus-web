@@ -19,6 +19,7 @@ export const exceptionCodeSchema = z.toZod<Schemas["ExceptionCode"]>()(
     "INVITE_REQUIRED",
     "ACCOUNT_SUSPENDED",
     "RATE_LIMITED",
+    "SERVICE_UNAVAILABLE",
     "INTERNAL_ERROR",
   ]),
 );
