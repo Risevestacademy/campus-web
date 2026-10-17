@@ -211,11 +211,16 @@ start a second one.
 pnpm vitest run --project=unit core/realtime
 pnpm eval:privacy
 pnpm eval:realtime
+pnpm exec playwright test tests/e2e/realtime.spec.ts
 ```
 
 The client's tests and eval drive it against msw's `ws.link`
 (`tests/fixtures/mock-world.ts`) with vitest's fake timers; msw delivers
 socket events in microtasks, which fake timers leave running.
+
+The Playwright spec replaces world with `routeWebSocket` and verifies the
+browser lifecycle from server frames through the campus map and terminal
+Presence Session outcomes.
 
 `contract.typecheck.ts` is checked by `pnpm typecheck`: a message world does
 not accept fails compilation.

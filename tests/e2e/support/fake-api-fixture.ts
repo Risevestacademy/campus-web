@@ -238,18 +238,29 @@ export class FakeApi {
 
 const WORLD_SOCKET = /\/socket\?cohortId=/;
 
+type WorldSocketHandler = (socket: WebSocketRoute) => void;
+
+export interface FakeWorld {
+  replaceHandler(handler: WorldSocketHandler): void;
+}
+
 function admitToWorld(socket: WebSocketRoute) {
   socket.send(JSON.stringify(serverFrames.welcome));
   socket.send(JSON.stringify(serverFrames.snapshot));
 }
 
-export const test = base.extend<{ fakeApi: FakeApi; world: void }>({
+export const test = base.extend<{ fakeApi: FakeApi; world: FakeWorld }>({
   // Builds carry a real NEXT_PUBLIC_WORLD_URL; without this, Join would open a
   // socket to it with no session and reload on world's no_token.
   world: [
     async ({ context }, provide) => {
-      await context.routeWebSocket(WORLD_SOCKET, admitToWorld);
-      await provide();
+      let handler: WorldSocketHandler = admitToWorld;
+      await context.routeWebSocket(WORLD_SOCKET, (socket) => handler(socket));
+      await provide({
+        replaceHandler(nextHandler) {
+          handler = nextHandler;
+        },
+      });
     },
     { auto: true },
   ],
