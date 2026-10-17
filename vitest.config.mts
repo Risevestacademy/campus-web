@@ -58,6 +58,8 @@ export default defineConfig({
             provider: playwright({}),
             headless: true,
             instances: [{ browser: "chromium" }],
+            screenshotDirectory: "test-results/storybook",
+            screenshotFailures: true,
           },
         },
       },

@@ -13,16 +13,18 @@ const mapUrl = "https://cdn.sanity.io/files/sj3zsz66/staging/map.json";
 const tilesetUrl = "https://cdn.sanity.io/images/sj3zsz66/staging/";
 const transparentPixel =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+const manifestTilesets = mapFixture.tilesets.map(({ image }) => ({
+  tiledImagePath: image,
+  url: `${tilesetUrl}${image.split("/").at(-1)}`,
+}));
+const tilesetUrls = new Set(manifestTilesets.map(({ url }) => url));
 
 const manifest = {
   heightTiles: mapFixture.height,
   isEntry: true,
   mapId: "campus",
   mapUrl,
-  tilesets: mapFixture.tilesets.map(({ image }) => ({
-    tiledImagePath: image,
-    url: `${tilesetUrl}${image.split("/").at(-1)}`,
-  })),
+  tilesets: manifestTilesets,
   version: "storybook-version",
   widthTiles: mapFixture.width,
 };
@@ -30,7 +32,7 @@ const manifest = {
 const storyFetch = (async (input: RequestInfo | URL) => {
   const url = String(input);
 
-  if (url.startsWith(tilesetUrl)) {
+  if (tilesetUrls.has(url)) {
     return globalThis.fetch(transparentPixel);
   }
 
