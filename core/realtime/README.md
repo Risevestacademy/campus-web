@@ -17,12 +17,14 @@ import {
   reconnectDelay,
   type ClientMessage,
   type ServerMessage,
+  type WorldCloseCode,
+  type WorldCloseReason,
 } from "@/core/realtime";
 ```
 
-- `ServerMessage`, `ClientMessage`, one type per message (`WelcomeMessage`,
-  `MoveResultMessage`, …), and `Player`, `Avatar`, `Direction`,
-  `MoveOutcome`: generated from world's protocol.
+- `ServerMessage`, `ClientMessage`, `WorldCloseCode`, `WorldCloseReason`, one
+  type per message (`WelcomeMessage`, `MoveResultMessage`, …), and `Player`,
+  `Avatar`, `Direction`, `MoveOutcome`: generated from world's protocol.
 - `parseServerMessage(text)`: one socket frame's text as a
   `ServerMessageResult`; see [Inbound frames](#inbound-frames).
 - `classifyClose({ code, reason })` and `reconnectDelay(attempt, random)`:
@@ -133,9 +135,10 @@ Outbound frames are built from the `ClientMessage` type and need no parser.
 - `CLOSE_REASONS` lists every reason a reported close can carry, world's and
   the client's own; `isCloseReason` checks one. Analytics sends a reason only
   from this list, anything else as `unknown`.
-- The codes and reasons in `close-codes.ts` are copied by hand from world's
-  `apps/world/src/socket/`. They are not in the published schema, so no test
-  can pin them to the server. A reason world renames lands on `stop`.
+- World's close codes and reasons come from the generated protocol. The local
+  runtime lists are checked exhaustively against those unions, so an upstream
+  addition, removal or rename fails type checking until its policy is decided.
+  Browser 1006, socket-library 1009 and the client's own closes remain local.
 
 `reconnectDelay(attempt, random)` is the wait before the `attempt`th
 reconnect in a row (from 1), given a `random` in [0, 1) the caller draws. The

@@ -1,4 +1,9 @@
-export { CLOSE_REASONS, type CloseReason, isCloseReason } from "./close-codes";
+export {
+  CLOSE_REASONS,
+  type CloseReason,
+  isCloseReason,
+  WORLD_CLOSE_REASONS,
+} from "./close-codes";
 export {
   classifyClose,
   type CloseAction,
@@ -23,6 +28,8 @@ export type {
   ServerMessage,
   SnapshotMessage,
   WelcomeMessage,
+  CloseCode as WorldCloseCode,
+  CloseReason as WorldCloseReason,
 } from "./generated/world-protocol";
 export {
   createRealtimeClient,

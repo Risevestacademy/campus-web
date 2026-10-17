@@ -1,4 +1,5 @@
-import { CLOSE_CODE, type PolicyViolationReason } from "./close-codes";
+import { CLOSE_CODE } from "./close-codes";
+import type { CloseReason as WorldCloseReason } from "./generated/world-protocol";
 
 export const CLOSE_ACTIONS = [
   "reconnect",
@@ -17,6 +18,17 @@ export interface SocketClose {
   code: number;
   reason: string;
 }
+
+const NON_POLICY_REASONS = [
+  "entered_elsewhere",
+  "server shutting down",
+  "internal_error",
+] as const satisfies readonly WorldCloseReason[];
+
+type PolicyViolationReason = Exclude<
+  WorldCloseReason,
+  (typeof NON_POLICY_REASONS)[number]
+>;
 
 // A Map, not an object literal: a reason of "constructor" must not reach
 // Object.prototype.

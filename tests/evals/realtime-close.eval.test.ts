@@ -2,29 +2,16 @@
 
 import { describe, expect, it } from "vitest";
 
-import { classifyClose, reconnectDelay } from "@/core/realtime";
+import {
+  classifyClose,
+  reconnectDelay,
+  WORLD_CLOSE_REASONS,
+} from "@/core/realtime";
 
 // From world's protocol doc: WORLD_RECONNECT_GRACE_SECONDS defaults to 30.
 const RECONNECT_GRACE_MS = 30_000;
 const ATTEMPTS_INSIDE_GRACE = 4;
 const SLOWEST_RANDOM = 1;
-const KNOWN_REASONS = [
-  "no_token",
-  "token_not_usable",
-  "session_expired",
-  "session_ended",
-  "session_revoked",
-  "wrong_scope",
-  "account_suspended",
-  "account_gone",
-  "origin_not_allowed",
-  "no_cohort",
-  "not_a_member",
-  "rate_limited",
-  "entered_elsewhere",
-  "server shutting down",
-  "internal_error",
-];
 const LONG_REASON = "not_a_member".repeat(1000);
 
 describe("realtime close policy eval", () => {
@@ -53,7 +40,7 @@ describe("realtime close policy eval", () => {
     expect(classifyClose({ code, reason })).toBe("reconnect");
   });
 
-  it.each([...KNOWN_REASONS, "", LONG_REASON])(
+  it.each([...WORLD_CLOSE_REASONS, "", LONG_REASON])(
     "never reconnects on 4000, even with the reason %j",
     (reason) => {
       expect(classifyClose({ code: 4000, reason })).toBe("entered-elsewhere");
