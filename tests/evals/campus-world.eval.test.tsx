@@ -14,6 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import ActiveCampusPage from "@/app/campus/[id]/(active-campus)/page";
 import { createPresenceStore } from "@/core/presence";
+import { createWorldMovementChannel } from "@/core/realtime";
 import { CampusWorld } from "@/features/campus-world/components/campus-world";
 import {
   type CampusRuntime,
@@ -115,7 +116,10 @@ function preparedQueryClient(
 
 function renderWorld(
   queryClient: QueryClient,
-  dependencies: Omit<CampusWorldDependencies, "configuration" | "presence">,
+  dependencies: Omit<
+    CampusWorldDependencies,
+    "configuration" | "movement" | "presence"
+  >,
 ) {
   return render(
     <StrictMode>
@@ -125,6 +129,7 @@ function renderWorld(
           dependencies={{
             ...dependencies,
             configuration: sanityConfiguration,
+            movement: () => createWorldMovementChannel(),
             presence: () => connectedPresence(),
           }}
         />
@@ -265,6 +270,7 @@ describe("Campus world eval (required threshold: 13/13)", () => {
               configuration: sanityConfiguration,
               fetch,
               loadImage,
+              movement: () => createWorldMovementChannel(),
               presence: () => connectedPresence(),
               runtime: fakeCampusRuntime({ start }),
             }}

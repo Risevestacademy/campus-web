@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { createPresenceStore } from "@/core/presence";
+import { createWorldMovementChannel } from "@/core/realtime";
 
 import type { CampusGame, CampusRuntime } from "../game/campus-runtime";
 import type { CampusWorldDependencies } from "../hooks/campus-world-dependencies";
@@ -104,6 +105,7 @@ function renderWorld(
     configuration: sanityConfiguration,
     fetch: vi.fn(),
     loadImage: vi.fn(),
+    movement: () => createWorldMovementChannel(),
     presence: () => connectedPresence(),
     runtime: fakeCampusRuntime(),
     ...overrides,
@@ -247,6 +249,33 @@ describe("CampusWorld", () => {
       region(),
       expect.anything(),
       expect.objectContaining({ readPresence: store.getState }),
+    );
+  });
+
+  it("passes cohort movement into KAPLAY and reports refused moves", () => {
+    const game = startedGame();
+    const movement = createWorldMovementChannel();
+    const resolveMovement = vi.fn(() => movement);
+    const { dependencies } = renderWorld({
+      movement: resolveMovement,
+      runtime: game.runtime,
+    });
+
+    expect(resolveMovement).toHaveBeenCalledExactlyOnceWith("cohort-1");
+    expect(game.start).toHaveBeenCalledWith(
+      region(),
+      expect.anything(),
+      expect.objectContaining({
+        movement,
+        onMoveCorrected: expect.any(Function),
+      }),
+    );
+
+    const [, , options] = game.start.mock.calls[0]!;
+    options.onMoveCorrected("blocked");
+    expect(dependencies.captureEvent).toHaveBeenCalledWith(
+      "campus_world.move_corrected",
+      { outcome: "blocked" },
     );
   });
 

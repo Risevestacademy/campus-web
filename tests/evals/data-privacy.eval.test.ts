@@ -99,6 +99,7 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "campus_world.map_failed": ["error_kind", "map_id"],
   "campus_world.map_loaded": ["load_ms", "map_id", "tilesets", "version"],
   "campus_world.map_ready": ["first_frame_ms", "map_id", "version"],
+  "campus_world.move_corrected": ["outcome"],
   "cohort.created": ["cohort_status"],
   "identity.profile_setup_completed": ["cohort_id", "role", "track_id"],
   "identity.profile_setup_started": ["cohort_id", "role", "track_id"],

@@ -29,6 +29,13 @@ export type {
   CloseReason as WorldCloseReason,
 } from "./generated/world-protocol";
 export {
+  createWorldMovementChannel,
+  movementFor,
+  type WorldMovement,
+  type WorldMovementChannel,
+  type WorldMovementMessage,
+} from "./movement-channel";
+export {
   createRealtimeClient,
   isManuallyRecoverable,
   type RealtimeClient,

@@ -1,6 +1,7 @@
 import type { GameObj, KAPLAYCtx } from "kaplay";
 
 import type { Presence } from "@/core/presence";
+import type { WorldMovement } from "@/core/realtime";
 
 import { spawnCamera } from "../services/camera";
 import {
@@ -12,6 +13,7 @@ import {
 import { campusBackground } from "../services/theme-background";
 import { addAvatarLayer } from "./avatar-layer";
 import { addMapBand, type RenderTileset } from "./map-renderer";
+import type { MoveCorrectionOutcome } from "./own-avatar-movement";
 import { uploadTilesetSprites } from "./tileset-sprites";
 
 export interface CampusGame {
@@ -19,6 +21,8 @@ export interface CampusGame {
 }
 
 export interface CampusGameOptions {
+  movement: WorldMovement;
+  onMoveCorrected: (outcome: MoveCorrectionOutcome) => void;
   onRenderError: () => void;
   readPresence: () => Presence;
   signal: AbortSignal;
@@ -89,7 +93,11 @@ export function createCampusRuntime(
     container: HTMLElement,
   ): RuntimeContext {
     const canvas = document.createElement("canvas");
-    canvas.setAttribute("aria-hidden", "true");
+    canvas.tabIndex = 0;
+    canvas.setAttribute(
+      "aria-label",
+      "Campus movement. Use Arrow keys or W, A, S, D to move.",
+    );
     container.append(canvas);
 
     let k: KAPLAYCtx;
@@ -99,7 +107,7 @@ export function createCampusRuntime(
         canvas,
         crisp: true,
         debug: process.env.NODE_ENV !== "production",
-        focus: false,
+        focus: true,
         global: false,
         loadingScreen: false,
         root: container,
@@ -108,7 +116,6 @@ export function createCampusRuntime(
       canvas.remove();
       throw error;
     }
-    canvas.tabIndex = -1;
     k.setLayers(["below", "avatars", "above"], "below");
 
     const created: RuntimeContext = {
@@ -131,6 +138,7 @@ export function createCampusRuntime(
   ): RuntimeContext {
     if (context && !context.broken) {
       container.append(context.canvas);
+      context.canvas.focus();
       return context;
     }
 
@@ -180,7 +188,10 @@ export function createCampusRuntime(
     mount: Mount,
     prepared: PreparedCampusMap,
     tilesets: RenderTileset[],
-    readPresence: () => Presence,
+    options: Pick<
+      CampusGameOptions,
+      "movement" | "onMoveCorrected" | "readPresence"
+    >,
   ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       mount.rejectFirstDraw = reject;
@@ -204,7 +215,11 @@ export function createCampusRuntime(
         }),
       );
       mount.objects.push(
-        addAvatarLayer(k, { map: prepared.map, readPresence }),
+        addAvatarLayer(k, {
+          layout: prepared.layout,
+          map: prepared.map,
+          ...options,
+        }),
       );
       mount.objects.push(
         addMapBand(k, {
@@ -238,7 +253,8 @@ export function createCampusRuntime(
       );
     },
 
-    async start(container, prepared, { onRenderError, readPresence, signal }) {
+    async start(container, prepared, options) {
+      const { onRenderError, signal } = options;
       if (active) stop(active);
 
       const mount: Mount = {
@@ -257,13 +273,7 @@ export function createCampusRuntime(
         const tilesets = await spritesFor(runtimeContext, prepared, images);
         if (mount.stopped) throw stoppedError();
 
-        await drawMap(
-          runtimeContext.k,
-          mount,
-          prepared,
-          tilesets,
-          readPresence,
-        );
+        await drawMap(runtimeContext.k, mount, prepared, tilesets, options);
         if (mount.renderError) throw mount.renderError;
         mount.ready = true;
         return { stop: () => stop(mount) };

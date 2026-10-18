@@ -1,5 +1,6 @@
 import type { Presence } from "@/core/presence";
 import type { Direction } from "@/core/realtime";
+import type { Player } from "@/core/realtime";
 
 import { tileCentre, type TileSize } from "../tile-centre";
 import { escapeStyledText } from "./avatar-label";
@@ -17,11 +18,13 @@ export interface AvatarDraw {
 export function buildAvatarDrawList(
   { participants, positions, selfId }: Presence,
   tile: TileSize,
+  ownPosition?: Player,
 ): AvatarDraw[] {
   const list: AvatarDraw[] = [];
 
   for (const [userId, participant] of participants) {
-    const position = positions.get(userId);
+    const position =
+      ownPosition?.userId === userId ? ownPosition : positions.get(userId);
     if (!position) continue;
 
     list.push({

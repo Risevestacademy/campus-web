@@ -1,7 +1,11 @@
 import { type BrowserContext, expect, type Page } from "@playwright/test";
+import { z } from "zod";
+
+import { parseJson } from "@/shared/lib/parse-json";
 
 import { enterCampus, joinButton } from "./support/campus-entry";
 import {
+  admitToWorld,
   type FakeApi,
   membership,
   sessions,
@@ -20,6 +24,25 @@ test.skip(
 );
 
 const campusUrl = "/campus/c-3";
+
+const moveMessageSchema = z.object({
+  type: z.literal("move"),
+  direction: z.enum(["up", "down", "left", "right"]),
+  seq: z.int().nonnegative(),
+});
+
+type CapturedMove = z.output<typeof moveMessageSchema>;
+
+const movementInputs = [
+  { key: "ArrowUp", direction: "up" },
+  { key: "ArrowDown", direction: "down" },
+  { key: "ArrowLeft", direction: "left" },
+  { key: "ArrowRight", direction: "right" },
+  { key: "w", direction: "up" },
+  { key: "s", direction: "down" },
+  { key: "a", direction: "left" },
+  { key: "d", direction: "right" },
+] as const;
 
 function collectKaplayWarnings(page: Page): string[] {
   const warnings: string[] = [];
@@ -143,3 +166,56 @@ test("reveals Join at once on repeat entry and reuses the runtime's artwork", as
   expect(requests).toEqual({ manifest: 1, map: 1, tilesets: 3 });
   expect(kaplayWarnings).toEqual([]);
 });
+
+for (const { key, direction } of movementInputs) {
+  test(`sends ${direction} movement frame for ${key}`, async ({
+    page,
+    context,
+    baseURL,
+    fakeApi,
+    world,
+  }, testInfo) => {
+    const moves: CapturedMove[] = [];
+    let focused = false;
+
+    try {
+      world.replaceHandler((socket) => {
+        socket.onMessage((message) => {
+          const move = parseJson(moveMessageSchema, String(message));
+          if (move) moves.push(move);
+        });
+        admitToWorld(socket);
+      });
+      await prepareMember({ baseURL, context, fakeApi });
+      await installSanityMapStub(page);
+
+      await enterCampus(page, campusUrl);
+
+      const worldRegion = page.getByRole("region", { name: "Campus map" });
+      await expect(worldRegion).toHaveAttribute("data-status", "ready", {
+        timeout: 15_000,
+      });
+      const canvas = worldRegion.locator("canvas");
+      await expect(canvas).toBeFocused();
+      focused = true;
+
+      await page.keyboard.down(key);
+      try {
+        await expect
+          .poll(() => moves[0])
+          .toEqual({
+            type: "move",
+            direction,
+            seq: 1,
+          });
+      } finally {
+        await page.keyboard.up(key);
+      }
+    } finally {
+      await testInfo.attach("movement-debug.json", {
+        body: JSON.stringify({ key, direction, focused, moves }, null, 2),
+        contentType: "application/json",
+      });
+    }
+  });
+}

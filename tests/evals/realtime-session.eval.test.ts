@@ -4,7 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { allowAnalyticsProperties } from "@/core/analytics/events";
 import { createPresenceStore } from "@/core/presence";
-import type { RealtimeOutcome } from "@/core/realtime";
+import {
+  createWorldMovementChannel,
+  type RealtimeOutcome,
+} from "@/core/realtime";
 import type { SessionRefreshResult } from "@/core/session";
 import { createAdmissionStore } from "@/features/campus/services/presence-session/admission-store";
 import { followWorldOutcome } from "@/features/campus/services/presence-session/follow-world-outcome";
@@ -60,6 +63,7 @@ async function joinedSession(
     createWorldSession({
       url: WORLD_SOCKET_URL,
       cohortId: "cohort-1",
+      movement: createWorldMovementChannel(),
       presence,
       refreshSession,
       captureEvent: (capture) => captures.push(capture),

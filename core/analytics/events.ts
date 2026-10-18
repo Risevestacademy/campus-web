@@ -22,6 +22,7 @@ export const ANALYTICS_EVENTS = {
   CAMPUS_WORLD_MAP_FAILED: "campus_world.map_failed",
   CAMPUS_WORLD_MAP_LOADED: "campus_world.map_loaded",
   CAMPUS_WORLD_MAP_READY: "campus_world.map_ready",
+  CAMPUS_WORLD_MOVE_CORRECTED: "campus_world.move_corrected",
   COHORT_CREATED: "cohort.created",
   REALTIME_CLOSED: "realtime.closed",
   REALTIME_CONNECTED: "realtime.connected",
@@ -155,6 +156,9 @@ export const analyticsEventSchemas = {
     first_frame_ms: durationMsSchema,
     map_id: labelSchema,
     version: labelSchema,
+  }),
+  [ANALYTICS_EVENTS.CAMPUS_WORLD_MOVE_CORRECTED]: z.object({
+    outcome: z.enum(["blocked", "too_fast", "unknown"]),
   }),
   [ANALYTICS_EVENTS.COHORT_CREATED]: z.object({
     cohort_status: z.enum(["active", "completed", "upcoming"]),

@@ -13,11 +13,13 @@ policy for a closed socket, and the socket client that applies all three.
 import {
   classifyClose,
   createRealtimeClient,
+  movementFor,
   parseServerMessage,
   parseSocketClose,
   reconnectDelay,
   type ClientMessage,
   type ServerMessage,
+  type WorldMovement,
   type WorldCloseCode,
   type WorldCloseReason,
 } from "@/core/realtime";
@@ -38,6 +40,9 @@ import {
   what to do when the socket closes; see [Close policy](#close-policy).
 - `createRealtimeClient(options)`: one cohort's socket, from connect to the
   last retry; see [Socket client](#socket-client).
+- `movementFor(cohortId)`: one cohort's `WorldMovement` port. It accepts
+  movement only after `welcome` and `snapshot`, exposes world's `stepMs`, and
+  sends typed `move` frames through the current admitted socket.
 - `browserIsOnline()` and `subscribeToBrowserWake(listener)` in
   `browser-lifecycle.ts`: the browser's online state and its wake signals
   (`online`, the tab becoming visible or focused, a page restored from the
@@ -184,6 +189,10 @@ const client = createRealtimeClient({
 client.connect();
 useSyncExternalStore(client.subscribe, client.getStatus);
 ```
+
+`WorldSession` binds the cohort's movement channel to this client. A close
+disables sending immediately. The next `welcome` and `snapshot` re-enable it,
+so reconnect state always starts from world's authoritative snapshot.
 
 Features never construct a `WebSocket`; whoever composes the client passes
 `createSocket`. `isOnline` and `subscribeToWake` are optional ports: without

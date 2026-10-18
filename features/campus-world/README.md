@@ -6,8 +6,8 @@ Campus reuses that prepared resource when it matches world's snapshot and
 otherwise prepares the published map named there. It draws one KAPLAY runtime
 per page, with everyone in the cohort on it. It owns the grid rules movement
 follows: predicting a step, correcting it against world's `moveResult`, and
-walking somebody else's `moved` gap. It does not own authentication, media,
-input, or sockets.
+walking somebody else's `moved` gap. It also owns Arrow/WASD input and pacing
+from world's `stepMs`. It does not own authentication, media, or sockets.
 
 ## Interface
 
@@ -32,7 +32,8 @@ gate prepare the map again.
 
 Analytics: `campus_world.map_loaded` carries preparation time (`load_ms`);
 `campus_world.map_ready` carries the time from game start to the first drawn
-frame (`first_frame_ms`), once per ready start.
+frame (`first_frame_ms`), once per ready start; and
+`campus_world.move_corrected` carries a non-`moved` result (`outcome`).
 
 ## Modules
 
@@ -97,6 +98,13 @@ initialized`. The runtime moves its one canvas between containers, clears
   images during commit, before the observer subscribes.
 - Keep per-frame work in `game/`, not React state. React observes only
   lifecycle changes through `useSyncExternalStore`.
+- Keep input, sequence numbers, pending moves, prediction, interpolation, and
+  buffering in KAPLAY's avatar layer. Never route per-frame movement through
+  React or Zustand.
+- Pace held input from world's `stepMs`. After a stalled frame, start only one
+  new step. Reduced motion jumps each tile visually but keeps network pacing.
+- Keep canvas focusable and auto-focused. Its accessible label must name both
+  Arrow keys and W, A, S, D.
 - Resolve tiles once through `buildBandDrawList`; a frame only walks cells
   whose rendered tiles can reach the viewport, layer by layer. Never iterate
   by tileset: layers that mix tilesets then draw out of order.
@@ -137,8 +145,8 @@ pnpm test:e2e
 Unit tests cover the runtime (one context, sprite reuse, stale starts, render
 recovery), preparation, cancellation, readiness, progress, analytics,
 lifecycle, bands, layer draw order, tile transforms, frames, camera, theme,
-avatar drawing and label escaping, and movement grid rules. Shared fakes and
-the movement test layout live in `testing/`. The runtime eval replays Strict
+avatar drawing and label escaping, input pacing, and movement grid rules.
+Shared fakes and the movement test layout live in `testing/`. The runtime eval replays Strict
 Mode, re-entry, and retry. The avatar eval protects hostile display names and
 unknown sprite keys. The movement eval replays recorded `moveResult` sessions
 (a blocked step mid-burst, `too_fast` and recovery, an outcome added upstream)

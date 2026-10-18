@@ -28,7 +28,7 @@ export function CampusWorld({
       key={mountVersion}
       ref={mountGame}
       aria-label="Campus map"
-      className="bg-cobalt-950 relative size-full overflow-hidden"
+      className="bg-cobalt-950 relative size-full overflow-hidden rounded-2xl"
       data-cohort-id={cohortId}
       data-map-id={mapId ?? undefined}
       data-status={status}

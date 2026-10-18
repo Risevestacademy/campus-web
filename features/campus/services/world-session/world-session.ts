@@ -6,6 +6,7 @@ import {
   type RealtimeEvent,
   type RealtimeOutcome,
   type RealtimeStatus,
+  type WorldMovementChannel,
 } from "@/core/realtime";
 import type { RefreshSession } from "@/core/session";
 
@@ -14,6 +15,7 @@ import { type AnalyticsCapture, realtimeAnalytics } from "./realtime-analytics";
 export interface WorldSessionOptions {
   url: string;
   cohortId: string;
+  movement: WorldMovementChannel;
   presence: PresenceStore;
   refreshSession: RefreshSession;
   captureEvent: (capture: AnalyticsCapture) => void;
@@ -38,6 +40,7 @@ export interface WorldSession {
 // One cohort's place on the map: world's socket feeding who is here.
 export function createWorldSession({
   cohortId,
+  movement,
   presence,
   captureEvent,
   onOutcome,
@@ -47,8 +50,14 @@ export function createWorldSession({
     for (const capture of realtimeAnalytics(event, cohortId)) {
       captureEvent(capture);
     }
-    if (event.type === "message") presence.getState().apply(event.message);
-    if (event.type === "closed") presence.getState().clearRemoteParticipants();
+    if (event.type === "message") {
+      presence.getState().apply(event.message);
+      movement.apply(event.message);
+    }
+    if (event.type === "closed") {
+      movement.disconnect();
+      presence.getState().clearRemoteParticipants();
+    }
     if (event.type === "stopped") {
       if (!isManuallyRecoverable(event.outcome)) {
         presence.getState().clear();
@@ -58,13 +67,25 @@ export function createWorldSession({
   }
 
   const client = createRealtimeClient({ ...clientOptions, onEvent });
+  let unbindMovement: (() => void) | undefined;
+
+  function bindMovement() {
+    unbindMovement?.();
+    unbindMovement = movement.bind(client.send);
+  }
 
   return {
     connect() {
-      if (client.getStatus().phase === "idle") client.connect();
+      if (client.getStatus().phase !== "idle") return;
+      bindMovement();
+      client.connect();
     },
-    reconnect: client.connect,
+    reconnect() {
+      bindMovement();
+      client.connect();
+    },
     close() {
+      unbindMovement?.();
       client.close();
       presence.getState().clear();
     },

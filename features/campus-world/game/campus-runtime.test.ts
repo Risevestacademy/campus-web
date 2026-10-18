@@ -5,6 +5,7 @@ import {
   EMPTY_PRESENCE,
   type Presence,
 } from "@/core/presence";
+import { createWorldMovementChannel } from "@/core/realtime";
 
 import { fakeKaplay, fakePreparedMap } from "../testing/fake-kaplay";
 import { fakeImage } from "../testing/sanity-map-fixture";
@@ -24,6 +25,8 @@ function mountOptions(
   } = {},
 ) {
   return {
+    movement: createWorldMovementChannel(),
+    onMoveCorrected: vi.fn(),
     onRenderError: vi.fn(),
     readPresence: () => EMPTY_PRESENCE,
     signal: new AbortController().signal,
@@ -37,6 +40,27 @@ afterEach(() => {
 });
 
 describe("createCampusRuntime", () => {
+  it("focuses an accessible movement canvas", async () => {
+    const kaplay = fakeKaplay();
+    const element = container();
+
+    await createCampusRuntime().start(
+      element,
+      fakePreparedMap(kaplay.module),
+      mountOptions(),
+    );
+
+    expect(kaplay.kaplay).toHaveBeenCalledWith(
+      expect.objectContaining({ focus: true }),
+    );
+    expect(element.querySelector("canvas")).toHaveAttribute(
+      "aria-label",
+      "Campus movement. Use Arrow keys or W, A, S, D to move.",
+    );
+    expect(element.querySelector("canvas")).toHaveAttribute("tabindex", "0");
+    expect(document.activeElement).toBe(element.querySelector("canvas"));
+  });
+
   it("draws the cohort's avatars with the map, and removes them when the game stops", async () => {
     const kaplay = fakeKaplay({ autoDraw: false });
     const presence = createPresenceStore();
@@ -86,6 +110,7 @@ describe("createCampusRuntime", () => {
 
     expect(kaplay.kaplay).toHaveBeenCalledOnce();
     expect(canvas).not.toBeNull();
+    expect(document.activeElement).toBe(canvas);
     expect(first.querySelector("canvas")).toBeNull();
     expect(second.querySelector("canvas")).toBe(canvas);
   });

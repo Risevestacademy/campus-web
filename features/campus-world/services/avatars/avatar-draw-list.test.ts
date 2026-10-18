@@ -93,4 +93,19 @@ describe("buildAvatarDrawList", () => {
 
     expect(list).toEqual([]);
   });
+
+  it("draws self from KAPLAY's interpolated position", () => {
+    const presence = presenceOf("ada", avatar("ada", 2, 3));
+
+    const [self] = buildAvatarDrawList(presence, TILE, {
+      userId: "ada",
+      x: 2.5,
+      y: 3,
+      facing: "right",
+    });
+
+    expect(self).toEqual(
+      expect.objectContaining({ x: 48, y: 56, facing: "right" }),
+    );
+  });
 });

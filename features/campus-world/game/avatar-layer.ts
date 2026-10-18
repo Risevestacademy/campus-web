@@ -1,16 +1,24 @@
-import type { FormattedText, GameObj, KAPLAYCtx } from "kaplay";
+import type { MapLayout } from "campus-world-map";
+import type { FormattedText, GameObj, KAPLAYCtx, Key } from "kaplay";
 
 import type { Presence } from "@/core/presence";
-import type { Direction } from "@/core/realtime";
+import type { Direction, WorldMovement } from "@/core/realtime";
 
 import {
   type AvatarDraw,
   buildAvatarDrawList,
 } from "../services/avatars/avatar-draw-list";
 import { followCamera } from "../services/camera";
+import {
+  createOwnAvatarMovement,
+  type MoveCorrectionOutcome,
+} from "./own-avatar-movement";
 
 interface AvatarLayerOptions {
+  layout: MapLayout;
   map: { height: number; tileheight: number; tilewidth: number; width: number };
+  movement: WorldMovement;
+  onMoveCorrected: (outcome: MoveCorrectionOutcome) => void;
   readPresence: () => Presence;
 }
 
@@ -20,6 +28,14 @@ const SELF_RING_COLOUR = "#e8ff59";
 const LABEL_COLOUR = "#ffffff";
 const LABEL_SIZE = 8;
 const BODY_SHARE_OF_TILE = 0.35;
+
+const DIRECTION_KEYS = {
+  up: ["up", "w"],
+  down: ["down", "s"],
+  left: ["left", "a"],
+  right: ["right", "d"],
+} as const satisfies Record<Direction, readonly string[]>;
+const DIRECTIONS = Object.keys(DIRECTION_KEYS) as Direction[];
 
 const FACING: Record<Direction, { x: number; y: number }> = {
   up: { x: 0, y: -1 },
@@ -31,7 +47,7 @@ const FACING: Record<Direction, { x: number; y: number }> = {
 // Every spriteKey draws this one placeholder until character art exists.
 export function addAvatarLayer(
   k: KAPLAYCtx,
-  { map, readPresence }: AvatarLayerOptions,
+  { layout, map, movement, onMoveCorrected, readPresence }: AvatarLayerOptions,
 ): GameObj {
   const radius = Math.min(map.tilewidth, map.tileheight) * BODY_SHARE_OF_TILE;
   const colours = {
@@ -42,6 +58,35 @@ export function addAvatarLayer(
   };
   // Laying text out is the costly part of a frame; a name changes rarely.
   const labels = new Map<string, FormattedText>();
+  const ownMovement = createOwnAvatarMovement({
+    layout,
+    movement,
+    onMoveCorrected,
+    prefersReducedMotion: () =>
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    readPresence,
+  });
+
+  function readsKey(read: (key: Key) => boolean, direction: Direction) {
+    return DIRECTION_KEYS[direction].some(read);
+  }
+
+  function pressedDirection(): Direction | null {
+    let pressed: Direction | null = null;
+    for (const direction of DIRECTIONS) {
+      if (readsKey((key) => k.isKeyPressed(key), direction)) {
+        pressed = direction;
+      }
+    }
+    return pressed;
+  }
+
+  function heldDirections(): Direction[] {
+    return DIRECTIONS.filter((direction) =>
+      readsKey((key) => k.isKeyDown(key), direction),
+    );
+  }
 
   function formattedLabel(label: string): FormattedText {
     let formatted = labels.get(label);
@@ -93,6 +138,11 @@ export function addAvatarLayer(
     k.layer("avatars"),
     {
       update() {
+        ownMovement.update({
+          deltaMs: k.dt() * 1000,
+          held: heldDirections(),
+          pressed: pressedDirection(),
+        });
         const { positions, selfId } = readPresence();
         const self = selfId === null ? undefined : positions.get(selfId);
         if (!self) return;
@@ -104,9 +154,16 @@ export function addAvatarLayer(
         k.setCamPos(k.vec2(camera.x, camera.y));
       },
       draw() {
-        const list = buildAvatarDrawList(readPresence(), map);
+        const list = buildAvatarDrawList(
+          readPresence(),
+          map,
+          ownMovement.readPlayer(),
+        );
         list.forEach(drawAvatar);
         forgetLabelsNotIn(list);
+      },
+      destroy() {
+        ownMovement.stop();
       },
     },
   ]);
