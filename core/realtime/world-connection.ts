@@ -2,9 +2,10 @@ import type { Logger } from "@/core/observability";
 
 import { CLIENT_CLOSE } from "./close-codes";
 import type { SocketClose } from "./close-policy";
-import type { ClientMessage, ServerMessage } from "./generated/world-protocol";
+import type { ClientMessage } from "./generated/world-protocol";
 import {
   parseServerMessage,
+  type ServerMessage,
   type ServerMessageResult,
 } from "./server-message.schema";
 import { parseSocketClose } from "./socket-close.schema";
