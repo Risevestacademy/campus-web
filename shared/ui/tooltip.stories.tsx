@@ -1,6 +1,6 @@
 import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, screen, userEvent, within } from "storybook/test";
+import { expect, screen, userEvent, waitFor, within } from "storybook/test";
 
 import { buttonVariants } from "./button";
 import { Kbd } from "./kbd";
@@ -54,7 +54,9 @@ export const Gallery: Story = {
     const trigger = canvas.getByRole("button", { name: "Campus overview" });
 
     await userEvent.hover(trigger);
-    await expect(await screen.findByText("Campus overview")).toBeVisible();
+
+    const tooltip = await screen.findByText("Campus overview");
+    await waitFor(() => expect(tooltip).toBeVisible());
 
     await userEvent.unhover(trigger);
   },

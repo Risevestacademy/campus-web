@@ -3,7 +3,7 @@
 Owns the participant directory in the Campus Shell's Overview (map) panel:
 search, status filters, online and offline groups, and quick-transport
 destinations. A participant is a Cohort member as the roster lists them, with
-a presence status. Real-time status will belong to `presence`.
+a presence status. Real-time status will come from `@/core/presence`.
 
 ## Interface
 
@@ -25,7 +25,7 @@ passes the panel in because Campus may not import Roster.
 | `campus-overview-panel.tsx`                      | current mock-data binding                     | replaced by Presence binding               |
 | `participant-filters.ts`, `types.ts`             | status filter ids and matching                | none                                       |
 | `quick-transport.ts`, `quick-transport-list.tsx` | destination data and list                     | none                                       |
-| `mock-participants.ts`                           | stand-in data                                 | replaced by `presence`                     |
+| `mock-participants.ts`                           | stand-in data                                 | replaced by `core/presence`                |
 
 No Presence contract exists yet. Only the thin panel adapter reads mock data;
 the view receives participants, counts, context, and callbacks as props.

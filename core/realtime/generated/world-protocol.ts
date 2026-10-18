@@ -1,4 +1,4 @@
-// From world's protocol.schema.json, sha256 9f519d649caf65231b5d33187f9a91891c4342bfab0c7513242f6b511e90c1a3.
+// From world's protocol.schema.json, sha256 204fa12d3f1056c2fcc6b4787cb050bfe7578061c010b89c0bfbacf017772bf1.
 // Find the campus-server commit: git show <ref>:apps/world/protocol.schema.json | shasum -a 256
 
 export type paths = Record<string, never>;
@@ -153,6 +153,25 @@ export interface components {
       | components["schemas"]["MovedMessage"]
       | components["schemas"]["MoveResultMessage"]
       | components["schemas"]["ErrorMessage"];
+    /** @description The reason world gives when it closes the socket, read from the close event. Each says which code comes with it and what to do. A 1008 reason this list does not have should be treated as "stop": never retry a refusal you do not understand. */
+    CloseReason:
+      | "no_token"
+      | "token_not_usable"
+      | "session_expired"
+      | "session_ended"
+      | "session_revoked"
+      | "wrong_scope"
+      | "account_suspended"
+      | "account_gone"
+      | "origin_not_allowed"
+      | "no_cohort"
+      | "not_a_member"
+      | "rate_limited"
+      | "entered_elsewhere"
+      | "server shutting down"
+      | "internal_error";
+    /** @description The close codes world sends. Two more reach a client without world sending them: 1006, from the browser, when the connection is lost, a heartbeat is missed or the client reads too slowly (reconnect with backoff); and 1009, from the socket library, for a frame over the size limit (client bug; reconnect). */
+    CloseCode: 1001 | 1008 | 1011 | 4000;
   };
   responses: never;
   parameters: never;
@@ -178,5 +197,7 @@ export type MovedMessage = components["schemas"]["MovedMessage"];
 export type MoveResultMessage = components["schemas"]["MoveResultMessage"];
 export type ErrorMessage = components["schemas"]["ErrorMessage"];
 export type ServerMessage = components["schemas"]["ServerMessage"];
+export type CloseReason = components["schemas"]["CloseReason"];
+export type CloseCode = components["schemas"]["CloseCode"];
 export type $defs = Record<string, never>;
 export type operations = Record<string, never>;

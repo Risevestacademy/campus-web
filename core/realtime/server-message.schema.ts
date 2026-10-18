@@ -84,9 +84,9 @@ const welcomeMessageSchema = z.toZod<WelcomeMessage>()(
     type: z.literal("welcome"),
     userId: z.string(),
     connectionId: z.string(),
-    heartbeatSeconds: z.int(),
-    stepMs: z.int(),
-    tickMs: z.int(),
+    heartbeatSeconds: z.int().positive(),
+    stepMs: z.int().positive(),
+    tickMs: z.int().positive(),
     ...appearanceShape,
   }),
 );
@@ -101,8 +101,8 @@ const snapshotMessageSchema = z.toZod<SnapshotMessage>()(
     map: z.object({
       id: z.string(),
       version: z.string(),
-      width: z.int(),
-      height: z.int(),
+      width: z.int().positive(),
+      height: z.int().positive(),
     }),
     players: z.array(avatarSchema),
   }),

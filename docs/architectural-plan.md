@@ -59,6 +59,9 @@ core/
 ├── media/  
 ├── game/  
 ├── components/  
+├── navigation/
+├── presence/
+├── session/
 └── realtime/
 
 ## features/
@@ -301,19 +304,42 @@ Next proxy, authenticated by the `campus_session` cookie.
 core/realtime/
 ├── README.md                   regenerating, inbound-frame rules, tests
 ├── index.ts                    public entry: protocol types, parseServerMessage,
-│                               classifyClose, reconnectDelay
-├── close-codes.ts              world's close codes and 1008 reasons, copied
+│                               parseSocketClose, classifyClose, reconnectDelay,
+│                               createRealtimeClient
+├── browser-lifecycle.ts        browserIsOnline, subscribeToBrowserWake (ports)
+├── close-codes.ts              world's close codes and 1008 reasons, copied;
+│                               the client's own closes
 ├── close-policy.ts             classifyClose, reconnectDelay
-├── configuration.ts            world origin from NEXT_PUBLIC_WORLD_URL
+├── configuration.ts            world origin and socket URL from NEXT_PUBLIC_WORLD_URL
 ├── contract.typecheck.ts       outbound frames the protocol forbids fail tsc
 ├── generate-types.mjs          pnpm world:types: world /schema.json → types
 ├── generated/world-protocol.ts the protocol, generated, never edited
-└── server-message.schema.ts    parseServerMessage, Zod bound to the types
+├── realtime-client.ts          createRealtimeClient: connect, retry, report
+├── server-message.schema.ts    parseServerMessage, Zod bound to the types
+├── socket-close.schema.ts      parseSocketClose: bounded close code + reason
+└── world-connection.ts         one socket: frames, handshake, heartbeat, timers (internal)
 ```
 
-Features should not directly depend on a WebSocket provider.
+The client's transport lifecycle depends on three outside facts, injected as
+ports so tests and runtimes can differ: `createSocket`, `isOnline` (browser
+connectivity), and `subscribeToWake` (`online`, focus, visibility, page
+restore). The loop:
 
-Instead:
+- **Reconnect** retries with equal-jitter backoff, capped at 10 consecutive
+  attempts (`gave-up`), the count reset only after 60 s of stability.
+- **Refresh-integrated reconnect** asks `core/session`'s refresh port first;
+  `refreshed` retries, `expired` stops at sign-in, `failed` backs off by
+  `retryAfterMs`. Recovery records whether the pending operation is a refresh
+  or a socket connect, so a wake never bypasses refresh.
+- **Offline** drops scheduled retries instead of burning the budget; a wake
+  resumes the recorded operation for a waiting or gave-up session, never a
+  terminal one. A connected wake probes liveness without opening a second
+  socket or resetting the retry budget.
+- **Liveness** pings each `heartbeatSeconds` and abandons a socket whose
+  previous `pong` never came (client close 4003 `liveness_timeout`).
+- **Replacement precedence**: a `replaced` frame stops the client
+  immediately (`entered-elsewhere`); the later close frame is swallowed, so
+  two tabs never replace each other forever.
 
 ```text
 Feature
@@ -339,6 +365,19 @@ reconnecting) is documented by the server repo's `docs/world-protocol.md`.
 
 #
 
+# Session Refresh Contract
+
+The Campus Access Session refresh result is one discriminated union —
+`refreshed` / `expired` / `failed {retryAfterMs?}` — owned by `core/session`.
+Auth fills the shared port (`useRefreshSession`, composed by
+`SessionRefreshProvider`); the realtime client consumes it for
+`reconnect-after-refresh`. Features never import auth for this: the contract
+is a `core/` boundary, and the boolean form is gone. URL-borne cohort IDs are
+validated with `parseCohortId` (`core/navigation`) in every route segment that
+reads them. Next renders layouts and pages in parallel, so no segment relies
+on its parent layout to validate first; `requireCohortId` turns failure into
+`notFound()`.
+
 # Multiplayer Movement
 
 Local movement predicts one tile per key step, paced to `welcome.stepMs`, and
@@ -360,19 +399,27 @@ protocol rather than an optimization.
 
 ## Presence
 
-Responsible for:
+`core/presence/` holds who is in a cohort's campus, where world last placed
+them, and which world map they are on, applied from realtime messages. It is
+in `core/` because the campus map, the Presence Session that feeds it, and
+the roster all read it, and features may not import each other.
 
-- Connected students.
-- Join/leave events.
-- Remote user information.
-- Online/offline status.
-- Position snapshots.
+- `map`: the authoritative world map — id, version, width, height — from
+  `snapshot`. The map renderer loads art for exactly that map, so a
+  published-map change on the server rectifies every client without a
+  redeploy.
+- `participants`: `Map<UserId, { userId, displayName, spriteKey }>`.
+- `positions`: `Map<UserId, { x, y, facing }>`, in tiles, clamped into the
+  map's bounds.
 
-Suggested storage:
-
-Record\<UserId, ParticipantPresence\>
-
-instead of repeatedly searching large arrays.
+Two participant maps, so React subscribes to who is here without rendering
+on every `moved`. Tile positions are world's answer, not frame state: KAPLAY
+reads them each frame and keeps pixels and walking itself. A `snapshot`
+replaces the map and both maps, so a reconnect never shows anyone twice.
+Every recoverable close clears the remote participants (you and the map
+stay), so a drop never leaves frozen stand-ins. `presenceFor(cohortId)`
+outlives the map's mount, so the map is populated again on the way back from
+another page.
 
 ## Proximity
 

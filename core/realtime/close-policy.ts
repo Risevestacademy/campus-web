@@ -1,19 +1,35 @@
-import { CLOSE_CODE, type PolicyViolationReason } from "./close-codes";
+import { CLIENT_CLOSE, CLOSE_CODE } from "./close-codes";
+import type {
+  CloseCode as WorldCloseCode,
+  CloseReason as WorldCloseReason,
+} from "./generated/world-protocol";
 
-export type CloseAction =
-  | "reconnect"
-  | "reconnect-after-refresh"
-  | "sign-in"
-  | "onboarding"
-  | "sign-out"
-  | "choose-cohort"
-  | "entered-elsewhere"
-  | "stop";
+export const CLOSE_ACTIONS = [
+  "reconnect",
+  "reconnect-after-refresh",
+  "sign-in",
+  "onboarding",
+  "sign-out",
+  "choose-cohort",
+  "entered-elsewhere",
+  "stop",
+] as const;
+
+export type CloseAction = (typeof CLOSE_ACTIONS)[number];
 
 export interface SocketClose {
   code: number;
   reason: string;
 }
+
+// These reasons name world's own trust policies, not a missing one: the 1008
+// row falls through to the code's default rather than a reason lookup.
+type NonPolicyReason = Extract<
+  WorldCloseReason,
+  "entered_elsewhere" | "server shutting down" | "internal_error"
+>;
+
+type PolicyViolationReason = Exclude<WorldCloseReason, NonPolicyReason>;
 
 // A Map, not an object literal: a reason of "constructor" must not reach
 // Object.prototype.
@@ -34,20 +50,35 @@ const POLICY_VIOLATION_ACTIONS = new Map<string, CloseAction>(
   } satisfies Record<PolicyViolationReason, CloseAction>),
 );
 
-const CODE_ACTIONS = new Map<number, CloseAction>([
-  [CLOSE_CODE.enteredElsewhere, "entered-elsewhere"],
-  [CLOSE_CODE.goingAway, "reconnect"],
-  [CLOSE_CODE.messageTooBig, "reconnect"],
-  [CLOSE_CODE.internalError, "reconnect"],
+const WORLD_CODE_ACTIONS = {
+  [CLOSE_CODE.goingAway]: "reconnect",
+  [CLOSE_CODE.policyViolation]: "policy",
+  [CLOSE_CODE.internalError]: "reconnect",
+  [CLOSE_CODE.enteredElsewhere]: "entered-elsewhere",
+} as const satisfies Record<WorldCloseCode, CloseAction | "policy">;
+
+const LOCAL_CODE_ACTIONS = new Map<number, CloseAction>([
   [CLOSE_CODE.connectionLost, "reconnect"],
+  [CLOSE_CODE.messageTooBig, "reconnect"],
+  [CLIENT_CLOSE.invalidHandshake.code, "reconnect"],
+  [CLIENT_CLOSE.handshakeTimeout.code, "reconnect"],
+  [CLIENT_CLOSE.livenessTimeout.code, "reconnect"],
 ]);
+
+function isWorldCloseCode(code: number): code is WorldCloseCode {
+  return Object.hasOwn(WORLD_CODE_ACTIONS, code);
+}
 
 // An unknown refusal stops rather than hammering a door world shut on purpose.
 export function classifyClose({ code, reason }: SocketClose): CloseAction {
   if (code === CLOSE_CODE.policyViolation) {
     return POLICY_VIOLATION_ACTIONS.get(reason) ?? "stop";
   }
-  return CODE_ACTIONS.get(code) ?? "reconnect";
+  if (isWorldCloseCode(code)) {
+    const action = WORLD_CODE_ACTIONS[code];
+    return action === "policy" ? "stop" : action;
+  }
+  return LOCAL_CODE_ACTIONS.get(code) ?? "stop";
 }
 
 const FIRST_CEILING_MS = 1000;

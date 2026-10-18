@@ -36,3 +36,13 @@ export function readWorldOrigin(environment: WorldEnvironment): string {
 export function readWorldSchemaUrl(environment: WorldEnvironment): string {
   return new URL("/schema.json", readWorldOrigin(environment)).href;
 }
+
+export function readWorldSocketUrl(
+  environment: WorldEnvironment,
+  cohortId: string,
+): string {
+  const url = new URL("/socket", readWorldOrigin(environment));
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.searchParams.set("cohortId", cohortId);
+  return url.href;
+}

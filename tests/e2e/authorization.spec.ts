@@ -740,6 +740,7 @@ test.describe("cohort pre-join", () => {
 
       await page.getByRole("link", { name: "Back to campuses" }).click();
       await expect(page).toHaveURL("/campus");
+      await expect(page.getByRole("link", { name: /Cohort 3/ })).toBeVisible();
 
       await expect(joinButton(secondPage)).toBeVisible();
       await expect(presenceTabChoice(secondPage, JOINED_ELSEWHERE)).toHaveCount(

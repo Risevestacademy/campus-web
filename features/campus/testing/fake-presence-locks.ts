@@ -8,21 +8,43 @@ interface Holder {
   steal: (reason: DOMException) => void;
 }
 
+interface ReleasedHolder {
+  holder: Holder;
+  remainingQueries: number;
+}
+
 // One origin's Web Locks, shared by simulated tabs. Grants and steals follow
 // the W3C spec: a stolen holder's request rejects with AbortError, and a
 // crashed tab's locks vanish without any callback settling.
-export function createFakeLockManager() {
+export function createFakeLockManager({
+  releaseLag = 0,
+}: { releaseLag?: number } = {}) {
   const held = new Map<string, Holder>();
+  const released = new Map<string, ReleasedHolder>();
 
   function release(name: string, holder: Holder) {
-    if (held.get(name) === holder) held.delete(name);
+    if (held.get(name) !== holder) return;
+    held.delete(name);
+    if (releaseLag > 0) {
+      released.set(name, { holder, remainingQueries: releaseLag });
+    }
+  }
+
+  function visibleHolders() {
+    const visible = new Map(held);
+    for (const [name, releasedHolder] of released) {
+      if (!visible.has(name)) visible.set(name, releasedHolder.holder);
+      releasedHolder.remainingQueries -= 1;
+      if (releasedHolder.remainingQueries === 0) released.delete(name);
+    }
+    return visible;
   }
 
   function forClient(clientId: string): PresenceLocks {
     return {
       async query() {
         return {
-          held: [...held].map(([name, holder]) => ({
+          held: [...visibleHolders()].map(([name, holder]) => ({
             clientId: holder.clientId,
             mode: "exclusive" as const,
             name,
@@ -47,6 +69,7 @@ export function createFakeLockManager() {
 
         return new Promise<T>((resolve, reject) => {
           const holder: Holder = { clientId, steal: reject };
+          released.delete(name);
           held.set(name, holder);
           Promise.resolve(callback({ mode: "exclusive", name })).then(
             (value) => {
@@ -67,6 +90,9 @@ export function createFakeLockManager() {
     crash(clientId: string) {
       for (const [name, holder] of held) {
         if (holder.clientId === clientId) held.delete(name);
+      }
+      for (const [name, { holder }] of released) {
+        if (holder.clientId === clientId) released.delete(name);
       }
     },
     forClient,

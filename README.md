@@ -166,8 +166,9 @@ pnpm check
 
 Storybook is not exposed through the deployed Next.js application. The
 `pnpm storybook:build` command generates a static site in `storybook-static/`.
-CI verifies the tests and static build. Deploy the generated directory through
-any static hosting service.
+The pull-request E2E job runs `pnpm eval:storybook`, which executes Storybook
+interaction and accessibility tests in Chromium before building the static
+site. Deploy the generated directory through any static hosting service.
 
 Use:
 

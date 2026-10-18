@@ -36,11 +36,20 @@ export function entryManifest(
 }
 
 export function stubSanityFetch(queryResult: unknown = [entryManifest()]) {
-  return vi.fn(async (input: RequestInfo | URL) =>
-    String(input) === mapUrl
-      ? jsonResponse(mapFixture)
-      : jsonResponse({ result: queryResult }),
-  ) as unknown as typeof globalThis.fetch;
+  const maps = Array.isArray(queryResult) ? queryResult : [queryResult];
+  const entry =
+    maps.find((manifest) => (manifest as { isEntry?: unknown }).isEntry) ??
+    maps[0];
+  const single = Array.isArray(queryResult) ? entry : queryResult;
+  return vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url === mapUrl) return jsonResponse(mapFixture);
+    // The current-versions list reads its result as an array; the one map a
+    // member's snapshot pins reads a single manifest. The query text tells
+    // them apart before either is answered.
+    const listQuery = url.includes("%22worldMap%22");
+    return jsonResponse({ result: listQuery ? maps : single });
+  }) as unknown as typeof globalThis.fetch;
 }
 
 export function fakeImage(): ImageBitmap {

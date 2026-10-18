@@ -1,4 +1,5 @@
 import type { ApiClient } from "@/core/api/client";
+import type { SessionRefreshResult } from "@/core/session";
 import { parseRetryAfterMs } from "@/shared/lib/retry-after";
 
 import {
@@ -101,10 +102,8 @@ export async function readSession(api: ApiClient): Promise<SessionRead> {
 // refresh cookie first and ignores the body; only native clients send a token.
 const COOKIE_CARRIES_TOKEN = {};
 
-export type SessionRefresh =
-  | { kind: "refreshed"; expiresAt?: string }
-  | { kind: "expired" }
-  | { kind: "failed"; retryAfterMs?: number };
+// One refresh contract for every caller: core/session owns its shape.
+export type SessionRefresh = SessionRefreshResult;
 
 async function postRefresh(api: ApiClient): Promise<SessionRefresh> {
   try {

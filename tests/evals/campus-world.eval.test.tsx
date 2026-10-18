@@ -13,6 +13,7 @@ import { type ReactNode, StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import ActiveCampusPage from "@/app/campus/[id]/(active-campus)/page";
+import { createPresenceStore } from "@/core/presence";
 import { CampusWorld } from "@/features/campus-world/components/campus-world";
 import {
   type CampusRuntime,
@@ -20,6 +21,11 @@ import {
 } from "@/features/campus-world/game/campus-runtime";
 import type { CampusWorldDependencies } from "@/features/campus-world/hooks/campus-world-dependencies";
 import { campusMapPreparationQueryKey } from "@/features/campus-world/hooks/use-campus-map-preparation";
+import {
+  ENTRY_MAP,
+  type MapSource,
+  mapSourceFromSnapshot,
+} from "@/features/campus-world/services/map/load-campus-map";
 import {
   isPreparedCampusMapRenderReady,
   type PreparedCampusMap,
@@ -62,6 +68,23 @@ vi.mock("@/features/campus-world", () => ({
 
 const projectRoot = path.resolve(import.meta.dirname, "../..");
 
+// The world tells the truth about the map: one shape, matching the prepared
+// manifest, so presence alone decides which artwork loads.
+const WORLD_MAP = {
+  height: 10,
+  id: "campus",
+  version: "version-1",
+  width: 10,
+};
+
+function connectedPresence() {
+  const store = createPresenceStore();
+  store.getState().apply({ type: "snapshot", map: WORLD_MAP, players: [] });
+  return store;
+}
+
+// The lower band, the avatar layer and the upper band.
+const OBJECTS_PER_MAP = 3;
 function sourceFiles(directory: string): string[] {
   return readdirSync(path.join(projectRoot, directory), {
     recursive: true,
@@ -76,12 +99,15 @@ function sourceFiles(directory: string): string[] {
     .map((entry) => path.join(entry.parentPath, entry.name));
 }
 
-function preparedQueryClient(prepared: PreparedCampusMap) {
+function preparedQueryClient(
+  prepared: PreparedCampusMap,
+  source: MapSource = mapSourceFromSnapshot(WORLD_MAP),
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   queryClient.setQueryData(
-    campusMapPreparationQueryKey(sanityConfiguration, { kind: "entry" }),
+    campusMapPreparationQueryKey(sanityConfiguration, source),
     prepared,
   );
   return queryClient;
@@ -89,14 +115,18 @@ function preparedQueryClient(prepared: PreparedCampusMap) {
 
 function renderWorld(
   queryClient: QueryClient,
-  dependencies: Omit<CampusWorldDependencies, "configuration">,
+  dependencies: Omit<CampusWorldDependencies, "configuration" | "presence">,
 ) {
   return render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <CampusWorld
           cohortId="cohort-1"
-          dependencies={{ ...dependencies, configuration: sanityConfiguration }}
+          dependencies={{
+            ...dependencies,
+            configuration: sanityConfiguration,
+            presence: () => connectedPresence(),
+          }}
         />
       </QueryClientProvider>
     </StrictMode>,
@@ -235,6 +265,7 @@ describe("Campus world eval (required threshold: 13/13)", () => {
               configuration: sanityConfiguration,
               fetch,
               loadImage,
+              presence: () => connectedPresence(),
               runtime: fakeCampusRuntime({ start }),
             }}
           />
@@ -248,6 +279,32 @@ describe("Campus world eval (required threshold: 13/13)", () => {
       expect(loadImage).not.toHaveBeenCalled();
     },
   );
+
+  it("reuses entry preparation when it matches world's snapshot", async () => {
+    const fetch = vi.fn();
+    const loadImage = vi.fn();
+    const prepared = {
+      manifest: {
+        heightTiles: WORLD_MAP.height,
+        mapId: WORLD_MAP.id,
+        version: WORLD_MAP.version,
+        widthTiles: WORLD_MAP.width,
+      },
+      map: { height: WORLD_MAP.height, width: WORLD_MAP.width },
+      preparationMs: 42,
+      tilesets: [],
+    } as unknown as PreparedCampusMap;
+
+    renderWorld(preparedQueryClient(prepared, ENTRY_MAP), {
+      fetch,
+      loadImage,
+      runtime: fakeCampusRuntime(),
+    });
+
+    await expectWorldReady();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(loadImage).not.toHaveBeenCalled();
+  });
 
   it.each(lifecycles)(
     "keeps exactly one live map after $name",
@@ -275,7 +332,7 @@ describe("Campus world eval (required threshold: 13/13)", () => {
 
       expect(kaplay.kaplay).toHaveBeenCalledTimes(kaplayStarts);
       expect(kaplay.contexts).toHaveLength(kaplayStarts);
-      expect(kaplay.contexts.at(-1)!.liveObjects()).toBe(2);
+      expect(kaplay.contexts.at(-1)!.liveObjects()).toBe(OBJECTS_PER_MAP);
       expect(
         captureEvent.mock.calls.filter(
           ([name]) => name === "campus_world.map_ready",
