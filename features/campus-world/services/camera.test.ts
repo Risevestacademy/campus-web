@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { clampCamera, spawnCamera } from "./camera";
+import { clampCamera, followCamera, spawnCamera } from "./camera";
 
 describe("clampCamera", () => {
   const viewport = { height: 600, width: 800 };
@@ -43,6 +43,25 @@ describe("spawnCamera", () => {
     expect(spawnCamera(map, { spawn: { x: 0, y: 0 } }, viewport)).toEqual({
       x: 240,
       y: 160,
+    });
+  });
+});
+
+describe("followCamera", () => {
+  const map = { height: 40, tileheight: 16, tilewidth: 16, width: 60 };
+  const viewport = { height: 160, width: 320 };
+
+  it("centres on the tile you stand on", () => {
+    expect(followCamera({ x: 30, y: 20 }, map, viewport)).toEqual({
+      x: 488,
+      y: 328,
+    });
+  });
+
+  it("stops at the map's edge", () => {
+    expect(followCamera({ x: 0, y: 39 }, map, viewport)).toEqual({
+      x: 160,
+      y: 560,
     });
   });
 });

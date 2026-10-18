@@ -15,6 +15,7 @@ import {
 export type TestPresenceTab = PresenceTab &
   Readonly<{
     claim: ReturnType<typeof vi.fn<PresenceTab["claim"]>>;
+    release: ReturnType<typeof vi.fn<PresenceTab["release"]>>;
     setStatus: (status: PresenceTabStatus) => void;
     takeOver: ReturnType<typeof vi.fn<PresenceTab["takeOver"]>>;
   }>;
@@ -39,12 +40,17 @@ export function createTestPresenceTab(
     }),
     getStatus: () => status,
     open: () => () => {},
+    release: vi.fn(async () => setStatus("vacant")),
+    releaseToAnotherDevice: vi.fn(async () => setStatus("released")),
     setStatus,
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    takeOver: vi.fn(async () => setStatus("held")),
+    takeOver: vi.fn(async () => {
+      setStatus("held");
+      return true;
+    }),
   };
 }
 

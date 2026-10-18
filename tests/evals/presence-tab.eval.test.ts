@@ -12,6 +12,7 @@ import {
   settle,
 } from "@/features/campus/testing/fake-presence-locks";
 import { createCountingMediaSession } from "@/features/campus/testing/presence-tab-test-utils";
+import { createTestWorldSession } from "@/features/campus/testing/world-session-test-utils";
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
 const CAMPUS_FEATURE = path.join(PROJECT_ROOT, "features/campus");
@@ -73,8 +74,8 @@ const SCENARIOS: { name: string; steps: string[]; connected: string[] }[] = [
   },
 ];
 
-function createBrowser() {
-  const lockManager = createFakeLockManager();
+function createBrowser(releaseLag: number) {
+  const lockManager = createFakeLockManager({ releaseLag });
   const openNotices = createFakeNoticeBus();
   const wakeListeners = new Set<() => void>();
 
@@ -93,7 +94,8 @@ function createBrowser() {
       },
     });
     void media.store.getState().start();
-    const stopFollowing = followPresenceTab(tab, media.store, admission);
+    const world = createTestWorldSession();
+    const stopFollowing = followPresenceTab(tab, media.store, admission, world);
     const close = tab.open();
     const showsMediaControls = () =>
       tab.getStatus() === "vacant" || tab.getStatus() === "held";
@@ -101,7 +103,10 @@ function createBrowser() {
     return {
       cohortId,
       media,
+      liveWorldSockets: () =>
+        ["idle", "closed"].includes(world.getStatus().phase) ? 0 : 1,
       status: tab.getStatus,
+      tab,
       actions: {
         async camera() {
           if (showsMediaControls()) {
@@ -112,20 +117,25 @@ function createBrowser() {
           stopFollowing();
           lockManager.crash(name);
           media.store.getState().stop();
+          world.close();
           wakeListeners.forEach((listener) => listener());
         },
         async join() {
-          if (await tab.claim()) media.store.getState().connect(cohortId);
+          if (!(await tab.claim())) return;
+          media.store.getState().connect(cohortId);
+          world.connect();
         },
         async leave() {
           close();
           stopFollowing();
           media.store.getState().stop();
+          world.close();
         },
         async open() {},
         async useHere() {
-          await tab.takeOver();
+          if (!(await tab.takeOver())) return;
           media.store.getState().connect(cohortId);
+          world.connect();
         },
       } satisfies Record<Action, () => Promise<void>>,
     };
@@ -139,8 +149,9 @@ type SimulatedTab = ReturnType<ReturnType<typeof createBrowser>["openTab"]>;
 async function play(
   steps: string[],
   afterEachStep: (tabs: Map<string, SimulatedTab>) => void,
+  releaseLag: number,
 ) {
-  const browser = createBrowser();
+  const browser = createBrowser(releaseLag);
   const tabs = new Map<string, SimulatedTab>();
 
   for (const step of steps) {
@@ -173,6 +184,7 @@ function presenceViolations(tabs: Map<string, SimulatedTab>): string[] {
     const live = {
       connections: sum(cohortTabs, (tab) => tab.media.liveConnections()),
       holders: holders.length,
+      worldSockets: sum(cohortTabs, (tab) => tab.liveWorldSockets()),
       tracksOutsideHolder: holders.length
         ? sum(cohortTabs, (tab) =>
             tab.status() === "held" ? 0 : tab.media.liveTracks(),
@@ -182,6 +194,7 @@ function presenceViolations(tabs: Map<string, SimulatedTab>): string[] {
     const isValid =
       live.connections <= 1 &&
       live.holders <= 1 &&
+      live.worldSockets <= 1 &&
       live.tracksOutsideHolder === 0;
     return isValid ? [] : [`${cohortId}: ${JSON.stringify(live)}`];
   });
@@ -212,23 +225,48 @@ function filesMatching(pattern: RegExp): string[] {
 }
 
 describe("Presence Tab eval (threshold: every case passes)", () => {
-  it.each(SCENARIOS)(
-    "$name: only the joined tab captures or connects, after every step",
-    async ({ connected, steps }) => {
-      const violations: string[] = [];
+  describe.each([
+    { releaseLag: 0, releaseVisibility: "immediate" },
+    { releaseLag: 2, releaseVisibility: "lagging" },
+  ])("with $releaseVisibility release visibility", ({ releaseLag }) => {
+    it.each(SCENARIOS)(
+      "$name: only the joined tab captures or connects, after every step",
+      async ({ connected, steps }) => {
+        const violations: string[] = [];
 
-      const tabs = await play(steps, (liveTabs) => {
-        violations.push(...presenceViolations(liveTabs));
-      });
+        const tabs = await play(
+          steps,
+          (liveTabs) => {
+            violations.push(...presenceViolations(liveTabs));
+          },
+          releaseLag,
+        );
 
-      expect(violations).toEqual([]);
-      expect(
-        [...tabs]
-          .filter(([, tab]) => tab.media.liveConnections() > 0)
-          .map(([name]) => name),
-      ).toEqual(connected);
-    },
-  );
+        expect(violations).toEqual([]);
+        expect(
+          [...tabs]
+            .filter(([, tab]) => tab.media.liveConnections() > 0)
+            .map(([name]) => name),
+        ).toEqual(connected);
+        expect(
+          [...tabs]
+            .filter(([, tab]) => tab.liveWorldSockets() > 0)
+            .map(([name]) => name),
+        ).toEqual(connected);
+      },
+    );
+  });
+
+  it("keeps one holder when release and Use here overlap", async () => {
+    const browser = createBrowser(2);
+    const first = browser.openTab("A");
+    await first.actions.join();
+
+    await Promise.all([first.tab.release(), first.tab.takeOver()]);
+
+    expect(first.status()).toBe("held");
+    expect(presenceViolations(new Map([["A", first]]))).toEqual([]);
+  });
 
   it("keeps the lock and its browser APIs inside the Presence Tab adapters", () => {
     expect(filesMatching(/campus-presence:/)).toEqual([

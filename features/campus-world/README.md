@@ -2,9 +2,9 @@
 
 Owns preparing and drawing the published campus map. The Join Gate prepares
 the current Sanity entry map before revealing its media controls. Active
-Campus reuses that prepared resource and draws it on one KAPLAY runtime per
-page. This feature does not own authentication, media, player movement,
-input, or sockets.
+Campus prepares and draws the map world named in its snapshot, on one KAPLAY
+runtime per page, with everyone in the cohort on it. This feature does not
+own authentication, media, player movement, input, or sockets.
 
 ## Interface
 
@@ -36,10 +36,10 @@ frame (`first_frame_ms`), once per ready start.
 | Module        | Owns                                                            |
 | ------------- | --------------------------------------------------------------- |
 | `components/` | Preparation gate and accessible map status, render only         |
-| `game/`       | The page's KAPLAY runtime, sprite upload, and culled drawing    |
+| `game/`       | The page's KAPLAY runtime, sprite upload, culled map, avatars   |
 | `hooks/`      | Preparation query, game lifecycle, and store subscription       |
 | `schemas/`    | The Tiled map fields the renderer reads                         |
-| `services/`   | Preparation, errors, loading, bands, draw lists, camera, theme  |
+| `services/`   | Preparation, bands, draw lists, avatars, camera, theme          |
 | `store/`      | Lifecycle transitions, attempt IDs, and stale-result guards     |
 | `testing/`    | Sanity fixtures, fake KAPLAY, fake runtime, and a fake map band |
 
@@ -57,7 +57,17 @@ barrel; other features do not import its internals.
   per render restarts the game. The query key follows its configuration.
 - Keep the prepared query key scoped by Sanity project, dataset, and map
   source. It is session-cached with infinite stale and garbage-collection
-  times and has no automatic retry.
+  times and has no automatic retry. Snapshot preparation reuses the entry
+  preparation only when map ID, version and dimensions all match.
+- Let presence name the map, and never the bundle: `CampusWorld` derives its
+  map source from `presence.map` (world's snapshot). A snapshot naming a
+  published map pins exactly that map id and version, so everyone loads the
+  layout world enforces; until the first snapshot the cohort's key is not
+  yet known and the map stays `loading-map`. A `placeholder` snapshot id and
+  version renders tiles nowhere (`kind: "placeholder"`), locally, with no
+  Sanity fetch. Pinned dimensions are checked against the artwork
+  (`assertAuthoritativeDimensions`): a published map that disagrees with
+  world fails loudly instead of drawing a lie.
 - Treat the manifest and map JSON as untrusted. Map and tileset URLs must be
   assets of the configured Sanity project and dataset before anything fetches
   them, and the renderer only receives what `parseCampusTiledMap` returns. Add
@@ -93,12 +103,24 @@ initialized`. The runtime moves its one canvas between containers, clears
   token for this public dataset.
 - Add deterministic logic to `services/` and test stable outputs there before
   connecting it to KAPLAY.
+- Draw avatars from `@/core/presence` through `dependencies.presence`
+  (default `presenceFor`); never from the socket. One object on the
+  `avatars` layer draws everyone each frame from `positions`, nearer rows
+  last. Every `spriteKey` draws the one placeholder (a circle, a dot toward
+  `facing`, a ring for you) until character art exists. Once world has
+  placed you, the camera follows your tile, clamped to the map.
+- Escape every display name with `escapeStyledText` before KAPLAY sees it.
+  KAPLAY reads `[tag]` as a style and throws on an unclosed one or a
+  trailing `\`, and a throw inside a frame fails the whole map. Labels are
+  laid out once per name with `formatText` and drawn with
+  `drawFormattedText`.
 
 ## Tests
 
 ```bash
 pnpm test features/campus-world
 pnpm test tests/evals/campus-world.eval.test.tsx
+pnpm eval:campus-world
 pnpm test:storybook
 pnpm test:e2e
 ```

@@ -105,10 +105,23 @@ describe("PreJoinPresenceTab", () => {
 
   it("never admits before the session has moved", () => {
     const { admission, tab } = preJoin("elsewhere");
-    tab.takeOver.mockReturnValue(new Promise(() => {}));
+    tab.takeOver.mockReturnValue(new Promise<boolean>(() => {}));
 
     fireEvent.click(screen.getByRole("button", { name: "Use here" }));
 
+    expect(admission.getState().pendingDestination).toBeNull();
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
+  it("does not admit or navigate when takeover is cancelled", async () => {
+    const { admission, tab } = preJoin("elsewhere");
+    tab.takeOver.mockResolvedValue(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Use here" }));
+
+    await vi.waitFor(() => {
+      expect(screen.getByRole("button", { name: "Use here" })).toBeEnabled();
+    });
     expect(admission.getState().pendingDestination).toBeNull();
     expect(navigation.push).not.toHaveBeenCalled();
   });

@@ -5,7 +5,12 @@ import { PresenceTabChoice } from "./presence-tab-choice";
 
 describe("PresenceTabChoice", () => {
   it("tells a second tab the cohort is joined elsewhere", () => {
-    render(<PresenceTabChoice onUseHere={vi.fn()} status="elsewhere" />);
+    render(
+      <PresenceTabChoice
+        onUseHere={vi.fn(async () => true)}
+        status="elsewhere"
+      />,
+    );
 
     expect(
       screen.getByRole("heading", {
@@ -15,15 +20,41 @@ describe("PresenceTabChoice", () => {
   });
 
   it("tells a taken-over tab the session moved", () => {
-    render(<PresenceTabChoice onUseHere={vi.fn()} status="taken-over" />);
+    render(
+      <PresenceTabChoice
+        onUseHere={vi.fn(async () => true)}
+        status="taken-over"
+      />,
+    );
 
     expect(
       screen.getByRole("heading", { name: "You joined from another tab" }),
     ).toBeVisible();
   });
 
+  it("covers another device after this tab releases ownership", () => {
+    render(
+      <PresenceTabChoice
+        onUseHere={vi.fn(async () => true)}
+        status="released"
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: "You opened this campus somewhere else",
+      }),
+    ).toBeVisible();
+    expect(screen.getByText(/other tab or device/)).toBeVisible();
+  });
+
   it("leads back to the campuses", () => {
-    render(<PresenceTabChoice onUseHere={vi.fn()} status="elsewhere" />);
+    render(
+      <PresenceTabChoice
+        onUseHere={vi.fn(async () => true)}
+        status="elsewhere"
+      />,
+    );
 
     expect(
       screen.getByRole("link", { name: "Back to campuses" }),
@@ -31,7 +62,7 @@ describe("PresenceTabChoice", () => {
   });
 
   it("moves the session once while the move is pending", () => {
-    const onUseHere = vi.fn(() => new Promise<void>(() => {}));
+    const onUseHere = vi.fn(() => new Promise<boolean>(() => {}));
     render(<PresenceTabChoice onUseHere={onUseHere} status="elsewhere" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Use here" }));

@@ -7,7 +7,11 @@ import type { z } from "zod";
 import { validateBuildEnvironment } from "@/config/environment/validation";
 import { analyticsEventSchemas } from "@/core/analytics/events";
 import { scrubAnalyticsEvent } from "@/core/analytics/scrub";
-import { parseServerMessage, type ServerMessage } from "@/core/realtime";
+import {
+  parseServerMessage,
+  parseSocketClose,
+  type ServerMessage,
+} from "@/core/realtime";
 import { readWorldOrigin } from "@/core/realtime/configuration";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
@@ -27,7 +31,6 @@ vi.mock("server-only", () => ({}));
 const TOKEN = "zHrjwba-bzFiiuyT5wb1OiuUQUdS619_DNNd0C6sFg0";
 const ORIGIN = "https://campus.example";
 const UNEXPECTED = { phone: "+2348000000000", internalNote: "do not ship" };
-
 function keyPaths(value: unknown, prefix = ""): string[] {
   if (Array.isArray(value)) return keyPaths(value[0], `${prefix}[]`);
   if (value === null || typeof value !== "object") return [prefix];
@@ -99,6 +102,10 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "cohort.created": ["cohort_status"],
   "identity.profile_setup_completed": ["cohort_id", "role", "track_id"],
   "identity.profile_setup_started": ["cohort_id", "role", "track_id"],
+  "realtime.closed": ["action", "code", "reason"],
+  "realtime.connected": ["cohort_id", "reconnect"],
+  "realtime.gave_up": ["attempts"],
+  "realtime.reconnected": ["attempts"],
 };
 
 const PLAYER_PATHS = ["facing", "userId", "x", "y"];
@@ -269,6 +276,29 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       expect(parsed).toEqual({ type: "left", userId: "u-1" });
       expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
       expect(Object.hasOwn(parsed ?? {}, "__proto__")).toBe(false);
+    });
+
+    it("keeps the close event to a bounded code and reason", () => {
+      expect(parseSocketClose(4000, "entered_elsewhere")).toEqual({
+        code: 4000,
+        reason: "entered_elsewhere",
+      });
+      // Each field is judged alone, so losing one cannot erase the other.
+      expect(parseSocketClose(NaN, "")).toEqual({ code: 0, reason: "" });
+      // A close reason past the 123-byte wire limit is dropped, never
+      // reported back the way world sent it.
+      expect(
+        parseSocketClose(1008, `${TOKEN} ${TOKEN} ${TOKEN}`.repeat(20)),
+      ).toEqual({ code: 1008, reason: "" });
+      expect(parseSocketClose(1008, "🙂".repeat(31))).toEqual({
+        code: 1008,
+        reason: "",
+      });
+      expect(
+        JSON.stringify(
+          parseSocketClose(1008, `${TOKEN} ${TOKEN} ${TOKEN} more`),
+        ),
+      ).not.toContain(TOKEN);
     });
   });
 

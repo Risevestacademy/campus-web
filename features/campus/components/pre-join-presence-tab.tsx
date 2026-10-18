@@ -29,12 +29,16 @@ export function PreJoinPresenceTab({
   // The choice stays up after the move so device setup never flashes before
   // the navigation lands.
   async function moveHere() {
-    if (!choice) return;
+    if (!choice) return false;
 
     setMovingFrom(choice);
-    await takeOver();
+    if (!(await takeOver())) {
+      setMovingFrom(undefined);
+      return false;
+    }
     grantEntry(destination);
     router.push(destination as Route);
+    return true;
   }
 
   if (choice) return <PresenceTabChoice onUseHere={moveHere} status={choice} />;

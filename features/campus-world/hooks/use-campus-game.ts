@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useStore } from "zustand";
 
 import { ANALYTICS_EVENTS } from "@/core/analytics/events";
+import type { PresenceStore } from "@/core/presence";
 
 import type { CampusGame } from "../game/campus-runtime";
 import { failureEventProperties } from "../services/map/campus-map-error";
-import { ENTRY_MAP } from "../services/map/load-campus-map";
+import { mapSourceFromSnapshot } from "../services/map/load-campus-map";
 import type { PreparedCampusMap } from "../services/map/prepare-campus-map";
 import { startTimer } from "../services/timer";
 import {
@@ -18,11 +20,16 @@ import type { CampusWorldDependencies } from "./campus-world-dependencies";
 import { useCachedCampusMap } from "./use-campus-map-preparation";
 import { useCampusWorldStatus } from "./use-campus-world-status";
 
+interface CampusGameMount {
+  dependencies: CampusWorldDependencies;
+  presence: PresenceStore;
+  prepared: PreparedCampusMap;
+  store: CampusWorldStore;
+}
+
 function mountCampusGame(
   container: HTMLElement,
-  prepared: PreparedCampusMap,
-  store: CampusWorldStore,
-  dependencies: CampusWorldDependencies,
+  { dependencies, presence, prepared, store }: CampusGameMount,
 ): () => void {
   const { mapId, version } = prepared.manifest;
   const attempt = store.getState().begin();
@@ -42,6 +49,7 @@ function mountCampusGame(
   void dependencies.runtime
     .start(container, prepared, {
       onRenderError: failRender,
+      readPresence: presence.getState,
       signal: lifetime.signal,
     })
     .then(
@@ -70,19 +78,30 @@ function mountCampusGame(
   };
 }
 
-export function useCampusGame(dependencies: CampusWorldDependencies) {
+export function useCampusGame(
+  dependencies: CampusWorldDependencies,
+  cohortId: string,
+) {
   const [store] = useState(createCampusWorldStore);
+  const [presence] = useState(() => dependencies.presence(cohortId));
   const [mountVersion, setMountVersion] = useState(0);
   const state = useCampusWorldStatus(store);
-  const preparation = useCachedCampusMap(ENTRY_MAP, dependencies);
+  const worldMap = useStore(presence, (current) => current.map);
+  const source = worldMap ? mapSourceFromSnapshot(worldMap) : undefined;
+  const preparation = useCachedCampusMap(source, dependencies);
   const prepared = preparation.isFetching ? undefined : preparation.data;
 
   const mountGame = useCallback(
     (container: HTMLDivElement | null) => {
       if (!container || !prepared) return;
-      return mountCampusGame(container, prepared, store, dependencies);
+      return mountCampusGame(container, {
+        dependencies,
+        presence,
+        prepared,
+        store,
+      });
     },
-    [dependencies, prepared, store],
+    [dependencies, presence, prepared, store],
   );
 
   function retry() {

@@ -16,6 +16,8 @@ import {
 import { FeedbackPopup } from "@/features/feedback";
 import { CampusOverviewPanel } from "@/features/roster";
 
+import { requireCohortId } from "../require-cohort-id";
+
 const PLACEHOLDER_ACTIVE_CAMPUS_VIEW_MODEL = {
   meeting: {
     localParticipantId: "participant-a",
@@ -39,7 +41,7 @@ export default async function ActiveCampusLayout({
   children: React.ReactNode;
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
+  const id = await requireCohortId(params);
   const access = await requireRouteAccess({ kind: "cohort", cohortId: id });
 
   if (access.kind === "unavailable") {

@@ -1,5 +1,7 @@
 import type { GameObj, KAPLAYCtx } from "kaplay";
 
+import type { Presence } from "@/core/presence";
+
 import { spawnCamera } from "../services/camera";
 import {
   type CampusMapIdentity,
@@ -8,6 +10,7 @@ import {
   takePreparedTilesetImages,
 } from "../services/map/prepare-campus-map";
 import { campusBackground } from "../services/theme-background";
+import { addAvatarLayer } from "./avatar-layer";
 import { addMapBand, type RenderTileset } from "./map-renderer";
 import { uploadTilesetSprites } from "./tileset-sprites";
 
@@ -17,6 +20,7 @@ export interface CampusGame {
 
 export interface CampusGameOptions {
   onRenderError: () => void;
+  readPresence: () => Presence;
   signal: AbortSignal;
 }
 
@@ -38,7 +42,7 @@ interface RuntimeContext {
 }
 
 interface Mount {
-  bands: GameObj[];
+  objects: GameObj[];
   onRenderError: () => void;
   ready: boolean;
   rejectFirstDraw?: (error: Error) => void;
@@ -176,6 +180,7 @@ export function createCampusRuntime(
     mount: Mount,
     prepared: PreparedCampusMap,
     tilesets: RenderTileset[],
+    readPresence: () => Presence,
   ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       mount.rejectFirstDraw = reject;
@@ -191,14 +196,17 @@ export function createCampusRuntime(
       k.setCamPos(k.vec2(camera.x, camera.y));
 
       const band = { map: prepared.map, tilesets };
-      mount.bands.push(
+      mount.objects.push(
         addMapBand(k, {
           ...band,
           layer: "below",
           layers: prepared.bands.below,
         }),
       );
-      mount.bands.push(
+      mount.objects.push(
+        addAvatarLayer(k, { map: prepared.map, readPresence }),
+      );
+      mount.objects.push(
         addMapBand(k, {
           ...band,
           layer: "above",
@@ -213,8 +221,8 @@ export function createCampusRuntime(
     if (mount.stopped) return;
 
     mount.stopped = true;
-    mount.bands.forEach((band) => band.destroy());
-    mount.bands = [];
+    mount.objects.forEach((object) => object.destroy());
+    mount.objects = [];
     mount.rejectFirstDraw?.(stoppedError());
 
     if (active === mount) {
@@ -230,11 +238,11 @@ export function createCampusRuntime(
       );
     },
 
-    async start(container, prepared, { onRenderError, signal }) {
+    async start(container, prepared, { onRenderError, readPresence, signal }) {
       if (active) stop(active);
 
       const mount: Mount = {
-        bands: [],
+        objects: [],
         onRenderError,
         ready: false,
         stopped: false,
@@ -249,7 +257,13 @@ export function createCampusRuntime(
         const tilesets = await spritesFor(runtimeContext, prepared, images);
         if (mount.stopped) throw stoppedError();
 
-        await drawMap(runtimeContext.k, mount, prepared, tilesets);
+        await drawMap(
+          runtimeContext.k,
+          mount,
+          prepared,
+          tilesets,
+          readPresence,
+        );
         if (mount.renderError) throw mount.renderError;
         mount.ready = true;
         return { stop: () => stop(mount) };

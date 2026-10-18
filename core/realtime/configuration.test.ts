@@ -2,7 +2,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { readWorldOrigin, readWorldSchemaUrl } from "./configuration";
+import {
+  readWorldOrigin,
+  readWorldSchemaUrl,
+  readWorldSocketUrl,
+} from "./configuration";
 
 const INVALID_ORIGIN_MESSAGE =
   "NEXT_PUBLIC_WORLD_URL must be a public HTTPS or loopback HTTP origin.";
@@ -58,5 +62,45 @@ describe("readWorldSchemaUrl", () => {
         NEXT_PUBLIC_WORLD_URL: "https://ws.example.test",
       }),
     ).toBe("https://ws.example.test/schema.json");
+  });
+});
+
+describe("readWorldSocketUrl", () => {
+  const COHORT_ID = "6f1c2d3e-0000-4000-8000-000000000001";
+
+  it("opens a secure socket on an HTTPS world", () => {
+    expect(
+      readWorldSocketUrl(
+        { NEXT_PUBLIC_WORLD_URL: "https://ws.example.test" },
+        COHORT_ID,
+      ),
+    ).toBe(`wss://ws.example.test/socket?cohortId=${COHORT_ID}`);
+  });
+
+  it("opens a plain socket on a loopback world", () => {
+    expect(
+      readWorldSocketUrl(
+        { NEXT_PUBLIC_WORLD_URL: "http://localhost:8001" },
+        COHORT_ID,
+      ),
+    ).toBe(`ws://localhost:8001/socket?cohortId=${COHORT_ID}`);
+  });
+
+  it("encodes the cohort id", () => {
+    expect(
+      readWorldSocketUrl(
+        { NEXT_PUBLIC_WORLD_URL: "https://ws.example.test" },
+        "a&b=c d",
+      ),
+    ).toBe("wss://ws.example.test/socket?cohortId=a%26b%3Dc+d");
+  });
+
+  it("refuses an origin the browser cannot reach", () => {
+    expect(() =>
+      readWorldSocketUrl(
+        { NEXT_PUBLIC_WORLD_URL: "http://ws.example.test" },
+        COHORT_ID,
+      ),
+    ).toThrow(INVALID_ORIGIN_MESSAGE);
   });
 });

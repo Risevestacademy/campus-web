@@ -11,8 +11,8 @@ import {
   type PresenceTabPorts,
 } from "./presence-tab";
 
-function createBrowser() {
-  const lockManager = createFakeLockManager();
+function createBrowser({ releaseLag = 0 }: { releaseLag?: number } = {}) {
+  const lockManager = createFakeLockManager({ releaseLag });
   const openNotices = createFakeNoticeBus();
   let nextClient = 0;
 
@@ -190,6 +190,76 @@ describe("Presence Tab", () => {
     expect(second.tab.getStatus()).toBe("vacant");
   });
 
+  it("releases ownership without closing its coordinator", async () => {
+    const { lockManager, openTab } = createBrowser();
+    const first = openTab("c-3");
+    await first.tab.claim();
+    const second = openTab("c-3");
+    await settle();
+
+    await first.tab.release();
+    await settle();
+
+    expect(lockManager.holderOf("campus-presence:c-3")).toBeUndefined();
+    expect(first.tab.getStatus()).toBe("vacant");
+    expect(second.tab.getStatus()).toBe("vacant");
+    await expect(first.tab.claim()).resolves.toBe(true);
+  });
+
+  it("releases ownership without restarting capture after another device takes world", async () => {
+    const { lockManager, openTab } = createBrowser();
+    const first = openTab("c-3");
+    await first.tab.claim();
+
+    await first.tab.releaseToAnotherDevice();
+
+    expect(first.tab.getStatus()).toBe("released");
+    expect(lockManager.holderOf("campus-presence:c-3")).toBeUndefined();
+    await expect(first.tab.takeOver()).resolves.toBe(true);
+    expect(first.tab.getStatus()).toBe("held");
+  });
+
+  it("does not let a finishing release overwrite a new takeover", async () => {
+    const { lockManager, openTab } = createBrowser({ releaseLag: 2 });
+    const first = openTab("c-3");
+    await first.tab.claim();
+
+    const release = first.tab.release();
+    const takeover = first.tab.takeOver();
+    await Promise.all([release, takeover]);
+
+    expect(first.tab.getStatus()).toBe("held");
+    expect(lockManager.holderOf("campus-presence:c-3")).toBe(first.clientId);
+  });
+
+  it("keeps another-device release stronger than an overlapping ordinary release", async () => {
+    const { lockManager, openTab } = createBrowser({ releaseLag: 2 });
+    const first = openTab("c-3");
+    await first.tab.claim();
+
+    await Promise.all([
+      first.tab.release(),
+      first.tab.releaseToAnotherDevice(),
+    ]);
+
+    expect(first.tab.getStatus()).toBe("released");
+    expect(lockManager.holderOf("campus-presence:c-3")).toBeUndefined();
+  });
+
+  it("frees the cohort for other tabs when the release shows late", async () => {
+    const { lockManager, openTab } = createBrowser({ releaseLag: 2 });
+    const first = openTab("c-3");
+    await first.tab.claim();
+    const second = openTab("c-3");
+    await settle();
+
+    first.close();
+    await settle();
+
+    expect(lockManager.holderOf("campus-presence:c-3")).toBeUndefined();
+    expect(second.tab.getStatus()).toBe("vacant");
+  });
+
   it("notices a crashed holder when the page wakes", async () => {
     const { lockManager, openTab } = createBrowser();
     const first = openTab("c-3");
@@ -249,6 +319,54 @@ describe("Presence Tab", () => {
     await settle();
     expect(lockManager.holderOf("campus-presence:c-3")).toBeUndefined();
     expect(first.report).not.toHaveBeenCalled();
+  });
+
+  it("cancels and awaits a pending claim when ownership is released", async () => {
+    const { lockManager, openTab } = createBrowser({ releaseLag: 2 });
+    const locks = lockManager.forClient("tab-slow");
+    const first = openTab("c-3", {
+      locks: {
+        query: locks.query,
+        async request(name, options, callback) {
+          await settle();
+          return locks.request(name, options, callback);
+        },
+      },
+    });
+    const second = openTab("c-3");
+    await settle();
+
+    const claim = first.tab.claim();
+    const release = first.tab.release();
+
+    await expect(claim).resolves.toBe(false);
+    await release;
+    expect(first.tab.getStatus()).toBe("vacant");
+    expect(lockManager.holderOf("campus-presence:c-3")).toBeUndefined();
+    await settle();
+    expect(second.tab.getStatus()).toBe("vacant");
+  });
+
+  it("does not announce a takeover granted after the tab closed", async () => {
+    const { lockManager, openTab } = createBrowser();
+    const locks = lockManager.forClient("tab-slow");
+    const first = openTab("c-3", {
+      locks: {
+        query: locks.query,
+        async request(name, options, callback) {
+          await settle();
+          return locks.request(name, options, callback);
+        },
+      },
+    });
+    await settle();
+
+    const takeover = first.tab.takeOver();
+    first.close();
+
+    await expect(takeover).resolves.toBe(false);
+    expect(lockManager.holderOf("campus-presence:c-3")).toBeUndefined();
+    expect(first.report).not.toHaveBeenCalledWith("moved", "pre_join");
   });
 
   it("lets every tab join without Web Locks", async () => {

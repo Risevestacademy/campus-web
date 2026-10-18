@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import {
+  createPresenceStore,
+  EMPTY_PRESENCE,
+  type Presence,
+} from "@/core/presence";
+
 import { fakeKaplay, fakePreparedMap } from "../testing/fake-kaplay";
 import { fakeImage } from "../testing/sanity-map-fixture";
 import { createCampusRuntime } from "./campus-runtime";
@@ -11,10 +17,15 @@ function container() {
 }
 
 function mountOptions(
-  overrides: { onRenderError?: () => void; signal?: AbortSignal } = {},
+  overrides: {
+    onRenderError?: () => void;
+    readPresence?: () => Presence;
+    signal?: AbortSignal;
+  } = {},
 ) {
   return {
     onRenderError: vi.fn(),
+    readPresence: () => EMPTY_PRESENCE,
     signal: new AbortController().signal,
     ...overrides,
   };
@@ -26,6 +37,41 @@ afterEach(() => {
 });
 
 describe("createCampusRuntime", () => {
+  it("draws the cohort's avatars with the map, and removes them when the game stops", async () => {
+    const kaplay = fakeKaplay({ autoDraw: false });
+    const presence = createPresenceStore();
+    presence.getState().apply({
+      type: "snapshot",
+      map: { id: "campus", version: "v1", width: 10, height: 10 },
+      players: [
+        {
+          userId: "ada",
+          x: 1,
+          y: 2,
+          facing: "up",
+          displayName: "Ada",
+          spriteKey: null,
+        },
+      ],
+    });
+    const starting = createCampusRuntime().start(
+      container(),
+      fakePreparedMap(kaplay.module),
+      mountOptions({ readPresence: presence.getState }),
+    );
+    await vi.waitFor(() => expect(kaplay.contexts[0]?.liveObjects()).toBe(3));
+    const context = kaplay.contexts[0]!;
+
+    context.drawFrame();
+    const game = await starting;
+
+    expect(context.k.drawCircle).toHaveBeenCalledWith(
+      expect.objectContaining({ pos: { x: 24, y: 40 } }),
+    );
+    game.stop();
+    expect(context.liveObjects()).toBe(0);
+  });
+
   it("creates KAPLAY once across start, stop and a later start", async () => {
     const kaplay = fakeKaplay();
     const runtime = createCampusRuntime();
@@ -69,7 +115,7 @@ describe("createCampusRuntime", () => {
     await runtime.start(container(), prepared, mountOptions());
     await runtime.start(container(), prepared, mountOptions());
 
-    expect(kaplay.contexts[0]!.liveObjects()).toBe(2);
+    expect(kaplay.contexts[0]!.liveObjects()).toBe(3);
   });
 
   it("clears the map when its game stops", async () => {
@@ -190,7 +236,7 @@ describe("createCampusRuntime", () => {
     await expect(superseded).rejects.toMatchObject({ name: "AbortError" });
     await current;
     expect(kaplay.uploads).toHaveLength(2);
-    expect(kaplay.contexts[0]!.liveObjects()).toBe(2);
+    expect(kaplay.contexts[0]!.liveObjects()).toBe(3);
   });
 
   it("replaces the context after one sprite upload succeeds and another fails", async () => {
@@ -230,7 +276,7 @@ describe("createCampusRuntime", () => {
       fakePreparedMap(kaplay.module),
       mountOptions({ onRenderError }),
     );
-    await vi.waitFor(() => expect(kaplay.contexts[0]!.liveObjects()).toBe(2));
+    await vi.waitFor(() => expect(kaplay.contexts[0]!.liveObjects()).toBe(3));
     kaplay.contexts[0]!.failFrame(new Error("Draw failed."));
 
     await expect(game).rejects.toThrow("Draw failed.");
@@ -350,6 +396,6 @@ describe("createCampusRuntime", () => {
 
     await expect(aborted).rejects.toMatchObject({ name: "AbortError" });
     await current;
-    expect(kaplay.contexts[0]!.liveObjects()).toBe(2);
+    expect(kaplay.contexts[0]!.liveObjects()).toBe(3);
   });
 });
