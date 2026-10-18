@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyServerMessage,
+  createPresenceStore,
   EMPTY_PRESENCE,
   type Presence,
 } from "@/core/presence";
@@ -177,5 +178,26 @@ describe("presence eval", () => {
     );
 
     expect(after).toBe(before);
+  });
+
+  it("keeps only you while disconnected, so nobody lingers as a frozen stand-in", () => {
+    const store = createPresenceStore();
+    store.getState().apply({
+      type: "welcome",
+      userId: "ada",
+      connectionId: "c",
+      heartbeatSeconds: 30,
+      stepMs: 100,
+      tickMs: 50,
+      displayName: null,
+      spriteKey: null,
+    });
+    store.getState().apply(snapshot(avatar("ada", 4), avatar("grace")));
+
+    store.getState().clearRemoteParticipants();
+
+    expect([...store.getState().participants.keys()]).toEqual(["ada"]);
+    expect([...store.getState().positions.keys()]).toEqual(["ada"]);
+    expect(store.getState().map).toEqual(MAP);
   });
 });

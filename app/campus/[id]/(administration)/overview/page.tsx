@@ -1,15 +1,15 @@
 import { CohortAdministrationOverview } from "@/features/admin";
 import { requireRouteAccess, SessionUnavailable } from "@/features/auth";
 
+import { requireCohortId } from "../../require-cohort-id";
+
 export default async function AdministrationOverviewPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const [access, { id }] = await Promise.all([
-    requireRouteAccess({ kind: "system-admin" }),
-    params,
-  ]);
+  const id = await requireCohortId(params);
+  const access = await requireRouteAccess({ kind: "system-admin" });
 
   if (access.kind === "unavailable") {
     return <SessionUnavailable retryHref={access.retryHref} />;

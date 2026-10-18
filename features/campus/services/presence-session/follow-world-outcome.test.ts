@@ -6,8 +6,6 @@ import { createCountingMediaSession } from "../../testing/presence-tab-test-util
 import { createAdmissionStore } from "./admission-store";
 import { followWorldOutcome } from "./follow-world-outcome";
 
-const CURRENT_HREF = "https://campus.example.test/campus/c-3/meeting";
-
 async function joinedSession() {
   const media = createCountingMediaSession();
   const admission = createAdmissionStore();
@@ -17,30 +15,34 @@ async function joinedSession() {
   media.store.getState().connect("c-3");
   await media.store.getState().toggleSource("camera");
   const replaceDocument = vi.fn<(href: string) => void>();
-  const follow = followWorldOutcome(media.store, admission, {
-    currentHref: () => CURRENT_HREF,
+  const tab = { releaseToAnotherDevice: vi.fn(async () => undefined) };
+  const reloadDocument = vi.fn();
+  const follow = followWorldOutcome(media.store, admission, tab, {
+    reloadDocument,
     replaceDocument,
   });
 
-  return { admission, follow, media, replaceDocument };
+  return { admission, follow, media, reloadDocument, replaceDocument, tab };
 }
 
 describe("followWorldOutcome", () => {
   it("ends the call in place when the member opened the campus somewhere else", async () => {
-    const { admission, follow, media, replaceDocument } = await joinedSession();
+    const { admission, follow, media, replaceDocument, tab } =
+      await joinedSession();
 
-    follow("entered-elsewhere");
+    await follow("entered-elsewhere");
 
     expect(media.liveTracks()).toBe(0);
     expect(media.liveConnections()).toBe(0);
     expect(admission.getState().admitted).toBe(false);
     expect(replaceDocument).not.toHaveBeenCalled();
+    expect(tab.releaseToAnotherDevice).toHaveBeenCalledOnce();
   });
 
   it("returns to the cohort picker when the member left the cohort", async () => {
     const { follow, replaceDocument } = await joinedSession();
 
-    follow("choose-cohort");
+    await follow("choose-cohort");
 
     expect(replaceDocument).toHaveBeenCalledExactlyOnceWith("/campus");
   });
@@ -48,11 +50,12 @@ describe("followWorldOutcome", () => {
   it.each<RealtimeOutcome>(["sign-in", "onboarding", "sign-out"])(
     "reloads the page for the route guard on %s",
     async (outcome) => {
-      const { follow, replaceDocument } = await joinedSession();
+      const { follow, reloadDocument, replaceDocument } = await joinedSession();
 
-      follow(outcome);
+      await follow(outcome);
 
-      expect(replaceDocument).toHaveBeenCalledExactlyOnceWith(CURRENT_HREF);
+      expect(reloadDocument).toHaveBeenCalledOnce();
+      expect(replaceDocument).not.toHaveBeenCalled();
     },
   );
 
@@ -62,7 +65,7 @@ describe("followWorldOutcome", () => {
       const { admission, follow, media, replaceDocument } =
         await joinedSession();
 
-      follow(outcome);
+      await follow(outcome);
 
       expect(media.liveTracks()).toBe(1);
       expect(admission.getState().admitted).toBe(true);

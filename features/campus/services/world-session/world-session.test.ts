@@ -6,8 +6,10 @@ import { createPresenceStore } from "@/core/presence";
 import {
   admit,
   closeWith,
+  settle,
   SNAPSHOT,
   startMockWorld,
+  WELCOME,
   WORLD_SOCKET_URL,
 } from "@/tests/fixtures/mock-world";
 
@@ -24,7 +26,7 @@ function startSession(overrides: Partial<WorldSessionOptions> = {}) {
       url: WORLD_SOCKET_URL,
       cohortId: "cohort-1",
       presence,
-      refreshSession: async () => true,
+      refreshSession: async () => ({ kind: "refreshed" }),
       captureEvent,
       onOutcome,
       createSocket: (url) => new WebSocket(url),
@@ -66,6 +68,47 @@ describe("createWorldSession", () => {
       expect(onOutcome).toHaveBeenCalledExactlyOnceWith("choose-cohort"),
     );
     expect(presence.getState().participants.size).toBe(0);
+  });
+
+  it("removes remote participants as soon as a recoverable close starts", async () => {
+    vi.useFakeTimers();
+    // msw delivers a server close in the same tick INSTEAD of frames sent
+    // before it, so the close starts after the snapshot has been read.
+    serveWorld((connection) => {
+      admit(connection);
+      setTimeout(() => connection.client.close(1011, "internal_error"), 10);
+    });
+    const { presence, session } = startSession();
+
+    session.connect();
+    await settle();
+    await vi.advanceTimersByTimeAsync(10);
+    await settle();
+
+    expect(session.getStatus()).toEqual({ phase: "reconnecting", attempt: 1 });
+    expect([...presence.getState().participants.keys()]).toEqual([
+      presence.getState().selfId,
+    ]);
+  });
+
+  it("keeps the map and local member after giving up so Reconnect stays in place", async () => {
+    vi.useFakeTimers();
+    serveWorld(closeWith(1011, "internal_error"));
+    const { presence, session } = startSession();
+    presence.getState().apply(WELCOME);
+    presence.getState().apply(SNAPSHOT);
+
+    session.connect();
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+
+    expect(session.getStatus()).toEqual({
+      phase: "closed",
+      outcome: "gave-up",
+    });
+    expect(presence.getState().map).toEqual(SNAPSHOT.map);
+    expect([...presence.getState().participants.keys()]).toEqual([
+      WELCOME.userId,
+    ]);
   });
 
   it("empties the map when the Presence Session closes it", async () => {

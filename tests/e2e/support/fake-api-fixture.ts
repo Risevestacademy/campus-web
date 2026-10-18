@@ -6,6 +6,7 @@ import {
 } from "@playwright/test";
 
 import { serverFrames } from "../../fixtures/world-frames";
+import { E2E_MAP } from "./sanity-stub";
 
 export const FAKE_API_ORIGIN = `http://127.0.0.1:${process.env.FAKE_API_PORT ?? 3101}`;
 
@@ -246,7 +247,9 @@ export interface FakeWorld {
 
 function admitToWorld(socket: WebSocketRoute) {
   socket.send(JSON.stringify(serverFrames.welcome));
-  socket.send(JSON.stringify(serverFrames.snapshot));
+  // world announces the map it is running; the Sanity stub publishes the
+  // same one.
+  socket.send(JSON.stringify({ ...serverFrames.snapshot, map: E2E_MAP }));
 }
 
 export const test = base.extend<{ fakeApi: FakeApi; world: FakeWorld }>({

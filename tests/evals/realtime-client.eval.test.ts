@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   admit,
   closeWith,
+  inTurn,
   type MockConnection,
   settle,
   startMockWorld,
@@ -52,7 +53,16 @@ describe("realtime client eval", () => {
 
     expect(client.getStatus()).toEqual({ phase: "connected" });
     expect(connections).toHaveLength(1);
-    expect(events().filter(({ type }) => type === "message")).toHaveLength(2);
+    // The liveness exchange is normal traffic: every heard heartbeat answers
+    // with a pong, so only the handshake may appear besides it.
+    const messages = events().filter(
+      (event) => event.type === "message" && event.message.type !== "pong",
+    );
+    expect(messages).toHaveLength(2);
+    const pongs = events().filter(
+      (event) => event.type === "message" && event.message.type === "pong",
+    );
+    expect(pongs.length).toBeGreaterThan(0);
     const logRecords = [logger.error, logger.warn, logger.info].flatMap(
       ({ mock }) => mock.calls,
     );
@@ -103,7 +113,6 @@ describe("realtime client eval", () => {
     [1008, "rate_limited"],
     [1009, ""],
     [1011, "internal_error"],
-    [4999, "unknown"],
   ])(
     "against a world that closes every socket with %i %j, retries ten times, one socket at a time",
     async (code, reason) => {
@@ -128,9 +137,22 @@ describe("realtime client eval", () => {
     },
   );
 
+  it("stops on a close code nothing documents instead of retrying it", async () => {
+    vi.useFakeTimers();
+    const { client, connections } = startClient({
+      world: closeWith(4999, "unknown"),
+    });
+
+    client.connect();
+    await vi.advanceTimersByTimeAsync(TEN_MINUTES_MS);
+
+    expect(connections).toHaveLength(1);
+    expect(client.getStatus()).toEqual({ phase: "closed", outcome: "stop" });
+  });
+
   it("stops refreshing a session world keeps refusing", async () => {
     vi.useFakeTimers();
-    const refreshSession = vi.fn(async () => true);
+    const refreshSession = vi.fn(async () => ({ kind: "refreshed" as const }));
     const { client, connections } = startClient({
       world: closeWith(1008, "session_ended"),
       refreshSession,
@@ -142,6 +164,37 @@ describe("realtime client eval", () => {
     expect(refreshSession).toHaveBeenCalledTimes(10);
     expect(connections).toHaveLength(11);
     expect(client.getStatus()).toEqual({ phase: "closed", outcome: "gave-up" });
+  });
+
+  it("never lets a wake bypass a required session refresh", async () => {
+    vi.useFakeTimers();
+    let wake: () => void = () => {};
+    const refreshSession = vi
+      .fn()
+      .mockResolvedValueOnce({ kind: "failed", retryAfterMs: 30_000 })
+      .mockResolvedValueOnce({ kind: "refreshed" });
+    const { client, connections, mostLiveSockets } = startClient({
+      world: inTurn(closeWith(1008, "session_ended"), admit),
+      refreshSession,
+      subscribeToWake(listener) {
+        wake = listener;
+        return () => {
+          wake = () => {};
+        };
+      },
+    });
+
+    client.connect();
+    await settle();
+    wake();
+    await settle();
+
+    expect(refreshSession).toHaveBeenCalledTimes(2);
+    expect(connections).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(connections).toHaveLength(2);
+    expect(mostLiveSockets()).toBe(1);
   });
 
   it("never waits forever on a world that admits the socket and sends nothing", async () => {

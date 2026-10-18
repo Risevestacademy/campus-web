@@ -48,7 +48,7 @@ access.session;
 | `services/refresh-cooldown.ts`            | the 1/2/4/8 s backoff, stretched by `Retry-After`             | none                                           |
 | `schemas/`                                | session parsing; return-destination rules; sign-in error copy | none                                           |
 | `components/`                             | gates, `SessionRenewal`, refresh page, account menu           | none                                           |
-| `components/session-refresh-provider.tsx` | fills the shared refresh port with the locked refresher       | `shared/lib/session-refresh`                   |
+| `components/session-refresh-provider.tsx` | fills the shared refresh port with the locked refresher       | `core/session`                                 |
 | `hooks/`                                  | refresh, renewal and logout; countdown                        | `browserApi`, shared `useMountEffect`          |
 
 Flow: page → gate or `requireRouteAccess` → `authorizeRoute` →
@@ -65,10 +65,12 @@ the Presence Session keeps running. `/session/refresh` remains the cold-load
 path: a reload, a new tab, or a wake after the access cookie already lapsed.
 
 `SessionRefreshProvider` lends the same locked refresher to features that may
-not import auth, through `useRefreshSession()` in `shared/lib/session-refresh`.
-It answers `true` only for a renewed session. The cohort layout wraps the
-Presence Session in it, so world's `session_ended` and `session_expired` closes
-renew in place; with no provider the port answers `false`.
+not import auth, through `useRefreshSession()` in `core/session` — the
+cross-feature refresh contract lives there, so realtime and auth read one
+type (`SessionRefreshResult`: `refreshed`/`expired`/`failed` with
+`retryAfterMs`). The cohort layout wraps the Presence Session in the
+provider, so world's `session_ended` and `session_expired` closes renew in
+place; with no provider the port answers `expired`.
 
 ### What the proxy is for
 

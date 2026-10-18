@@ -106,6 +106,7 @@ function createBrowser(releaseLag: number) {
       liveWorldSockets: () =>
         ["idle", "closed"].includes(world.getStatus().phase) ? 0 : 1,
       status: tab.getStatus,
+      tab,
       actions: {
         async camera() {
           if (showsMediaControls()) {
@@ -132,7 +133,7 @@ function createBrowser(releaseLag: number) {
         },
         async open() {},
         async useHere() {
-          await tab.takeOver();
+          if (!(await tab.takeOver())) return;
           media.store.getState().connect(cohortId);
           world.connect();
         },
@@ -254,6 +255,17 @@ describe("Presence Tab eval (threshold: every case passes)", () => {
         ).toEqual(connected);
       },
     );
+  });
+
+  it("keeps one holder when release and Use here overlap", async () => {
+    const browser = createBrowser(2);
+    const first = browser.openTab("A");
+    await first.actions.join();
+
+    await Promise.all([first.tab.release(), first.tab.takeOver()]);
+
+    expect(first.status()).toBe("held");
+    expect(presenceViolations(new Map([["A", first]]))).toEqual([]);
   });
 
   it("keeps the lock and its browser APIs inside the Presence Tab adapters", () => {

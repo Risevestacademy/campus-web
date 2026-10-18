@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { allowAnalyticsProperties } from "@/core/analytics/events";
 import { createPresenceStore } from "@/core/presence";
 import type { RealtimeOutcome } from "@/core/realtime";
+import type { SessionRefreshResult } from "@/core/session";
 import { createAdmissionStore } from "@/features/campus/services/presence-session/admission-store";
 import { followWorldOutcome } from "@/features/campus/services/presence-session/follow-world-outcome";
 import type { AnalyticsCapture } from "@/features/campus/services/world-session/realtime-analytics";
@@ -14,7 +15,9 @@ import {
   admit,
   closeWith,
   type MockConnection,
+  SNAPSHOT,
   startMockWorld,
+  WELCOME,
   WORLD_SOCKET_URL,
 } from "@/tests/fixtures/mock-world";
 
@@ -27,7 +30,9 @@ const MARKER = "close-reason-must-not-leave";
 // The Presence Session as PresenceSessionProvider composes it, admitted.
 async function joinedSession(
   world: (connection: MockConnection) => void,
-  refreshSession = async () => true,
+  refreshSession: () => Promise<SessionRefreshResult> = async () => ({
+    kind: "refreshed",
+  }),
 ) {
   vi.useFakeTimers();
   const sockets = serveWorld(world);
@@ -38,22 +43,29 @@ async function joinedSession(
   await media.store.getState().start();
   media.store.getState().connect("cohort-1");
   const replaceDocument = vi.fn<(href: string) => void>();
-  const followOutcome = followWorldOutcome(media.store, admission, {
-    currentHref: () => "https://campus.example.test/campus/cohort-1",
-    replaceDocument,
-  });
+  const reloadDocument = vi.fn();
+  const followOutcome = followWorldOutcome(
+    media.store,
+    admission,
+    { releaseToAnotherDevice: async () => undefined },
+    {
+      reloadDocument,
+      replaceDocument,
+    },
+  );
   const outcomes: RealtimeOutcome[] = [];
   const captures: AnalyticsCapture[] = [];
+  const presence = createPresenceStore();
   const session = closeAfterTest(
     createWorldSession({
       url: WORLD_SOCKET_URL,
       cohortId: "cohort-1",
-      presence: createPresenceStore(),
+      presence,
       refreshSession,
       captureEvent: (capture) => captures.push(capture),
       onOutcome(outcome) {
         outcomes.push(outcome);
-        followOutcome(outcome);
+        void followOutcome(outcome);
       },
       createSocket: (url) => new WebSocket(url),
       logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
@@ -66,6 +78,8 @@ async function joinedSession(
     captures,
     media,
     outcomes,
+    presence,
+    reloadDocument,
     replaceDocument,
     session,
     sockets,
@@ -84,8 +98,15 @@ describe("realtime session eval (threshold: every case holds)", () => {
   it.each(["entered_elsewhere", "", MARKER.repeat(100)])(
     "after 4000 %#, ends the call in place and opens no socket for ten minutes of browsing",
     async (reason) => {
-      const { admission, media, outcomes, replaceDocument, session, sockets } =
-        await joinedSession(closeWith(4000, reason));
+      const {
+        admission,
+        media,
+        outcomes,
+        reloadDocument,
+        replaceDocument,
+        session,
+        sockets,
+      } = await joinedSession(closeWith(4000, reason));
 
       session.connect();
       await browseCohortPages(session);
@@ -98,6 +119,7 @@ describe("realtime session eval (threshold: every case holds)", () => {
       });
       expect(media.liveConnections()).toBe(0);
       expect(admission.getState().admitted).toBe(false);
+      expect(reloadDocument).not.toHaveBeenCalled();
       expect(replaceDocument).not.toHaveBeenCalled();
     },
   );
@@ -129,18 +151,35 @@ describe("realtime session eval (threshold: every case holds)", () => {
   );
 
   it("hands a session world keeps ending to sign-in once, after one refresh", async () => {
-    const refreshSession = vi.fn(async () => false);
-    const { outcomes, replaceDocument, session } = await joinedSession(
-      closeWith(1008, "session_ended"),
-      refreshSession,
-    );
+    const refreshSession = vi.fn(async () => ({ kind: "expired" as const }));
+    const { outcomes, reloadDocument, replaceDocument, session } =
+      await joinedSession(closeWith(1008, "session_ended"), refreshSession);
 
     session.connect();
     await browseCohortPages(session);
 
     expect(refreshSession).toHaveBeenCalledOnce();
     expect(outcomes).toEqual(["sign-in"]);
-    expect(replaceDocument).toHaveBeenCalledOnce();
+    expect(reloadDocument).toHaveBeenCalledOnce();
+    expect(replaceDocument).not.toHaveBeenCalled();
+  });
+
+  it("keeps the authoritative map and local member after giving up", async () => {
+    const { presence, session } = await joinedSession(closeWith(1006, ""));
+    presence.getState().apply(WELCOME);
+    presence.getState().apply(SNAPSHOT);
+
+    session.connect();
+    await browseCohortPages(session);
+
+    expect(session.getStatus()).toEqual({
+      phase: "closed",
+      outcome: "gave-up",
+    });
+    expect(presence.getState().map).toEqual(SNAPSHOT.map);
+    expect([...presence.getState().participants.keys()]).toEqual([
+      WELCOME.userId,
+    ]);
   });
 
   it.each<[number, string]>([

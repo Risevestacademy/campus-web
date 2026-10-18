@@ -4,9 +4,10 @@ import type { RealtimeOutcome } from "@/core/realtime";
 
 import type { MediaSessionState } from "../media-session/media-session-store";
 import type { AdmissionStore } from "./admission-store";
+import type { PresenceTab } from "./presence-tab";
 
 export interface DocumentNavigation {
-  currentHref: () => string;
+  reloadDocument: () => void;
   replaceDocument: (href: string) => void;
 }
 
@@ -18,20 +19,22 @@ const COHORT_PICKER = "/campus";
 export function followWorldOutcome(
   media: StoreApi<MediaSessionState>,
   admission: AdmissionStore,
+  presenceTab: Pick<PresenceTab, "releaseToAnotherDevice">,
   navigation: DocumentNavigation,
-): (outcome: RealtimeOutcome) => void {
-  return (outcome) => {
+): (outcome: RealtimeOutcome) => Promise<void> {
+  return async (outcome) => {
     switch (outcome) {
       case "entered-elsewhere":
         media.getState().stop();
         admission.getState().clear();
+        await presenceTab.releaseToAnotherDevice();
         return;
       case "choose-cohort":
         return navigation.replaceDocument(COHORT_PICKER);
       case "sign-in":
       case "onboarding":
       case "sign-out":
-        return navigation.replaceDocument(navigation.currentHref());
+        return navigation.reloadDocument();
       case "gave-up":
       case "stop":
         return;

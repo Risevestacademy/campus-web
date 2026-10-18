@@ -1,6 +1,6 @@
 "use client";
 
-import type { RealtimeStatus } from "@/core/realtime";
+import { isManuallyRecoverable, type RealtimeStatus } from "@/core/realtime";
 import { Button } from "@/shared/ui/button";
 
 import { useWorldSession } from "../services/world-session/world-session-provider";
@@ -16,10 +16,7 @@ function isRetryingAgain(status: RealtimeStatus) {
 }
 
 function isOffline(status: RealtimeStatus) {
-  return (
-    status.phase === "closed" &&
-    (status.outcome === "gave-up" || status.outcome === "stop")
-  );
+  return status.phase === "closed" && isManuallyRecoverable(status.outcome);
 }
 
 // The live region stays mounted so screen readers hear what appears in it.

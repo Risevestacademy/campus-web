@@ -76,17 +76,22 @@ export function PresenceSessionGate({
   // it is admitted, and that render would redirect to pre-join.
   async function moveHere() {
     setIsMoving(true);
-    await takeOver();
+    if (!(await takeOver())) {
+      setIsMoving(false);
+      return false;
+    }
     admitCurrentPage();
     world.connect();
     setIsMoving(false);
+    return true;
   }
 
-  // This tab still holds the cohort's lock: only world and the call moved.
   async function rejoinHere() {
+    if (!(await takeOver())) return false;
     void startMedia();
     admitCurrentPage();
     world.reconnect();
+    return true;
   }
 
   if (status === "taken-over" || isMoving) {

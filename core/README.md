@@ -18,6 +18,8 @@ Implemented concerns:
   applied from realtime messages. See `presence/README.md`.
 - `realtime`: generated world socket protocol types, the parser for inbound
   frames, the close policy and the socket client. See `realtime/README.md`.
+- `session`: the cross-feature Campus Access Session refresh contract. See
+  `session/README.md`.
 
 Planned concerns are `game` and `media`. Create each concern only when its first
 implementation is required.

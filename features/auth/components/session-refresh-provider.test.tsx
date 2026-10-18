@@ -3,7 +3,7 @@ import { http } from "msw";
 import { type ReactNode, useState } from "react";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
-import { useRefreshSession } from "@/shared/lib/session-refresh";
+import { useRefreshSession } from "@/core/session";
 import { type Reply, TEST_ORIGIN } from "@/tests/fixtures/mock-api";
 
 import { SessionRefreshProvider } from "./session-refresh-provider";
@@ -23,7 +23,7 @@ function RefreshProbe() {
   const [result, setResult] = useState("not asked");
 
   async function refresh() {
-    setResult(String(await refreshSession()));
+    setResult(JSON.stringify(await refreshSession()));
   }
 
   return (
@@ -45,15 +45,23 @@ describe("SessionRefreshProvider", () => {
   it.each<[string, string, Reply]>([
     [
       "a renewed session",
-      "true",
+      '{"kind":"refreshed","expiresAt":"2026-10-17T12:15:00.000Z"}',
       () =>
         Response.json({
           expiresAt: "2026-10-17T12:15:00.000Z",
           refreshExpiresAt: "2026-11-16T12:00:00.000Z",
         }),
     ],
-    ["an expired session", "false", () => new Response(null, { status: 401 })],
-    ["a failed refresh", "false", () => new Response(null, { status: 503 })],
+    [
+      "an expired session",
+      '{"kind":"expired"}',
+      () => new Response(null, { status: 401 }),
+    ],
+    [
+      "a failed refresh",
+      '{"kind":"failed"}',
+      () => new Response(null, { status: 503 }),
+    ],
   ])("answers %s as %s", async (_, answer, reply) => {
     mockApi.server.use(http.post(REFRESH_URL, reply));
 
@@ -68,11 +76,13 @@ describe("SessionRefreshProvider", () => {
     );
   });
 
-  it("answers false where nothing provides a refresher", async () => {
+  it("answers expired where nothing provides a refresher", async () => {
     refreshThrough(<RefreshProbe />);
 
     await vi.waitFor(() =>
-      expect(screen.getByLabelText("Refreshed")).toHaveTextContent("false"),
+      expect(screen.getByLabelText("Refreshed")).toHaveTextContent(
+        '{"kind":"expired"}',
+      ),
     );
     expect(mockApi.requests).toHaveLength(0);
   });

@@ -1,3 +1,4 @@
+export { browserIsOnline, subscribeToBrowserWake } from "./browser-lifecycle";
 export {
   CLOSE_REASONS,
   type CloseReason,
@@ -33,6 +34,7 @@ export type {
 } from "./generated/world-protocol";
 export {
   createRealtimeClient,
+  isManuallyRecoverable,
   type RealtimeClient,
   type RealtimeClientOptions,
   type RealtimeEvent,
@@ -43,3 +45,4 @@ export {
   parseServerMessage,
   type ServerMessageResult,
 } from "./server-message.schema";
+export { parseSocketClose } from "./socket-close.schema";

@@ -9,6 +9,8 @@ import {
   type WorldMapManifest,
 } from "campus-world-map";
 
+import type { WorldMap } from "@/core/presence";
+
 import { parseCampusTiledMap } from "../../schemas/campus-map.schema";
 import { CampusMapError } from "./campus-map-error";
 import {
@@ -23,9 +25,30 @@ import {
 } from "./tile-frames";
 
 export type MapSource =
-  { kind: "entry" } | { kind: "pinned"; mapId: string; version: string };
+  | { kind: "entry" }
+  | {
+      kind: "pinned";
+      mapId: string;
+      version: string;
+      width: number;
+      height: number;
+    }
+  | { kind: "placeholder"; width: number; height: number };
 
 export const ENTRY_MAP: MapSource = { kind: "entry" };
+const PLACEHOLDER_TILE_PX = 32;
+
+export function mapSourceFromSnapshot(map: WorldMap): MapSource {
+  return map.id === "placeholder" && map.version === "placeholder"
+    ? { kind: "placeholder", width: map.width, height: map.height }
+    : {
+        kind: "pinned",
+        mapId: map.id,
+        version: map.version,
+        width: map.width,
+        height: map.height,
+      };
+}
 
 export interface CampusTiledMap {
   height: number;
@@ -179,6 +202,7 @@ export async function loadCampusMap(
   source: MapSource,
   dependencies: LoadCampusMapDependencies,
 ): Promise<LoadedCampusMap> {
+  if (source.kind === "placeholder") return placeholderMap(source);
   const fetch = checkedFetch(dependencies.fetch, dependencies.signal);
   let mapId = source.kind === "pinned" ? source.mapId : null;
 
@@ -186,11 +210,17 @@ export async function loadCampusMap(
     dependencies.signal?.throwIfAborted();
     dependencies.onStageChange?.("manifest");
     const manifest = await loadManifest(source, dependencies, fetch);
+    assertAuthoritativeDimensions(
+      source,
+      manifest.widthTiles,
+      manifest.heightTiles,
+    );
     mapId = manifest.mapId;
     assertDatasetAssets(manifest, dependencies);
     dependencies.onStageChange?.("map");
     const published = await loadPublishedMap(manifest, { fetch });
     const map = readCampusTiledMap(published);
+    assertManifestDimensions(manifest, map);
     // The parsed map drops object layers; readMapLayout validates those itself.
     const layout = readMapLayout(
       published as Parameters<typeof readMapLayout>[0],
@@ -235,4 +265,73 @@ export async function loadCampusMap(
       { cause: error, mapId },
     );
   }
+}
+
+function assertManifestDimensions(
+  manifest: WorldMapManifest,
+  map: CampusTiledMap,
+) {
+  if (
+    manifest.widthTiles !== map.width ||
+    manifest.heightTiles !== map.height
+  ) {
+    throw new CampusMapError(
+      "layout",
+      "The published campus map dimensions do not match its manifest.",
+      { mapId: manifest.mapId },
+    );
+  }
+}
+
+function assertAuthoritativeDimensions(
+  source: MapSource,
+  width: number,
+  height: number,
+) {
+  if (
+    source.kind === "pinned" &&
+    (source.width !== width || source.height !== height)
+  ) {
+    throw new CampusMapError(
+      "layout",
+      "The published campus map dimensions do not match world.",
+      { mapId: source.mapId },
+    );
+  }
+}
+
+function placeholderMap(
+  source: Extract<MapSource, { kind: "placeholder" }>,
+): LoadedCampusMap {
+  const map: CampusTiledMap = {
+    height: source.height,
+    layers: [],
+    tileheight: PLACEHOLDER_TILE_PX,
+    tilesets: [],
+    tilewidth: PLACEHOLDER_TILE_PX,
+    width: source.width,
+  };
+  return {
+    bands: splitLayerBands(map),
+    layout: {
+      collisions: [],
+      desks: [],
+      heightTiles: source.height,
+      portals: [],
+      spaces: [],
+      spawn: null,
+      widthTiles: source.width,
+    },
+    manifest: {
+      heightTiles: source.height,
+      isEntry: true,
+      mapId: "placeholder",
+      mapUrl: "",
+      tilesets: [],
+      version: "placeholder",
+      widthTiles: source.width,
+    },
+    map,
+    tilesets: [],
+  };
 }

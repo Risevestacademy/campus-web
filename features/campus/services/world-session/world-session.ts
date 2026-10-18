@@ -2,10 +2,12 @@ import type { Logger } from "@/core/observability";
 import type { PresenceStore } from "@/core/presence";
 import {
   createRealtimeClient,
+  isManuallyRecoverable,
   type RealtimeEvent,
   type RealtimeOutcome,
   type RealtimeStatus,
 } from "@/core/realtime";
+import type { RefreshSession } from "@/core/session";
 
 import { type AnalyticsCapture, realtimeAnalytics } from "./realtime-analytics";
 
@@ -13,12 +15,14 @@ export interface WorldSessionOptions {
   url: string;
   cohortId: string;
   presence: PresenceStore;
-  refreshSession: () => Promise<boolean>;
+  refreshSession: RefreshSession;
   captureEvent: (capture: AnalyticsCapture) => void;
-  onOutcome: (outcome: RealtimeOutcome) => void;
+  onOutcome: (outcome: RealtimeOutcome) => void | Promise<void>;
   createSocket: (url: string) => WebSocket;
   logger: Logger;
   random?: () => number;
+  isOnline?: () => boolean;
+  subscribeToWake?: (listener: () => void) => () => void;
 }
 
 export interface WorldSession {
@@ -44,9 +48,12 @@ export function createWorldSession({
       captureEvent(capture);
     }
     if (event.type === "message") presence.getState().apply(event.message);
+    if (event.type === "closed") presence.getState().clearRemoteParticipants();
     if (event.type === "stopped") {
-      presence.getState().clear();
-      onOutcome(event.outcome);
+      if (!isManuallyRecoverable(event.outcome)) {
+        presence.getState().clear();
+      }
+      void onOutcome(event.outcome);
     }
   }
 

@@ -2,9 +2,13 @@ import { publicEnvironment } from "@/config/environment/public";
 import { captureBrowserAnalyticsEvent } from "@/core/analytics/client";
 import { createConsoleLogger } from "@/core/observability";
 import { presenceFor } from "@/core/presence";
-import type { RealtimeOutcome } from "@/core/realtime";
+import {
+  browserIsOnline,
+  type RealtimeOutcome,
+  subscribeToBrowserWake,
+} from "@/core/realtime";
 import { readWorldSocketUrl } from "@/core/realtime/configuration";
-import type { RefreshSession } from "@/shared/lib/session-refresh";
+import type { RefreshSession } from "@/core/session";
 
 import type { AnalyticsCapture } from "./realtime-analytics";
 import { createWorldSession, type WorldSession } from "./world-session";
@@ -29,5 +33,7 @@ export function createBrowserWorldSession(
     onOutcome: ports.onOutcome,
     createSocket: (url) => new WebSocket(url),
     logger: createConsoleLogger(),
+    isOnline: browserIsOnline,
+    subscribeToWake: subscribeToBrowserWake,
   });
 }

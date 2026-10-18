@@ -64,6 +64,20 @@ describe("followPresenceTab", () => {
     expect(media.liveTracks()).toBe(1);
   });
 
+  it("keeps media stopped after ownership is released to another device", async () => {
+    const { media, tab, world } = await joinedSession();
+    world.stop("entered-elsewhere");
+
+    tab.setStatus("released");
+
+    expect(media.liveTracks()).toBe(0);
+    expect(media.liveConnections()).toBe(0);
+    expect(world.getStatus()).toEqual({
+      phase: "closed",
+      outcome: "entered-elsewhere",
+    });
+  });
+
   it("stops following once unsubscribed", async () => {
     const tab = createTestPresenceTab("held");
     const media = createCountingMediaSession();

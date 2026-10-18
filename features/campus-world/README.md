@@ -2,9 +2,9 @@
 
 Owns preparing and drawing the published campus map. The Join Gate prepares
 the current Sanity entry map before revealing its media controls. Active
-Campus reuses that prepared resource and draws it on one KAPLAY runtime per
-page, with everyone in the cohort on it. This feature does not own
-authentication, media, player movement, input, or sockets.
+Campus prepares and draws the map world named in its snapshot, on one KAPLAY
+runtime per page, with everyone in the cohort on it. This feature does not
+own authentication, media, player movement, input, or sockets.
 
 ## Interface
 
@@ -57,7 +57,17 @@ barrel; other features do not import its internals.
   per render restarts the game. The query key follows its configuration.
 - Keep the prepared query key scoped by Sanity project, dataset, and map
   source. It is session-cached with infinite stale and garbage-collection
-  times and has no automatic retry.
+  times and has no automatic retry. Snapshot preparation reuses the entry
+  preparation only when map ID, version and dimensions all match.
+- Let presence name the map, and never the bundle: `CampusWorld` derives its
+  map source from `presence.map` (world's snapshot). A snapshot naming a
+  published map pins exactly that map id and version, so everyone loads the
+  layout world enforces; until the first snapshot the cohort's key is not
+  yet known and the map stays `loading-map`. A `placeholder` snapshot id and
+  version renders tiles nowhere (`kind: "placeholder"`), locally, with no
+  Sanity fetch. Pinned dimensions are checked against the artwork
+  (`assertAuthoritativeDimensions`): a published map that disagrees with
+  world fails loudly instead of drawing a lie.
 - Treat the manifest and map JSON as untrusted. Map and tileset URLs must be
   assets of the configured Sanity project and dataset before anything fetches
   them, and the renderer only receives what `parseCampusTiledMap` returns. Add

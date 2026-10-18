@@ -14,6 +14,7 @@ import {
   classifyClose,
   createRealtimeClient,
   parseServerMessage,
+  parseSocketClose,
   reconnectDelay,
   type ClientMessage,
   type ServerMessage,
@@ -27,10 +28,19 @@ import {
   `Avatar`, `Direction`, `MoveOutcome`: generated from world's protocol.
 - `parseServerMessage(text)`: one socket frame's text as a
   `ServerMessageResult`; see [Inbound frames](#inbound-frames).
+- `parseSocketClose(code, reason)`: a close event's fields, bounded to the
+  registered code range (1000-4999) and a 123-byte UTF-8 reason. Anything
+  outside becomes `{ code: 0, reason: "" }`; each field is judged alone, so
+  an unusable reason never erases a readable code.
 - `classifyClose({ code, reason })` and `reconnectDelay(attempt, random)`:
   what to do when the socket closes; see [Close policy](#close-policy).
 - `createRealtimeClient(options)`: one cohort's socket, from connect to the
   last retry; see [Socket client](#socket-client).
+- `browserIsOnline()` and `subscribeToBrowserWake(listener)` in
+  `browser-lifecycle.ts`: the browser's online state and its wake signals
+  (`online`, the tab becoming visible or focused, a page restored from the
+  back-forward cache). Whoever composes the client passes them as ports so
+  tests can drive the same lifecycle; see [Socket client](#socket-client).
 - `readWorldSocketUrl(environment, cohortId)` in `configuration.ts`: the
   socket's `wss://<world>/socket?cohortId=…` (`ws://` on loopback).
 
@@ -127,11 +137,14 @@ Outbound frames are built from the `ClientMessage` type and need no parser.
 | 4000, whatever the reason                                   | `entered-elsewhere`       |
 | 1001, 1006, 1009, 1011                                      | `reconnect`               |
 | 1008 with a reason not listed                               | `stop`                    |
-| any other code                                              | `reconnect`               |
+| any other code                                              | `stop`                    |
 
 - Only a 1008's reason is read, and it must match exactly. Every other code
   decides alone, so 4000 never reconnects, whatever reason it carries: two
   tabs that both reconnected would replace each other forever.
+- An undocumented code stops instead of reconnecting. World never sends one;
+  a code nothing documents is a decision the socket client cannot make, and
+  retrying it would only hide the gap between world and this table.
 - `CLOSE_REASONS` lists every reason a reported close can carry, world's and
   the client's own; `isCloseReason` checks one. Analytics sends a reason only
   from this list, anything else as `unknown`.
@@ -156,6 +169,8 @@ const client = createRealtimeClient({
   logger,
   onEvent,
   refreshSession,
+  isOnline: browserIsOnline,
+  subscribeToWake: subscribeToBrowserWake,
 });
 
 client.connect();
@@ -163,7 +178,8 @@ useSyncExternalStore(client.subscribe, client.getStatus);
 ```
 
 Features never construct a `WebSocket`; whoever composes the client passes
-`createSocket`. `onEvent` receives, in order:
+`createSocket`. `isOnline` and `subscribeToWake` are optional ports: without
+them the client assumes it is always online. `onEvent` receives, in order:
 
 | Event                           | When                                                    |
 | ------------------------------- | ------------------------------------------------------- |
@@ -184,12 +200,35 @@ Features never construct a `WebSocket`; whoever composes the client passes
   creating the socket, which also covers an upgrade that never opens. An
   invalid one closes with 4001 `invalid_handshake`, a late one with 4002
   `handshake_timeout`. Both are reported as `closed` and retried.
+- **Liveness.** `welcome`'s `heartbeatSeconds` sets the interval. Each tick
+  the client sends `ping`; if the previous `pong` never came, the connection
+  is presumed dead and closed with 4003 `liveness_timeout`, then retried.
+  This catches half-open sockets a close event never reaches.
+- **Replacement.** A `replaced` frame means world has admitted the same
+  member elsewhere. The client stops at once with `entered-elsewhere` and
+  closes its socket; the close frame that follows (4000, or a lost frame's
+  abrupt 1006) is swallowed, because the outcome is already terminal. Never
+  reconnecting is what stops two tabs from replacing each other forever.
 - **Retries.** `reconnect` waits `reconnectDelay(attempt)` and connects again.
-  `reconnect-after-refresh` calls `refreshSession` first: `false` or a
-  rejection stops with `sign-in`. Both count toward the cap: after 10
-  attempts in a row it stops with `gave-up`. The count resets only once a
-  socket stays open 60 s; resetting on `snapshot` would let a `rate_limited`
-  or 1009 loop retry at the first delay forever.
+  `reconnect-after-refresh` calls `refreshSession` first: `refreshed`
+  schedules the retry, `expired` stops with `sign-in`, and `failed` waits
+  out `retryAfterMs` (never under `reconnectDelay`) and calls again. Both
+  count toward the cap: after 10 attempts in a row it stops with `gave-up`.
+  The count resets only once a socket stays open 60 s; resetting on
+  `snapshot` would let a `rate_limited` or 1009 loop retry at the first
+  delay forever.
+- **Offline.** While `isOnline()` is false, scheduled retries are dropped
+  instead of started: the browser may kill timers in its sleep, and burning
+  the 10-attempt budget while offline would turn a doze into a `gave-up`.
+  The client holds the pending operation in `reconnecting` until the machine
+  wakes. A refresh remains a refresh; waking never bypasses it with a socket.
+- **Wake.** On a wake signal (`online`, the tab becoming visible or
+  focused, a page restored from the back-forward cache), the client probes a
+  connected socket immediately. A missed pong follows the normal close and
+  retry path, so a healthy wake never creates a second socket or resets the
+  retry budget. A waiting connect or refresh starts at once instead of waiting
+  out the backoff. `gave-up` resumes the operation that exhausted its budget.
+  Terminal outcomes (`entered-elsewhere`, `sign-in`, …) are never woken.
 - **Terminal actions** stop with their outcome. `entered-elsewhere` never
   reconnects on its own.
 - **`connect()`** does nothing while a socket is live or a retry is

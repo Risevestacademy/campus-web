@@ -16,7 +16,9 @@ export function followPresenceTab(
     const status = tab.getStatus();
 
     if (status === "taken-over") admission.getState().clear();
-    if (status === "taken-over" || status === "elsewhere") {
+    if (status === "released") {
+      media.getState().stop();
+    } else if (status === "taken-over" || status === "elsewhere") {
       media.getState().stop();
       world.close();
     } else {

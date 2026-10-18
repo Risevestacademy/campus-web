@@ -22,25 +22,35 @@ presence.getState().clear(); // when the Presence Session ends
 `Presence` holds:
 
 - `selfId`: your `userId`, from `welcome`.
+- `map`: the authoritative world map — its id, version and tile width and
+  height — from `snapshot`. The map renderer loads art for exactly this
+  map, so everyone sees the same layout world enforced, not a default the
+  bundle shipped.
 - `participants`: who is here, `Map<userId, { userId, displayName, spriteKey }>`.
-- `positions`: where they stand, `Map<userId, { x, y, facing }>` in tiles.
+- `positions`: where they stand, `Map<userId, { x, y, facing }>` in tiles,
+  clamped into the map's bounds.
 
-They are two maps so React can subscribe to who is here without rendering on
-every `moved` tick. KAPLAY reads `positions` each frame and keeps anything
-finer (pixels, walking) itself.
+They are separate maps so React can subscribe to who is here without
+rendering on every `moved` tick. KAPLAY reads `positions` each frame and
+keeps anything finer (pixels, walking) itself.
 
 | Message      | participants             | positions                  |
 | ------------ | ------------------------ | -------------------------- |
 | `welcome`    | (sets `selfId`)          |                            |
-| `snapshot`   | replaced                 | replaced                   |
+| `snapshot`   | replaced                 | replaced, with the map     |
 | `joined`     | set, replacing any entry | set                        |
 | `appearance` | updated if present       |                            |
 | `left`       | removed                  | removed                    |
 | `moved`      |                          | updated for known ids      |
 | `moveResult` |                          | yours, from world's answer |
 
-- A `snapshot` replaces both maps rather than patching them. After a
+- A `snapshot` replaces every field above rather than patching them. After a
   reconnect, patching would keep whoever left while the socket was down.
+- Positions outside the map are clamped, not rejected: world is trusted, and
+  a stale tile index should draw at the edge, not break the frame.
+- `clearRemoteParticipants()` keeps you (`selfId`) and the map, and drops
+  everyone else. Every recoverable close calls it, so a drop never leaves
+  frozen stand-ins mid-pose; `clear()` removes everything.
 - One entry per id by construction, so a reconnect never draws anyone twice.
 - `Map`, not `Record`: an id such as `constructor` must not reach
   `Object.prototype`.

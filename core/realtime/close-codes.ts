@@ -42,7 +42,15 @@ export const WORLD_CLOSE_REASONS = [
 export const CLIENT_CLOSE = {
   invalidHandshake: { code: 4001, reason: "invalid_handshake" },
   handshakeTimeout: { code: 4002, reason: "handshake_timeout" },
+  livenessTimeout: { code: 4003, reason: "liveness_timeout" },
   presenceEnded: { code: 1000, reason: "presence_ended" },
+} as const;
+
+export const WORLD_CLOSE = {
+  enteredElsewhere: {
+    code: CLOSE_CODE.enteredElsewhere,
+    reason: "entered_elsewhere" satisfies WorldCloseReason,
+  },
 } as const;
 
 // close() does not report presence_ended, so analytics never accepts it.
@@ -50,6 +58,7 @@ export const CLOSE_REASONS = [
   ...WORLD_CLOSE_REASONS,
   CLIENT_CLOSE.invalidHandshake.reason,
   CLIENT_CLOSE.handshakeTimeout.reason,
+  CLIENT_CLOSE.livenessTimeout.reason,
 ] as const;
 
 export type CloseReason = (typeof CLOSE_REASONS)[number];

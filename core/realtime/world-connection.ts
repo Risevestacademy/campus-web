@@ -7,6 +7,7 @@ import {
   parseServerMessage,
   type ServerMessageResult,
 } from "./server-message.schema";
+import { parseSocketClose } from "./socket-close.schema";
 
 const HANDSHAKE: readonly ServerMessage["type"][] = ["welcome", "snapshot"];
 const HANDSHAKE_TIMEOUT_MS = 10_000;
@@ -24,6 +25,7 @@ export interface ConnectionEvents {
 export interface WorldConnection {
   send(message: ClientMessage): boolean;
   end(): void;
+  wake(): void;
 }
 
 type FrameResult = ServerMessageResult | { ok: false; reason: "binary" };
@@ -57,14 +59,20 @@ export function openWorldConnection(
   const awaited = new Set(HANDSHAKE);
   const handshakeTimer = setTimeout(timeOut, HANDSHAKE_TIMEOUT_MS);
   let stableTimer: ReturnType<typeof setTimeout> | undefined;
+  let heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
+  let heartbeatIntervalMs: number | undefined;
+  let heartbeatDeadlineMs = 0;
+  let awaitingPong = false;
 
   function release() {
     listening.abort();
     clearTimeout(handshakeTimer);
     clearTimeout(stableTimer);
+    clearTimeout(heartbeatTimer);
   }
 
   function end(close: SocketClose) {
+    if (listening.signal.aborted) return;
     release();
     socket.close(close.code, close.reason);
   }
@@ -96,12 +104,37 @@ export function openWorldConnection(
       return;
     }
 
+    if (result.message.type === "pong") awaitingPong = false;
+    if (result.message.type === "welcome") {
+      heartbeatIntervalMs = result.message.heartbeatSeconds * 1000;
+      scheduleHeartbeat();
+    }
     events.onMessage(result.message);
     if (listening.signal.aborted) return;
     if (awaited.delete(result.message.type) && awaited.size === 0) {
       clearTimeout(handshakeTimer);
       events.onConnected();
     }
+  }
+
+  function scheduleHeartbeat() {
+    if (heartbeatIntervalMs === undefined) return;
+    heartbeatDeadlineMs = Date.now() + heartbeatIntervalMs;
+    clearTimeout(heartbeatTimer);
+    heartbeatTimer = setTimeout(heartbeat, heartbeatIntervalMs);
+  }
+
+  function heartbeat() {
+    if (awaitingPong) {
+      logger.warn("realtime.heartbeat_timed_out", {});
+      abandon(CLIENT_CLOSE.livenessTimeout);
+      return;
+    }
+    if (socket.readyState === socket.OPEN) {
+      socket.send(JSON.stringify({ type: "ping" }));
+      awaitingPong = true;
+    }
+    scheduleHeartbeat();
   }
 
   const listenerOptions = { signal: listening.signal };
@@ -121,7 +154,7 @@ export function openWorldConnection(
     "close",
     ({ code, reason }) => {
       release();
-      events.onClosed({ code, reason });
+      events.onClosed(parseSocketClose(code, reason));
     },
     listenerOptions,
   );
@@ -133,5 +166,14 @@ export function openWorldConnection(
       return true;
     },
     end: () => end(CLIENT_CLOSE.presenceEnded),
+    wake() {
+      if (heartbeatIntervalMs === undefined || listening.signal.aborted) {
+        return;
+      }
+      // An unanswered ping still inside its deadline keeps its own timer.
+      if (awaitingPong && Date.now() < heartbeatDeadlineMs) return;
+      clearTimeout(heartbeatTimer);
+      heartbeat();
+    },
   };
 }

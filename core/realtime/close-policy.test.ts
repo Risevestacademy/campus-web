@@ -31,9 +31,9 @@ describe("classifyClose", () => {
     expect(classifyClose({ code: 1008, reason: "banned" })).toBe("stop");
   });
 
-  it("reconnects on a code it does not know, like a dropped connection", () => {
+  it("stops on a close code it does not know", () => {
     expect(classifyClose({ code: 1012, reason: "service restart" })).toBe(
-      "reconnect",
+      "stop",
     );
   });
 });

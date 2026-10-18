@@ -5,8 +5,10 @@ import { cleanup, render } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import ActiveCampusLayout from "@/app/campus/[id]/(active-campus)/layout";
 import ActiveCampusMeetingPage from "@/app/campus/[id]/(active-campus)/meeting/page";
 import ActiveCampusPage from "@/app/campus/[id]/(active-campus)/page";
+import AdministrationLayout from "@/app/campus/[id]/(administration)/layout";
 import AdministrationOverviewPage from "@/app/campus/[id]/(administration)/overview/page";
 import CohortTracksPage from "@/app/campus/[id]/(administration)/tracks/page";
 import JoinPage from "@/app/campus/[id]/join/page";
@@ -38,6 +40,11 @@ vi.mock("@/features/campus", () => ({
   VisualsDisplay: () => null,
 }));
 vi.mock("server-only", () => ({}));
+vi.mock("next/navigation", () => ({
+  notFound: () => {
+    throw new Error("404");
+  },
+}));
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
 const COHORT_DENIAL = "Cohort protected-cohort access unavailable";
@@ -46,6 +53,7 @@ const SYSTEM_ADMIN = [[{ kind: "system-admin" }]];
 
 const params = Promise.resolve({ id: "protected-cohort" });
 const searchParams = Promise.resolve({});
+const invalidParams = Promise.resolve({ id: "../protected-cohort" });
 
 interface ProtectedPage {
   render: () => Promise<ReactElement>;
@@ -86,6 +94,36 @@ const PAGES: Record<string, ProtectedPage> = {
   },
 };
 
+const INVALID_COHORT_ROUTES = [
+  [
+    "cohort layout",
+    () => CohortLayout({ params: invalidParams, children: null }),
+  ],
+  ["active campus", () => ActiveCampusPage({ params: invalidParams })],
+  [
+    "active campus layout",
+    () => ActiveCampusLayout({ params: invalidParams, children: null }),
+  ],
+  ["meeting", () => ActiveCampusMeetingPage({ params: invalidParams })],
+  [
+    "join",
+    () =>
+      JoinPage({ params: invalidParams, searchParams: Promise.resolve({}) }),
+  ],
+  [
+    "administration overview",
+    () => AdministrationOverviewPage({ params: invalidParams }),
+  ],
+  [
+    "administration layout",
+    () => AdministrationLayout({ params: invalidParams, children: null }),
+  ],
+  [
+    "track administration",
+    () => CohortTracksPage({ params: invalidParams, searchParams }),
+  ],
+] as const;
+
 function pagesUnderCampus(): string[] {
   return readdirSync(path.join(PROJECT_ROOT, "app/campus"), {
     recursive: true,
@@ -116,6 +154,14 @@ describe("Campus production page authorization", () => {
       expect(vi.mocked(requireRouteAccess).mock.calls).toEqual(
         page.routeAccessCalls,
       );
+    },
+  );
+
+  it.each(INVALID_COHORT_ROUTES)(
+    "%s rejects a malformed cohort ID before authorization or rendering",
+    async (_, renderRoute) => {
+      await expect(renderRoute()).rejects.toThrow("404");
+      expect(requireRouteAccess).not.toHaveBeenCalled();
     },
   );
 

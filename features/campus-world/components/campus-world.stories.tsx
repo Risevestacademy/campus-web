@@ -40,15 +40,39 @@ const storyFetch = (async (input: RequestInfo | URL) => {
   }
 
   return new Response(
-    JSON.stringify(url === mapUrl ? mapFixture : { result: [manifest] }),
+    JSON.stringify(
+      url === mapUrl
+        ? mapFixture
+        : // The current-versions list reads its result as an array; the one
+          // map a member's snapshot pins reads a single manifest. The query
+          // text tells them apart before either is answered.
+          {
+            result: url.includes("%22worldMap%22") ? [manifest] : manifest,
+          },
+    ),
     { headers: { "Content-Type": "application/json" } },
   );
 }) as typeof globalThis.fetch;
 
+function storyPresence() {
+  const store = createPresenceStore();
+  store.getState().apply({
+    type: "snapshot",
+    map: {
+      id: manifest.mapId,
+      version: manifest.version,
+      width: manifest.widthTiles,
+      height: manifest.heightTiles,
+    },
+    players: [],
+  });
+  return store;
+}
+
 const dependencies: CampusWorldDependencies = {
   configuration: { dataset: "staging", projectId: "sj3zsz66" },
   fetch: storyFetch,
-  presence: createPresenceStore,
+  presence: storyPresence,
   runtime: campusRuntime,
 };
 

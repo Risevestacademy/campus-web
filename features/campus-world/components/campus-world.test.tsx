@@ -7,12 +7,15 @@ import { createPresenceStore } from "@/core/presence";
 import type { CampusGame, CampusRuntime } from "../game/campus-runtime";
 import type { CampusWorldDependencies } from "../hooks/campus-world-dependencies";
 import { campusMapPreparationQueryKey } from "../hooks/use-campus-map-preparation";
+import mapFixture from "../services/map/fixtures/campus-trimmed.json";
+import { ENTRY_MAP, type MapSource } from "../services/map/load-campus-map";
 import type {
   CampusMapModule,
   PreparedCampusMap,
 } from "../services/map/prepare-campus-map";
 import { fakeCampusRuntime } from "../testing/fake-campus-runtime";
 import {
+  entryManifest,
   fakeImage,
   releasePreparedTilesetImage,
   sanityConfiguration,
@@ -21,24 +24,87 @@ import {
 } from "../testing/sanity-map-fixture";
 import { CampusWorld } from "./campus-world";
 
+const WORLD_MAP = {
+  id: "campus",
+  version: "version-1",
+  width: mapFixture.width,
+  height: mapFixture.height,
+} as const;
+
+function connectedPresence() {
+  const store = createPresenceStore();
+  store.getState().apply({ type: "snapshot", map: WORLD_MAP, players: [] });
+  return store;
+}
+
 function preparedMapFixture(): PreparedCampusMap {
   return {
-    manifest: { mapId: "campus", version: "version-1" },
+    manifest: {
+      heightTiles: WORLD_MAP.height,
+      mapId: "campus",
+      version: "version-1",
+      widthTiles: WORLD_MAP.width,
+    },
+    map: { height: WORLD_MAP.height, width: WORLD_MAP.width },
     preparationMs: 42,
     tilesets: Array.from({ length: 3 }, () => ({ decodedImage: fakeImage() })),
   } as unknown as PreparedCampusMap;
 }
 
+const PREPARATION_MISMATCHES = [
+  [
+    "map ID",
+    (prepared: PreparedCampusMap) => ({
+      ...prepared,
+      manifest: { ...prepared.manifest, mapId: "annex" },
+    }),
+  ],
+  [
+    "version",
+    (prepared: PreparedCampusMap) => ({
+      ...prepared,
+      manifest: { ...prepared.manifest, version: "older-version" },
+    }),
+  ],
+  [
+    "manifest width",
+    (prepared: PreparedCampusMap) => ({
+      ...prepared,
+      manifest: {
+        ...prepared.manifest,
+        widthTiles: prepared.manifest.widthTiles + 1,
+      },
+    }),
+  ],
+  [
+    "manifest height",
+    (prepared: PreparedCampusMap) => ({
+      ...prepared,
+      manifest: {
+        ...prepared.manifest,
+        heightTiles: prepared.manifest.heightTiles + 1,
+      },
+    }),
+  ],
+] as const;
+
 function renderWorld(
   overrides: Partial<CampusWorldDependencies> = {},
   cached: PreparedCampusMap | null = preparedMapFixture(),
+  cacheSource: MapSource = {
+    kind: "pinned",
+    mapId: WORLD_MAP.id,
+    version: WORLD_MAP.version,
+    width: WORLD_MAP.width,
+    height: WORLD_MAP.height,
+  },
 ) {
   const dependencies: CampusWorldDependencies = {
     captureEvent: vi.fn(),
     configuration: sanityConfiguration,
     fetch: vi.fn(),
     loadImage: vi.fn(),
-    presence: () => createPresenceStore(),
+    presence: () => connectedPresence(),
     runtime: fakeCampusRuntime(),
     ...overrides,
   };
@@ -48,9 +114,7 @@ function renderWorld(
 
   if (cached !== null) {
     queryClient.setQueryData(
-      campusMapPreparationQueryKey(dependencies.configuration, {
-        kind: "entry",
-      }),
+      campusMapPreparationQueryKey(dependencies.configuration, cacheSource),
       cached,
     );
   }
@@ -135,9 +199,45 @@ describe("CampusWorld", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("reuses matching entry preparation for the snapshot-pinned map", async () => {
+    const preparedMap = preparedMapFixture();
+    const { dependencies } = renderWorld({}, preparedMap, ENTRY_MAP);
+
+    await expectReady();
+
+    expect(dependencies.runtime.start).toHaveBeenCalledWith(
+      region(),
+      preparedMap,
+      expect.objectContaining({ readPresence: expect.any(Function) }),
+    );
+    expect(dependencies.fetch).not.toHaveBeenCalled();
+    expect(dependencies.loadImage).not.toHaveBeenCalled();
+  });
+
+  it.each(PREPARATION_MISMATCHES)(
+    "loads the pinned map when entry preparation has a different %s",
+    async (_, mismatch) => {
+      const fetch = stubSanityFetch(entryManifest());
+      const { dependencies } = renderWorld(
+        {
+          fetch,
+          loadImage: vi.fn(async () => fakeImage()),
+          loadKaplay: vi.fn(async () => ({}) as CampusMapModule),
+        },
+        mismatch(preparedMapFixture()),
+        ENTRY_MAP,
+      );
+
+      await expectReady();
+
+      expect(dependencies.fetch).toHaveBeenCalled();
+      expect(dependencies.loadImage).toHaveBeenCalledTimes(tilesetCount);
+    },
+  );
+
   it("draws the presence of the cohort it shows", () => {
     const game = startedGame();
-    const store = createPresenceStore();
+    const store = connectedPresence();
     const presence = vi.fn(() => store);
 
     renderWorld({ presence, runtime: game.runtime });

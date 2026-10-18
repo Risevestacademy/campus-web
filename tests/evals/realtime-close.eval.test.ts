@@ -40,6 +40,13 @@ describe("realtime close policy eval", () => {
     expect(classifyClose({ code, reason })).toBe("reconnect");
   });
 
+  it.each([3000, 4499, 0])(
+    "never reconnects on a close code nothing documents, even %i",
+    (code) => {
+      expect(classifyClose({ code, reason: "" })).toBe("stop");
+    },
+  );
+
   it.each([...WORLD_CLOSE_REASONS, "", LONG_REASON])(
     "never reconnects on 4000, even with the reason %j",
     (reason) => {

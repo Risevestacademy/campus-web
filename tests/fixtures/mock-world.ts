@@ -7,6 +7,7 @@ import {
   type RealtimeClient,
   type RealtimeEvent,
 } from "@/core/realtime";
+import type { RefreshSession } from "@/core/session";
 
 import { serverFrames } from "./world-frames";
 
@@ -25,6 +26,10 @@ export function admit({ client }: MockConnection) {
 }
 
 export function closeWith(code: number, reason: string): WorldBehaviour {
+  // msw delivers a server close in the same tick INSTEAD of frames sent
+  // before it: with this behaviour the member reads only the close. A world
+  // that answers first and shuts down later must schedule the close on a
+  // timer instead.
   return (connection) => {
     admit(connection);
     connection.client.close(code, reason);
@@ -41,8 +46,11 @@ export const settle = () => vi.advanceTimersByTimeAsync(0);
 
 interface MockClientOptions {
   world?: WorldBehaviour;
-  refreshSession?: () => Promise<boolean>;
+  refreshSession?: RefreshSession;
   onEvent?: (event: RealtimeEvent, client: RealtimeClient) => void;
+  autoPong?: boolean;
+  isOnline?: () => boolean;
+  subscribeToWake?: (listener: () => void) => () => void;
 }
 
 // Registers its own lifecycle hooks: call once, at the top of a test file.
@@ -60,7 +68,10 @@ export function startMockWorld() {
   afterAll(() => server.close());
 
   // Answers every socket with world; the counts are what reached it.
-  function serveWorld(world: WorldBehaviour = () => {}) {
+  function serveWorld(
+    world: WorldBehaviour = () => {},
+    { autoPong = true }: { autoPong?: boolean } = {},
+  ) {
     const connections: string[] = [];
     let live = 0;
     let mostLive = 0;
@@ -72,6 +83,13 @@ export function startMockWorld() {
         connection.client.addEventListener("close", () => {
           live -= 1;
         });
+        if (autoPong) {
+          connection.client.addEventListener("message", ({ data }) => {
+            if (data === JSON.stringify({ type: "ping" })) {
+              connection.client.send(JSON.stringify({ type: "pong" }));
+            }
+          });
+        }
         world(connection);
       }),
     );
@@ -89,10 +107,13 @@ export function startMockWorld() {
 
   function startClient({
     world,
-    refreshSession = async () => true,
+    refreshSession = async () => ({ kind: "refreshed" }),
     onEvent = () => {},
+    autoPong = true,
+    isOnline,
+    subscribeToWake,
   }: MockClientOptions = {}) {
-    const { connections, mostLiveSockets } = serveWorld(world);
+    const { connections, mostLiveSockets } = serveWorld(world, { autoPong });
     const events: RealtimeEvent[] = [];
     const logger = { error: vi.fn(), info: vi.fn(), warn: vi.fn() };
     const client = closeAfterTest(
@@ -106,6 +127,8 @@ export function startMockWorld() {
         },
         refreshSession,
         random: () => 0,
+        isOnline,
+        subscribeToWake,
       }),
     );
 

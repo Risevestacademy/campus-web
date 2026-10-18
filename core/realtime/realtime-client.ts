@@ -1,5 +1,7 @@
 import type { Logger } from "@/core/observability";
+import type { RefreshSession, SessionRefreshResult } from "@/core/session";
 
+import { WORLD_CLOSE } from "./close-codes";
 import {
   classifyClose,
   type CloseAction,
@@ -10,6 +12,11 @@ import { openWorldConnection, type WorldConnection } from "./world-connection";
 
 export type RealtimeOutcome =
   Exclude<CloseAction, "reconnect" | "reconnect-after-refresh"> | "gave-up";
+
+// The session stays on the map and only the member's Reconnect resumes it.
+export function isManuallyRecoverable(outcome: RealtimeOutcome): boolean {
+  return outcome === "gave-up" || outcome === "stop";
+}
 
 export type RealtimeStatus =
   | { phase: "idle" }
@@ -29,7 +36,9 @@ export interface RealtimeClientOptions {
   createSocket: (url: string) => WebSocket;
   logger: Logger;
   onEvent: (event: RealtimeEvent) => void;
-  refreshSession: () => Promise<boolean>;
+  refreshSession: RefreshSession;
+  isOnline?: () => boolean;
+  subscribeToWake?: (listener: () => void) => () => void;
   random?: () => number;
 }
 
@@ -43,6 +52,14 @@ export interface RealtimeClient {
 
 const MAX_CONSECUTIVE_ATTEMPTS = 10;
 
+type RecoveryKind = "connect" | "refresh";
+
+type RecoveryState =
+  | { phase: "none" }
+  | { phase: "waiting"; kind: RecoveryKind }
+  | { phase: "refreshing" }
+  | { phase: "gave-up"; kind: RecoveryKind };
+
 export function createRealtimeClient(
   options: RealtimeClientOptions,
 ): RealtimeClient {
@@ -52,9 +69,11 @@ export function createRealtimeClient(
   let attempts = 0;
   let connection: WorldConnection | undefined;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
-  // Bumped by close(), so work it interrupted (a refresh in flight, a caller
-  // closing from inside onEvent) does not carry on afterwards.
-  let session = 0;
+  // Bumped by close() and replacement, so a close reported while a caller
+  // closes from inside onEvent does not start recovery afterwards.
+  let lifecycleGeneration = 0;
+  let recovery: RecoveryState = { phase: "none" };
+  let stopWakeSubscription: (() => void) | undefined;
 
   function setStatus(next: RealtimeStatus) {
     status = next;
@@ -62,8 +81,10 @@ export function createRealtimeClient(
   }
 
   function connect() {
+    ensureWakeSubscription();
     if (status.phase === "closed") {
       // A press after a stop is itself a reconnect, and starts a fresh budget.
+      clearRecovery();
       attempts = 1;
     } else if (status.phase !== "idle") {
       return;
@@ -79,7 +100,10 @@ export function createRealtimeClient(
       options.createSocket(options.url),
       options.logger,
       {
-        onMessage: (message) => options.onEvent({ type: "message", message }),
+        onMessage(message) {
+          options.onEvent({ type: "message", message });
+          if (message.type === "replaced") stopFromReplacement();
+        },
         onConnected() {
           setStatus({ phase: "connected" });
           options.onEvent({ type: "connected", attempt });
@@ -87,12 +111,25 @@ export function createRealtimeClient(
         onStable() {
           attempts = 0;
         },
-        onClosed({ code, reason }) {
+        onClosed(close) {
           connection = undefined;
-          const closing = session;
-          const action = classifyClose({ code, reason });
-          options.onEvent({ type: "closed", code, reason, action });
-          if (closing === session) follow(action);
+          // Replacement already stopped the session: its close frame is a
+          // formality, whether it arrives as 4000 or as a lost 1006.
+          if (
+            status.phase === "closed" &&
+            status.outcome === "entered-elsewhere"
+          ) {
+            return;
+          }
+          const closing = lifecycleGeneration;
+          const action = classifyClose(close);
+          options.onEvent({
+            type: "closed",
+            code: close.code,
+            reason: close.reason,
+            action,
+          });
+          if (closing === lifecycleGeneration) follow(action);
         },
       },
     );
@@ -100,31 +137,57 @@ export function createRealtimeClient(
 
   function follow(action: CloseAction) {
     if (action === "reconnect") {
-      retry();
+      planRecovery("connect", reconnectDelay(attempts + 1, random()));
     } else if (action === "reconnect-after-refresh") {
-      void refreshThenRetry();
+      planRecovery("refresh", 0);
     } else {
+      clearRecovery();
       stop(action);
     }
   }
 
-  async function refreshThenRetry() {
-    if (!countAttempt()) return;
-    const refreshing = session;
-    const refreshed = await refreshSucceeds();
-    if (refreshing !== session) return;
-    if (refreshed) {
-      scheduleReconnect();
-    } else {
+  function stopFromReplacement() {
+    if (status.phase === "closed" && status.outcome === "entered-elsewhere") {
+      return;
+    }
+    lifecycleGeneration += 1;
+    clearRecovery();
+    connection?.end();
+    connection = undefined;
+    options.onEvent({
+      type: "closed",
+      ...WORLD_CLOSE.enteredElsewhere,
+      action: "entered-elsewhere",
+    });
+    stop("entered-elsewhere");
+  }
+
+  // Every transition assigns a new recovery object, so identity tells whether
+  // close or replacement superseded this refresh.
+  async function refreshThenRetry(refreshing: RecoveryState) {
+    const result = await refreshSession();
+    if (recovery !== refreshing) return;
+    if (result.kind === "refreshed") {
+      waitWithinAttempt("connect", reconnectDelay(attempts, random()));
+    } else if (result.kind === "expired") {
+      clearRecovery();
       stop("sign-in");
+    } else {
+      planRecovery(
+        "refresh",
+        Math.max(
+          result.retryAfterMs ?? 0,
+          reconnectDelay(attempts + 1, random()),
+        ),
+      );
     }
   }
 
-  async function refreshSucceeds(): Promise<boolean> {
+  async function refreshSession(): Promise<SessionRefreshResult> {
     try {
       return await options.refreshSession();
     } catch {
-      return false;
+      return { kind: "failed" };
     }
   }
 
@@ -133,30 +196,84 @@ export function createRealtimeClient(
     options.onEvent({ type: "stopped", outcome, attempts });
   }
 
-  function retry() {
-    if (countAttempt()) scheduleReconnect();
-  }
-
-  function countAttempt(): boolean {
+  function planRecovery(kind: RecoveryKind, delayMs: number) {
+    clearTimeout(retryTimer);
     if (attempts >= MAX_CONSECUTIVE_ATTEMPTS) {
+      recovery = { phase: "gave-up", kind };
       stop("gave-up");
-      return false;
+      return;
     }
     attempts += 1;
     setStatus({ phase: "reconnecting", attempt: attempts });
-    return true;
+    waitWithinAttempt(kind, delayMs);
   }
 
-  function scheduleReconnect() {
-    retryTimer = setTimeout(openSocket, reconnectDelay(attempts, random()));
+  function waitWithinAttempt(kind: RecoveryKind, delayMs: number) {
+    recovery = { phase: "waiting", kind };
+    if (isOffline()) return;
+    if (delayMs === 0) {
+      resumeRecovery();
+      return;
+    }
+    retryTimer = setTimeout(resumeRecovery, delayMs);
+  }
+
+  function resumeRecovery() {
+    clearTimeout(retryTimer);
+    retryTimer = undefined;
+    if (isOffline() || recovery.phase !== "waiting") return;
+    if (recovery.kind === "connect") {
+      recovery = { phase: "none" };
+      openSocket();
+      return;
+    }
+    const refreshing: RecoveryState = { phase: "refreshing" };
+    recovery = refreshing;
+    void refreshThenRetry(refreshing);
+  }
+
+  function isOffline() {
+    return options.isOnline?.() === false;
+  }
+
+  function clearRecovery() {
+    clearTimeout(retryTimer);
+    retryTimer = undefined;
+    recovery = { phase: "none" };
+  }
+
+  function ensureWakeSubscription() {
+    stopWakeSubscription ??= options.subscribeToWake?.(wake);
+  }
+
+  function wake() {
+    if (isOffline()) return;
+    if (status.phase === "connected") {
+      connection?.wake();
+    } else if (
+      status.phase === "reconnecting" &&
+      recovery.phase === "waiting"
+    ) {
+      resumeRecovery();
+    } else if (
+      status.phase === "closed" &&
+      status.outcome === "gave-up" &&
+      recovery.phase === "gave-up"
+    ) {
+      const { kind } = recovery;
+      attempts = 0;
+      planRecovery(kind, 0);
+    }
   }
 
   function close() {
-    session += 1;
-    clearTimeout(retryTimer);
+    lifecycleGeneration += 1;
+    clearRecovery();
     connection?.end();
     connection = undefined;
     attempts = 0;
+    stopWakeSubscription?.();
+    stopWakeSubscription = undefined;
     setStatus({ phase: "idle" });
   }
 

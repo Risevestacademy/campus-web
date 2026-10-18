@@ -226,7 +226,7 @@ describe("PresenceSessionGate", () => {
       render(gate.view);
       takeOverFromAnotherTab(gate);
       gate.connect.mockClear();
-      gate.presenceTab.takeOver.mockReturnValue(new Promise(() => {}));
+      gate.presenceTab.takeOver.mockReturnValue(new Promise<boolean>(() => {}));
 
       fireEvent.click(screen.getByRole("button", { name: "Use here" }));
 
@@ -269,13 +269,16 @@ describe("PresenceSessionGate", () => {
       expect(screen.queryByText("Cohort page")).not.toBeInTheDocument();
     });
 
-    it("rejoins here on Use here without taking a lock this tab holds", async () => {
+    it("rejoins here by racing for the lock this tab released", async () => {
       const gate = joinedGate();
 
       fireEvent.click(screen.getByRole("button", { name: "Use here" }));
 
+      // entered-elsewhere releases the Web Lock before clearing the session,
+      // so joining again here is exactly what any other tab joining a vacant
+      // campus does: one takeOver() race.
       expect(await screen.findByText("Cohort page")).toBeVisible();
-      expect(gate.presenceTab.takeOver).not.toHaveBeenCalled();
+      expect(gate.presenceTab.takeOver).toHaveBeenCalledOnce();
       expect(gate.world.reconnects()).toBe(1);
       expect(gate.admissionStore.getState().admitted).toBe(true);
       expect(gate.connect).toHaveBeenCalledExactlyOnceWith(

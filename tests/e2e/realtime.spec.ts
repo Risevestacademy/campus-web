@@ -11,7 +11,7 @@ import {
 import type { Avatar, ServerMessage, SnapshotMessage } from "@/core/realtime";
 
 import { serverFrames } from "../fixtures/world-frames";
-import { enterCampus } from "./support/campus-entry";
+import { enterCampus, joinButton } from "./support/campus-entry";
 import {
   type FakeApi,
   membership,
@@ -19,7 +19,7 @@ import {
   signIn,
   test,
 } from "./support/fake-api-fixture";
-import { installSanityMapStub } from "./support/sanity-stub";
+import { E2E_MAP, installSanityMapStub } from "./support/sanity-stub";
 
 test.skip(
   Boolean(process.env.PLAYWRIGHT_BASE_URL),
@@ -28,16 +28,18 @@ test.skip(
 
 const CAMPUS_URL = "/campus/c-3";
 const FIRST_RECONNECT_CEILING_MS = 1_000;
-const ADA = serverFrames.snapshot.players[0]!;
+// The harness artwork is small, so the two avatars sit in adjacent in-bounds
+// tiles. The shared protocol fixture's coordinates are for a larger map.
+const ADA = { ...serverFrames.snapshot.players[0]!, x: 1, y: 1 };
 const GRACE = {
   ...serverFrames.joined.player,
-  x: ADA.x + 1,
-  y: ADA.y,
+  x: 2,
+  y: 1,
   displayName: "Grace",
 } satisfies Avatar;
 
 function snapshotWith(...players: Avatar[]): SnapshotMessage {
-  return { ...serverFrames.snapshot, players };
+  return { ...serverFrames.snapshot, map: E2E_MAP, players };
 }
 
 function joinedWith(player: Avatar): ServerMessage {
@@ -48,7 +50,10 @@ function sendFrame(socket: WebSocketRoute, frame: ServerMessage) {
   socket.send(JSON.stringify(frame));
 }
 
-function admit(socket: WebSocketRoute, snapshot = serverFrames.snapshot) {
+function admit(
+  socket: WebSocketRoute,
+  snapshot = snapshotWith(...serverFrames.snapshot.players),
+) {
   sendFrame(socket, serverFrames.welcome);
   sendFrame(socket, snapshot);
 }
@@ -186,6 +191,97 @@ test("stops after 4000 and shows the entered-elsewhere choice", async ({
     }),
   ).toBeVisible();
   await expectNoAdditionalSocket(sockets);
+});
+
+test("stops the moment world announces a replacement and swallows the close that follows", async ({
+  baseURL,
+  context,
+  fakeApi,
+  page,
+  world,
+}) => {
+  const sockets: WebSocketRoute[] = [];
+  world.replaceHandler((socket) => {
+    sockets.push(socket);
+    admit(socket);
+  });
+  await prepareMember({ baseURL, context, fakeApi, page });
+  await enterReadyCampus(page);
+
+  sendFrame(sockets[0]!, serverFrames.replaced);
+
+  await expect(
+    page.getByRole("heading", {
+      name: "You opened this campus somewhere else",
+    }),
+  ).toBeVisible();
+
+  const otherPage = await context.newPage();
+  await installSanityMapStub(otherPage);
+  await otherPage.goto(`${CAMPUS_URL}/join`);
+  await expect(joinButton(otherPage)).toBeVisible();
+  await otherPage.close();
+  await expect(
+    page.getByRole("heading", {
+      name: "You opened this campus somewhere else",
+    }),
+  ).toBeVisible();
+
+  // The outcome is already terminal whether the close frame arrives or not.
+  await sockets[0]!.close({ code: 1006 });
+  await expectNoAdditionalSocket(sockets);
+});
+
+test("holds the reconnect budget while offline and rejoins when the browser wakes", async ({
+  baseURL,
+  context,
+  fakeApi,
+  page,
+  world,
+}) => {
+  const sockets: WebSocketRoute[] = [];
+  world.replaceHandler((socket) => {
+    sockets.push(socket);
+    admit(
+      socket,
+      sockets.length === 1 ? snapshotWith(ADA, GRACE) : snapshotWith(ADA),
+    );
+  });
+  await prepareMember({ baseURL, context, fakeApi, page });
+  await enterReadyCampus(page);
+
+  await context.setOffline(true);
+  await sockets[0]!.close({ code: 1001, reason: "server shutting down" });
+  // The browser is asleep: no retry is scheduled, so no second socket yet.
+  await expectNoAdditionalSocket(sockets);
+
+  await context.setOffline(false);
+  await expect.poll(() => sockets.length).toBe(2);
+  await expect(campusMap(page)).toHaveAttribute("data-status", "ready");
+});
+
+test("rejoins after a stop when the member presses Reconnect", async ({
+  baseURL,
+  context,
+  fakeApi,
+  page,
+  world,
+}) => {
+  const sockets: WebSocketRoute[] = [];
+  world.replaceHandler((socket) => {
+    sockets.push(socket);
+    admit(socket);
+  });
+  await prepareMember({ baseURL, context, fakeApi, page });
+  await enterReadyCampus(page);
+
+  await sockets[0]!.close({ code: 1008, reason: "no_cohort" });
+  await expect(page.getByText("You're offline in the campus")).toBeVisible();
+
+  await page.getByRole("button", { name: "Reconnect" }).click();
+
+  await expect.poll(() => sockets.length).toBe(2);
+  await expect(campusMap(page)).toHaveAttribute("data-status", "ready");
 });
 
 test("returns to the cohort picker after 1008 not_a_member", async ({

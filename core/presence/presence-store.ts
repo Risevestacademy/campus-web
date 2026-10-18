@@ -2,11 +2,17 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 
 import type { ServerMessage } from "@/core/realtime";
 
-import { applyServerMessage, EMPTY_PRESENCE, type Presence } from "./presence";
+import {
+  applyServerMessage,
+  EMPTY_PRESENCE,
+  type Presence,
+  withoutRemoteParticipants,
+} from "./presence";
 
 export interface PresenceState extends Presence {
   apply: (message: ServerMessage) => void;
   clear: () => void;
+  clearRemoteParticipants: () => void;
 }
 
 export type PresenceStore = StoreApi<PresenceState>;
@@ -20,6 +26,7 @@ export function createPresenceStore(): PresenceStore {
       if (next !== current) set(next);
     },
     clear: () => set(EMPTY_PRESENCE),
+    clearRemoteParticipants: () => set(withoutRemoteParticipants(get())),
   }));
 }
 

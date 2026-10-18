@@ -9,11 +9,8 @@ import {
 } from "react";
 import { useStore } from "zustand";
 
+import { type RefreshSession, useRefreshSession } from "@/core/session";
 import { replaceDocument } from "@/shared/lib/document-navigation";
-import {
-  type RefreshSession,
-  useRefreshSession,
-} from "@/shared/lib/session-refresh";
 import { useMountEffect } from "@/shared/lib/use-mount-effect";
 
 import { MediaSessionProvider } from "../media-session/media-session-provider";
@@ -60,7 +57,7 @@ export function PresenceTabProvider({
 }
 
 const browserNavigation: DocumentNavigation = {
-  currentHref: () => window.location.href,
+  reloadDocument: () => window.location.reload(),
   replaceDocument,
 };
 
@@ -70,14 +67,20 @@ function createPresenceSession(
 ) {
   const admission = createAdmissionStore();
   const media = createMediaSessionStore();
+  const presenceTab = createBrowserPresenceTab(cohortId);
 
   return {
     admission,
     media,
-    presenceTab: createBrowserPresenceTab(cohortId),
+    presenceTab,
     world: createBrowserWorldSession(cohortId, {
       refreshSession,
-      onOutcome: followWorldOutcome(media, admission, browserNavigation),
+      onOutcome: followWorldOutcome(
+        media,
+        admission,
+        presenceTab,
+        browserNavigation,
+      ),
     }),
   };
 }

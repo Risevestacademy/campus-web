@@ -50,6 +50,26 @@ describe("applyServerMessage", () => {
     expect([...presence.positions]).toEqual([
       ["ada", { x: 9, y: 7, facing: "down" }],
     ]);
+    expect(presence.map).toEqual({
+      id: "campus",
+      version: "v1",
+      width: 60,
+      height: 40,
+    });
+  });
+
+  it("clamps every authoritative position to the snapshot map", () => {
+    const presence = applyServerMessage(EMPTY_PRESENCE, {
+      type: "snapshot",
+      map: { id: "campus", version: "v1", width: 3, height: 2 },
+      players: [{ ...ADA, x: 99, y: 99 }],
+    });
+
+    expect(presence.positions.get("ada")).toEqual({
+      x: 2,
+      y: 1,
+      facing: "down",
+    });
   });
 
   it("names you from welcome", () => {

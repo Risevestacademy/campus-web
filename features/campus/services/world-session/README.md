@@ -12,11 +12,13 @@ const world = createWorldSession({
   url,
   cohortId,
   presence, // presenceFor(cohortId)
-  refreshSession, // the shared refresh port
+  refreshSession, // the shared refresh port (core/session)
   captureEvent, // ([name, properties]) => capture
-  onOutcome, // once per terminal outcome
+  onOutcome, // once per terminal outcome; async work owns its ordering
   createSocket,
   logger,
+  isOnline, // browserIsOnline: ports for offline-aware scheduling
+  subscribeToWake, // subscribeToBrowserWake: recovery on wake
 });
 
 world.connect(); // from idle only
@@ -30,7 +32,11 @@ In React, `useWorldSession()` gives `status`, `connect` and `reconnect` under
 
 - Every parsed frame goes to `presence.apply`, which rebuilds from each
   `snapshot`, so a reconnect never duplicates an avatar.
-- Every terminal outcome empties the map, then reaches `onOutcome` once.
+- Every recoverable close clears the remote participants (yourself and the
+  authoritative map stay), so a drop never leaves frozen stand-ins.
+- Outcomes that leave the Presence Session empty the map, then reach
+  `onOutcome` once. `gave-up` and `stop` retain the map and local member for
+  the in-place Reconnect control while remote participants remain cleared.
 - `connect()` never undoes a stop. Each cohort page mounting
   `PresenceSessionGate` calls it, so after `entered-elsewhere`, `gave-up` or
   `stop` only `reconnect()` opens a socket: Use here, or Reconnect.

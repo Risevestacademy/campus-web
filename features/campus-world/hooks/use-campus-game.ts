@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useStore } from "zustand";
 
 import { ANALYTICS_EVENTS } from "@/core/analytics/events";
 import type { PresenceStore } from "@/core/presence";
 
 import type { CampusGame } from "../game/campus-runtime";
 import { failureEventProperties } from "../services/map/campus-map-error";
-import { ENTRY_MAP } from "../services/map/load-campus-map";
+import { mapSourceFromSnapshot } from "../services/map/load-campus-map";
 import type { PreparedCampusMap } from "../services/map/prepare-campus-map";
 import { startTimer } from "../services/timer";
 import {
@@ -85,7 +86,9 @@ export function useCampusGame(
   const [presence] = useState(() => dependencies.presence(cohortId));
   const [mountVersion, setMountVersion] = useState(0);
   const state = useCampusWorldStatus(store);
-  const preparation = useCachedCampusMap(ENTRY_MAP, dependencies);
+  const worldMap = useStore(presence, (current) => current.map);
+  const source = worldMap ? mapSourceFromSnapshot(worldMap) : undefined;
+  const preparation = useCachedCampusMap(source, dependencies);
   const prepared = preparation.isFetching ? undefined : preparation.data;
 
   const mountGame = useCallback(
