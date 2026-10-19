@@ -1,7 +1,4 @@
 import { type BrowserContext, expect, type Page } from "@playwright/test";
-import { z } from "zod";
-
-import { parseJson } from "@/shared/lib/parse-json";
 
 import { enterCampus, joinButton } from "./support/campus-entry";
 import {
@@ -13,6 +10,7 @@ import {
   test,
 } from "./support/fake-api-fixture";
 import { installSanityMapStub } from "./support/sanity-stub";
+import { type CapturedMove, readMove } from "./support/world-moves";
 
 test.skip(
   Boolean(process.env.PLAYWRIGHT_BASE_URL),
@@ -24,14 +22,6 @@ test.skip(
 );
 
 const campusUrl = "/campus/c-3";
-
-const moveMessageSchema = z.object({
-  type: z.literal("move"),
-  direction: z.enum(["up", "down", "left", "right"]),
-  seq: z.int().nonnegative(),
-});
-
-type CapturedMove = z.output<typeof moveMessageSchema>;
 
 const movementInputs = [
   { key: "ArrowUp", direction: "up" },
@@ -181,7 +171,7 @@ for (const { key, direction } of movementInputs) {
     try {
       world.replaceHandler((socket) => {
         socket.onMessage((message) => {
-          const move = parseJson(moveMessageSchema, String(message));
+          const move = readMove(message);
           if (move) moves.push(move);
         });
         admitToWorld(socket);

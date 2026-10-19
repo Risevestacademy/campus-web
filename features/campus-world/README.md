@@ -130,7 +130,8 @@ initialized`. The runtime moves its one canvas between containers, clears
   `avatars` layer draws everyone each frame from `positions`, nearer rows
   last. Every `spriteKey` draws the one placeholder (a circle, a dot toward
   `facing`, a ring for you) until character art exists. Once world has
-  placed you, the camera follows your tile, clamped to the map.
+  placed you, the camera follows your drawn, predicted position each frame,
+  clamped to the map, so it never waits for world's answer.
 - Escape every display name with `escapeStyledText` before KAPLAY sees it.
   KAPLAY reads `[tag]` as a style and throws on an unclosed one or a
   trailing `\`, and a throw inside a frame fails the whole map. Labels are
@@ -152,13 +153,35 @@ recovery), preparation, cancellation, readiness, progress, analytics,
 lifecycle, bands, layer draw order, tile transforms, frames, camera, theme,
 avatar drawing and label escaping, input pacing, and movement grid rules.
 Shared fakes and the movement test layout live in `testing/`. The runtime eval replays Strict
-Mode, re-entry, and retry. The avatar eval protects hostile display names and
+Mode, re-entry, retry, and a new map version from world with one live game. The avatar eval protects hostile display names and
 unknown sprite keys. The movement eval replays recorded `moveResult` sessions
 (a blocked step mid-burst, `too_fast` and recovery, an outcome added upstream)
 and remote `moved` gaps through the frame controller. It fails on a correction
-after a right prediction, a diagonal remote step, or a remote wall crossing.
+after a right prediction, a diagonal remote step, a remote wall crossing, or
+any frame where the camera is off your drawn avatar.
 Remote unit coverage protects interpolation, excess frame time, queue overflow,
 reconnect snapshots, lifecycle changes, and reduced motion. The Storybook
 browser test remounts in real Chromium and fails on the KAPLAY warning.
 Playwright covers request reuse across Join and repeat entry, rendering,
-resize, and the warning.
+resize, and the warning. `campus-movement.spec.ts` drives a scripted world:
+a held key sends one `move` per `stepMs` with rising `seq`, a `blocked` answer
+snaps you back facing the new way, and a remote three-tile `moved` passes
+through each tile of its L-shaped route. Frames compare by canvas digest
+against references drawn in the same test; the remote walk steps a fake clock
+one 16 ms frame at a time.
+
+### Recording world sessions
+
+The movement eval also replays frames from a real world. To record one:
+
+1. Run world locally on the placeholder map (no published map), so walls are
+   only the map edge.
+2. Sign in two members in two browsers. In one, walk into an edge, mash keys
+   faster than `stepMs`, and walk three or more tiles while the other
+   watches.
+3. In each browser, DevTools → Network → the `socket` request → Messages.
+   Copy frames in order into `tests/fixtures/recorded-world-sessions.json` as
+   `{ "dir": "sent" | "received", "frame": {…} }`.
+4. Keep only `welcome` (`stepMs`), `snapshot` (`map`; players as `userId`,
+   `x`, `y`, `facing`), `move`, `moveResult` and `moved`. Remove display
+   names and sprite keys: the eval rejects any other field.
