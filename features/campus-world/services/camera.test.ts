@@ -3,8 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   cameraScale,
   clampCamera,
+  damp,
+  dampPoint,
+  dampScale,
   dragCamera,
   readWheel,
+  snapToScreenPixel,
   spawnTarget,
   stepZoom,
   visibleArea,
@@ -185,5 +189,154 @@ describe("spawnTarget", () => {
 
   it("aims at the middle of the map when the layout has no spawn", () => {
     expect(spawnTarget(map, { spawn: null })).toEqual({ x: 1600, y: 800 });
+  });
+});
+
+function runFrames<T>(
+  value: T,
+  frames: number[],
+  ease: (value: T, deltaMs: number) => T,
+): T {
+  return frames.reduce(ease, value);
+}
+
+const framesFor = (fps: number, totalMs: number) =>
+  Array.from({ length: Math.round((totalMs * fps) / 1000) }, () => 1000 / fps);
+
+describe("damp", () => {
+  it.each([30, 60, 144])("traces one path at %i fps", (fps) => {
+    const eased = runFrames(0, framesFor(fps, 1000), (value, deltaMs) =>
+      damp(value, 100, 3, deltaMs),
+    );
+
+    expect(eased).toBeCloseTo(100 * (1 - Math.exp(-3)), 9);
+  });
+
+  it("traces the same path when frames arrive unevenly", () => {
+    const even = runFrames(0, [20, 20, 20, 20], (value, deltaMs) =>
+      damp(value, 100, 10, deltaMs),
+    );
+    const uneven = runFrames(0, [5, 41, 9, 25], (value, deltaMs) =>
+      damp(value, 100, 10, deltaMs),
+    );
+
+    expect(uneven).toBeCloseTo(even, 9);
+  });
+
+  it("never passes the target, however long the frame", () => {
+    for (const deltaMs of [1, 16, 100, 5_000]) {
+      expect(damp(0, 100, 10, deltaMs)).toBeLessThanOrEqual(100);
+      expect(damp(200, 100, 10, deltaMs)).toBeGreaterThanOrEqual(100);
+    }
+  });
+
+  it("lands on the target when the frame is infinite", () => {
+    expect(damp(3, 100, 10, Infinity)).toBe(100);
+  });
+});
+
+describe("dampScale", () => {
+  it("covers the same share of 1x to 2x as of 2x to 4x", () => {
+    const low = Math.log(dampScale(1, 2, 16) / 1) / Math.log(2);
+    const high = Math.log(dampScale(2, 4, 16) / 2) / Math.log(2);
+
+    expect(low).toBeCloseTo(high, 9);
+  });
+
+  it("covers a quarter of a level or less in one 60 fps frame", () => {
+    const share = Math.log(dampScale(2, 3, 1000 / 60) / 2) / Math.log(1.5);
+
+    expect(share).toBeGreaterThan(0);
+    expect(share).toBeLessThanOrEqual(0.25);
+  });
+
+  it.each([
+    [2, 3],
+    [3, 2],
+    [0.37, 1],
+  ])(
+    "lands exactly on %s to %s once the gap is too small to see",
+    (from, to) => {
+      let scale = from;
+      for (let frame = 0; frame < 120 && scale !== to; frame += 1) {
+        scale = dampScale(scale, to, 16);
+      }
+
+      expect(scale).toBe(to);
+    },
+  );
+
+  it("lands at once when the frame is infinite", () => {
+    expect(dampScale(2, 3, Infinity)).toBe(3);
+  });
+});
+
+describe("dampPoint", () => {
+  it("eases each axis toward the target", () => {
+    const eased = dampPoint({ x: 0, y: 100 }, { x: 100, y: 0 }, 2, 16);
+
+    expect(eased.x).toBeGreaterThan(0);
+    expect(eased.x).toBeLessThan(25);
+    expect(eased.y).toBeLessThan(100);
+    expect(eased.y).toBeGreaterThan(75);
+  });
+
+  it("lands exactly once the gap is under a twentieth of a screen pixel", () => {
+    expect(dampPoint({ x: 99.99, y: 0 }, { x: 100, y: 0 }, 2, 16)).toEqual({
+      x: 100,
+      y: 0,
+    });
+  });
+
+  it("keeps easing a gap that still shows at a higher scale", () => {
+    expect(dampPoint({ x: 99.9, y: 0 }, { x: 100, y: 0 }, 3, 1).x).not.toBe(
+      100,
+    );
+  });
+});
+
+describe("snapToScreenPixel", () => {
+  const screenOffset = (centre: number, scale: number, visible: number) =>
+    centre * scale - visible / 2;
+
+  it.each([
+    [1, { height: 480, width: 640 }],
+    [2, { height: 480, width: 640 }],
+    [3, { height: 480, width: 640 }],
+    [2, { height: 481, width: 641 }],
+  ])("puts the map on whole screen pixels at %sx on %o", (scale, viewport) => {
+    const snapped = snapToScreenPixel(
+      { x: 480.123, y: 320.987 },
+      scale,
+      viewport,
+    );
+
+    const x = screenOffset(snapped.x, scale, viewport.width);
+    const y = screenOffset(snapped.y, scale, viewport.height);
+    expect(Math.abs(x - Math.round(x))).toBeLessThan(1e-9);
+    expect(Math.abs(y - Math.round(y))).toBeLessThan(1e-9);
+  });
+
+  it("moves the camera less than half a screen pixel", () => {
+    const centre = { x: 480.123, y: 320.987 };
+    const snapped = snapToScreenPixel(centre, 3, { height: 480, width: 640 });
+
+    expect(Math.abs(snapped.x - centre.x) * 3).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(snapped.y - centre.y) * 3).toBeLessThanOrEqual(0.5);
+  });
+
+  it("leaves the camera alone between whole scales", () => {
+    const centre = { x: 480.123, y: 320.987 };
+
+    expect(snapToScreenPixel(centre, 0.37, { height: 480, width: 640 })).toBe(
+      centre,
+    );
+  });
+
+  it("leaves a snapped camera where it is", () => {
+    const viewport = { height: 480, width: 640 };
+    const once = snapToScreenPixel({ x: 480.123, y: 320.987 }, 2, viewport);
+
+    expect(snapToScreenPixel(once, 2, viewport)).toEqual(once);
   });
 });

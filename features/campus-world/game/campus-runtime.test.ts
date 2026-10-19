@@ -169,6 +169,7 @@ describe("createCampusRuntime", () => {
     );
 
     runtime.zoom(1);
+    kaplay.contexts[0]!.updateFrame(10_000);
 
     expect(kaplay.contexts[0]!.k.getCamScale().x).toBe(3);
     expect(onZoomChanged).toHaveBeenCalledExactlyOnceWith(3);

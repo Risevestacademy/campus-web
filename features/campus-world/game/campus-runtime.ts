@@ -10,6 +10,7 @@ import {
   type PreparedCampusMap,
   takePreparedTilesetImages,
 } from "../services/map/prepare-campus-map";
+import { prefersReducedMotion } from "../services/reduced-motion";
 import { campusBackground } from "../services/theme-background";
 import { addAvatarLayer } from "./avatar-layer";
 import { type CampusCamera, createCampusCamera } from "./campus-camera";
@@ -217,6 +218,7 @@ export function createCampusRuntime(
         canvas,
         map: prepared.map,
         onZoomChanged,
+        prefersReducedMotion,
         start: spawnTarget(prepared.map, prepared.layout),
       });
       mount.camera = camera;

@@ -3,8 +3,11 @@ import type { KAPLAYCtx, Key } from "kaplay";
 import {
   cameraScale,
   clampCamera,
+  dampPoint,
+  dampScale,
   dragCamera,
   readWheel,
+  snapToScreenPixel,
   stepZoom,
   visibleArea,
   worldSize,
@@ -24,13 +27,29 @@ interface CampusCameraOptions {
   canvas: HTMLCanvasElement;
   map: { height: number; tileheight: number; tilewidth: number; width: number };
   onZoomChanged: (level: ZoomLevel) => void;
+  prefersReducedMotion: () => boolean;
   start: Point;
 }
 
+export interface CameraFrame {
+  deltaMs: number;
+  /** Your drawn tile, once world has placed you. */
+  self: Point | undefined;
+  walking: boolean;
+}
+
 export interface CampusCamera {
-  follow: (self: Point, walking: boolean) => void;
   stop: () => void;
+  update: (frame: CameraFrame) => void;
   zoom: (step: ZoomStep) => void;
+}
+
+// The view a wheel zoom started from, so the point under the cursor stays
+// under it on every eased frame, not only the last.
+interface ZoomAnchor {
+  centre: Point;
+  offset: Point;
+  scale: number;
 }
 
 const ZOOM_KEYS: Partial<Record<Key, ZoomStep>> = { "+": 1, "=": 1, "-": -1 };
@@ -38,39 +57,59 @@ const ON_CENTRE: Point = { x: 0, y: 0 };
 
 export function createCampusCamera(
   k: KAPLAYCtx,
-  { canvas, map, onZoomChanged, start }: CampusCameraOptions,
+  {
+    canvas,
+    map,
+    onZoomChanged,
+    prefersReducedMotion,
+    start,
+  }: CampusCameraOptions,
 ): CampusCamera {
   const world = worldSize(map);
-  let zoom = loadZoomLevel();
+  let level = loadZoomLevel();
+  let scale = scaleOf(level);
   let centre = start;
   let free = false;
+  let anchor: ZoomAnchor | null = null;
   let pendingWheel = 0;
   let drag: { id: number; last: Point } | null = null;
 
-  function scaleOf(level: ZoomLevel): number {
-    return cameraScale(level, { height: k.height(), width: k.width() }, world);
+  function viewport() {
+    return { height: k.height(), width: k.width() };
   }
 
-  function show(target: Point) {
-    const scale = scaleOf(zoom);
-    const viewport = { height: k.height(), width: k.width() };
-    centre = clampCamera(target, visibleArea(viewport, scale), world);
+  function scaleOf(zoomLevel: ZoomLevel): number {
+    return cameraScale(zoomLevel, viewport(), world);
+  }
+
+  function onMap(target: Point): Point {
+    return clampCamera(target, visibleArea(viewport(), scale), world);
+  }
+
+  function draw() {
+    const drawn = snapToScreenPixel(centre, scale, viewport());
     k.setCamScale(scale);
-    k.setCamPos(k.vec2(centre.x, centre.y));
+    k.setCamPos(k.vec2(drawn.x, drawn.y));
+  }
+
+  function aimFor(self: Point | undefined): Point {
+    if (anchor) {
+      return zoomToward(anchor.centre, anchor.offset, {
+        from: anchor.scale,
+        to: scale,
+      });
+    }
+    return free || !self ? centre : tileCentre(self, map);
   }
 
   function changeZoom(step: ZoomStep, cursorOffset: Point) {
-    const next = stepZoom(zoom, step);
-    if (next === zoom) return;
+    const next = stepZoom(level, step);
+    if (next === level) return;
 
-    const target = zoomToward(centre, cursorOffset, {
-      from: scaleOf(zoom),
-      to: scaleOf(next),
-    });
-    zoom = next;
-    show(target);
-    saveZoomLevel(zoom);
-    onZoomChanged(zoom);
+    if (free) anchor = { centre, offset: cursorOffset, scale };
+    level = next;
+    saveZoomLevel(level);
+    onZoomChanged(level);
   }
 
   function cursorOffset(): Point {
@@ -114,7 +153,9 @@ export function createCampusCamera(
     if (moved.x === 0 && moved.y === 0) return;
 
     free = true;
-    show(dragCamera(centre, moved, scaleOf(zoom)));
+    anchor = null;
+    centre = onMap(dragCamera(centre, moved, scale));
+    draw();
   }
 
   function endDrag(event: PointerEvent) {
@@ -131,12 +172,23 @@ export function createCampusCamera(
   for (const [type, listener] of pointerListeners) {
     canvas.addEventListener(type, listener);
   }
-  show(start);
+  centre = onMap(start);
+  draw();
 
   return {
-    follow(self, walking) {
-      if (walking) free = false;
-      show(free ? centre : tileCentre(self, map));
+    update({ deltaMs, self, walking }) {
+      if (walking) {
+        free = false;
+        anchor = null;
+      }
+      const easedMs = prefersReducedMotion() ? Infinity : deltaMs;
+      const target = scaleOf(level);
+      scale = dampScale(scale, target, easedMs);
+
+      const aim = onMap(aimFor(self));
+      centre = onMap(anchor ? aim : dampPoint(centre, aim, scale, easedMs));
+      if (scale === target) anchor = null;
+      draw();
     },
     stop() {
       keyPress.cancel();

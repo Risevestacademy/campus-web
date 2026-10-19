@@ -15,6 +15,11 @@ const MAP = { height: 40, tileheight: 16, tilewidth: 16, width: 60 };
 const SPAWN = { x: 480, y: 320 };
 const ZOOM_KEY = "campus-world-zoom";
 
+interface Point {
+  x: number;
+  y: number;
+}
+
 function startCamera() {
   const fake = fakeKaplay({ autoDraw: false });
   fake.kaplay({} as KAPLAYOpt);
@@ -22,12 +27,23 @@ function startCamera() {
   const canvas = document.createElement("canvas");
   canvas.setPointerCapture = vi.fn();
   const onZoomChanged = vi.fn();
+  let reducedMotion = false;
   const camera = createCampusCamera(context.k, {
     canvas,
     map: MAP,
     onZoomChanged,
+    prefersReducedMotion: () => reducedMotion,
     start: SPAWN,
   });
+
+  function frame(self?: Point, walking = false, deltaMs = 16) {
+    camera.update({ deltaMs, self, walking });
+  }
+
+  // Long enough for every eased value to land on its target.
+  function settle(self?: Point, walking = false) {
+    frame(self, walking, 10_000);
+  }
 
   function pointer(
     type: string,
@@ -59,11 +75,16 @@ function startCamera() {
     canvas,
     context,
     drag,
+    frame,
     k: context.k,
     onZoomChanged,
     pointer,
-    position: () => context.k.getCamPos(),
+    position: () => ({ ...context.k.getCamPos() }),
+    reduceMotion: () => {
+      reducedMotion = true;
+    },
     scale: () => context.k.getCamScale().x,
+    settle,
   };
 }
 
@@ -90,9 +111,10 @@ describe("createCampusCamera", () => {
     ["=", 3],
     ["-", 1],
   ])("zooms with %s and remembers the level", (key, level) => {
-    const { context, onZoomChanged, position, scale } = startCamera();
+    const { context, onZoomChanged, position, scale, settle } = startCamera();
 
     context.pressKey(key);
+    settle();
 
     expect(scale()).toBe(level);
     expect(position()).toEqual(SPAWN);
@@ -101,10 +123,11 @@ describe("createCampusCamera", () => {
   });
 
   it("zooms out to the whole map below 1x", () => {
-    const { context, onZoomChanged, position, scale } = startCamera();
+    const { context, onZoomChanged, position, scale, settle } = startCamera();
 
     context.pressKey("-");
     context.pressKey("-");
+    settle();
 
     expect(scale()).toBe(2 / 3);
     expect(position()).toEqual({ x: 480, y: 320 });
@@ -120,10 +143,10 @@ describe("createCampusCamera", () => {
 
   it("refits the whole map when the window changes", () => {
     window.localStorage.setItem(ZOOM_KEY, '"whole"');
-    const { camera, context, position, scale } = startCamera();
+    const { context, position, scale, settle } = startCamera();
 
     context.resize(320, 240);
-    camera.follow({ x: 30, y: 20 }, false);
+    settle({ x: 30, y: 20 });
 
     expect(scale()).toBe(1 / 3);
     expect(position()).toEqual({ x: 480, y: 320 });
@@ -144,28 +167,31 @@ describe("createCampusCamera", () => {
 
   it("reports nothing when already at the closest level", () => {
     window.localStorage.setItem(ZOOM_KEY, "3");
-    const { camera, onZoomChanged, scale } = startCamera();
+    const { camera, onZoomChanged, scale, settle } = startCamera();
 
     camera.zoom(1);
+    settle();
 
     expect(scale()).toBe(3);
     expect(onZoomChanged).not.toHaveBeenCalled();
   });
 
   it("zooms on the centre when asked from outside the canvas", () => {
-    const { camera, position, scale } = startCamera();
+    const { camera, position, scale, settle } = startCamera();
 
     camera.zoom(1);
+    settle();
 
     expect(scale()).toBe(3);
     expect(position()).toEqual(SPAWN);
   });
 
   it("keeps the point under the cursor in place when the wheel zooms", () => {
-    const { context, position, scale } = startCamera();
+    const { context, position, scale, settle } = startCamera();
     context.moveMouse({ x: 480, y: 240 });
 
     context.scroll(-100);
+    settle();
 
     expect(scale()).toBe(3);
     expect(position().x + 160 / 3).toBeCloseTo(SPAWN.x + 160 / 2);
@@ -189,31 +215,32 @@ describe("createCampusCamera", () => {
   });
 
   it("keeps the dragged view until you walk", () => {
-    const { camera, drag, position } = startCamera();
+    const { drag, position, settle } = startCamera();
     drag({ x: 100, y: 100 }, { x: 140, y: 70 });
 
-    camera.follow({ x: 30, y: 20 }, false);
+    settle({ x: 30, y: 20 });
     expect(position()).toEqual({ x: 460, y: 335 });
 
-    camera.follow({ x: 30, y: 20 }, true);
+    settle({ x: 30, y: 20 }, true);
     expect(position()).toEqual({ x: 488, y: 328 });
   });
 
   it("follows you when nothing has moved the view", () => {
-    const { camera, position } = startCamera();
+    const { position, settle } = startCamera();
 
-    camera.follow({ x: 30, y: 20 }, false);
+    settle({ x: 30, y: 20 });
 
     expect(position()).toEqual({ x: 488, y: 328 });
   });
 
   it("frees the view when the wheel zooms toward the cursor", () => {
-    const { camera, context, position } = startCamera();
+    const { context, position, settle } = startCamera();
     context.moveMouse({ x: 480, y: 240 });
     context.scroll(-100);
-    const zoomed = { ...position() };
+    settle();
+    const zoomed = position();
 
-    camera.follow({ x: 30, y: 20 }, false);
+    settle({ x: 30, y: 20 });
 
     expect(position()).toEqual(zoomed);
   });
@@ -246,11 +273,11 @@ describe("createCampusCamera", () => {
   });
 
   it("keeps a dragged view on the map after the viewport grows", () => {
-    const { camera, context, drag, position } = startCamera();
+    const { context, drag, position, settle } = startCamera();
     drag({ x: 0, y: 0 }, { x: 5000, y: 5000 });
 
     context.resize(1280, 960);
-    camera.follow({ x: 30, y: 20 }, false);
+    settle({ x: 30, y: 20 });
 
     expect(position()).toEqual({ x: 320, y: 240 });
   });
@@ -275,5 +302,151 @@ describe("createCampusCamera", () => {
       expect(schema.safeParse({ level }).success).toBe(true);
     }
     expect(schema.safeParse({ level: 4 }).success).toBe(false);
+  });
+});
+
+// The map is 960 × 640 world px behind a 640 × 480 viewport.
+function showsOnlyMap(centre: Point, scale: number): boolean {
+  const snapTolerance = 0.5 / scale + 1e-9;
+  const fits = (value: number, visible: number, world: number) =>
+    world <= visible
+      ? Math.abs(value - world / 2) <= snapTolerance
+      : value - visible / 2 >= -snapTolerance &&
+        value + visible / 2 <= world + snapTolerance;
+  return fits(centre.x, 640 / scale, 960) && fits(centre.y, 480 / scale, 640);
+}
+
+describe("createCampusCamera easing", () => {
+  it("eases toward a new level instead of jumping", () => {
+    const { context, frame, onZoomChanged, scale } = startCamera();
+
+    context.pressKey("+");
+    frame();
+
+    expect(scale()).toBeGreaterThan(2);
+    expect(scale()).toBeLessThan(3);
+    expect(onZoomChanged).toHaveBeenCalledExactlyOnceWith(3);
+    expect(window.localStorage.getItem(ZOOM_KEY)).toBe("3");
+  });
+
+  it("lands exactly on the new level within half a second", () => {
+    const { context, frame, scale } = startCamera();
+
+    context.pressKey("+");
+    for (let elapsedMs = 0; elapsedMs < 500; elapsedMs += 16) frame();
+
+    expect(scale()).toBe(3);
+  });
+
+  it("picks up from the drawn scale when you zoom again mid-way", () => {
+    const { context, frame, scale } = startCamera();
+    context.pressKey("+");
+    frame();
+    const midway = scale();
+
+    context.pressKey("-");
+    frame();
+
+    expect(scale()).toBeLessThan(midway);
+    expect(scale()).toBeGreaterThan(2);
+  });
+
+  it("keeps the point under the cursor in place on every frame of a wheel zoom", () => {
+    const { context, frame, position, scale } = startCamera();
+    context.moveMouse({ x: 480, y: 240 });
+    const underCursor = SPAWN.x + 160 / 2;
+
+    context.scroll(-100);
+    for (let elapsedMs = 0; elapsedMs < 600; elapsedMs += 16) {
+      frame();
+      const drift = Math.abs(position().x + 160 / scale() - underCursor);
+      expect(drift * scale()).toBeLessThanOrEqual(0.5 + 1e-9);
+    }
+    expect(scale()).toBe(3);
+  });
+
+  it("glides back to you when you walk after a drag", () => {
+    const { drag, frame, position, settle } = startCamera();
+    const you = { x: 30, y: 20 };
+    drag({ x: 100, y: 100 }, { x: 140, y: 70 });
+    const dragged = position();
+
+    frame(you, true);
+    const first = position();
+    settle(you);
+
+    const gap = Math.hypot(488 - dragged.x, 328 - dragged.y);
+    const moved = Math.hypot(first.x - dragged.x, first.y - dragged.y);
+    expect(moved).toBeGreaterThan(0);
+    expect(moved).toBeLessThanOrEqual(gap / 4);
+    expect(position()).toEqual({ x: 488, y: 328 });
+  });
+
+  it("trails you while you walk and lands on you once you stop", () => {
+    const { frame, position } = startCamera();
+    const trailing: number[] = [];
+
+    for (let elapsedMs = 0; elapsedMs <= 1000; elapsedMs += 16) {
+      const you = { x: 30 + elapsedMs / 100, y: 20 };
+      frame(you, true);
+      trailing.push((you.x + 0.5) * 16 - position().x);
+    }
+    const stopped = { x: 40, y: 20 };
+    for (let elapsedMs = 0; elapsedMs < 1000; elapsedMs += 16) frame(stopped);
+
+    expect(Math.min(...trailing)).toBeGreaterThanOrEqual(0);
+    expect(Math.max(...trailing)).toBeLessThanOrEqual(16);
+    expect(position()).toEqual({ x: 648, y: 328 });
+  });
+
+  it("moves the map one to one with a drag, even mid-zoom", () => {
+    const { context, drag, frame, position, scale } = startCamera();
+    context.pressKey("+");
+    frame();
+    const before = position();
+
+    drag({ x: 100, y: 100 }, { x: 140, y: 70 });
+
+    expect(position().x).toBeCloseTo(before.x - 40 / scale(), 1);
+    expect(position().y).toBeCloseTo(before.y + 30 / scale(), 1);
+  });
+
+  it("never shows past the map's edge on any frame of a zoom out", () => {
+    const { context, drag, frame, position, scale } = startCamera();
+    drag({ x: 0, y: 0 }, { x: 5000, y: 5000 });
+
+    context.pressKey("-");
+    context.pressKey("-");
+    for (let elapsedMs = 0; elapsedMs < 600; elapsedMs += 16) {
+      frame();
+      expect(showsOnlyMap(position(), scale())).toBe(true);
+    }
+    expect(scale()).toBe(2 / 3);
+  });
+
+  it("draws the map on whole screen pixels on every frame", () => {
+    const { frame, position, scale } = startCamera();
+
+    for (let elapsedMs = 0; elapsedMs <= 500; elapsedMs += 16) {
+      frame({ x: 30 + elapsedMs / 100, y: 20 + elapsedMs / 300 }, true);
+      const offsetX = position().x * scale() - 320;
+      const offsetY = position().y * scale() - 240;
+      expect(Math.abs(offsetX - Math.round(offsetX))).toBeLessThan(1e-9);
+      expect(Math.abs(offsetY - Math.round(offsetY))).toBeLessThan(1e-9);
+    }
+  });
+
+  it("lands every change at once under reduced motion", () => {
+    const { context, drag, frame, position, reduceMotion, scale } =
+      startCamera();
+    reduceMotion();
+
+    context.pressKey("+");
+    frame();
+    expect(scale()).toBe(3);
+
+    drag({ x: 100, y: 100 }, { x: 140, y: 70 });
+    frame({ x: 30, y: 20 }, true);
+    expect(position()).toEqual({ x: 488, y: 328 });
   });
 });

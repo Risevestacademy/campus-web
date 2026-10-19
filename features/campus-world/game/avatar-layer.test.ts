@@ -35,7 +35,16 @@ const GRACE: Avatar = {
   spriteKey: "placeholder-2",
 };
 
+// The camera lands at once unless a test asks for motion, so most tests read
+// where it aims rather than where its easing has reached.
 function startLayer(...players: Avatar[]) {
+  return startLayerWith({ reducedMotion: true }, ...players);
+}
+
+function startLayerWith(
+  { reducedMotion }: { reducedMotion: boolean },
+  ...players: Avatar[]
+) {
   const fake = fakeKaplay({ autoDraw: false });
   fake.kaplay({} as KAPLAYOpt);
   const context = fake.contexts[0]!;
@@ -55,6 +64,7 @@ function startLayer(...players: Avatar[]) {
     canvas,
     map: MAP,
     onZoomChanged: vi.fn(),
+    prefersReducedMotion: () => reducedMotion,
     start: { x: 480, y: 320 },
   });
   vi.mocked(context.k.setCamPos).mockClear();
@@ -205,7 +215,7 @@ describe("addAvatarLayer", () => {
     const { context, k, presence } = startLayer(ADA, GRACE);
 
     context.updateFrame();
-    expect(k.setCamPos).not.toHaveBeenCalled();
+    expect(k.setCamPos).toHaveBeenLastCalledWith({ x: 480, y: 320 });
 
     presence.getState().apply({
       type: "welcome",
@@ -273,5 +283,23 @@ describe("addAvatarLayer", () => {
     context.pressKey("right");
     context.updateFrame(0);
     expect(k.setCamPos).toHaveBeenLastCalledWith({ x: 488, y: 328 });
+  });
+
+  it("eases the camera after you instead of jumping with you", () => {
+    const { context, k, movement, presence } = startLayerWith(
+      { reducedMotion: false },
+      ADA,
+    );
+    admit(presence, movement, ADA);
+    context.updateFrame(10_000);
+    expect(k.setCamPos).toHaveBeenLastCalledWith({ x: 488, y: 328 });
+
+    context.pressKey("right");
+    context.updateFrame(0);
+    context.updateFrame(50);
+
+    const { x } = k.getCamPos();
+    expect(x).toBeGreaterThan(488);
+    expect(x).toBeLessThan(496);
   });
 });

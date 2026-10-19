@@ -27,6 +27,13 @@ export const DEFAULT_ZOOM: ZoomLevel = 2;
 // One mouse notch is about 100 px; a pinch sends many small deltas.
 const WHEEL_STEP_PX = 100;
 
+// Per second. While you walk, the camera trails you by speed / FOLLOW_RATE.
+export const FOLLOW_RATE = 10;
+export const ZOOM_RATE = 14;
+const SETTLED_SCREEN_PX = 0.05;
+// Under half a screen pixel at the edge of a 1920 px canvas.
+const SETTLED_LOG_SCALE = 5e-4;
+
 function clampAxis(target: number, visible: number, map: number): number {
   if (map <= visible) {
     return map / 2;
@@ -108,4 +115,58 @@ export function readWheel(
   if (total <= -WHEEL_STEP_PX) return { pending: 0, step: 1 };
   if (total >= WHEEL_STEP_PX) return { pending: 0, step: -1 };
   return { pending: total, step: null };
+}
+
+// Frame-rate independent ease-out: 30, 60 and 144 fps trace one path.
+export function damp(
+  current: number,
+  target: number,
+  rate: number,
+  deltaMs: number,
+): number {
+  const remaining = Math.exp((-rate * deltaMs) / 1000);
+  return remaining === 0 ? target : target + (current - target) * remaining;
+}
+
+// Zoom reads as a ratio, so 1x to 2x should feel like 2x to 4x.
+export function dampScale(
+  current: number,
+  target: number,
+  deltaMs: number,
+): number {
+  const eased = damp(Math.log(current), Math.log(target), ZOOM_RATE, deltaMs);
+  return Math.abs(eased - Math.log(target)) < SETTLED_LOG_SCALE
+    ? target
+    : Math.exp(eased);
+}
+
+export function dampPoint(
+  current: Point,
+  target: Point,
+  scale: number,
+  deltaMs: number,
+): Point {
+  const axis = (from: number, to: number) => {
+    const eased = damp(from, to, FOLLOW_RATE, deltaMs);
+    return Math.abs(eased - to) * scale < SETTLED_SCREEN_PX ? to : eased;
+  };
+  return { x: axis(current.x, target.x), y: axis(current.y, target.y) };
+}
+
+// Crisp art shimmers under a sub-pixel camera. Only the drawn position snaps;
+// snapping the eased one would make a slow glide stair-step to a halt. Art
+// pixels meet screen pixels only at whole scales, so others pass through.
+export function snapToScreenPixel(
+  centre: Point,
+  scale: number,
+  viewport: Size,
+): Point {
+  if (!Number.isInteger(scale)) return centre;
+
+  const snap = (value: number, visible: number) =>
+    (Math.round(value * scale - visible / 2) + visible / 2) / scale;
+  return {
+    x: snap(centre.x, viewport.width),
+    y: snap(centre.y, viewport.height),
+  };
 }

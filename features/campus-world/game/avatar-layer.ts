@@ -8,6 +8,7 @@ import {
   type AvatarDraw,
   buildAvatarDrawList,
 } from "../services/avatars/avatar-draw-list";
+import { prefersReducedMotion } from "../services/reduced-motion";
 import type { CampusCamera } from "./campus-camera";
 import {
   createOwnAvatarMovement,
@@ -16,7 +17,7 @@ import {
 import { createRemoteAvatarMovement } from "./remote-avatar-movement";
 
 interface AvatarLayerOptions {
-  camera: Pick<CampusCamera, "follow">;
+  camera: Pick<CampusCamera, "update">;
   layout: MapLayout;
   map: { height: number; tileheight: number; tilewidth: number; width: number };
   movement: WorldMovement;
@@ -67,9 +68,6 @@ export function addAvatarLayer(
   };
   // Laying text out is the costly part of a frame; a name changes rarely.
   const labels = new Map<string, FormattedText>();
-  const prefersReducedMotion = () =>
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const ownMovement = createOwnAvatarMovement({
     layout,
     movement,
@@ -159,10 +157,11 @@ export function addAvatarLayer(
         const pressed = pressedDirection();
         ownMovement.update({ deltaMs, held, pressed });
         remoteMovement.update(deltaMs);
-        const self = ownMovement.readPlayer();
-        if (!self) return;
-
-        camera.follow(self, pressed !== null || held.length > 0);
+        camera.update({
+          deltaMs,
+          self: ownMovement.readPlayer(),
+          walking: pressed !== null || held.length > 0,
+        });
       },
       draw() {
         const list = buildAvatarDrawList(readPresence(), map, {

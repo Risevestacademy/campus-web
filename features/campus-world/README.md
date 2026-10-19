@@ -166,6 +166,18 @@ initialized`. The runtime moves its one canvas between containers, clears
   Clamping and culling both use the scaled viewport (`visibleArea`), or edge
   tiles vanish and the camera shows past the map. Never copy the level into
   React or Zustand; React reaches it only through `runtime.zoom`.
+- The camera eases every change except a drag, which tracks the pointer 1:1.
+  `damp` in `services/camera.ts` is a frame-rate independent ease-out
+  (`exp(-rate * dt)`), so 30 and 144 fps trace one path and a new target
+  picks up mid-way. Zoom eases `log(scale)` at `ZOOM_RATE`, landing in under
+  600 ms, and a wheel zoom keeps the point under the cursor on every frame.
+  The centre trails you at `FOLLOW_RATE`, about a tile while you walk, and
+  glides back after a drag. Each eased value lands exactly on its target, so
+  settled frames match unanimated ones. At 1x to 3x the drawn position
+  snaps to whole screen pixels (`snapToScreenPixel`) so crisp art does not
+  shimmer; the eased centre keeps its fraction. Under reduced motion every
+  change lands in one frame. Your avatar's own step stays linear: constant
+  speed across held steps matches world's pace.
 - Escape every display name with `escapeStyledText` before KAPLAY sees it.
   KAPLAY reads `[tag]` as a style and throws on an unclosed one or a
   trailing `\`, and a throw inside a frame fails the whole map. Labels are
@@ -185,7 +197,7 @@ pnpm test:e2e
 Unit tests cover the runtime (one context, sprite reuse, stale starts, render
 recovery, context loss), preparation, cancellation, readiness, progress,
 analytics, lifecycle, bands, chunk baking and culling, layer draw order, tile
-transforms, frames, camera math,
+transforms, frames, camera math and easing,
 zoom, drag, zoom preference, zoom buttons, scaled culling, theme,
 avatar drawing and label escaping, input pacing, and movement grid rules.
 Shared fakes and the movement test layout live in `testing/`. The runtime eval replays Strict
@@ -195,12 +207,16 @@ or rotation bakes at the wrong size. The avatar eval protects hostile display na
 unknown sprite keys. The movement eval replays recorded `moveResult` sessions
 (a blocked step mid-burst, `too_fast` and recovery, an outcome added upstream)
 and remote `moved` gaps through the frame controller. It fails on a correction
-after a right prediction, a diagonal remote step, a remote wall crossing, or
-any frame where the camera is off your drawn avatar. Its zoom eval plays a
-fixed 200-action script of zooms, wheel, drags, walks and resizes, and fails
-on any frame that shows past the map, draws at a scale its level does not
-give, hides part of the map at Whole map, or leaves the camera off you while
-you walk. The storage eval reads
+after a right prediction, a diagonal remote step, a remote wall crossing, a
+camera more than a tile behind your drawn avatar, or one that does not land
+on you once you stop. Its zoom eval plays a fixed 200-action script of zooms,
+wheel, drags, walks and resizes, and fails on any frame that shows past the
+map, or any landed frame that draws at a scale its level does not give,
+hides part of the map at Whole map, or is off you after a walk. Its easing
+eval plays zooms, wheel zooms and recentres at 30 to 144 fps with uneven
+frames, and fails when a first frame covers over a quarter of the change,
+two rates disagree by a screen pixel, the cursor point drifts, a frame
+leaves the pixel grid, or reduced motion shows an in-between frame. The storage eval reads
 hostile stored zoom values back as 2x.
 Remote unit coverage protects interpolation, excess frame time, queue overflow,
 reconnect snapshots, lifecycle changes, and reduced motion. The Storybook

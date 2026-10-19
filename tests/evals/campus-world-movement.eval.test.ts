@@ -408,6 +408,7 @@ function startCameraWorld(refuses: (seq: number, target: Tile) => boolean) {
     canvas,
     map: CAMERA_MAP,
     onZoomChanged: () => undefined,
+    prefersReducedMotion: () => false,
     start: tileCentre(at, CAMERA_MAP),
   });
   addAvatarLayer(k, {
@@ -442,7 +443,11 @@ interface CameraWalk {
   cameraOffsets: number[];
   corrections: string[];
   drawnXs: number[];
+  offsetOnceStopped: number;
 }
+
+// One tile per 100 ms step over FOLLOW_RATE, plus half a pixel of snapping.
+const MAX_TRAIL = CAMERA_MAP.tilewidth + 0.5;
 
 // seq 2 walks into a wall.
 function walkWithCamera(): CameraWalk {
@@ -460,19 +465,32 @@ function walkWithCamera(): CameraWalk {
     drawnXs.push(self.x);
   }
   context.releaseKey("right");
+  let self = frame();
+  for (let landing = 0; landing < 60; landing += 1) self = frame();
+  const camera = k.getCamPos();
 
-  return { cameraOffsets, corrections, drawnXs };
+  return {
+    cameraOffsets,
+    corrections,
+    drawnXs,
+    offsetOnceStopped: Math.hypot(camera.x - self.x, camera.y - self.y),
+  };
 }
 
-describe("camera stays on the drawn self", () => {
-  it("follows every predicted, corrected and replayed frame with no offset", () => {
+describe("camera trails the drawn self", () => {
+  it("stays within a tile of every predicted, corrected and replayed frame", () => {
     const walk = walkWithCamera();
 
     expect(walk.corrections).toEqual(["blocked"]);
     expect(
       Math.max(...walk.drawnXs) - Math.min(...walk.drawnXs),
     ).toBeGreaterThan(16);
-    expect(Math.max(...walk.cameraOffsets)).toBe(0);
+    expect(Math.max(...walk.cameraOffsets)).toBeGreaterThan(0);
+    expect(Math.max(...walk.cameraOffsets)).toBeLessThanOrEqual(MAX_TRAIL);
+  });
+
+  it("lands exactly on you within a second of stopping", () => {
+    expect(walkWithCamera().offsetOnceStopped).toBe(0);
   });
 });
 
@@ -549,35 +567,51 @@ function dragCanvas(canvas: HTMLCanvasElement, by: Tile) {
 }
 
 interface CameraFrame {
+  gapAtWalkStart: number;
   knownScale: boolean;
   level: ZoomLevel;
+  offFollowed: number;
   onMap: boolean;
+  settled: boolean;
+  walked: boolean;
   walking: boolean;
   wholeMapShown: boolean;
-  wrongWhileWalking: number;
 }
 
 // Whole map scales are fractions; allow for floating-point rounding.
 const PIXEL_EPSILON = 1e-6;
 
 // The visible rect fits inside the world, or is centred where it cannot.
-function fitsMap(centre: number, visible: number, world: number): boolean {
+// Snapping to screen pixels may move it by up to half a screen pixel.
+function fitsMap(
+  centre: number,
+  visible: number,
+  world: number,
+  scale: number,
+): boolean {
+  const tolerance = 0.5 / scale + PIXEL_EPSILON;
   if (world <= visible + PIXEL_EPSILON) {
-    return Math.abs(centre - world / 2) < PIXEL_EPSILON;
+    return Math.abs(centre - world / 2) <= tolerance;
   }
   return (
-    centre - visible / 2 >= -PIXEL_EPSILON &&
-    centre + visible / 2 <= world + PIXEL_EPSILON
+    centre - visible / 2 >= -tolerance &&
+    centre + visible / 2 <= world + tolerance
   );
 }
+
+// Long enough to land from the farthest drag. A still drawn frame is no
+// sign of rest: a slow glide can hold one snapped pixel for a frame.
+const SETTLE_FRAMES = Math.ceil(1500 / 16);
 
 function playCameraScript(actions: CameraAction[]): CameraFrame[] {
   const { canvas, context, frame, k } = startCameraWorld(
     (_, target) => !isWalkable(CAMERA_LAYOUT, target),
   );
   const frames: CameraFrame[] = [];
+  let walked = false;
+  let gapAtWalkStart = 0;
 
-  function check(walking: boolean) {
+  function check(walking: boolean, settled: boolean) {
     const self = frame();
     const camera = k.getCamPos();
     const scale = k.getCamScale().x;
@@ -586,20 +620,26 @@ function playCameraScript(actions: CameraAction[]): CameraFrame[] {
     const followed = clampCamera(self, visible, CAMERA_WORLD);
     const level = loadZoomLevel();
     frames.push({
+      gapAtWalkStart,
       knownScale: scale === cameraScale(level, viewport, CAMERA_WORLD),
       level,
+      offFollowed: Math.hypot(camera.x - followed.x, camera.y - followed.y),
       onMap:
-        fitsMap(camera.x, visible.width, CAMERA_WORLD.width) &&
-        fitsMap(camera.y, visible.height, CAMERA_WORLD.height),
+        fitsMap(camera.x, visible.width, CAMERA_WORLD.width, scale) &&
+        fitsMap(camera.y, visible.height, CAMERA_WORLD.height, scale),
+      settled,
+      walked,
       walking,
       wholeMapShown:
         level !== "whole" ||
         (visible.width >= CAMERA_WORLD.width - PIXEL_EPSILON &&
           visible.height >= CAMERA_WORLD.height - PIXEL_EPSILON),
-      wrongWhileWalking: walking
-        ? Math.hypot(camera.x - followed.x, camera.y - followed.y)
-        : 0,
     });
+  }
+
+  function settle() {
+    for (let count = 1; count < SETTLE_FRAMES; count += 1) check(false, false);
+    check(false, true);
   }
 
   for (const action of actions) {
@@ -614,17 +654,23 @@ function playCameraScript(actions: CameraAction[]): CameraFrame[] {
         break;
       case "drag":
         dragCanvas(canvas, action.by);
+        walked = false;
         break;
       case "resize":
         context.resize(action.width, action.height);
         break;
       case "walk":
+        gapAtWalkStart = frames.at(-1)?.offFollowed ?? 0;
         context.pressKey(action.direction);
-        for (let step = 0; step < action.frames; step += 1) check(true);
+        for (let step = 0; step < action.frames; step += 1) {
+          check(true, false);
+        }
         context.releaseKey(action.direction);
+        walked = true;
         break;
     }
-    check(false);
+    if (action.kind === "wheel") walked = false;
+    settle();
   }
 
   return frames;
@@ -633,28 +679,217 @@ function playCameraScript(actions: CameraAction[]): CameraFrame[] {
 describe("camera stays on the map at every zoom", () => {
   const frames = playCameraScript(cameraScript(200));
 
-  it("covers every zoom level, walking and the camera set free", () => {
+  const settled = frames.filter((frame) => frame.settled);
+
+  it("covers every zoom level, walking, easing and the camera set free", () => {
     expect(new Set(frames.map(({ level }) => level))).toEqual(
       new Set(ZOOM_LEVELS),
     );
     expect(frames.filter(({ walking }) => walking).length).toBeGreaterThan(50);
+    expect(frames.length - settled.length).toBeGreaterThan(1000);
   });
 
-  it("never shows past the map's edge", () => {
+  it("never shows past the map's edge, even mid-zoom", () => {
     expect(frames.filter(({ onMap }) => !onMap)).toEqual([]);
   });
 
-  it("draws 1x, 2x and 3x at whole numbers and Whole map at its fit", () => {
-    expect(frames.filter(({ knownScale }) => !knownScale)).toEqual([]);
+  it("lands on 1x, 2x and 3x at whole numbers and Whole map at its fit", () => {
+    expect(settled.filter(({ knownScale }) => !knownScale)).toEqual([]);
   });
 
-  it("shows the entire map on every Whole map frame", () => {
-    expect(frames.filter(({ wholeMapShown }) => !wholeMapShown)).toEqual([]);
+  it("shows the entire map once Whole map lands", () => {
+    expect(settled.filter(({ wholeMapShown }) => !wholeMapShown)).toEqual([]);
   });
 
-  it("returns to you on every frame you walk", () => {
+  it("trails you by at most a tile, or closes the gap a drag left", () => {
     expect(
-      Math.max(...frames.map(({ wrongWhileWalking }) => wrongWhileWalking)),
-    ).toBe(0);
+      frames.filter(
+        ({ gapAtWalkStart, offFollowed, walking }) =>
+          walking && offFollowed > Math.max(MAX_TRAIL, gapAtWalkStart),
+      ),
+    ).toEqual([]);
+  });
+
+  it("lands exactly on you after every walk", () => {
+    expect(
+      settled.filter(({ offFollowed, walked }) => walked && offFollowed !== 0),
+    ).toEqual([]);
+  });
+});
+
+const FRAME_RATES = [30, 60, 90, 120, 144];
+const VIEWPORT_HALF_WIDTH = 320;
+
+// Frames at about 1000 / fps ms, up to 30% early or late, that add up to
+// exactly totalMs so every rate ends at the same moment.
+function jitteredFrames(fps: number, totalMs: number): number[] {
+  let seed = fps;
+  const count = Math.round((totalMs * fps) / 1000);
+  const weights = Array.from({ length: count }, () => {
+    seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+    return 0.7 + 0.6 * (seed / 2_147_483_648);
+  });
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  return weights.map((weight) => (weight / total) * totalMs);
+}
+
+function cameraRig({ reducedMotion = false } = {}) {
+  window.localStorage.clear();
+  const fake = fakeKaplay({ autoDraw: false });
+  fake.kaplay({} as KAPLAYOpt);
+  const context = fake.contexts[0]!;
+  const canvas = document.createElement("canvas");
+  canvas.setPointerCapture = vi.fn();
+  const camera = createCampusCamera(context.k, {
+    canvas,
+    map: CAMERA_MAP,
+    onZoomChanged: () => undefined,
+    prefersReducedMotion: () => reducedMotion,
+    start: tileCentre({ x: 30, y: 20 }, CAMERA_MAP),
+  });
+  return {
+    camera,
+    canvas,
+    context,
+    position: () => ({ ...context.k.getCamPos() }),
+    scale: () => context.k.getCamScale().x,
+  };
+}
+
+const YOU = { x: 30, y: 20 };
+const YOU_DRAWN = tileCentre(YOU, CAMERA_MAP);
+
+type Scenario = (rig: ReturnType<typeof cameraRig>) => void;
+
+const zoomIn: Scenario = ({ context }) => context.pressKey("+");
+const recentreAfterDrag: Scenario = ({ canvas }) =>
+  dragCanvas(canvas, { x: 64, y: -48 });
+
+function playCamera(
+  scenario: Scenario,
+  frames: number[],
+  self?: Tile,
+  options?: { reducedMotion?: boolean },
+) {
+  const rig = cameraRig(options);
+  scenario(rig);
+  const before = { position: rig.position(), scale: rig.scale() };
+  const seen = frames.map((deltaMs) => {
+    rig.camera.update({ deltaMs, self, walking: self !== undefined });
+    return { position: rig.position(), scale: rig.scale() };
+  });
+  return { before, seen };
+}
+
+function zoomShare(from: number, seen: number, to: number): number {
+  return Math.log(seen / from) / Math.log(to / from);
+}
+
+function recentreShare(from: Tile, seen: Tile): number {
+  const gap = Math.hypot(YOU_DRAWN.x - from.x, YOU_DRAWN.y - from.y);
+  return Math.hypot(seen.x - from.x, seen.y - from.y) / gap;
+}
+
+describe("camera eases every change at any frame rate", () => {
+  it("does a quarter of a zoom or a recentre in the first 60 fps frame, at most", () => {
+    const zoom = playCamera(zoomIn, [1000 / 60]);
+    const recentre = playCamera(recentreAfterDrag, [1000 / 60], YOU);
+
+    const zoomed = zoomShare(2, zoom.seen[0]!.scale, 3);
+    const recentred = recentreShare(
+      recentre.before.position,
+      recentre.seen[0]!.position,
+    );
+    expect(zoomed).toBeGreaterThan(0);
+    expect(zoomed).toBeLessThanOrEqual(0.25);
+    expect(recentred).toBeGreaterThan(0);
+    expect(recentred).toBeLessThanOrEqual(0.25);
+  });
+
+  it.each([100, 200, 300])(
+    "reaches the same view after %i ms at every frame rate",
+    (totalMs) => {
+      const zooms = FRAME_RATES.map(
+        (fps) =>
+          playCamera(zoomIn, jitteredFrames(fps, totalMs)).seen.at(-1)!.scale,
+      );
+      const recentres = FRAME_RATES.map(
+        (fps) =>
+          playCamera(
+            recentreAfterDrag,
+            jitteredFrames(fps, totalMs),
+            YOU,
+          ).seen.at(-1)!.position,
+      );
+
+      const zoomSpreadPx =
+        (Math.log(Math.max(...zooms)) - Math.log(Math.min(...zooms))) *
+        VIEWPORT_HALF_WIDTH;
+      const xs = recentres.map(({ x }) => x);
+      const ys = recentres.map(({ y }) => y);
+      // Drawn positions snap, so two rates may sit one screen pixel apart.
+      const recentreSpreadPx =
+        Math.max(
+          Math.max(...xs) - Math.min(...xs),
+          Math.max(...ys) - Math.min(...ys),
+        ) * 2;
+      expect(zoomSpreadPx).toBeLessThan(0.5);
+      expect(recentreSpreadPx).toBeLessThanOrEqual(1);
+    },
+  );
+
+  it.each(FRAME_RATES)(
+    "holds the point under the cursor on every frame of a wheel zoom at %i fps",
+    (fps) => {
+      const cursor = { x: 480, y: 240 };
+      const wheelZoom: Scenario = ({ context }) => {
+        context.moveMouse(cursor);
+        context.scroll(-100);
+      };
+      const { before, seen } = playCamera(wheelZoom, jitteredFrames(fps, 600));
+      const offset = cursor.x - VIEWPORT_HALF_WIDTH;
+      const underCursor = before.position.x + offset / before.scale;
+
+      const driftPx = seen.map(
+        ({ position, scale }) =>
+          Math.abs(position.x + offset / scale - underCursor) * scale,
+      );
+      expect(Math.max(...driftPx)).toBeLessThanOrEqual(0.5 + PIXEL_EPSILON);
+      expect(seen.at(-1)!.scale).toBe(3);
+    },
+  );
+
+  it.each(FRAME_RATES)(
+    "draws whole screen pixels and lands on you within a second at %i fps",
+    (fps) => {
+      const { seen } = playCamera(
+        recentreAfterDrag,
+        jitteredFrames(fps, 1000),
+        YOU,
+      );
+
+      const offGrid = seen.filter(({ position, scale }) => {
+        const offset = position.x * scale - VIEWPORT_HALF_WIDTH;
+        return Math.abs(offset - Math.round(offset)) > PIXEL_EPSILON;
+      });
+      expect(offGrid).toEqual([]);
+      expect(seen.at(-1)!.position).toEqual(YOU_DRAWN);
+    },
+  );
+
+  it.each(FRAME_RATES)("lands a zoom within 600 ms at %i fps", (fps) => {
+    expect(
+      playCamera(zoomIn, jitteredFrames(fps, 600)).seen.at(-1)!.scale,
+    ).toBe(3);
+  });
+
+  it("shows no in-between frames under reduced motion", () => {
+    const zoom = playCamera(zoomIn, [16], undefined, { reducedMotion: true });
+    const recentre = playCamera(recentreAfterDrag, [16], YOU, {
+      reducedMotion: true,
+    });
+
+    expect(zoom.seen[0]!.scale).toBe(3);
+    expect(recentre.seen[0]!.position).toEqual(YOU_DRAWN);
   });
 });
