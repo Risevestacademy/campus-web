@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -22,12 +23,14 @@ import {
 } from "@/features/campus-world/game/campus-runtime";
 import type { CampusWorldDependencies } from "@/features/campus-world/hooks/campus-world-dependencies";
 import { campusMapPreparationQueryKey } from "@/features/campus-world/hooks/use-campus-map-preparation";
+import mapFixture from "@/features/campus-world/services/map/fixtures/campus-trimmed.json";
 import {
   ENTRY_MAP,
   type MapSource,
   mapSourceFromSnapshot,
 } from "@/features/campus-world/services/map/load-campus-map";
 import {
+  type CampusMapModule,
   isPreparedCampusMapRenderReady,
   type PreparedCampusMap,
   takePreparedTilesetImages,
@@ -43,9 +46,11 @@ import {
   squareLayer,
 } from "@/features/campus-world/testing/fake-kaplay-band";
 import {
+  entryManifest,
   fakeImage,
   releasePreparedTilesetImage,
   sanityConfiguration,
+  stubSanityFetch,
 } from "@/features/campus-world/testing/sanity-map-fixture";
 
 vi.mock("@/features/auth", () => ({
@@ -120,6 +125,7 @@ function renderWorld(
     CampusWorldDependencies,
     "configuration" | "movement" | "presence"
   >,
+  presence = connectedPresence,
 ) {
   return render(
     <StrictMode>
@@ -130,7 +136,7 @@ function renderWorld(
             ...dependencies,
             configuration: sanityConfiguration,
             movement: () => createWorldMovementChannel(),
-            presence: () => connectedPresence(),
+            presence,
           }}
         />
       </QueryClientProvider>
@@ -229,7 +235,7 @@ function tileFrom(tilesetName: string): number {
   return drawTilesets.find(({ name }) => name === tilesetName)!.firstgid;
 }
 
-describe("Campus world eval (required threshold: 13/13)", () => {
+describe("Campus world eval (required threshold: 15/15)", () => {
   it.each(layerArrangements)(
     "draws stacked layers bottom to top with %s",
     (_, layerTilesets) => {
@@ -310,6 +316,61 @@ describe("Campus world eval (required threshold: 13/13)", () => {
     await expectWorldReady();
     expect(fetch).not.toHaveBeenCalled();
     expect(loadImage).not.toHaveBeenCalled();
+  });
+
+  it("follows a new map version world announces with one live game", async () => {
+    const store = connectedPresence();
+    const games: Array<{ stop: ReturnType<typeof vi.fn>; version: string }> =
+      [];
+    const start = vi.fn<CampusRuntime["start"]>(
+      async (_container, prepared) => {
+        const game = { stop: vi.fn(), version: prepared.manifest.version };
+        games.push(game);
+        return game;
+      },
+    );
+    const prepared = {
+      manifest: {
+        heightTiles: WORLD_MAP.height,
+        mapId: WORLD_MAP.id,
+        version: WORLD_MAP.version,
+        widthTiles: WORLD_MAP.width,
+      },
+      map: { height: WORLD_MAP.height, width: WORLD_MAP.width },
+      preparationMs: 42,
+      tilesets: [],
+    } as unknown as PreparedCampusMap;
+
+    renderWorld(
+      preparedQueryClient(prepared),
+      {
+        fetch: stubSanityFetch(entryManifest("campus", true, "version-2")),
+        loadImage: vi.fn(async () => fakeImage()),
+        loadKaplay: vi.fn(async () => ({}) as CampusMapModule),
+        runtime: fakeCampusRuntime({ start }),
+      },
+      () => store,
+    );
+    await expectWorldReady();
+    act(() => {
+      store.getState().apply({
+        type: "snapshot",
+        map: {
+          height: mapFixture.height,
+          id: "campus",
+          version: "version-2",
+          width: mapFixture.width,
+        },
+        players: [],
+      });
+    });
+
+    await waitFor(() => {
+      expect(games.at(-1)?.version).toBe("version-2");
+    });
+    await expectWorldReady();
+    const live = games.filter(({ stop }) => stop.mock.calls.length === 0);
+    expect(live.map(({ version }) => version)).toEqual(["version-2"]);
   });
 
   it.each(lifecycles)(
