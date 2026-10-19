@@ -129,10 +129,18 @@ export function createCampusRuntime(
       k,
       sprites: new Map(),
     };
-    k.onError((error) => {
+    const breakContext = (error: Error) => {
       created.broken = true;
       if (created === context) reportRenderError(error);
-    });
+    };
+    k.onError(breakContext);
+    // KAPLAY never restores a lost context and every texture goes with it, so
+    // the context is replaced like any other render failure.
+    canvas.addEventListener(
+      "webglcontextlost",
+      () => breakContext(new Error("The WebGL context was lost.")),
+      { once: true },
+    );
     return created;
   }
 

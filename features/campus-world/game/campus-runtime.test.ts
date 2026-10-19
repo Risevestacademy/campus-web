@@ -421,6 +421,35 @@ describe("createCampusRuntime", () => {
     expect(runtime.holdsMap(identity)).toBe(true);
   });
 
+  it("replaces the context when WebGL loses it", async () => {
+    const kaplay = fakeKaplay();
+    const runtime = createCampusRuntime();
+    const onRenderError = vi.fn();
+    const element = container();
+
+    const game = await runtime.start(
+      element,
+      fakePreparedMap(kaplay.module),
+      mountOptions({ onRenderError }),
+    );
+    element
+      .querySelector("canvas")!
+      .dispatchEvent(new Event("webglcontextlost"));
+    game.stop();
+
+    expect(onRenderError).toHaveBeenCalledOnce();
+    expect(runtime.holdsMap({ mapId: "campus", version: "version-1" })).toBe(
+      false,
+    );
+
+    await runtime.start(
+      container(),
+      fakePreparedMap(kaplay.module),
+      mountOptions(),
+    );
+    expect(kaplay.kaplay).toHaveBeenCalledTimes(2);
+  });
+
   it("clears a start whose signal aborts before its first frame", async () => {
     const kaplay = fakeKaplay({ autoUpload: false });
     const controller = new AbortController();
