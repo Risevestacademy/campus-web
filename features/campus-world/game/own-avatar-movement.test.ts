@@ -124,11 +124,29 @@ describe("createOwnAvatarMovement", () => {
     ]);
   });
 
+  it("keeps held walking at stepMs when frames overrun a step", () => {
+    let nowMs = 0;
+    const sentAtMs: number[] = [];
+    const { update } = startMovement(false, () => {
+      sentAtMs.push(nowMs);
+      return true;
+    });
+
+    update(0, "right", ["right"]);
+    while (nowMs < 600) {
+      nowMs += 30;
+      update(30, null, ["right"]);
+    }
+
+    expect(sentAtMs).toEqual([0, 120, 210, 300, 420, 510, 600]);
+  });
+
   it("sends only one next step after a stalled frame", () => {
     const { sent, update } = startMovement();
 
     update(0, "right", ["right"]);
     update(250, null, ["right"]);
+    update(16, null, ["right"]);
 
     expect(sent).toEqual([
       { direction: "right", seq: 1 },

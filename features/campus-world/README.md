@@ -101,8 +101,10 @@ initialized`. The runtime moves its one canvas between containers, clears
 - Keep input, sequence numbers, pending moves, prediction, interpolation, and
   buffering in KAPLAY's avatar layer. Never route per-frame movement through
   React or Zustand.
-- Pace held input from world's `stepMs`. After a stalled frame, start only one
-  new step. Reduced motion jumps each tile visually but keeps network pacing.
+- Pace held input from world's `stepMs`. A frame that runs past the end of a
+  step carries the extra time into the next, so held walking averages
+  `stepMs`. After a stalled frame, start only one new step and carry nothing.
+  Reduced motion jumps each tile visually but keeps network pacing.
 - Keep remote interpolation and catch-up queues inside KAPLAY. Walk `moved`
   gaps through `walkPath`, one orthogonal tile per `stepMs`. Snap snapshots,
   joins, unsafe reconstructed paths, reduced-motion displays, and queues that

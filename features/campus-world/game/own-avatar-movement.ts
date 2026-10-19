@@ -113,21 +113,26 @@ export function createOwnAvatarMovement({
     if (message.outcome !== "moved") onMoveCorrected(message.outcome);
   }
 
-  function advanceAnimation(deltaMs: number) {
-    if (!animation) return;
+  // Returns how far the frame ran past the end of the step, so the next step
+  // starts that far in and held walking keeps world's pace. A stalled frame
+  // carries nothing: after it, only one new step starts.
+  function advanceAnimation(deltaMs: number): number {
+    if (!animation) return 0;
 
-    animation.elapsedMs = Math.min(
-      animation.durationMs,
-      animation.elapsedMs + Math.max(0, deltaMs),
-    );
-    const progress = animation.elapsedMs / animation.durationMs;
+    const { durationMs } = animation;
+    const elapsedMs = animation.elapsedMs + Math.max(0, deltaMs);
+    animation.elapsedMs = Math.min(durationMs, elapsedMs);
+    const progress = animation.elapsedMs / durationMs;
     displayed = prefersReducedMotion()
       ? animation.to
       : interpolatePlayer(animation.from, animation.to, progress);
-    if (progress === 1) animation = undefined;
+    if (progress < 1) return 0;
+
+    animation = undefined;
+    return deltaMs < durationMs ? elapsedMs - durationMs : 0;
   }
 
-  function beginStep(direction: Direction): boolean {
+  function beginStep(direction: Direction, carriedMs: number): boolean {
     const stepMs = movement.readStepMs();
     if (!predicted || stepMs === null) return false;
 
@@ -139,15 +144,13 @@ export function createOwnAvatarMovement({
     sequence = nextSequence;
     pending = [...pending, { direction, seq: sequence }];
     predicted = next;
-    displayed = prefersReducedMotion()
-      ? next
-      : { ...from, facing: next.facing };
     animation = {
       durationMs: stepMs,
       elapsedMs: 0,
       from: { ...from, facing: next.facing },
       to: next,
     };
+    advanceAnimation(carriedMs);
     return true;
   }
 
@@ -167,12 +170,12 @@ export function createOwnAvatarMovement({
         if (animation) buffered = pressed;
       }
 
-      advanceAnimation(deltaMs);
+      const carriedMs = advanceAnimation(deltaMs);
       if (animation) return;
 
       const direction = buffered ?? pressed ?? heldOrder.at(-1);
       if (!direction) return;
-      if (beginStep(direction)) buffered = undefined;
+      if (beginStep(direction, carriedMs)) buffered = undefined;
     },
   };
 }
