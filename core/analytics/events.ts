@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { cohortRoleSchema, systemRoleSchema } from "../api/schemas";
+import { CLOSE_REASONS } from "../realtime/close-codes";
+import { CLOSE_ACTIONS } from "../realtime/close-policy";
 
 export const ANALYTICS_EVENTS = {
   AUTH_LOGIN_FAILED: "auth.login_failed",
@@ -15,10 +17,16 @@ export const ANALYTICS_EVENTS = {
   AUTH_SIGNUP_SUCCEEDED: "auth.signup_succeeded",
   AUTH_VERIFICATION_COMPLETED: "auth.verification_completed",
   AUTH_VERIFICATION_SENT: "auth.verification_sent",
+  CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN: "campus.presence_tab_conflict_shown",
+  CAMPUS_PRESENCE_TAB_MOVED: "campus.presence_tab_moved",
   CAMPUS_WORLD_MAP_FAILED: "campus_world.map_failed",
   CAMPUS_WORLD_MAP_LOADED: "campus_world.map_loaded",
   CAMPUS_WORLD_MAP_READY: "campus_world.map_ready",
   COHORT_CREATED: "cohort.created",
+  REALTIME_CLOSED: "realtime.closed",
+  REALTIME_CONNECTED: "realtime.connected",
+  REALTIME_GAVE_UP: "realtime.gave_up",
+  REALTIME_RECONNECTED: "realtime.reconnected",
   IDENTITY_PROFILE_SETUP_COMPLETED: "identity.profile_setup_completed",
   IDENTITY_PROFILE_SETUP_STARTED: "identity.profile_setup_started",
 } as const;
@@ -42,6 +50,7 @@ const roleSchema = z.enum([
 
 const authMethodSchema = z.enum(["email", "google", "rise_sso"]);
 const platformSchema = z.enum(["mobile", "web"]);
+const presenceTabSurfaceSchema = z.enum(["pre_join", "taken_over"]);
 const verificationTypeSchema = z.enum(["email", "invite", "phone"]);
 const campusWorldMapErrorKindSchema = z.enum([
   "config",
@@ -50,6 +59,8 @@ const campusWorldMapErrorKindSchema = z.enum([
   "network",
   "render",
 ]);
+const realtimeCloseReasonSchema = z.enum([...CLOSE_REASONS, "unknown"]);
+const realtimeCloseActionSchema = z.enum(CLOSE_ACTIONS);
 const loginErrorCodeSchema = z.enum([
   "ACCOUNT_DISABLED",
   "ACCOUNT_NOT_FOUND",
@@ -132,6 +143,12 @@ export const analyticsEventSchemas = {
   [ANALYTICS_EVENTS.AUTH_LOGOUT]: z.object({
     logout_source: z.enum(["admin_action", "session_expired", "user_action"]),
   }),
+  [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN]: z.object({
+    surface: presenceTabSurfaceSchema,
+  }),
+  [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_MOVED]: z.object({
+    surface: presenceTabSurfaceSchema,
+  }),
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_LOADED]: campusWorldMapLoadedSchema,
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_FAILED]: campusWorldMapFailureSchema,
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_READY]: z.object({
@@ -144,6 +161,17 @@ export const analyticsEventSchemas = {
   }),
   [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_STARTED]: placementSchema,
   [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_COMPLETED]: placementSchema,
+  [ANALYTICS_EVENTS.REALTIME_CONNECTED]: z.object({
+    cohort_id: opaqueIdSchema,
+    reconnect: z.boolean(),
+  }),
+  [ANALYTICS_EVENTS.REALTIME_CLOSED]: z.object({
+    action: realtimeCloseActionSchema,
+    code: z.number().int().min(1000).max(4999),
+    reason: realtimeCloseReasonSchema,
+  }),
+  [ANALYTICS_EVENTS.REALTIME_RECONNECTED]: z.object({ attempts: countSchema }),
+  [ANALYTICS_EVENTS.REALTIME_GAVE_UP]: z.object({ attempts: countSchema }),
 } satisfies Record<AnalyticsEventName, z.ZodObject>;
 
 type EventProperties<Schema extends z.ZodObject> =
@@ -168,6 +196,7 @@ export type AnalyticsIdentity = Readonly<
 >;
 export type AuthMethod = z.output<typeof authMethodSchema>;
 export type AnalyticsPlatform = z.output<typeof platformSchema>;
+export type PresenceTabSurface = z.output<typeof presenceTabSurfaceSchema>;
 export type CampusWorldMapErrorKind = z.output<
   typeof campusWorldMapErrorKindSchema
 >;

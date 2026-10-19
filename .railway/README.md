@@ -52,8 +52,10 @@ repository Actions variables instead:
 
 - `STAGING_NEXT_PUBLIC_SANITY_DATASET`
 - `STAGING_NEXT_PUBLIC_SANITY_PROJECT_ID`
+- `STAGING_NEXT_PUBLIC_WORLD_URL`
 - `PRODUCTION_NEXT_PUBLIC_SANITY_DATASET`
 - `PRODUCTION_NEXT_PUBLIC_SANITY_PROJECT_ID`
+- `PRODUCTION_NEXT_PUBLIC_WORLD_URL`
 
 CI selects staging values for `dev` and production values for `main`, and fails
 closed when either selected value is missing.
@@ -113,6 +115,7 @@ IaC for every environment instead of maintaining it only in the dashboard.
 - `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`
 - `NEXT_PUBLIC_SANITY_DATASET`
 - `NEXT_PUBLIC_SANITY_PROJECT_ID`
+- `NEXT_PUBLIC_WORLD_URL`
 
 In staging only, `campus-web` also owns:
 

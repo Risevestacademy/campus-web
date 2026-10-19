@@ -21,6 +21,7 @@ interface FakeKaplaySettings {
 interface FakeObject {
   destroy: () => void;
   draw?: () => void;
+  update?: () => void;
 }
 
 function createContext(
@@ -34,16 +35,22 @@ function createContext(
 
   const k = {
     _k: { app: { quit: stopLoop } },
-    add: vi.fn((components: Array<{ draw?: () => void }>) => {
-      const object: FakeObject = {
-        destroy: () => objects.delete(object),
-        draw: components.find((component) => component.draw)?.draw,
-      };
-      objects.add(object);
-      if (autoDraw) object.draw?.();
-      return object;
-    }),
+    add: vi.fn(
+      (components: Array<{ draw?: () => void; update?: () => void }>) => {
+        const object: FakeObject = {
+          destroy: () => objects.delete(object),
+          draw: components.find((component) => component.draw)?.draw,
+          update: components.find((component) => component.update)?.update,
+        };
+        objects.add(object);
+        if (autoDraw) object.draw?.();
+        return object;
+      },
+    ),
+    drawCircle: vi.fn(),
+    drawFormattedText: vi.fn(),
     drawSprite: vi.fn(),
+    formatText: vi.fn((options: { text: string }) => ({ text: options.text })),
     getCamPos: vi.fn(() => ({ x: 0, y: 0 })),
     height: vi.fn(() => 480),
     layer: vi.fn((name: string) => ({ name })),
@@ -74,8 +81,12 @@ function createContext(
     onError: vi.fn((handler: (error: Error) => void) => {
       errorHandlers.push(handler);
     }),
+    popTransform: vi.fn(),
+    pushTransform: vi.fn(),
+    pushTranslate: vi.fn(),
     quad: vi.fn(() => ({})),
     quit: vi.fn(),
+    rgb: vi.fn((hex: string) => hex),
     setCamPos: vi.fn(),
     setLayers: vi.fn(),
     vec2: vi.fn((x: number, y: number) => ({ x, y })),
@@ -84,6 +95,7 @@ function createContext(
 
   return {
     drawFrame: () => objects.forEach((object) => object.draw?.()),
+    updateFrame: () => objects.forEach((object) => object.update?.()),
     failFrame: (error = new Error("A frame failed.")) =>
       errorHandlers.forEach((handler) => handler(error)),
     k: k as unknown as KAPLAYCtx,

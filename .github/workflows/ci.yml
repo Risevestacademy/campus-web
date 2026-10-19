@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Select Sanity build variables
+      - name: Select public build variables
         shell: bash
         env:
           TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
@@ -37,6 +37,8 @@ jobs:
           STAGING_SANITY_PROJECT_ID: ${{ vars.STAGING_NEXT_PUBLIC_SANITY_PROJECT_ID }}
           PRODUCTION_SANITY_DATASET: ${{ vars.PRODUCTION_NEXT_PUBLIC_SANITY_DATASET }}
           PRODUCTION_SANITY_PROJECT_ID: ${{ vars.PRODUCTION_NEXT_PUBLIC_SANITY_PROJECT_ID }}
+          STAGING_WORLD_URL: ${{ vars.STAGING_NEXT_PUBLIC_WORLD_URL }}
+          PRODUCTION_WORLD_URL: ${{ vars.PRODUCTION_NEXT_PUBLIC_WORLD_URL }}
         run: |
           set -euo pipefail
 
@@ -44,10 +46,12 @@ jobs:
             dev)
               sanity_dataset="$STAGING_SANITY_DATASET"
               sanity_project_id="$STAGING_SANITY_PROJECT_ID"
+              world_url="$STAGING_WORLD_URL"
               ;;
             main)
               sanity_dataset="$PRODUCTION_SANITY_DATASET"
               sanity_project_id="$PRODUCTION_SANITY_PROJECT_ID"
+              world_url="$PRODUCTION_WORLD_URL"
               ;;
             *)
               echo "::error::Unsupported CI target branch: $TARGET_BRANCH"
@@ -55,14 +59,15 @@ jobs:
               ;;
           esac
 
-          if [[ -z "$sanity_dataset" || -z "$sanity_project_id" ]]; then
-            echo "::error::Sanity repository variables are missing for $TARGET_BRANCH."
+          if [[ -z "$sanity_dataset" || -z "$sanity_project_id" || -z "$world_url" ]]; then
+            echo "::error::Public build repository variables are missing for $TARGET_BRANCH."
             exit 1
           fi
 
           {
             echo "NEXT_PUBLIC_SANITY_DATASET=$sanity_dataset"
             echo "NEXT_PUBLIC_SANITY_PROJECT_ID=$sanity_project_id"
+            echo "NEXT_PUBLIC_WORLD_URL=$world_url"
           } >> "$GITHUB_ENV"
 
       - uses: pnpm/action-setup@v6
@@ -95,7 +100,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Select Sanity build variables
+      - name: Select public build variables
         shell: bash
         env:
           TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
@@ -103,6 +108,8 @@ jobs:
           STAGING_SANITY_PROJECT_ID: ${{ vars.STAGING_NEXT_PUBLIC_SANITY_PROJECT_ID }}
           PRODUCTION_SANITY_DATASET: ${{ vars.PRODUCTION_NEXT_PUBLIC_SANITY_DATASET }}
           PRODUCTION_SANITY_PROJECT_ID: ${{ vars.PRODUCTION_NEXT_PUBLIC_SANITY_PROJECT_ID }}
+          STAGING_WORLD_URL: ${{ vars.STAGING_NEXT_PUBLIC_WORLD_URL }}
+          PRODUCTION_WORLD_URL: ${{ vars.PRODUCTION_NEXT_PUBLIC_WORLD_URL }}
         run: |
           set -euo pipefail
 
@@ -110,10 +117,12 @@ jobs:
             dev)
               sanity_dataset="$STAGING_SANITY_DATASET"
               sanity_project_id="$STAGING_SANITY_PROJECT_ID"
+              world_url="$STAGING_WORLD_URL"
               ;;
             main)
               sanity_dataset="$PRODUCTION_SANITY_DATASET"
               sanity_project_id="$PRODUCTION_SANITY_PROJECT_ID"
+              world_url="$PRODUCTION_WORLD_URL"
               ;;
             *)
               echo "::error::Unsupported CI target branch: $TARGET_BRANCH"
@@ -121,14 +130,15 @@ jobs:
               ;;
           esac
 
-          if [[ -z "$sanity_dataset" || -z "$sanity_project_id" ]]; then
-            echo "::error::Sanity repository variables are missing for $TARGET_BRANCH."
+          if [[ -z "$sanity_dataset" || -z "$sanity_project_id" || -z "$world_url" ]]; then
+            echo "::error::Public build repository variables are missing for $TARGET_BRANCH."
             exit 1
           fi
 
           {
             echo "NEXT_PUBLIC_SANITY_DATASET=$sanity_dataset"
             echo "NEXT_PUBLIC_SANITY_PROJECT_ID=$sanity_project_id"
+            echo "NEXT_PUBLIC_WORLD_URL=$world_url"
           } >> "$GITHUB_ENV"
 
       - uses: pnpm/action-setup@v6
@@ -164,6 +174,9 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium
 
+      - name: Storybook tests and build
+        run: pnpm eval:storybook
+
       - name: E2E
         run: |
           pnpm build
@@ -172,6 +185,8 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: browser-test-artifacts
+          path: |
+            playwright-report/
+            test-results/storybook/
           retention-days: 7

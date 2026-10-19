@@ -7,6 +7,12 @@ import type { z } from "zod";
 import { validateBuildEnvironment } from "@/config/environment/validation";
 import { analyticsEventSchemas } from "@/core/analytics/events";
 import { scrubAnalyticsEvent } from "@/core/analytics/scrub";
+import {
+  parseServerMessage,
+  parseSocketClose,
+  type ServerMessage,
+} from "@/core/realtime";
+import { readWorldOrigin } from "@/core/realtime/configuration";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
 import {
@@ -15,6 +21,7 @@ import {
 } from "@/features/invitation/schemas/invite.schema";
 import { moveInviteTokenToCookie } from "@/features/invitation/services/invite-token-proxy.service";
 import { invitePreview, pendingInvite } from "@/tests/fixtures/invites";
+import { serverFrames } from "@/tests/fixtures/world-frames";
 
 vi.mock("server-only", () => ({}));
 
@@ -24,7 +31,6 @@ vi.mock("server-only", () => ({}));
 const TOKEN = "zHrjwba-bzFiiuyT5wb1OiuUQUdS619_DNNd0C6sFg0";
 const ORIGIN = "https://campus.example";
 const UNEXPECTED = { phone: "+2348000000000", internalNote: "do not ship" };
-
 function keyPaths(value: unknown, prefix = ""): string[] {
   if (Array.isArray(value)) return keyPaths(value[0], `${prefix}[]`);
   if (value === null || typeof value !== "object") return [prefix];
@@ -88,13 +94,66 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "auth.signup_succeeded": ["auth_method", "role", "user_id"],
   "auth.verification_completed": ["verification_type"],
   "auth.verification_sent": ["verification_type"],
+  "campus.presence_tab_conflict_shown": ["surface"],
+  "campus.presence_tab_moved": ["surface"],
   "campus_world.map_failed": ["error_kind", "map_id"],
   "campus_world.map_loaded": ["load_ms", "map_id", "tilesets", "version"],
   "campus_world.map_ready": ["first_frame_ms", "map_id", "version"],
   "cohort.created": ["cohort_status"],
   "identity.profile_setup_completed": ["cohort_id", "role", "track_id"],
   "identity.profile_setup_started": ["cohort_id", "role", "track_id"],
+  "realtime.closed": ["action", "code", "reason"],
+  "realtime.connected": ["cohort_id", "reconnect"],
+  "realtime.gave_up": ["attempts"],
+  "realtime.reconnected": ["attempts"],
 };
+
+const PLAYER_PATHS = ["facing", "userId", "x", "y"];
+const AVATAR_PATHS = [...PLAYER_PATHS, "displayName", "spriteKey"].sort();
+
+function under(prefix: string, paths: string[]): string[] {
+  return paths.map((path) => `${prefix}.${path}`);
+}
+
+const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
+  appearance: ["displayName", "spriteKey", "type", "userId"],
+  error: ["code", "message", "type"],
+  joined: [...under("player", AVATAR_PATHS), "type"],
+  left: ["type", "userId"],
+  moveResult: ["outcome", ...under("player", PLAYER_PATHS), "seq", "type"],
+  moved: [...under("players[]", PLAYER_PATHS), "type"],
+  pong: ["type"],
+  replaced: ["type"],
+  snapshot: [
+    ...under("map", ["height", "id", "version", "width"]),
+    ...under("players[]", AVATAR_PATHS),
+    "type",
+  ],
+  welcome: [
+    "connectionId",
+    "displayName",
+    "heartbeatSeconds",
+    "spriteKey",
+    "stepMs",
+    "tickMs",
+    "type",
+    "userId",
+  ],
+};
+
+function withUnexpectedFields(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withUnexpectedFields);
+  if (value === null || typeof value !== "object") return value;
+  return {
+    ...Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [
+        key,
+        withUnexpectedFields(child),
+      ]),
+    ),
+    ...UNEXPECTED,
+  };
+}
 
 async function completeGoogleSignIn(
   backendDestination: string,
@@ -178,6 +237,71 @@ describe("Data privacy eval (threshold: every case holds)", () => {
     });
   });
 
+  describe("world frames reach the client through an allow-list", () => {
+    function parsedMessage(text: string): ServerMessage | undefined {
+      const result = parseServerMessage(text);
+
+      return result.ok ? result.message : undefined;
+    }
+
+    it.each(Object.values(serverFrames))(
+      "keeps only the protocol fields of a $type frame",
+      (frame) => {
+        const parsed = parsedMessage(
+          JSON.stringify(withUnexpectedFields(frame)),
+        );
+
+        expect(keyPaths(parsed)).toEqual(WORLD_FRAME_ALLOW_LIST[frame.type]);
+      },
+    );
+
+    it("never carries the text of a frame it could not read", () => {
+      const unknownType = parseServerMessage(
+        JSON.stringify({ type: TOKEN, ...UNEXPECTED }),
+      );
+      const corruptedWelcome = parseServerMessage(
+        JSON.stringify({ type: "welcome", userId: TOKEN, ...UNEXPECTED }),
+      );
+
+      expect(JSON.stringify([unknownType, corruptedWelcome])).not.toMatch(
+        new RegExp(`${TOKEN}|${UNEXPECTED.phone.slice(1)}`),
+      );
+    });
+
+    it("cannot reach the prototype through a __proto__ key in a frame", () => {
+      const parsed = parsedMessage(
+        '{"type":"left","userId":"u-1","__proto__":{"isAdmin":true}}',
+      );
+
+      expect(parsed).toEqual({ type: "left", userId: "u-1" });
+      expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+      expect(Object.hasOwn(parsed ?? {}, "__proto__")).toBe(false);
+    });
+
+    it("keeps the close event to a bounded code and reason", () => {
+      expect(parseSocketClose(4000, "entered_elsewhere")).toEqual({
+        code: 4000,
+        reason: "entered_elsewhere",
+      });
+      // Each field is judged alone, so losing one cannot erase the other.
+      expect(parseSocketClose(NaN, "")).toEqual({ code: 0, reason: "" });
+      // A close reason past the 123-byte wire limit is dropped, never
+      // reported back the way world sent it.
+      expect(
+        parseSocketClose(1008, `${TOKEN} ${TOKEN} ${TOKEN}`.repeat(20)),
+      ).toEqual({ code: 1008, reason: "" });
+      expect(parseSocketClose(1008, "🙂".repeat(31))).toEqual({
+        code: 1008,
+        reason: "",
+      });
+      expect(
+        JSON.stringify(
+          parseSocketClose(1008, `${TOKEN} ${TOKEN} ${TOKEN} more`),
+        ),
+      ).not.toContain(TOKEN);
+    });
+  });
+
   describe("analytics events carry only declared properties", () => {
     it("pins every event's property list", () => {
       const declared = Object.fromEntries(
@@ -247,6 +371,19 @@ describe("Data privacy eval (threshold: every case holds)", () => {
     });
   });
 
+  describe("the world origin only names a host the browser can reach", () => {
+    it.each([
+      "http://world.railway.internal:8001",
+      "https://world.railway.internal",
+      "https://WORLD.RAILWAY.INTERNAL",
+      "https://world.railway.internal.",
+    ])("refuses the Railway private host %s", (origin) => {
+      expect(() => readWorldOrigin({ NEXT_PUBLIC_WORLD_URL: origin })).toThrow(
+        "NEXT_PUBLIC_WORLD_URL",
+      );
+    });
+  });
+
   describe("a protected build only sends traffic to the hosts it names", () => {
     const protectedBuild = {
       CI: "true",
@@ -254,7 +391,31 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: "phc_project",
       NEXT_PUBLIC_SANITY_DATASET: "staging",
       NEXT_PUBLIC_SANITY_PROJECT_ID: "sj3zsz66",
+      NEXT_PUBLIC_WORLD_URL: "https://ws.campus.example",
     };
+
+    it("accepts a public HTTPS world origin", () => {
+      expect(() => validateBuildEnvironment(protectedBuild)).not.toThrow();
+    });
+
+    it.each([
+      "http://localhost:8001",
+      "https://world.railway.internal",
+      "https://world.railway.internal.",
+      "https://user:secret@ws.campus.example",
+      "https://ws.campus.example/socket",
+      "https://ws.campus.example/?cohortId=1",
+    ])(
+      "rejects the world URL %s before the browser opens a socket to it",
+      (worldUrl) => {
+        expect(() =>
+          validateBuildEnvironment({
+            ...protectedBuild,
+            NEXT_PUBLIC_WORLD_URL: worldUrl,
+          }),
+        ).toThrow("NEXT_PUBLIC_WORLD_URL");
+      },
+    );
 
     it.each(["evil.example", "a/b", "x@evil.example", "x#"])(
       "rejects the Sanity project ID %s before it reaches the map API host",

@@ -877,6 +877,39 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/maps/sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Sync the published maps (admin only)
+     * @description Brings what the database holds of the campus maps into line with what is published. Publishing a map and it taking effect here are two steps on purpose: this is the second, and an admin takes it.
+     *
+     *     What it changes:
+     *
+     *     - A map or space that is new gets a row. A space starts with the kind the map suggests, when it suggests one that is known, and that kind’s starting settings. With no kind it is not set up, and only admins may enter: those are listed under `needsKind`.
+     *     - A map or space no longer published is **retired**, never deleted.
+     *     - One that is published again comes back as the same row, with what it had.
+     *     - Every map is given its default space, for the tiles inside no drawn one.
+     *
+     *     What it never changes: a name, a kind or a setting an admin may have set. A sync only adds, retires and restores.
+     *
+     *     All of it happens or none of it. The published maps are read whole first, and if they cannot be adopted the database is not touched.
+     *
+     *     `?dryRun=true` answers what would change and keeps none of it. Running it again when nothing has been published since changes nothing: `changed` is false.
+     */
+    post: operations["MapsController_sync"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/feedback": {
     parameters: {
       query?: never;
@@ -1048,6 +1081,7 @@ export interface components {
       | "INVITE_REQUIRED"
       | "ACCOUNT_SUSPENDED"
       | "RATE_LIMITED"
+      | "SERVICE_UNAVAILABLE"
       | "INTERNAL_ERROR";
     ApiErrorBodyDto: {
       /**
@@ -2274,6 +2308,8 @@ export interface components {
       | "invite_flagged"
       | "invite_resent"
       | "guest_visit_extended"
+      | "map_synced"
+      | "map_retired"
       | "membership_ended"
       | "feedback_resolved"
       | "feedback_reopened";
@@ -2285,6 +2321,7 @@ export interface components {
       | "cohort"
       | "cohort_track"
       | "track"
+      | "map"
       | "feedback";
     AuditLogEntryDto: {
       /** Format: uuid */
@@ -2325,6 +2362,80 @@ export interface components {
       items: components["schemas"]["AuditLogEntryDto"][];
       /** @description Pagination metadata. */
       meta: components["schemas"]["PaginationMetaDto"];
+    };
+    /** @enum {string} */
+    MapSyncOutcome:
+      "created" | "restored" | "updated" | "unchanged" | "retired";
+    /**
+     * @description Null when the map suggested no kind this knows. The space is then not set up, and nobody but admins may enter it.
+     * @enum {string}
+     */
+    SpaceKind:
+      | "open"
+      | "classroom"
+      | "meeting_room"
+      | "mentor_pod"
+      | "live_coding"
+      | "desk"
+      | "town_hall"
+      | "notice_board"
+      | "stage"
+      | "help_desk";
+    SyncedSpaceDto: {
+      /** @example library */
+      key: string;
+      /** @example Library */
+      name: string;
+      /** @description Null when the map suggested no kind this knows. The space is then not set up, and nobody but admins may enter it. */
+      kind: components["schemas"]["SpaceKind"] | null;
+    };
+    MapSyncSpacesDto: {
+      /** @description Spaces new to the database, with the kind each was given. */
+      added: components["schemas"]["SyncedSpaceDto"][];
+      /**
+       * @description Spaces that were retired and are on the map again, with the settings they had.
+       * @example [
+       *       "library"
+       *     ]
+       */
+      restored: string[];
+      /**
+       * @description Spaces no longer on the map. Their rows stay, marked retired.
+       * @example [
+       *       "old-lab"
+       *     ]
+       */
+      retired: string[];
+      /**
+       * @description Every live space on the map with no kind set, after this sync: the ones waiting for an admin, whenever they were added.
+       * @example [
+       *       "room_space_1"
+       *     ]
+       */
+      needsKind: string[];
+    };
+    MapSyncMapDto: {
+      /**
+       * @description The map’s ID in Sanity.
+       * @example campus
+       */
+      key: string;
+      /**
+       * @description The published version that was read. Null for a map that is no longer published.
+       * @example d686dbad05445e71
+       */
+      version: string | null;
+      /** @description Whether this is the map people enter on. */
+      isEntry: boolean;
+      outcome: components["schemas"]["MapSyncOutcome"];
+      spaces: components["schemas"]["MapSyncSpacesDto"];
+    };
+    MapSyncResultDto: {
+      /** @description True when nothing was kept: this was a look, not a sync. */
+      dryRun: boolean;
+      /** @description Whether anything changed, or would have. False means the database already matched what is published. */
+      changed: boolean;
+      maps: components["schemas"]["MapSyncMapDto"][];
     };
     /** @enum {string} */
     FeedbackType: "bug" | "idea" | "report";
@@ -4879,6 +4990,73 @@ export interface operations {
       };
       /** @description Signed in, but not an admin. */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  MapsController_sync: {
+    parameters: {
+      query?: {
+        /** @description Work out what a sync would change, and change nothing. The answer is exactly what the real one would be, because it is the real one, undone before it is kept. */
+        dryRun?: boolean;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MapSyncResultDto"];
+        };
+      };
+      /** @description `dryRun` is not `true` or `false`. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The published maps were read and cannot be adopted: nothing is published, a map is broken, the maps do not fit together, a key is too long or kept for something else, or a retired town hall or notice board is published again while another space is one. `details.problems` lists everything wrong, map by map, for whoever publishes maps to put right. Also answered, with no details, when another sync is running. Nothing was changed. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The published maps could not be read at all. `details.reason` is `not_configured` when this deployment is not told where they are, or `unreachable` when Sanity did not answer; that one is worth trying again. Nothing was changed. */
+      503: {
         headers: {
           [name: string]: unknown;
         };

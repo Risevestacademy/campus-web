@@ -25,6 +25,8 @@ export default defineConfig({
         test: {
           name: "unit",
           environment: "jsdom",
+          // The msw world in tests/fixtures/mock-world.ts; never a real host.
+          env: { NEXT_PUBLIC_WORLD_URL: "https://ws.example.test" },
           include: ["**/*.test.{ts,tsx}"],
           setupFiles: ["./tests/setup.ts"],
           testTimeout: 15_000,
@@ -58,6 +60,8 @@ export default defineConfig({
             provider: playwright({}),
             headless: true,
             instances: [{ browser: "chromium" }],
+            screenshotDirectory: "test-results/storybook",
+            screenshotFailures: true,
           },
         },
       },

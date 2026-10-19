@@ -10,7 +10,15 @@ import {
   type AdmissionStore,
   createAdmissionStore,
 } from "@/features/campus/services/presence-session/admission-store";
-import { AdmissionProvider } from "@/features/campus/services/presence-session/presence-session-provider";
+import {
+  AdmissionProvider,
+  PresenceTabProvider,
+} from "@/features/campus/services/presence-session/presence-session-provider";
+import type { PresenceTab } from "@/features/campus/services/presence-session/presence-tab";
+import type { WorldSession } from "@/features/campus/services/world-session/world-session";
+import { WorldSessionProvider } from "@/features/campus/services/world-session/world-session-provider";
+import { createTestPresenceTab } from "@/features/campus/testing/presence-tab-test-utils";
+import { createTestWorldSession } from "@/features/campus/testing/world-session-test-utils";
 import { withQueryClient } from "@/tests/fixtures/query-client";
 
 export function createPresenceMediaTestStore() {
@@ -34,10 +42,16 @@ export function presenceSession(
   children: ReactNode,
   mediaStore: StoreApi<MediaSessionState> = createPresenceMediaTestStore(),
   admissionStore: AdmissionStore = createPresenceAdmissionTestStore(),
+  presenceTab: PresenceTab = createTestPresenceTab(),
+  world: WorldSession = createTestWorldSession(),
 ) {
   return withQueryClient(
     <AdmissionProvider store={admissionStore}>
-      <MediaSessionProvider store={mediaStore}>{children}</MediaSessionProvider>
+      <MediaSessionProvider store={mediaStore}>
+        <PresenceTabProvider tab={presenceTab}>
+          <WorldSessionProvider world={world}>{children}</WorldSessionProvider>
+        </PresenceTabProvider>
+      </MediaSessionProvider>
     </AdmissionProvider>,
   );
 }

@@ -9,7 +9,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { VisualsDisplay } from "@/features/campus";
-import { CampusMediaSessionProvider } from "@/features/campus/services/media-session/media-session-provider";
+import { PresenceSessionProvider } from "@/features/campus/services/presence-session/presence-session-provider";
 import {
   createTestMediaDevice,
   installTestMediaDevices,
@@ -19,9 +19,9 @@ import { toast, Toaster } from "@/shared/ui/toast";
 function renderVisualsDisplay() {
   return render(
     <>
-      <CampusMediaSessionProvider>
+      <PresenceSessionProvider cohortId="c-1">
         <VisualsDisplay />
-      </CampusMediaSessionProvider>
+      </PresenceSessionProvider>
       <Toaster />
     </>,
   );

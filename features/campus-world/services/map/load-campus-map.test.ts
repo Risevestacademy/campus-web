@@ -42,7 +42,13 @@ describe("loadCampusMap", () => {
     const fetch = stubSanityFetch(pinned);
 
     const loaded = await loadCampusMap(
-      { kind: "pinned", mapId: "campus", version: "version-pinned" },
+      {
+        kind: "pinned",
+        mapId: "campus",
+        version: "version-pinned",
+        width: mapFixture.width,
+        height: mapFixture.height,
+      },
       { ...sanityConfiguration, fetch },
     );
 
@@ -52,6 +58,52 @@ describe("loadCampusMap", () => {
       '"worldMap-campus-version-pinned"',
     );
     expect(loaded.manifest).toEqual(pinned);
+  });
+
+  it("refuses pinned artwork whose manifest dimensions differ from world", async () => {
+    const pinned = {
+      ...entryManifest("campus", true, "version-pinned"),
+      widthTiles: mapFixture.width + 1,
+    };
+    const fetch = stubSanityFetch(pinned);
+
+    await expect(
+      loadCampusMap(
+        {
+          kind: "pinned",
+          mapId: "campus",
+          version: "version-pinned",
+          width: mapFixture.width,
+          height: mapFixture.height,
+        },
+        { ...sanityConfiguration, fetch },
+      ),
+    ).rejects.toMatchObject({ kind: "layout", mapId: "campus" });
+    expect(
+      vi.mocked(fetch).mock.calls.map(([input]) => String(input)),
+    ).not.toContain(mapUrl);
+  });
+
+  it("refuses pinned map JSON whose dimensions differ from world", async () => {
+    const pinned = entryManifest("campus", true, "version-pinned");
+    const fetch = vi.fn(async (input: RequestInfo | URL) =>
+      String(input) === mapUrl
+        ? jsonResponse({ ...mapFixture, height: mapFixture.height + 1 })
+        : jsonResponse({ result: pinned }),
+    ) as unknown as typeof globalThis.fetch;
+
+    await expect(
+      loadCampusMap(
+        {
+          kind: "pinned",
+          mapId: "campus",
+          version: "version-pinned",
+          width: mapFixture.width,
+          height: mapFixture.height,
+        },
+        { ...sanityConfiguration, fetch },
+      ),
+    ).rejects.toMatchObject({ kind: "layout", mapId: "campus" });
   });
 
   it("reports a manifest failure when no current map is the entry", async () => {

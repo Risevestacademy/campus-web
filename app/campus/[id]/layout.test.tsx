@@ -10,6 +10,9 @@ vi.mock("@/features/campus-world", () => ({
   CampusMapPreparationGate: ({ children }: { children: ReactNode }) => children,
 }));
 vi.mock("next/navigation", () => ({
+  notFound: () => {
+    throw new Error("404");
+  },
   useRouter: () => ({ push: vi.fn() }),
 }));
 vi.mock("server-only", () => ({}));
@@ -30,4 +33,16 @@ describe("CohortLayout", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Join" })).toBeEnabled();
   });
+
+  it.each(["", "sub/c-1", "a b"])(
+    "responds not-found to cohort id %s",
+    async (id) => {
+      await expect(
+        CohortLayout({
+          params: Promise.resolve({ id }),
+          children: null,
+        }),
+      ).rejects.toThrow("404");
+    },
+  );
 });

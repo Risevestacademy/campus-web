@@ -1,5 +1,7 @@
 import type { MapLayout } from "campus-world-map";
 
+import { tileCentre } from "./tile-centre";
+
 interface Size {
   height: number;
   width: number;
@@ -33,21 +35,30 @@ interface TileGrid {
   width: number;
 }
 
+function worldSize(map: TileGrid): Size {
+  return {
+    height: map.height * map.tileheight,
+    width: map.width * map.tilewidth,
+  };
+}
+
 export function spawnCamera(
   map: TileGrid,
   layout: Pick<MapLayout, "spawn">,
   viewport: Size,
 ): Point {
-  const world = {
-    height: map.height * map.tileheight,
-    width: map.width * map.tilewidth,
-  };
+  const world = worldSize(map);
   const target = layout.spawn
-    ? {
-        x: (layout.spawn.x + 0.5) * map.tilewidth,
-        y: (layout.spawn.y + 0.5) * map.tileheight,
-      }
+    ? tileCentre(layout.spawn, map)
     : { x: world.width / 2, y: world.height / 2 };
 
   return clampCamera(target, viewport, world);
+}
+
+export function followCamera(
+  tile: Point,
+  map: TileGrid,
+  viewport: Size,
+): Point {
+  return clampCamera(tileCentre(tile, map), viewport, worldSize(map));
 }

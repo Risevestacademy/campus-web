@@ -13,6 +13,8 @@ import {
 import { FeedbackPopup } from "@/features/feedback";
 import { CampusOverviewPanel } from "@/features/roster";
 
+import { requireCohortId } from "../require-cohort-id";
+
 export default async function AdministrationLayout({
   children,
   params,
@@ -20,10 +22,8 @@ export default async function AdministrationLayout({
   children: React.ReactNode;
   params: Promise<{ id: string }>;
 }) {
-  const [access, { id }] = await Promise.all([
-    requireRouteAccess({ kind: "system-admin" }),
-    params,
-  ]);
+  const id = await requireCohortId(params);
+  const access = await requireRouteAccess({ kind: "system-admin" });
 
   if (access.kind === "unavailable") {
     return <SessionUnavailable retryHref={access.retryHref} />;

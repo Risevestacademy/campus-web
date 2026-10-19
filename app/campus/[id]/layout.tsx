@@ -1,5 +1,11 @@
-import { CohortGate, SessionRenewal } from "@/features/auth";
+import {
+  CohortGate,
+  SessionRefreshProvider,
+  SessionRenewal,
+} from "@/features/auth";
 import { PresenceSession } from "@/features/campus";
+
+import { requireCohortId } from "./require-cohort-id";
 
 // One Presence Session per cohort spans pre-join and every cohort page, so
 // changing page keeps the call; reloads and other cohorts start a new one.
@@ -10,12 +16,16 @@ export default async function CohortLayout({
   children: React.ReactNode;
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
+  const id = await requireCohortId(params);
 
   return (
     <CohortGate cohortId={id}>
       <SessionRenewal cohortId={id} />
-      <PresenceSession key={id}>{children}</PresenceSession>
+      <SessionRefreshProvider>
+        <PresenceSession cohortId={id} key={id}>
+          {children}
+        </PresenceSession>
+      </SessionRefreshProvider>
     </CohortGate>
   );
 }

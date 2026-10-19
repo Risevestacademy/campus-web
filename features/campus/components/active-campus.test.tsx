@@ -4,6 +4,11 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { MediaSessionProvider } from "../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../services/media-session/media-session-store";
+import { WorldSessionProvider } from "../services/world-session/world-session-provider";
+import {
+  createTestWorldSession,
+  type TestWorldSession,
+} from "../testing/world-session-test-utils";
 import { ActiveCampus } from "./active-campus";
 import { CampusShell } from "./campus-shell/campus-shell";
 
@@ -32,7 +37,10 @@ function AccountMenuStub({ children }: { children: ReactNode }) {
   );
 }
 
-function renderActiveCampus(AccountMenu?: typeof AccountMenuStub) {
+function renderActiveCampus(
+  AccountMenu?: typeof AccountMenuStub,
+  world: TestWorldSession = createTestWorldSession(),
+) {
   const store = createMediaSessionStore({ mediaDevices: null });
 
   return render(
@@ -42,9 +50,11 @@ function renderActiveCampus(AccountMenu?: typeof AccountMenuStub) {
       cohortId="c-1"
     >
       <MediaSessionProvider store={store}>
-        <ActiveCampus viewModel={activeCampusViewModel}>
-          <p>Route content</p>
-        </ActiveCampus>
+        <WorldSessionProvider world={world}>
+          <ActiveCampus viewModel={activeCampusViewModel}>
+            <p>Route content</p>
+          </ActiveCampus>
+        </WorldSessionProvider>
       </MediaSessionProvider>
     </CampusShell>,
   );
@@ -207,5 +217,16 @@ describe("Feedback popup", () => {
     expect(
       screen.queryByRole("region", { name: "Feedback popup" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("tells the member when the campus map has lost world", () => {
+    renderActiveCampus(
+      undefined,
+      createTestWorldSession({ phase: "closed", outcome: "gave-up" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Reconnect" }),
+    ).toBeInTheDocument();
   });
 });

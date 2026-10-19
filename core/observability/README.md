@@ -39,3 +39,10 @@ standard error.
 
 Use the low-cardinality route template, such as `/api/profiles/[id]`, rather
 than the requested URL containing a real resource ID.
+
+In the browser, `createConsoleLogger()` writes warnings and errors to the
+console and drops information records, which nothing collects there:
+
+```ts
+import { createConsoleLogger } from "@/core/observability";
+```

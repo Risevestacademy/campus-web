@@ -1,11 +1,13 @@
 import { CohortGate } from "@/features/auth";
 
+import { requireCohortId } from "../../require-cohort-id";
+
 export default async function ActiveCampusMeetingPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
+  const id = await requireCohortId(params);
 
   return (
     <CohortGate cohortId={id}>

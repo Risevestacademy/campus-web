@@ -6,7 +6,7 @@ import { preconnect } from "react-dom";
 import { Button } from "@/shared/ui/button";
 
 import {
-  type CampusWorldDependencies,
+  type CampusMapDependencies,
   defaultCampusWorldDependencies,
 } from "../hooks/campus-world-dependencies";
 import { useCampusMapPreparation } from "../hooks/use-campus-map-preparation";
@@ -129,7 +129,7 @@ function PreparationFailed({ onRetry }: { onRetry: () => void }) {
 
 interface CampusMapPreparationGateProps {
   children: ReactNode;
-  dependencies?: CampusWorldDependencies;
+  dependencies?: CampusMapDependencies;
 }
 
 export function CampusMapPreparationGate({

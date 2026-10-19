@@ -1,3 +1,4 @@
+export { createConsoleLogger } from "./console-logger";
 export {
   createJsonLogger,
   type JsonLoggerOptions,

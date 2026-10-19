@@ -2,7 +2,11 @@ import {
   type APIRequestContext,
   type BrowserContext,
   test as base,
+  type WebSocketRoute,
 } from "@playwright/test";
+
+import { serverFrames } from "../../fixtures/world-frames";
+import { E2E_MAP } from "./sanity-stub";
 
 export const FAKE_API_ORIGIN = `http://127.0.0.1:${process.env.FAKE_API_PORT ?? 3101}`;
 
@@ -233,7 +237,36 @@ export class FakeApi {
   }
 }
 
-export const test = base.extend<{ fakeApi: FakeApi }>({
+const WORLD_SOCKET = /\/socket\?cohortId=/;
+
+type WorldSocketHandler = (socket: WebSocketRoute) => void;
+
+export interface FakeWorld {
+  replaceHandler(handler: WorldSocketHandler): void;
+}
+
+function admitToWorld(socket: WebSocketRoute) {
+  socket.send(JSON.stringify(serverFrames.welcome));
+  // world announces the map it is running; the Sanity stub publishes the
+  // same one.
+  socket.send(JSON.stringify({ ...serverFrames.snapshot, map: E2E_MAP }));
+}
+
+export const test = base.extend<{ fakeApi: FakeApi; world: FakeWorld }>({
+  // Builds carry a real NEXT_PUBLIC_WORLD_URL; without this, Join would open a
+  // socket to it with no session and reload on world's no_token.
+  world: [
+    async ({ context }, provide) => {
+      let handler: WorldSocketHandler = admitToWorld;
+      await context.routeWebSocket(WORLD_SOCKET, (socket) => handler(socket));
+      await provide({
+        replaceHandler(nextHandler) {
+          handler = nextHandler;
+        },
+      });
+    },
+    { auto: true },
+  ],
   // Named `provide`, not Playwright's usual `use`, so react-hooks lint does not
   // mistake the fixture callback for React's use() hook.
   fakeApi: async ({ playwright }, provide) => {

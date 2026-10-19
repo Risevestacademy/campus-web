@@ -29,8 +29,9 @@ pnpm api:types
 ```
 
 The command loads `.env.local` and derives the schema URL as
-`${API_BASE_URL}/docs-json`. The upstream OpenAPI document must remain
-the source of truth for request and response shapes.
+`${API_BASE_URL}/docs-json`. The fetch gives up after 10 seconds. The
+upstream OpenAPI document must remain the source of truth for request and
+response shapes.
 
 ## Environment
 
