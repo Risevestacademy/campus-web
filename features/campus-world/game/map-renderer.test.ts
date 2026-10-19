@@ -44,4 +44,14 @@ describe("addMapBand", () => {
 
     expect(band.drawFrame()).toEqual(["grounds"]);
   });
+
+  it("draws only the tiles a zoomed-in view reaches", () => {
+    const band = addFakeBand([squareLayer(Array(25).fill(1))], tilesets, {
+      camera: { x: 40, y: 40 },
+      scale: 2,
+      viewport: { height: 32, width: 32 },
+    });
+
+    expect(band.drawFrame()).toHaveLength(4);
+  });
 });

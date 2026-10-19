@@ -9,9 +9,11 @@ import { WorldConnectionStatus } from "./world-connection-status";
 export function ActiveCampus({
   children,
   viewModel,
+  zoomControls,
 }: {
   children: ReactNode;
   viewModel: ActiveCampusViewModel;
+  zoomControls: ReactNode;
 }) {
   const { meeting, viewer } = viewModel;
 
@@ -52,6 +54,7 @@ export function ActiveCampus({
             <CampusControlBar
               initials={viewer.initials}
               status={viewer.presenceStatus}
+              zoomControls={zoomControls}
             />
           </aside>
         </div>

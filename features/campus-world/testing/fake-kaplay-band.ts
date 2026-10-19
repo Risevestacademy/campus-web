@@ -9,6 +9,7 @@ const TILE = 16;
 
 interface FakeBandOptions {
   camera?: { x: number; y: number };
+  scale?: number;
   viewport?: { height: number; width: number };
 }
 
@@ -51,6 +52,7 @@ export function addFakeBand(
     },
     drawSprite,
     getCamPos: () => camera,
+    getCamScale: () => ({ x: options.scale ?? 1, y: options.scale ?? 1 }),
     height: () => viewport.height,
     layer: (name: string) => ({ name }),
     vec2: (x: number, y: number) => ({ x, y }),

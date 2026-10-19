@@ -3,7 +3,7 @@ import type { GameObj, KAPLAYCtx } from "kaplay";
 import type { Presence } from "@/core/presence";
 import type { WorldMovement } from "@/core/realtime";
 
-import { spawnCamera } from "../services/camera";
+import { spawnTarget, type ZoomLevel, type ZoomStep } from "../services/camera";
 import {
   type CampusMapIdentity,
   type CampusMapModule,
@@ -12,6 +12,7 @@ import {
 } from "../services/map/prepare-campus-map";
 import { campusBackground } from "../services/theme-background";
 import { addAvatarLayer } from "./avatar-layer";
+import { type CampusCamera, createCampusCamera } from "./campus-camera";
 import { addMapBand, type RenderTileset } from "./map-renderer";
 import type { MoveCorrectionOutcome } from "./own-avatar-movement";
 import { uploadTilesetSprites } from "./tileset-sprites";
@@ -24,6 +25,7 @@ export interface CampusGameOptions {
   movement: WorldMovement;
   onMoveCorrected: (outcome: MoveCorrectionOutcome) => void;
   onRenderError: () => void;
+  onZoomChanged: (level: ZoomLevel) => void;
   readPresence: () => Presence;
   signal: AbortSignal;
 }
@@ -35,6 +37,7 @@ export interface CampusRuntime {
     prepared: PreparedCampusMap,
     options: CampusGameOptions,
   ) => Promise<CampusGame>;
+  zoom: (step: ZoomStep) => void;
 }
 
 interface RuntimeContext {
@@ -46,6 +49,7 @@ interface RuntimeContext {
 }
 
 interface Mount {
+  camera?: CampusCamera;
   objects: GameObj[];
   onRenderError: () => void;
   ready: boolean;
@@ -96,7 +100,7 @@ export function createCampusRuntime(
     canvas.tabIndex = 0;
     canvas.setAttribute(
       "aria-label",
-      "Campus movement. Use Arrow keys or W, A, S, D to move.",
+      "Campus movement. Use Arrow keys or W, A, S, D to move, plus or minus to zoom, and drag to look around.",
     );
     container.append(canvas);
 
@@ -184,13 +188,13 @@ export function createCampusRuntime(
   }
 
   function drawMap(
-    k: KAPLAYCtx,
+    { canvas, k }: RuntimeContext,
     mount: Mount,
     prepared: PreparedCampusMap,
     tilesets: RenderTileset[],
     options: Pick<
       CampusGameOptions,
-      "movement" | "onMoveCorrected" | "readPresence"
+      "movement" | "onMoveCorrected" | "onZoomChanged" | "readPresence"
     >,
   ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
@@ -200,11 +204,14 @@ export function createCampusRuntime(
         return;
       }
 
-      const camera = spawnCamera(prepared.map, prepared.layout, {
-        height: k.height(),
-        width: k.width(),
+      const { onZoomChanged, ...avatarOptions } = options;
+      const camera = createCampusCamera(k, {
+        canvas,
+        map: prepared.map,
+        onZoomChanged,
+        start: spawnTarget(prepared.map, prepared.layout),
       });
-      k.setCamPos(k.vec2(camera.x, camera.y));
+      mount.camera = camera;
 
       const band = { map: prepared.map, tilesets };
       mount.objects.push(
@@ -216,9 +223,10 @@ export function createCampusRuntime(
       );
       mount.objects.push(
         addAvatarLayer(k, {
+          camera,
           layout: prepared.layout,
           map: prepared.map,
-          ...options,
+          ...avatarOptions,
         }),
       );
       mount.objects.push(
@@ -238,6 +246,8 @@ export function createCampusRuntime(
     mount.stopped = true;
     mount.objects.forEach((object) => object.destroy());
     mount.objects = [];
+    mount.camera?.stop();
+    mount.camera = undefined;
     mount.rejectFirstDraw?.(stoppedError());
 
     if (active === mount) {
@@ -273,7 +283,7 @@ export function createCampusRuntime(
         const tilesets = await spritesFor(runtimeContext, prepared, images);
         if (mount.stopped) throw stoppedError();
 
-        await drawMap(runtimeContext.k, mount, prepared, tilesets, options);
+        await drawMap(runtimeContext, mount, prepared, tilesets, options);
         if (mount.renderError) throw mount.renderError;
         mount.ready = true;
         return { stop: () => stop(mount) };
@@ -284,6 +294,10 @@ export function createCampusRuntime(
       } finally {
         signal.removeEventListener("abort", stopOnAbort);
       }
+    },
+
+    zoom(step) {
+      active?.camera?.zoom(step);
     },
   };
 }

@@ -51,7 +51,10 @@ function renderActiveCampus(
     >
       <MediaSessionProvider store={store}>
         <WorldSessionProvider world={world}>
-          <ActiveCampus viewModel={activeCampusViewModel}>
+          <ActiveCampus
+            viewModel={activeCampusViewModel}
+            zoomControls={<div role="group" aria-label="Zoom controls" />}
+          >
             <p>Route content</p>
           </ActiveCampus>
         </WorldSessionProvider>

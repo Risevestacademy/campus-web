@@ -1,5 +1,6 @@
 import type { DrawSpriteOpt, GameObj, KAPLAYCtx } from "kaplay";
 
+import { visibleArea } from "../services/camera";
 import { buildBandDrawList } from "../services/map/band-draw-list";
 import type { TiledTileLayer } from "../services/map/layer-bands";
 import type { CampusTiledMap } from "../services/map/load-campus-map";
@@ -64,12 +65,11 @@ export function addMapBand(
     {
       draw() {
         const camera = k.getCamPos();
-        const bounds = visibleBounds({
-          height: k.height(),
-          width: k.width(),
-          x: camera.x,
-          y: camera.y,
-        });
+        const visible = visibleArea(
+          { height: k.height(), width: k.width() },
+          k.getCamScale().x,
+        );
+        const bounds = visibleBounds({ ...visible, x: camera.x, y: camera.y });
 
         for (const { cells, width } of sprites) {
           for (let row = bounds.top; row <= bounds.bottom; row += 1) {

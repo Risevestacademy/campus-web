@@ -58,6 +58,12 @@ function mountCampusGame(
         );
       },
       onRenderError: failRender,
+      onZoomChanged(level) {
+        dependencies.captureEvent?.(
+          ANALYTICS_EVENTS.CAMPUS_WORLD_CAMERA_ZOOMED,
+          { level },
+        );
+      },
       readPresence: presence.getState,
       signal: lifetime.signal,
     })

@@ -369,6 +369,19 @@ describe("CampusWorld", () => {
     );
   });
 
+  it("reports each zoom level the camera settles on", () => {
+    const game = startedGame();
+    const { dependencies } = renderWorld({ runtime: game.runtime });
+
+    const [, , options] = game.start.mock.calls[0]!;
+    options.onZoomChanged(3);
+
+    expect(dependencies.captureEvent).toHaveBeenCalledWith(
+      "campus_world.camera_zoomed",
+      { level: 3 },
+    );
+  });
+
   it("reports the time from game start to the first frame", async () => {
     const game = startedGame();
     const { dependencies } = renderWorld({

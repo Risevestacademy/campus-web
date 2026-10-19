@@ -20,6 +20,7 @@ function container() {
 function mountOptions(
   overrides: {
     onRenderError?: () => void;
+    onZoomChanged?: () => void;
     readPresence?: () => Presence;
     signal?: AbortSignal;
   } = {},
@@ -28,6 +29,7 @@ function mountOptions(
     movement: createWorldMovementChannel(),
     onMoveCorrected: vi.fn(),
     onRenderError: vi.fn(),
+    onZoomChanged: vi.fn(),
     readPresence: () => EMPTY_PRESENCE,
     signal: new AbortController().signal,
     ...overrides,
@@ -55,7 +57,7 @@ describe("createCampusRuntime", () => {
     );
     expect(element.querySelector("canvas")).toHaveAttribute(
       "aria-label",
-      "Campus movement. Use Arrow keys or W, A, S, D to move.",
+      "Campus movement. Use Arrow keys or W, A, S, D to move, plus or minus to zoom, and drag to look around.",
     );
     expect(element.querySelector("canvas")).toHaveAttribute("tabindex", "0");
     expect(document.activeElement).toBe(element.querySelector("canvas"));
@@ -154,6 +156,39 @@ describe("createCampusRuntime", () => {
     game.stop();
 
     expect(kaplay.contexts[0]!.liveObjects()).toBe(0);
+  });
+
+  it("zooms the running game's camera", async () => {
+    const kaplay = fakeKaplay();
+    const runtime = createCampusRuntime();
+    const onZoomChanged = vi.fn();
+    await runtime.start(
+      container(),
+      fakePreparedMap(kaplay.module),
+      mountOptions({ onZoomChanged }),
+    );
+
+    runtime.zoom(1);
+
+    expect(kaplay.contexts[0]!.k.getCamScale().x).toBe(3);
+    expect(onZoomChanged).toHaveBeenCalledExactlyOnceWith(3);
+  });
+
+  it("stops the camera's input when its game stops", async () => {
+    const kaplay = fakeKaplay();
+    const runtime = createCampusRuntime();
+    const onZoomChanged = vi.fn();
+    const game = await runtime.start(
+      container(),
+      fakePreparedMap(kaplay.module),
+      mountOptions({ onZoomChanged }),
+    );
+
+    game.stop();
+    runtime.zoom(1);
+
+    expect(kaplay.contexts[0]!.inputHandlers()).toBe(0);
+    expect(onZoomChanged).not.toHaveBeenCalled();
   });
 
   it("paints the background from the theme token", async () => {

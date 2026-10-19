@@ -6,6 +6,7 @@ import { type Avatar, createWorldMovementChannel } from "@/core/realtime";
 
 import { fakeKaplay } from "../testing/fake-kaplay";
 import { addAvatarLayer } from "./avatar-layer";
+import { createCampusCamera } from "./campus-camera";
 
 const MAP = { height: 40, tileheight: 16, tilewidth: 16, width: 60 };
 const LAYOUT = {
@@ -48,7 +49,18 @@ function startLayer(...players: Avatar[]) {
     players,
   });
 
+  const canvas = document.createElement("canvas");
+  canvas.setPointerCapture = vi.fn();
+  const camera = createCampusCamera(context.k, {
+    canvas,
+    map: MAP,
+    onZoomChanged: vi.fn(),
+    start: { x: 480, y: 320 },
+  });
+  vi.mocked(context.k.setCamPos).mockClear();
+
   const layer = addAvatarLayer(context.k, {
+    camera,
     layout: LAYOUT,
     map: MAP,
     movement,
@@ -56,7 +68,7 @@ function startLayer(...players: Avatar[]) {
     readPresence: presence.getState,
   });
 
-  return { context, k: context.k, layer, movement, presence, send };
+  return { canvas, context, k: context.k, layer, movement, presence, send };
 }
 
 function admit(
@@ -240,6 +252,26 @@ describe("addAvatarLayer", () => {
     movement.apply(refused);
     context.updateFrame(0);
 
+    expect(k.setCamPos).toHaveBeenLastCalledWith({ x: 488, y: 328 });
+  });
+
+  it("puts the camera back on you when you walk after a drag", () => {
+    const { canvas, context, k, movement, presence } = startLayer(ADA);
+    admit(presence, movement, ADA);
+    context.updateFrame();
+    const drag = { button: 0, pointerId: 1, pointerType: "mouse" };
+    canvas.dispatchEvent(
+      new PointerEvent("pointerdown", { ...drag, clientX: 100, clientY: 100 }),
+    );
+    canvas.dispatchEvent(
+      new PointerEvent("pointermove", { ...drag, clientX: 140, clientY: 70 }),
+    );
+
+    context.updateFrame();
+    expect(k.setCamPos).toHaveBeenLastCalledWith({ x: 468, y: 343 });
+
+    context.pressKey("right");
+    context.updateFrame(0);
     expect(k.setCamPos).toHaveBeenLastCalledWith({ x: 488, y: 328 });
   });
 });

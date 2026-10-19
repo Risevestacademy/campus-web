@@ -12,8 +12,14 @@ import {
   type Player,
 } from "@/core/realtime";
 import { addAvatarLayer } from "@/features/campus-world/game/avatar-layer";
+import { createCampusCamera } from "@/features/campus-world/game/campus-camera";
 import { createOwnAvatarMovement } from "@/features/campus-world/game/own-avatar-movement";
 import { createRemoteAvatarMovement } from "@/features/campus-world/game/remote-avatar-movement";
+import {
+  clampCamera,
+  visibleArea,
+  ZOOM_LEVELS,
+} from "@/features/campus-world/services/camera";
 import {
   type PendingMove,
   reconcile,
@@ -21,7 +27,9 @@ import {
 import {
   isWalkable,
   predictStep,
+  stepFrom,
 } from "@/features/campus-world/services/movement/step";
+import { tileCentre } from "@/features/campus-world/services/tile-centre";
 import { fakeKaplay } from "@/features/campus-world/testing/fake-kaplay";
 import {
   movementLayout,
@@ -335,14 +343,12 @@ describe("remote avatars walk a moved gap", () => {
   });
 });
 
-interface CameraWalk {
-  cameraOffsets: number[];
-  corrections: string[];
-  drawnXs: number[];
-}
+const CAMERA_MAP = { height: 40, tileheight: 16, tilewidth: 16, width: 60 };
+const CAMERA_LAYOUT = { ...movementLayout, widthTiles: 60, heightTiles: 40 };
+const CAMERA_WORLD = { height: 640, width: 960 };
 
-// world answers each move one frame after it arrives; seq 2 walks into a wall.
-function walkWithCamera(): CameraWalk {
+// world answers each move one frame after it arrives.
+function startCameraWorld(refuses: (seq: number, target: Tile) => boolean) {
   const fake = fakeKaplay({ autoDraw: false });
   fake.kaplay({} as KAPLAYOpt);
   const context = fake.contexts[0]!;
@@ -353,8 +359,9 @@ function walkWithCamera(): CameraWalk {
   const corrections: string[] = [];
   let at = { x: 30, y: 20 };
   movement.bind(({ seq, direction }) => {
-    const refused = seq === 2;
-    if (!refused) at = { ...at, x: at.x + (direction === "right" ? 1 : 0) };
+    const target = stepFrom(at, direction);
+    const refused = refuses(seq, target);
+    if (!refused) at = target;
     answers.push({
       type: "moveResult",
       seq,
@@ -390,18 +397,25 @@ function walkWithCamera(): CameraWalk {
   presence.getState().apply(snapshot);
   movement.apply(welcome);
   movement.apply(snapshot);
+  const canvas = document.createElement("canvas");
+  canvas.setPointerCapture = vi.fn();
+  const camera = createCampusCamera(k, {
+    canvas,
+    map: CAMERA_MAP,
+    onZoomChanged: () => undefined,
+    start: tileCentre(at, CAMERA_MAP),
+  });
   addAvatarLayer(k, {
-    layout: { ...movementLayout, widthTiles: 60, heightTiles: 40 },
-    map: { height: 40, tileheight: 16, tilewidth: 16, width: 60 },
+    camera,
+    layout: CAMERA_LAYOUT,
+    map: CAMERA_MAP,
     movement,
     onMoveCorrected: (outcome) => corrections.push(outcome),
     readPresence: presence.getState,
   });
 
-  const cameraOffsets: number[] = [];
-  const drawnXs: number[] = [];
-  context.pressKey("right");
-  for (let frame = 0; frame < 30; frame += 1) {
+  // Runs one 16 ms frame and returns where you are drawn.
+  function frame(): Tile {
     for (const answerFrame of answers.splice(0)) {
       const answer = readMoveResult(answerFrame);
       presence.getState().apply(answer);
@@ -410,16 +424,35 @@ function walkWithCamera(): CameraWalk {
     vi.mocked(k.drawCircle).mockClear();
     context.updateFrame(16);
     context.drawFrame();
-    const self = vi
+    return vi
       .mocked(k.drawCircle)
       .mock.calls.map(([options]) => options)
-      .find((options) => options.outline !== undefined)!;
-    // setCamPos is overloaded; the layer always passes one vec2.
-    const [camera] = vi.mocked(k.setCamPos).mock.lastCall as unknown as [Tile];
-    cameraOffsets.push(
-      Math.hypot(camera.x - self.pos!.x, camera.y - self.pos!.y),
-    );
-    drawnXs.push(self.pos!.x);
+      .find((options) => options.outline !== undefined)!.pos!;
+  }
+
+  return { canvas, context, corrections, frame, k };
+}
+
+interface CameraWalk {
+  cameraOffsets: number[];
+  corrections: string[];
+  drawnXs: number[];
+}
+
+// seq 2 walks into a wall.
+function walkWithCamera(): CameraWalk {
+  const { context, corrections, frame, k } = startCameraWorld(
+    (seq) => seq === 2,
+  );
+
+  const cameraOffsets: number[] = [];
+  const drawnXs: number[] = [];
+  context.pressKey("right");
+  for (let step = 0; step < 30; step += 1) {
+    const self = frame();
+    const camera = k.getCamPos();
+    cameraOffsets.push(Math.hypot(camera.x - self.x, camera.y - self.y));
+    drawnXs.push(self.x);
   }
   context.releaseKey("right");
 
@@ -435,5 +468,174 @@ describe("camera stays on the drawn self", () => {
       Math.max(...walk.drawnXs) - Math.min(...walk.drawnXs),
     ).toBeGreaterThan(16);
     expect(Math.max(...walk.cameraOffsets)).toBe(0);
+  });
+});
+
+type CameraAction =
+  | { kind: "key"; key: "+" | "-" }
+  | { kind: "wheel"; deltaY: number; at: Tile }
+  | { kind: "drag"; by: Tile }
+  | { kind: "walk"; direction: Direction; frames: number }
+  | { kind: "resize"; width: number; height: number };
+
+const DIRECTIONS: Direction[] = ["up", "down", "left", "right"];
+const CURSOR_SPOTS: Tile[] = [
+  { x: 0, y: 0 },
+  { x: 640, y: 480 },
+  { x: 100, y: 400 },
+];
+const VIEWPORTS = [
+  { width: 640, height: 480 },
+  { width: 1280, height: 960 },
+  { width: 320, height: 240 },
+];
+
+// A fixed seed keeps the script identical on every run.
+function cameraScript(length: number): CameraAction[] {
+  let seed = 7;
+  const next = (bound: number) => {
+    seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+    // The low bits of this generator repeat quickly; scale the whole value.
+    return Math.floor((seed / 2_147_483_648) * bound);
+  };
+
+  return Array.from({ length }, (): CameraAction => {
+    switch (next(6)) {
+      case 0:
+        return { kind: "key", key: next(2) === 0 ? "+" : "-" };
+      case 1:
+        return {
+          kind: "wheel",
+          deltaY: next(2) === 0 ? -120 : 120,
+          at: CURSOR_SPOTS[next(CURSOR_SPOTS.length)]!,
+        };
+      case 2:
+        return {
+          kind: "drag",
+          by: { x: next(1601) - 800, y: next(1201) - 600 },
+        };
+      case 3:
+        return { kind: "resize", ...VIEWPORTS[next(VIEWPORTS.length)]! };
+      default:
+        return {
+          kind: "walk",
+          direction: DIRECTIONS[next(DIRECTIONS.length)]!,
+          frames: 1 + next(12),
+        };
+    }
+  });
+}
+
+function dragCanvas(canvas: HTMLCanvasElement, by: Tile) {
+  const pointer = { button: 0, pointerId: 1, pointerType: "mouse" };
+  canvas.dispatchEvent(
+    new PointerEvent("pointerdown", { ...pointer, clientX: 0, clientY: 0 }),
+  );
+  canvas.dispatchEvent(
+    new PointerEvent("pointermove", {
+      ...pointer,
+      clientX: by.x,
+      clientY: by.y,
+    }),
+  );
+  canvas.dispatchEvent(
+    new PointerEvent("pointerup", { ...pointer, clientX: by.x, clientY: by.y }),
+  );
+}
+
+interface CameraFrame {
+  onMap: boolean;
+  scale: number;
+  walking: boolean;
+  wrongWhileWalking: number;
+}
+
+// The visible rect fits inside the world, or is centred where it cannot.
+function fitsMap(centre: number, visible: number, world: number): boolean {
+  if (world <= visible) return centre === world / 2;
+  return centre - visible / 2 >= 0 && centre + visible / 2 <= world;
+}
+
+function playCameraScript(actions: CameraAction[]): CameraFrame[] {
+  const { canvas, context, frame, k } = startCameraWorld(
+    (_, target) => !isWalkable(CAMERA_LAYOUT, target),
+  );
+  const frames: CameraFrame[] = [];
+
+  function check(walking: boolean) {
+    const self = frame();
+    const camera = k.getCamPos();
+    const scale = k.getCamScale().x;
+    const visible = visibleArea(
+      { height: k.height(), width: k.width() },
+      scale,
+    );
+    const followed = clampCamera(self, visible, CAMERA_WORLD);
+    frames.push({
+      onMap:
+        fitsMap(camera.x, visible.width, CAMERA_WORLD.width) &&
+        fitsMap(camera.y, visible.height, CAMERA_WORLD.height),
+      scale,
+      walking,
+      wrongWhileWalking: walking
+        ? Math.hypot(camera.x - followed.x, camera.y - followed.y)
+        : 0,
+    });
+  }
+
+  for (const action of actions) {
+    switch (action.kind) {
+      case "key":
+        context.pressKey(action.key);
+        context.releaseKey(action.key);
+        break;
+      case "wheel":
+        context.moveMouse(action.at);
+        context.scroll(action.deltaY);
+        break;
+      case "drag":
+        dragCanvas(canvas, action.by);
+        break;
+      case "resize":
+        context.resize(action.width, action.height);
+        break;
+      case "walk":
+        context.pressKey(action.direction);
+        for (let step = 0; step < action.frames; step += 1) check(true);
+        context.releaseKey(action.direction);
+        break;
+    }
+    check(false);
+  }
+
+  return frames;
+}
+
+describe("camera stays on the map at every zoom", () => {
+  const frames = playCameraScript(cameraScript(200));
+
+  it("covers every zoom level, walking and the camera set free", () => {
+    expect(new Set(frames.map(({ scale }) => scale))).toEqual(
+      new Set(ZOOM_LEVELS),
+    );
+    expect(frames.filter(({ walking }) => walking).length).toBeGreaterThan(50);
+  });
+
+  it("never shows past the map's edge", () => {
+    expect(frames.filter(({ onMap }) => !onMap)).toEqual([]);
+  });
+
+  it("only ever draws at a whole-number zoom level", () => {
+    expect(
+      frames.filter(
+        ({ scale }) => !(ZOOM_LEVELS as readonly number[]).includes(scale),
+      ),
+    ).toEqual([]);
+  });
+
+  it("returns to you on every frame you walk", () => {
+    expect(
+      Math.max(...frames.map(({ wrongWhileWalking }) => wrongWhileWalking)),
+    ).toBe(0);
   });
 });

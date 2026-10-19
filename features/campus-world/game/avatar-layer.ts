@@ -8,7 +8,7 @@ import {
   type AvatarDraw,
   buildAvatarDrawList,
 } from "../services/avatars/avatar-draw-list";
-import { followCamera } from "../services/camera";
+import type { CampusCamera } from "./campus-camera";
 import {
   createOwnAvatarMovement,
   type MoveCorrectionOutcome,
@@ -16,6 +16,7 @@ import {
 import { createRemoteAvatarMovement } from "./remote-avatar-movement";
 
 interface AvatarLayerOptions {
+  camera: Pick<CampusCamera, "follow">;
   layout: MapLayout;
   map: { height: number; tileheight: number; tilewidth: number; width: number };
   movement: WorldMovement;
@@ -48,7 +49,14 @@ const FACING: Record<Direction, { x: number; y: number }> = {
 // Every spriteKey draws this one placeholder until character art exists.
 export function addAvatarLayer(
   k: KAPLAYCtx,
-  { layout, map, movement, onMoveCorrected, readPresence }: AvatarLayerOptions,
+  {
+    camera,
+    layout,
+    map,
+    movement,
+    onMoveCorrected,
+    readPresence,
+  }: AvatarLayerOptions,
 ): GameObj {
   const radius = Math.min(map.tilewidth, map.tileheight) * BODY_SHARE_OF_TILE;
   const colours = {
@@ -147,20 +155,14 @@ export function addAvatarLayer(
     {
       update() {
         const deltaMs = k.dt() * 1000;
-        ownMovement.update({
-          deltaMs,
-          held: heldDirections(),
-          pressed: pressedDirection(),
-        });
+        const held = heldDirections();
+        const pressed = pressedDirection();
+        ownMovement.update({ deltaMs, held, pressed });
         remoteMovement.update(deltaMs);
         const self = ownMovement.readPlayer();
         if (!self) return;
 
-        const camera = followCamera(self, map, {
-          height: k.height(),
-          width: k.width(),
-        });
-        k.setCamPos(k.vec2(camera.x, camera.y));
+        camera.follow(self, pressed !== null || held.length > 0);
       },
       draw() {
         const list = buildAvatarDrawList(readPresence(), map, {

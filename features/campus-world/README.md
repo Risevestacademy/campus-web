@@ -11,11 +11,12 @@ from world's `stepMs`. It does not own authentication, media, or sockets.
 
 ## Interface
 
-`index.ts` exposes two route-composition boundaries.
+`index.ts` exposes three route-composition boundaries.
 
 ```tsx
 <CampusMapPreparationGate>{joinGate}</CampusMapPreparationGate>
 <CampusWorld cohortId={cohortId} />
+<ActiveCampus zoomControls={<CampusZoomControls />}>…</ActiveCampus>
 ```
 
 `CampusMapPreparationGate` blocks its children until the manifest, map JSON,
@@ -23,6 +24,9 @@ tileset images, and lazy KAPLAY module are prepared. `CampusWorld` exposes the
 accessible region `Campus map`, plus `data-status` and `data-map-id` for
 browser verification. Its status progresses from `idle` to `loading-map`,
 then to `ready` after first draw or recoverable `failed`.
+`CampusZoomControls` is the `Zoom controls` group the active-campus layout
+slots into the campus control bar; each button steps the running game's
+camera and does nothing before the map is drawn.
 
 A prepared map is render-ready while its tileset images are decoded or the
 runtime already holds that map version's sprites. Active Campus consumes the
@@ -32,8 +36,9 @@ gate prepare the map again.
 
 Analytics: `campus_world.map_loaded` carries preparation time (`load_ms`);
 `campus_world.map_ready` carries the time from game start to the first drawn
-frame (`first_frame_ms`), once per ready start; and
-`campus_world.move_corrected` carries a non-`moved` result (`outcome`).
+frame (`first_frame_ms`), once per ready start;
+`campus_world.move_corrected` carries a non-`moved` result (`outcome`); and
+`campus_world.camera_zoomed` carries each new zoom level (`level`).
 
 ## Modules
 
@@ -110,8 +115,9 @@ initialized`. The runtime moves its one canvas between containers, clears
   joins, unsafe reconstructed paths, reduced-motion displays, and queues that
   would exceed four steps. Face each step's travel direction, then apply
   world's authoritative facing at the destination.
-- Keep canvas focusable and auto-focused. Its accessible label must name both
-  Arrow keys and W, A, S, D.
+- Keep canvas focusable and auto-focused. Its accessible label must name
+  Arrow keys, W, A, S, D, plus and minus, and dragging. Zoom buttons prevent
+  default on mousedown so a press leaves focus, and walking, on the canvas.
 - Resolve tiles once through `buildBandDrawList`; a frame only walks cells
   whose rendered tiles can reach the viewport, layer by layer. Never iterate
   by tileset: layers that mix tilesets then draw out of order.
@@ -134,6 +140,17 @@ initialized`. The runtime moves its one canvas between containers, clears
   `facing`, a ring for you) until character art exists. Once world has
   placed you, the camera follows your drawn, predicted position each frame,
   clamped to the map, so it never waits for world's answer.
+- `game/campus-camera.ts` owns the camera's frame state: zoom level, centre,
+  and whether a drag or wheel zoom has set it free. Zoom levels are 1x, 2x
+  and 3x, default 2x; only whole numbers keep pixel art sharp. Each viewer's
+  level is saved in `localStorage` (`services/zoom-preference.ts`, parsed
+  with Zod). `+`, `=` and `-` zoom on the centre, except with Ctrl or Cmd,
+  which stay the browser's. Wheel and pinch zoom toward the cursor, one level
+  per gesture step. Dragging with a mouse or pen moves the map; the next
+  Arrow or WASD press returns the camera to you. Touch belongs to mobile.
+  Clamping and culling both use the scaled viewport (`visibleArea`), or edge
+  tiles vanish and the camera shows past the map. Never copy the level into
+  React or Zustand; React reaches it only through `runtime.zoom`.
 - Escape every display name with `escapeStyledText` before KAPLAY sees it.
   KAPLAY reads `[tag]` as a style and throws on an unclosed one or a
   trailing `\`, and a throw inside a frame fails the whole map. Labels are
@@ -152,7 +169,8 @@ pnpm test:e2e
 
 Unit tests cover the runtime (one context, sprite reuse, stale starts, render
 recovery), preparation, cancellation, readiness, progress, analytics,
-lifecycle, bands, layer draw order, tile transforms, frames, camera, theme,
+lifecycle, bands, layer draw order, tile transforms, frames, camera math,
+zoom, drag, zoom preference, zoom buttons, scaled culling, theme,
 avatar drawing and label escaping, input pacing, and movement grid rules.
 Shared fakes and the movement test layout live in `testing/`. The runtime eval replays Strict
 Mode, re-entry, retry, and a new map version from world with one live game. The avatar eval protects hostile display names and
@@ -160,7 +178,11 @@ unknown sprite keys. The movement eval replays recorded `moveResult` sessions
 (a blocked step mid-burst, `too_fast` and recovery, an outcome added upstream)
 and remote `moved` gaps through the frame controller. It fails on a correction
 after a right prediction, a diagonal remote step, a remote wall crossing, or
-any frame where the camera is off your drawn avatar.
+any frame where the camera is off your drawn avatar. Its zoom eval plays a
+fixed 200-action script of zooms, wheel, drags, walks and resizes, and fails
+on any frame that shows past the map, draws at a level outside 1x, 2x and
+3x, or leaves the camera off you while you walk. The storage eval reads
+hostile stored zoom values back as 2x.
 Remote unit coverage protects interpolation, excess frame time, queue overflow,
 reconnect snapshots, lifecycle changes, and reduced motion. The Storybook
 browser test remounts in real Chromium and fails on the KAPLAY warning.
@@ -170,4 +192,6 @@ a held key sends one `move` per `stepMs` with rising `seq`, a `blocked` answer
 snaps you back facing the new way, and a remote three-tile `moved` passes
 through each tile of its L-shaped route. Frames compare by canvas digest
 against references drawn in the same test; the remote walk steps a fake clock
-one 16 ms frame at a time.
+one 16 ms frame at a time. `campus-world.spec.ts` zooms by key and by the
+control-bar button, keeps walking keys on the canvas after a button press,
+and restores the saved level on the next entry.
