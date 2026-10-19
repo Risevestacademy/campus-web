@@ -169,19 +169,3 @@ snaps you back facing the new way, and a remote three-tile `moved` passes
 through each tile of its L-shaped route. Frames compare by canvas digest
 against references drawn in the same test; the remote walk steps a fake clock
 one 16 ms frame at a time.
-
-### Recording world sessions
-
-To give the movement eval real frames from world, record a session:
-
-1. Run world locally on the placeholder map (no published map), so walls are
-   only the map edge.
-2. Sign in two members in two browsers. In one, walk into an edge, mash keys
-   faster than `stepMs`, and walk three or more tiles while the other
-   watches.
-3. In each browser, DevTools → Network → the `socket` request → Messages.
-   Copy frames in order into `tests/fixtures/recorded-world-sessions.json` as
-   `{ "dir": "sent" | "received", "frame": {…} }`.
-4. Keep only `welcome` (`stepMs`), `snapshot` (`map`; players as `userId`,
-   `x`, `y`, `facing`), `move`, `moveResult` and `moved`. Remove display
-   names and sprite keys: the eval rejects any other field.
