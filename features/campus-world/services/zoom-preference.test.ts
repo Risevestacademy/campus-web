@@ -17,6 +17,12 @@ describe("zoom preference", () => {
     expect(loadZoomLevel()).toBe(3);
   });
 
+  it("restores the whole map view", () => {
+    saveZoomLevel("whole");
+
+    expect(loadZoomLevel()).toBe("whole");
+  });
+
   it("starts at 2x when nothing is saved", () => {
     expect(loadZoomLevel()).toBe(2);
   });

@@ -141,8 +141,11 @@ initialized`. The runtime moves its one canvas between containers, clears
   placed you, the camera follows your drawn, predicted position each frame,
   clamped to the map, so it never waits for world's answer.
 - `game/campus-camera.ts` owns the camera's frame state: zoom level, centre,
-  and whether a drag or wheel zoom has set it free. Zoom levels are 1x, 2x
-  and 3x, default 2x; only whole numbers keep pixel art sharp. Each viewer's
+  and whether a drag or wheel zoom has set it free. Zoom levels are Whole
+  map, 1x, 2x and 3x, default 2x. 1x to 3x are whole numbers, which keep
+  pixel art sharp. Whole map is an overview: `cameraScale` fits the world to
+  the canvas each frame, never past 1x, so it is fractional, rougher, and
+  draws every tile with nothing culled. Each viewer's
   level is saved in `localStorage` (`services/zoom-preference.ts`, parsed
   with Zod). `+`, `=` and `-` zoom on the centre, except with Ctrl or Cmd,
   which stay the browser's. Wheel and pinch zoom toward the cursor, one level
@@ -180,8 +183,9 @@ and remote `moved` gaps through the frame controller. It fails on a correction
 after a right prediction, a diagonal remote step, a remote wall crossing, or
 any frame where the camera is off your drawn avatar. Its zoom eval plays a
 fixed 200-action script of zooms, wheel, drags, walks and resizes, and fails
-on any frame that shows past the map, draws at a level outside 1x, 2x and
-3x, or leaves the camera off you while you walk. The storage eval reads
+on any frame that shows past the map, draws at a scale its level does not
+give, hides part of the map at Whole map, or leaves the camera off you while
+you walk. The storage eval reads
 hostile stored zoom values back as 2x.
 Remote unit coverage protects interpolation, excess frame time, queue overflow,
 reconnect snapshots, lifecycle changes, and reduced motion. The Storybook

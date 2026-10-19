@@ -16,9 +16,11 @@ import { createCampusCamera } from "@/features/campus-world/game/campus-camera";
 import { createOwnAvatarMovement } from "@/features/campus-world/game/own-avatar-movement";
 import { createRemoteAvatarMovement } from "@/features/campus-world/game/remote-avatar-movement";
 import {
+  cameraScale,
   clampCamera,
   visibleArea,
   ZOOM_LEVELS,
+  type ZoomLevel,
 } from "@/features/campus-world/services/camera";
 import {
   type PendingMove,
@@ -30,6 +32,7 @@ import {
   stepFrom,
 } from "@/features/campus-world/services/movement/step";
 import { tileCentre } from "@/features/campus-world/services/tile-centre";
+import { loadZoomLevel } from "@/features/campus-world/services/zoom-preference";
 import { fakeKaplay } from "@/features/campus-world/testing/fake-kaplay";
 import {
   movementLayout,
@@ -349,6 +352,8 @@ const CAMERA_WORLD = { height: 640, width: 960 };
 
 // world answers each move one frame after it arrives.
 function startCameraWorld(refuses: (seq: number, target: Tile) => boolean) {
+  // Each world starts at the default level, whatever an earlier one saved.
+  window.localStorage.clear();
   const fake = fakeKaplay({ autoDraw: false });
   fake.kaplay({} as KAPLAYOpt);
   const context = fake.contexts[0]!;
@@ -544,16 +549,26 @@ function dragCanvas(canvas: HTMLCanvasElement, by: Tile) {
 }
 
 interface CameraFrame {
+  knownScale: boolean;
+  level: ZoomLevel;
   onMap: boolean;
-  scale: number;
   walking: boolean;
+  wholeMapShown: boolean;
   wrongWhileWalking: number;
 }
 
+// Whole map scales are fractions; allow for floating-point rounding.
+const PIXEL_EPSILON = 1e-6;
+
 // The visible rect fits inside the world, or is centred where it cannot.
 function fitsMap(centre: number, visible: number, world: number): boolean {
-  if (world <= visible) return centre === world / 2;
-  return centre - visible / 2 >= 0 && centre + visible / 2 <= world;
+  if (world <= visible + PIXEL_EPSILON) {
+    return Math.abs(centre - world / 2) < PIXEL_EPSILON;
+  }
+  return (
+    centre - visible / 2 >= -PIXEL_EPSILON &&
+    centre + visible / 2 <= world + PIXEL_EPSILON
+  );
 }
 
 function playCameraScript(actions: CameraAction[]): CameraFrame[] {
@@ -566,17 +581,21 @@ function playCameraScript(actions: CameraAction[]): CameraFrame[] {
     const self = frame();
     const camera = k.getCamPos();
     const scale = k.getCamScale().x;
-    const visible = visibleArea(
-      { height: k.height(), width: k.width() },
-      scale,
-    );
+    const viewport = { height: k.height(), width: k.width() };
+    const visible = visibleArea(viewport, scale);
     const followed = clampCamera(self, visible, CAMERA_WORLD);
+    const level = loadZoomLevel();
     frames.push({
+      knownScale: scale === cameraScale(level, viewport, CAMERA_WORLD),
+      level,
       onMap:
         fitsMap(camera.x, visible.width, CAMERA_WORLD.width) &&
         fitsMap(camera.y, visible.height, CAMERA_WORLD.height),
-      scale,
       walking,
+      wholeMapShown:
+        level !== "whole" ||
+        (visible.width >= CAMERA_WORLD.width - PIXEL_EPSILON &&
+          visible.height >= CAMERA_WORLD.height - PIXEL_EPSILON),
       wrongWhileWalking: walking
         ? Math.hypot(camera.x - followed.x, camera.y - followed.y)
         : 0,
@@ -615,7 +634,7 @@ describe("camera stays on the map at every zoom", () => {
   const frames = playCameraScript(cameraScript(200));
 
   it("covers every zoom level, walking and the camera set free", () => {
-    expect(new Set(frames.map(({ scale }) => scale))).toEqual(
+    expect(new Set(frames.map(({ level }) => level))).toEqual(
       new Set(ZOOM_LEVELS),
     );
     expect(frames.filter(({ walking }) => walking).length).toBeGreaterThan(50);
@@ -625,12 +644,12 @@ describe("camera stays on the map at every zoom", () => {
     expect(frames.filter(({ onMap }) => !onMap)).toEqual([]);
   });
 
-  it("only ever draws at a whole-number zoom level", () => {
-    expect(
-      frames.filter(
-        ({ scale }) => !(ZOOM_LEVELS as readonly number[]).includes(scale),
-      ),
-    ).toEqual([]);
+  it("draws 1x, 2x and 3x at whole numbers and Whole map at its fit", () => {
+    expect(frames.filter(({ knownScale }) => !knownScale)).toEqual([]);
+  });
+
+  it("shows the entire map on every Whole map frame", () => {
+    expect(frames.filter(({ wholeMapShown }) => !wholeMapShown)).toEqual([]);
   });
 
   it("returns to you on every frame you walk", () => {

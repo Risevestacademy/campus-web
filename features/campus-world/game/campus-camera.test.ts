@@ -100,6 +100,35 @@ describe("createCampusCamera", () => {
     expect(window.localStorage.getItem(ZOOM_KEY)).toBe(String(level));
   });
 
+  it("zooms out to the whole map below 1x", () => {
+    const { context, onZoomChanged, position, scale } = startCamera();
+
+    context.pressKey("-");
+    context.pressKey("-");
+
+    expect(scale()).toBe(2 / 3);
+    expect(position()).toEqual({ x: 480, y: 320 });
+    expect(onZoomChanged).toHaveBeenLastCalledWith("whole");
+    expect(window.localStorage.getItem(ZOOM_KEY)).toBe('"whole"');
+  });
+
+  it("starts on the whole map when the viewer left it there", () => {
+    window.localStorage.setItem(ZOOM_KEY, '"whole"');
+
+    expect(startCamera().scale()).toBe(2 / 3);
+  });
+
+  it("refits the whole map when the window changes", () => {
+    window.localStorage.setItem(ZOOM_KEY, '"whole"');
+    const { camera, context, position, scale } = startCamera();
+
+    context.resize(320, 240);
+    camera.follow({ x: 30, y: 20 }, false);
+
+    expect(scale()).toBe(1 / 3);
+    expect(position()).toEqual({ x: 480, y: 320 });
+  });
+
   it.each(["control", "meta"])(
     "leaves %s zoom keys to the browser",
     (modifier) => {

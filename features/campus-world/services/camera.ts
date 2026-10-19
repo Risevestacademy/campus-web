@@ -19,7 +19,7 @@ interface TileGrid {
   width: number;
 }
 
-export const ZOOM_LEVELS = [1, 2, 3] as const;
+export const ZOOM_LEVELS = ["whole", 1, 2, 3] as const;
 export type ZoomLevel = (typeof ZOOM_LEVELS)[number];
 export type ZoomStep = -1 | 1;
 export const DEFAULT_ZOOM: ZoomLevel = 2;
@@ -63,6 +63,20 @@ export function spawnTarget(
 export function stepZoom(level: ZoomLevel, step: ZoomStep): ZoomLevel {
   const index = ZOOM_LEVELS.indexOf(level) + step;
   return ZOOM_LEVELS[Math.min(Math.max(index, 0), ZOOM_LEVELS.length - 1)]!;
+}
+
+// Whole map fits the world in the canvas, but never zooms in past 1x.
+export function cameraScale(
+  level: ZoomLevel,
+  viewport: Size,
+  world: Size,
+): number {
+  if (level !== "whole") return level;
+  return Math.min(
+    1,
+    viewport.width / world.width,
+    viewport.height / world.height,
+  );
 }
 
 export function visibleArea(viewport: Size, zoom: number): Size {

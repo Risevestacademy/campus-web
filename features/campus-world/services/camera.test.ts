@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  cameraScale,
   clampCamera,
   dragCamera,
   readWheel,
@@ -42,13 +43,53 @@ describe("clampCamera", () => {
 
 describe("stepZoom", () => {
   it.each<[ZoomLevel, ZoomStep, ZoomLevel]>([
-    [1, -1, 1],
+    ["whole", -1, "whole"],
+    ["whole", 1, 1],
+    [1, -1, "whole"],
     [1, 1, 2],
     [2, 1, 3],
     [3, 1, 3],
     [3, -1, 2],
-  ])("moves %ix by %i to %ix", (level, step, expected) => {
+  ])("moves %s by %i to %s", (level, step, expected) => {
     expect(stepZoom(level, step)).toBe(expected);
+  });
+});
+
+describe("cameraScale", () => {
+  const campus = { height: 3296, width: 5120 };
+
+  it.each<[ZoomLevel, { height: number; width: number }, number]>([
+    [1, { height: 600, width: 900 }, 1],
+    [3, { height: 600, width: 900 }, 3],
+    ["whole", { height: 600, width: 900 }, 900 / 5120],
+    ["whole", { height: 900, width: 600 }, 600 / 5120],
+    ["whole", { height: 300, width: 1800 }, 300 / 3296],
+  ])(
+    "draws %s on a %o canvas at the right scale",
+    (level, viewport, expected) => {
+      expect(cameraScale(level, viewport, campus)).toBe(expected);
+    },
+  );
+
+  it("shows the whole map on both axes", () => {
+    const viewport = { height: 600, width: 900 };
+    const visible = visibleArea(
+      viewport,
+      cameraScale("whole", viewport, campus),
+    );
+
+    expect(visible.width).toBeGreaterThanOrEqual(campus.width);
+    expect(visible.height).toBeGreaterThanOrEqual(campus.height);
+  });
+
+  it("never zooms in past 1x to fit a small map", () => {
+    expect(
+      cameraScale(
+        "whole",
+        { height: 600, width: 900 },
+        { height: 96, width: 128 },
+      ),
+    ).toBe(1);
   });
 });
 

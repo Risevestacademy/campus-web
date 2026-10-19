@@ -1,6 +1,7 @@
 import type { KAPLAYCtx, Key } from "kaplay";
 
 import {
+  cameraScale,
   clampCamera,
   dragCamera,
   readWheel,
@@ -46,10 +47,15 @@ export function createCampusCamera(
   let pendingWheel = 0;
   let drag: { id: number; last: Point } | null = null;
 
+  function scaleOf(level: ZoomLevel): number {
+    return cameraScale(level, { height: k.height(), width: k.width() }, world);
+  }
+
   function show(target: Point) {
+    const scale = scaleOf(zoom);
     const viewport = { height: k.height(), width: k.width() };
-    centre = clampCamera(target, visibleArea(viewport, zoom), world);
-    k.setCamScale(zoom);
+    centre = clampCamera(target, visibleArea(viewport, scale), world);
+    k.setCamScale(scale);
     k.setCamPos(k.vec2(centre.x, centre.y));
   }
 
@@ -57,7 +63,10 @@ export function createCampusCamera(
     const next = stepZoom(zoom, step);
     if (next === zoom) return;
 
-    const target = zoomToward(centre, cursorOffset, { from: zoom, to: next });
+    const target = zoomToward(centre, cursorOffset, {
+      from: scaleOf(zoom),
+      to: scaleOf(next),
+    });
     zoom = next;
     show(target);
     saveZoomLevel(zoom);
@@ -105,7 +114,7 @@ export function createCampusCamera(
     if (moved.x === 0 && moved.y === 0) return;
 
     free = true;
-    show(dragCamera(centre, moved, zoom));
+    show(dragCamera(centre, moved, scaleOf(zoom)));
   }
 
   function endDrag(event: PointerEvent) {

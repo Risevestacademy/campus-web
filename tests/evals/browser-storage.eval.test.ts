@@ -111,6 +111,8 @@ describe("Browser storage eval (threshold: every case holds)", () => {
       "4",
       "2.5",
       '"2"',
+      '"Whole"',
+      '"fit"',
       "[2]",
       '{"__proto__":2}',
       "1e308",
@@ -121,10 +123,13 @@ describe("Browser storage eval (threshold: every case holds)", () => {
       expect(loadZoomLevel()).toBe(2);
     });
 
-    it("restores a level the viewer chose", () => {
-      localStorage.setItem(ZOOM_KEY, "3");
+    it.each([
+      ["3", 3],
+      ['"whole"', "whole"],
+    ])("restores %s, a level the viewer chose", (value, level) => {
+      localStorage.setItem(ZOOM_KEY, value);
 
-      expect(loadZoomLevel()).toBe(3);
+      expect(loadZoomLevel()).toBe(level);
     });
   });
 });

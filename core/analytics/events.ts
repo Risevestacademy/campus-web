@@ -159,7 +159,7 @@ export const analyticsEventSchemas = {
     version: labelSchema,
   }),
   [ANALYTICS_EVENTS.CAMPUS_WORLD_CAMERA_ZOOMED]: z.object({
-    level: z.literal([1, 2, 3]),
+    level: z.literal(["whole", 1, 2, 3]),
   }),
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MOVE_CORRECTED]: z.object({
     outcome: z.enum(["blocked", "too_fast", "unknown"]),
