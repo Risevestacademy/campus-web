@@ -25,19 +25,26 @@ describe("createWorldMovementChannel", () => {
     });
   });
 
-  it("publishes only movement frames", () => {
+  it("publishes own movement and remote avatar lifecycle frames", () => {
     const channel = createWorldMovementChannel();
     const received = vi.fn();
     channel.subscribe(received);
 
     channel.apply(serverFrames.welcome);
-    channel.apply(serverFrames.joined);
     channel.apply(serverFrames.snapshot);
+    channel.apply(serverFrames.joined);
+    channel.apply(serverFrames.appearance);
+    channel.apply(serverFrames.moved);
+    channel.apply(serverFrames.left);
+    channel.apply(serverFrames.pong);
     channel.apply(serverFrames.moveResult);
 
     expect(received.mock.calls.map(([message]) => message.type)).toEqual([
       "welcome",
       "snapshot",
+      "joined",
+      "moved",
+      "left",
       "moveResult",
     ]);
   });

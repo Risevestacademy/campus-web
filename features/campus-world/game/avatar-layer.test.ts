@@ -127,6 +127,40 @@ describe("addAvatarLayer", () => {
     expect(k.drawCircle).not.toHaveBeenCalledWith(drawnAt(40, 56));
   });
 
+  it("draws a remote avatar from its interpolated KAPLAY position", () => {
+    const { context, k, movement, presence } = startLayer(ADA, GRACE);
+    const welcome = {
+      type: "welcome" as const,
+      userId: "ada",
+      connectionId: "connection-1",
+      heartbeatSeconds: 30,
+      stepMs: 100,
+      tickMs: 50,
+      displayName: "Ada",
+      spriteKey: null,
+    };
+    const snapshot = {
+      type: "snapshot" as const,
+      map: { id: "campus", version: "v1", width: 60, height: 40 },
+      players: [ADA, GRACE],
+    };
+    const moved = {
+      type: "moved" as const,
+      players: [{ userId: "grace", x: 3, y: 3, facing: "right" as const }],
+    };
+    presence.getState().apply(welcome);
+    presence.getState().apply(snapshot);
+    movement.apply(welcome);
+    movement.apply(snapshot);
+    presence.getState().apply(moved);
+    movement.apply(moved);
+
+    context.updateFrame(50);
+    context.drawFrame();
+
+    expect(k.drawCircle).toHaveBeenCalledWith(drawnAt(48, 56));
+  });
+
   it("lays out each label once, and again only when the name changes", () => {
     const { context, k, presence } = startLayer(GRACE);
 

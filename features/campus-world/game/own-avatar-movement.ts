@@ -9,6 +9,7 @@ import type {
   WorldMovementMessage,
 } from "@/core/realtime";
 
+import { interpolatePlayer } from "../services/movement/interpolate-player";
 import { type PendingMove, reconcile } from "../services/movement/reconcile";
 import { predictStep } from "../services/movement/step";
 
@@ -48,14 +49,6 @@ function samePlayer(first: Player, second: Player): boolean {
     first.y === second.y &&
     first.facing === second.facing
   );
-}
-
-function interpolate(from: Player, to: Player, progress: number): Player {
-  return {
-    ...to,
-    x: from.x + (to.x - from.x) * progress,
-    y: from.y + (to.y - from.y) * progress,
-  };
 }
 
 export function createOwnAvatarMovement({
@@ -130,7 +123,7 @@ export function createOwnAvatarMovement({
     const progress = animation.elapsedMs / animation.durationMs;
     displayed = prefersReducedMotion()
       ? animation.to
-      : interpolate(animation.from, animation.to, progress);
+      : interpolatePlayer(animation.from, animation.to, progress);
     if (progress === 1) animation = undefined;
   }
 

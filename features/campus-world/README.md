@@ -103,6 +103,11 @@ initialized`. The runtime moves its one canvas between containers, clears
   React or Zustand.
 - Pace held input from world's `stepMs`. After a stalled frame, start only one
   new step. Reduced motion jumps each tile visually but keeps network pacing.
+- Keep remote interpolation and catch-up queues inside KAPLAY. Walk `moved`
+  gaps through `walkPath`, one orthogonal tile per `stepMs`. Snap snapshots,
+  joins, unsafe reconstructed paths, reduced-motion displays, and queues that
+  would exceed four steps. Face each step's travel direction, then apply
+  world's authoritative facing at the destination.
 - Keep canvas focusable and auto-focused. Its accessible label must name both
   Arrow keys and W, A, S, D.
 - Resolve tiles once through `buildBandDrawList`; a frame only walks cells
@@ -150,7 +155,10 @@ Shared fakes and the movement test layout live in `testing/`. The runtime eval r
 Mode, re-entry, and retry. The avatar eval protects hostile display names and
 unknown sprite keys. The movement eval replays recorded `moveResult` sessions
 (a blocked step mid-burst, `too_fast` and recovery, an outcome added upstream)
-and remote `moved` gaps. It fails on a correction after a right prediction or
-a diagonal step. The Storybook browser test remounts in real Chromium and
-fails on the KAPLAY warning. Playwright covers request reuse across Join and
-repeat entry, rendering, resize, and the warning.
+and remote `moved` gaps through the frame controller. It fails on a correction
+after a right prediction, a diagonal remote step, or a remote wall crossing.
+Remote unit coverage protects interpolation, excess frame time, queue overflow,
+reconnect snapshots, lifecycle changes, and reduced motion. The Storybook
+browser test remounts in real Chromium and fails on the KAPLAY warning.
+Playwright covers request reuse across Join and repeat entry, rendering,
+resize, and the warning.

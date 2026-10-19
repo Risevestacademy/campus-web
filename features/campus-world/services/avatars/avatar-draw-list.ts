@@ -14,17 +14,24 @@ export interface AvatarDraw {
   isSelf: boolean;
 }
 
+export interface AvatarFramePositions {
+  remotes?: ReadonlyMap<string, Player>;
+  self?: Player;
+}
+
 // Sorted by row so a nearer avatar is drawn over a farther one.
 export function buildAvatarDrawList(
   { participants, positions, selfId }: Presence,
   tile: TileSize,
-  ownPosition?: Player,
+  displayed: AvatarFramePositions = {},
 ): AvatarDraw[] {
   const list: AvatarDraw[] = [];
 
   for (const [userId, participant] of participants) {
     const position =
-      ownPosition?.userId === userId ? ownPosition : positions.get(userId);
+      userId === selfId
+        ? (displayed.self ?? positions.get(userId))
+        : (displayed.remotes?.get(userId) ?? positions.get(userId));
     if (!position) continue;
 
     list.push({

@@ -98,14 +98,42 @@ describe("buildAvatarDrawList", () => {
     const presence = presenceOf("ada", avatar("ada", 2, 3));
 
     const [self] = buildAvatarDrawList(presence, TILE, {
-      userId: "ada",
-      x: 2.5,
-      y: 3,
-      facing: "right",
+      self: {
+        userId: "ada",
+        x: 2.5,
+        y: 3,
+        facing: "right",
+      },
     });
 
     expect(self).toEqual(
       expect.objectContaining({ x: 48, y: 56, facing: "right" }),
+    );
+  });
+
+  it("draws a remote from KAPLAY's interpolated position", () => {
+    const presence = presenceOf(
+      "ada",
+      avatar("ada", 2, 3),
+      avatar("grace", 0, 0, "Grace"),
+    );
+
+    const grace = buildAvatarDrawList(presence, TILE, {
+      remotes: new Map([
+        [
+          "grace",
+          {
+            userId: "grace",
+            x: 0.5,
+            y: 0,
+            facing: "right" as const,
+          },
+        ],
+      ]),
+    }).find(({ userId }) => userId === "grace");
+
+    expect(grace).toEqual(
+      expect.objectContaining({ x: 16, y: 8, facing: "right" }),
     );
   });
 });

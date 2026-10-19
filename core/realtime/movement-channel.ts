@@ -3,7 +3,9 @@ import type { ServerMessage } from "./server-message.schema";
 
 export type WorldMovementMessage = Extract<
   ServerMessage,
-  { type: "welcome" | "snapshot" | "moveResult" }
+  {
+    type: "welcome" | "snapshot" | "joined" | "left" | "moved" | "moveResult";
+  }
 >;
 
 export interface WorldMovement {
@@ -38,7 +40,12 @@ export function createWorldMovementChannel(): WorldMovementChannel {
       } else if (message.type === "snapshot") {
         ready = stepMs !== null;
         publish(message);
-      } else if (message.type === "moveResult") {
+      } else if (
+        message.type === "joined" ||
+        message.type === "left" ||
+        message.type === "moved" ||
+        message.type === "moveResult"
+      ) {
         publish(message);
       }
     },

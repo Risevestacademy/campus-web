@@ -5,11 +5,13 @@ import { createPresenceStore } from "@/core/presence";
 import {
   createWorldMovementChannel,
   type Direction,
+  type MovedMessage,
   type MoveResultMessage,
   parseServerMessage,
   type Player,
 } from "@/core/realtime";
 import { createOwnAvatarMovement } from "@/features/campus-world/game/own-avatar-movement";
+import { createRemoteAvatarMovement } from "@/features/campus-world/game/remote-avatar-movement";
 import {
   type PendingMove,
   reconcile,
@@ -18,7 +20,6 @@ import {
   isWalkable,
   predictStep,
 } from "@/features/campus-world/services/movement/step";
-import { walkPath } from "@/features/campus-world/services/movement/walk-path";
 import {
   movementLayout,
   walksOneTileAtATime,
@@ -140,6 +141,7 @@ interface RemoteGap {
   name: string;
   drawnAt: Tile;
   moved: unknown;
+  path: Tile[];
 }
 
 const REMOTE_GAPS: RemoteGap[] = [
@@ -150,6 +152,11 @@ const REMOTE_GAPS: RemoteGap[] = [
       type: "moved",
       players: [{ userId: "grace", x: 2, y: 3, facing: "down" }],
     },
+    path: [
+      { x: 1, y: 2 },
+      { x: 2, y: 2 },
+      { x: 2, y: 3 },
+    ],
   },
   {
     name: "a three-tile gap whose across-first route meets the wall",
@@ -158,21 +165,79 @@ const REMOTE_GAPS: RemoteGap[] = [
       type: "moved",
       players: [{ userId: "grace", x: 3, y: 2, facing: "right" }],
     },
+    path: [
+      { x: 1, y: 2 },
+      { x: 2, y: 2 },
+      { x: 3, y: 2 },
+    ],
   },
 ];
 
-function readMovedTile(frame: unknown): Tile {
+function readMoved(frame: unknown): MovedMessage {
   const result = parseServerMessage(JSON.stringify(frame));
-
-  const player =
-    result.ok && result.message.type === "moved"
-      ? result.message.players[0]
-      : undefined;
-
-  if (!player) {
+  if (!result.ok || result.message.type !== "moved") {
     throw new Error("the gap holds no moved frame with a player in it");
   }
-  return { x: player.x, y: player.y };
+  return result.message;
+}
+
+function playRemoteGap({ drawnAt, moved, path }: RemoteGap) {
+  const presence = createPresenceStore();
+  const movement = createWorldMovementChannel();
+  const welcome = {
+    type: "welcome" as const,
+    userId: ADA,
+    connectionId: "connection-1",
+    heartbeatSeconds: 30,
+    stepMs: 100,
+    tickMs: 50,
+    displayName: "Ada",
+    spriteKey: null,
+  };
+  const snapshot = {
+    type: "snapshot" as const,
+    map: { id: "campus", version: "v1", width: 5, height: 4 },
+    players: [
+      {
+        userId: ADA,
+        x: 0,
+        y: 0,
+        facing: "down" as const,
+        displayName: "Ada",
+        spriteKey: null,
+      },
+      {
+        userId: "grace",
+        ...drawnAt,
+        facing: "down" as const,
+        displayName: "Grace",
+        spriteKey: null,
+      },
+    ],
+  };
+  presence.getState().apply(welcome);
+  presence.getState().apply(snapshot);
+  movement.apply(welcome);
+  movement.apply(snapshot);
+  const controller = createRemoteAvatarMovement({
+    layout: movementLayout,
+    movement,
+    prefersReducedMotion: () => false,
+    readPresence: presence.getState,
+  });
+  const message = readMoved(moved);
+  presence.getState().apply(message);
+  movement.apply(message);
+
+  const walked = path.map(() => {
+    controller.update(100);
+    const player = controller.readPlayers().get("grace");
+    if (!player) throw new Error("the remote player disappeared while walking");
+    return { x: player.x, y: player.y };
+  });
+  controller.stop();
+
+  return { target: message.players[0]!, walked };
 }
 
 describe("own-avatar prediction against recorded moveResults", () => {
@@ -257,13 +322,12 @@ describe("own-avatar input pacing", () => {
 });
 
 describe("remote avatars walk a moved gap", () => {
-  it.each(REMOTE_GAPS)("$name", ({ drawnAt, moved }) => {
-    const target = readMovedTile(moved);
-    const path = walkPath(drawnAt, target, movementLayout);
+  it.each(REMOTE_GAPS)("$name", (gap) => {
+    const { target, walked } = playRemoteGap(gap);
 
-    expect(path).toHaveLength(3);
-    expect(path.at(-1)).toEqual(target);
-    expect(walksOneTileAtATime(drawnAt, path)).toBe(true);
-    expect(path.every((tile) => isWalkable(movementLayout, tile))).toBe(true);
+    expect(walked).toEqual(gap.path);
+    expect(walked.at(-1)).toEqual({ x: target.x, y: target.y });
+    expect(walksOneTileAtATime(gap.drawnAt, walked)).toBe(true);
+    expect(walked.every((tile) => isWalkable(movementLayout, tile))).toBe(true);
   });
 });

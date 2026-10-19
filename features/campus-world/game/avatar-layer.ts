@@ -13,6 +13,7 @@ import {
   createOwnAvatarMovement,
   type MoveCorrectionOutcome,
 } from "./own-avatar-movement";
+import { createRemoteAvatarMovement } from "./remote-avatar-movement";
 
 interface AvatarLayerOptions {
   layout: MapLayout;
@@ -58,13 +59,20 @@ export function addAvatarLayer(
   };
   // Laying text out is the costly part of a frame; a name changes rarely.
   const labels = new Map<string, FormattedText>();
+  const prefersReducedMotion = () =>
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const ownMovement = createOwnAvatarMovement({
     layout,
     movement,
     onMoveCorrected,
-    prefersReducedMotion: () =>
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    prefersReducedMotion,
+    readPresence,
+  });
+  const remoteMovement = createRemoteAvatarMovement({
+    layout,
+    movement,
+    prefersReducedMotion,
     readPresence,
   });
 
@@ -138,11 +146,13 @@ export function addAvatarLayer(
     k.layer("avatars"),
     {
       update() {
+        const deltaMs = k.dt() * 1000;
         ownMovement.update({
-          deltaMs: k.dt() * 1000,
+          deltaMs,
           held: heldDirections(),
           pressed: pressedDirection(),
         });
+        remoteMovement.update(deltaMs);
         const { positions, selfId } = readPresence();
         const self = selfId === null ? undefined : positions.get(selfId);
         if (!self) return;
@@ -154,16 +164,16 @@ export function addAvatarLayer(
         k.setCamPos(k.vec2(camera.x, camera.y));
       },
       draw() {
-        const list = buildAvatarDrawList(
-          readPresence(),
-          map,
-          ownMovement.readPlayer(),
-        );
+        const list = buildAvatarDrawList(readPresence(), map, {
+          remotes: remoteMovement.readPlayers(),
+          self: ownMovement.readPlayer(),
+        });
         list.forEach(drawAvatar);
         forgetLabelsNotIn(list);
       },
       destroy() {
         ownMovement.stop();
+        remoteMovement.stop();
       },
     },
   ]);
