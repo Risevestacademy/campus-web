@@ -172,7 +172,7 @@ one 16 ms frame at a time.
 
 ### Recording world sessions
 
-The movement eval also replays frames from a real world. To record one:
+To give the movement eval real frames from world, record a session:
 
 1. Run world locally on the placeholder map (no published map), so walls are
    only the map edge.
