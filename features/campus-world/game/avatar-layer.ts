@@ -153,8 +153,7 @@ export function addAvatarLayer(
           pressed: pressedDirection(),
         });
         remoteMovement.update(deltaMs);
-        const { positions, selfId } = readPresence();
-        const self = selfId === null ? undefined : positions.get(selfId);
+        const self = ownMovement.readPlayer();
         if (!self) return;
 
         const camera = followCamera(self, map, {

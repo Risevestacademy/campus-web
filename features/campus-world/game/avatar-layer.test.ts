@@ -59,6 +59,32 @@ function startLayer(...players: Avatar[]) {
   return { context, k: context.k, layer, movement, presence, send };
 }
 
+function admit(
+  presence: ReturnType<typeof createPresenceStore>,
+  movement: ReturnType<typeof createWorldMovementChannel>,
+  ...players: Avatar[]
+) {
+  const welcome = {
+    type: "welcome" as const,
+    userId: "ada",
+    connectionId: "connection-1",
+    heartbeatSeconds: 30,
+    stepMs: 100,
+    tickMs: 50,
+    displayName: "Ada",
+    spriteKey: null,
+  };
+  const snapshot = {
+    type: "snapshot" as const,
+    map: { id: "campus", version: "v1", width: 60, height: 40 },
+    players,
+  };
+  presence.getState().apply(welcome);
+  presence.getState().apply(snapshot);
+  movement.apply(welcome);
+  movement.apply(snapshot);
+}
+
 const drawnAt = (x: number, y: number) =>
   expect.objectContaining({ pos: { x, y } });
 
@@ -67,25 +93,7 @@ describe("addAvatarLayer", () => {
     "maps %s to a paced right step and draws its interpolation",
     (key) => {
       const { context, k, movement, presence, send } = startLayer(ADA);
-      const welcome = {
-        type: "welcome" as const,
-        userId: "ada",
-        connectionId: "connection-1",
-        heartbeatSeconds: 30,
-        stepMs: 100,
-        tickMs: 50,
-        displayName: "Ada",
-        spriteKey: null,
-      };
-      const snapshot = {
-        type: "snapshot" as const,
-        map: { id: "campus", version: "v1", width: 60, height: 40 },
-        players: [ADA],
-      };
-      presence.getState().apply(welcome);
-      presence.getState().apply(snapshot);
-      movement.apply(welcome);
-      movement.apply(snapshot);
+      admit(presence, movement, ADA);
 
       context.pressKey(key);
       context.updateFrame(0);
@@ -129,29 +137,11 @@ describe("addAvatarLayer", () => {
 
   it("draws a remote avatar from its interpolated KAPLAY position", () => {
     const { context, k, movement, presence } = startLayer(ADA, GRACE);
-    const welcome = {
-      type: "welcome" as const,
-      userId: "ada",
-      connectionId: "connection-1",
-      heartbeatSeconds: 30,
-      stepMs: 100,
-      tickMs: 50,
-      displayName: "Ada",
-      spriteKey: null,
-    };
-    const snapshot = {
-      type: "snapshot" as const,
-      map: { id: "campus", version: "v1", width: 60, height: 40 },
-      players: [ADA, GRACE],
-    };
     const moved = {
       type: "moved" as const,
       players: [{ userId: "grace", x: 3, y: 3, facing: "right" as const }],
     };
-    presence.getState().apply(welcome);
-    presence.getState().apply(snapshot);
-    movement.apply(welcome);
-    movement.apply(snapshot);
+    admit(presence, movement, ADA, GRACE);
     presence.getState().apply(moved);
     movement.apply(moved);
 
@@ -216,6 +206,39 @@ describe("addAvatarLayer", () => {
       spriteKey: null,
     });
     context.updateFrame();
+
+    expect(k.setCamPos).toHaveBeenLastCalledWith({ x: 488, y: 328 });
+  });
+
+  it("keeps the camera on your predicted step before world answers", () => {
+    const { context, k, movement, presence } = startLayer(ADA);
+    admit(presence, movement, ADA);
+
+    context.pressKey("right");
+    context.updateFrame(0);
+    context.updateFrame(50);
+
+    expect(k.setCamPos).toHaveBeenLastCalledWith({ x: 496, y: 328 });
+  });
+
+  it("returns the camera with you when world refuses the step", () => {
+    const { context, k, movement, presence } = startLayer(ADA);
+    admit(presence, movement, ADA);
+    context.pressKey("right");
+    context.updateFrame(0);
+    context.releaseKey("right");
+    context.updateFrame(100);
+    expect(k.setCamPos).toHaveBeenLastCalledWith({ x: 504, y: 328 });
+    const refused = {
+      type: "moveResult" as const,
+      seq: 1,
+      outcome: "blocked" as const,
+      player: { userId: "ada", x: 30, y: 20, facing: "right" as const },
+    };
+
+    presence.getState().apply(refused);
+    movement.apply(refused);
+    context.updateFrame(0);
 
     expect(k.setCamPos).toHaveBeenLastCalledWith({ x: 488, y: 328 });
   });

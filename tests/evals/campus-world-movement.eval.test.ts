@@ -1,5 +1,6 @@
 import type { Tile } from "campus-world-map";
-import { describe, expect, it } from "vitest";
+import type { KAPLAYOpt } from "kaplay";
+import { describe, expect, it, vi } from "vitest";
 
 import { createPresenceStore } from "@/core/presence";
 import {
@@ -10,6 +11,7 @@ import {
   parseServerMessage,
   type Player,
 } from "@/core/realtime";
+import { addAvatarLayer } from "@/features/campus-world/game/avatar-layer";
 import { createOwnAvatarMovement } from "@/features/campus-world/game/own-avatar-movement";
 import { createRemoteAvatarMovement } from "@/features/campus-world/game/remote-avatar-movement";
 import {
@@ -20,6 +22,7 @@ import {
   isWalkable,
   predictStep,
 } from "@/features/campus-world/services/movement/step";
+import { fakeKaplay } from "@/features/campus-world/testing/fake-kaplay";
 import {
   movementLayout,
   walksOneTileAtATime,
@@ -329,5 +332,108 @@ describe("remote avatars walk a moved gap", () => {
     expect(walked.at(-1)).toEqual({ x: target.x, y: target.y });
     expect(walksOneTileAtATime(gap.drawnAt, walked)).toBe(true);
     expect(walked.every((tile) => isWalkable(movementLayout, tile))).toBe(true);
+  });
+});
+
+interface CameraWalk {
+  cameraOffsets: number[];
+  corrections: string[];
+  drawnXs: number[];
+}
+
+// world answers each move one frame after it arrives; seq 2 walks into a wall.
+function walkWithCamera(): CameraWalk {
+  const fake = fakeKaplay({ autoDraw: false });
+  fake.kaplay({} as KAPLAYOpt);
+  const context = fake.contexts[0]!;
+  const { k } = context;
+  const presence = createPresenceStore();
+  const movement = createWorldMovementChannel();
+  const answers: unknown[] = [];
+  const corrections: string[] = [];
+  let at = { x: 30, y: 20 };
+  movement.bind(({ seq, direction }) => {
+    const refused = seq === 2;
+    if (!refused) at = { ...at, x: at.x + (direction === "right" ? 1 : 0) };
+    answers.push({
+      type: "moveResult",
+      seq,
+      outcome: refused ? "blocked" : "moved",
+      player: { userId: ADA, ...at, facing: direction },
+    });
+    return true;
+  });
+  const welcome = {
+    type: "welcome" as const,
+    userId: ADA,
+    connectionId: "connection-1",
+    heartbeatSeconds: 30,
+    stepMs: 100,
+    tickMs: 50,
+    displayName: "Ada",
+    spriteKey: null,
+  };
+  const snapshot = {
+    type: "snapshot" as const,
+    map: { id: "campus", version: "v1", width: 60, height: 40 },
+    players: [
+      {
+        userId: ADA,
+        ...at,
+        facing: "right" as const,
+        displayName: "Ada",
+        spriteKey: null,
+      },
+    ],
+  };
+  presence.getState().apply(welcome);
+  presence.getState().apply(snapshot);
+  movement.apply(welcome);
+  movement.apply(snapshot);
+  addAvatarLayer(k, {
+    layout: { ...movementLayout, widthTiles: 60, heightTiles: 40 },
+    map: { height: 40, tileheight: 16, tilewidth: 16, width: 60 },
+    movement,
+    onMoveCorrected: (outcome) => corrections.push(outcome),
+    readPresence: presence.getState,
+  });
+
+  const cameraOffsets: number[] = [];
+  const drawnXs: number[] = [];
+  context.pressKey("right");
+  for (let frame = 0; frame < 30; frame += 1) {
+    for (const answerFrame of answers.splice(0)) {
+      const answer = readMoveResult(answerFrame);
+      presence.getState().apply(answer);
+      movement.apply(answer);
+    }
+    vi.mocked(k.drawCircle).mockClear();
+    context.updateFrame(16);
+    context.drawFrame();
+    const self = vi
+      .mocked(k.drawCircle)
+      .mock.calls.map(([options]) => options)
+      .find((options) => options.outline !== undefined)!;
+    // setCamPos is overloaded; the layer always passes one vec2.
+    const [camera] = vi.mocked(k.setCamPos).mock.lastCall as unknown as [Tile];
+    cameraOffsets.push(
+      Math.hypot(camera.x - self.pos!.x, camera.y - self.pos!.y),
+    );
+    drawnXs.push(self.pos!.x);
+  }
+  context.releaseKey("right");
+
+  return { cameraOffsets, corrections, drawnXs };
+}
+
+describe("camera stays on the drawn self", () => {
+  it("follows every predicted, corrected and replayed frame with no offset", () => {
+    const walk = walkWithCamera();
+
+    expect(walk.corrections).toEqual(["blocked"]);
+    expect(
+      Math.max(...walk.drawnXs) - Math.min(...walk.drawnXs),
+    ).toBeGreaterThan(16);
+    expect(Math.max(...walk.cameraOffsets)).toBe(0);
   });
 });
