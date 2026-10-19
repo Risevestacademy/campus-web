@@ -235,7 +235,69 @@ function tileFrom(tilesetName: string): number {
   return drawTilesets.find(({ name }) => name === tilesetName)!.firstgid;
 }
 
-describe("Campus world eval (required threshold: 15/15)", () => {
+const COVERAGE_TILE = 16;
+const COVERAGE_SIDE = 12;
+const coverageTilesets = renderTilesets(["grounds", "trees"]).map(
+  (tileset, index) => ({ ...tileset, tileheight: index === 0 ? 16 : 46 }),
+);
+const coverageData = Array.from({ length: COVERAGE_SIDE ** 2 }, (_, index) => {
+  if (index % 5 === 0) return coverageTilesets[1]!.firstgid;
+  return index % 3 === 0 ? coverageTilesets[0]!.firstgid : 0;
+});
+
+interface Rect {
+  bottom: number;
+  left: number;
+  right: number;
+  top: number;
+}
+
+function overlaps(a: Rect, b: Rect): boolean {
+  return (
+    a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+  );
+}
+
+// Tiled draws a tile's art from its cell's bottom-left corner upwards.
+function coverageTiles() {
+  return coverageData.flatMap((gid, index) => {
+    if (gid === 0) return [];
+    const height = coverageTilesets.find(
+      ({ firstgid, lastgid }) => gid >= firstgid && gid <= lastgid,
+    )!.tileheight;
+    const left = (index % COVERAGE_SIDE) * COVERAGE_TILE;
+    const bottom = (Math.floor(index / COVERAGE_SIDE) + 1) * COVERAGE_TILE;
+    return [
+      {
+        art: {
+          bottom,
+          left,
+          right: left + COVERAGE_TILE,
+          top: bottom - height,
+        },
+        centre: `${left + COVERAGE_TILE / 2},${bottom - height / 2}`,
+      },
+    ];
+  });
+}
+
+function chunkRects(chunkSize: number): Rect[] {
+  const world = COVERAGE_SIDE * COVERAGE_TILE;
+  const rects: Rect[] = [];
+  for (let top = 0; top < world; top += chunkSize) {
+    for (let left = 0; left < world; left += chunkSize) {
+      rects.push({
+        bottom: Math.min(top + chunkSize, world),
+        left,
+        right: Math.min(left + chunkSize, world),
+        top,
+      });
+    }
+  }
+  return rects;
+}
+
+describe("Campus world eval (required threshold: 18/18)", () => {
   it.each(layerArrangements)(
     "draws stacked layers bottom to top with %s",
     (_, layerTilesets) => {
@@ -245,6 +307,32 @@ describe("Campus world eval (required threshold: 15/15)", () => {
       );
 
       expect(band.drawFrame()).toEqual(layerTilesets);
+    },
+  );
+
+  it.each([16, 40, 1024])(
+    "bakes every tile into each chunk its art reaches, with %i px chunks",
+    (chunkSize) => {
+      const band = addFakeBand([squareLayer(coverageData)], coverageTilesets, {
+        chunkSize,
+      });
+      band.drawFrame();
+
+      for (const chunk of chunkRects(chunkSize)) {
+        const expected = coverageTiles()
+          .filter(({ art }) => overlaps(art, chunk))
+          .map(({ centre }) => centre);
+        const quad = band
+          .quads()
+          .find(({ pos }) => pos.x === chunk.left && pos.y === chunk.top);
+        const baked =
+          band
+            .canvases()
+            .find(({ fb }) => fb.tex === quad?.tex)
+            ?.draws.map(({ world }) => `${world.x},${world.y}`) ?? [];
+
+        expect(baked).toEqual(expect.arrayContaining(expected));
+      }
     },
   );
 
