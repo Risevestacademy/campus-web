@@ -87,22 +87,41 @@ function tilesIn(sprites: LayerSprites[], bounds: TileBounds): DrawSpriteOpt[] {
   return tiles;
 }
 
-// Canvas.draw maps points through the game's size, not the canvas's: the
-// scale makes one unit one texel of the chunk.
+// Canvas.draw maps points through KAPLAY's game size, so the bake sets it to
+// the chunk's, as KAPLAY's own frameEnd does. Scaling instead would squash
+// rotated tiles: KAPLAY's rotate multiplies on the left of the scale.
+function withGameSize(
+  k: KAPLAYCtx,
+  size: Pick<MapChunk, "height" | "width">,
+  draw: () => void,
+) {
+  const { gfx } = k._k;
+  const { height, width } = gfx;
+  gfx.width = size.width;
+  gfx.height = size.height;
+  try {
+    draw();
+  } finally {
+    gfx.width = width;
+    gfx.height = height;
+  }
+}
+
 function bakeChunk(
   k: KAPLAYCtx,
   chunk: MapChunk,
   tiles: DrawSpriteOpt[],
 ): Canvas {
   const canvas = k.makeCanvas(chunk.width, chunk.height);
-  canvas.draw(() => {
-    k.pushTransform();
-    k.pushMatrix(new k.Mat4());
-    k.pushScale(k.width() / chunk.width, k.height() / chunk.height);
-    k.pushTranslate(-chunk.x, -chunk.y);
-    tiles.forEach((tile) => k.drawSprite(tile));
-    k.popTransform();
-  });
+  canvas.draw(() =>
+    withGameSize(k, chunk, () => {
+      k.pushTransform();
+      k.pushMatrix(new k.Mat4());
+      k.pushTranslate(-chunk.x, -chunk.y);
+      tiles.forEach((tile) => k.drawSprite(tile));
+      k.popTransform();
+    }),
+  );
   return canvas;
 }
 
@@ -141,10 +160,6 @@ function cameraView(k: KAPLAYCtx): WorldView {
   };
 }
 
-function hasSize(k: KAPLAYCtx): boolean {
-  return k.width() > 0 && k.height() > 0;
-}
-
 export function addMapBand(k: KAPLAYCtx, band: MapBand): GameObj {
   let chunks: BakedChunk[] | undefined;
 
@@ -155,8 +170,6 @@ export function addMapBand(k: KAPLAYCtx, band: MapBand): GameObj {
         chunks?.forEach(({ canvas }) => canvas.free());
       },
       draw() {
-        // A bake on an unsized canvas scales every tile to nothing, for good.
-        if (!chunks && !hasSize(k)) return;
         chunks ??= bakeBand(k, band);
 
         const view = cameraView(k);

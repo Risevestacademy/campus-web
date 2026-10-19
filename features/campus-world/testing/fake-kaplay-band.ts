@@ -26,8 +26,8 @@ interface FakeBandOptions {
 }
 
 interface FakeSpriteOpt {
+  angle?: number;
   fixed?: boolean;
-  frame?: number;
   pos: Point;
   sprite: string;
 }
@@ -41,6 +41,7 @@ interface FakeQuadOpt {
 }
 
 export interface BakedDraw {
+  footprint: Size;
   sprite: string;
   texel: Point;
   world: Point;
@@ -54,29 +55,50 @@ export interface FakeChunkCanvas {
   width: number;
 }
 
-// KAPLAY's Mat4 in 2D without rotation: translate and scale post-multiply.
+// KAPLAY's Mat4 in 2D, column-major: translate and scale post-multiply, but
+// rotate multiplies on the left.
 class FakeMat4 {
   constructor(
-    public scaleX = 1,
-    public scaleY = 1,
-    public translateX = 0,
-    public translateY = 0,
+    public xx = 1,
+    public xy = 0,
+    public yx = 0,
+    public yy = 1,
+    public tx = 0,
+    public ty = 0,
   ) {}
 
   apply({ x, y }: Point): Point {
     return {
-      x: this.scaleX * x + this.translateX,
-      y: this.scaleY * y + this.translateY,
+      x: this.xx * x + this.yx * y + this.tx,
+      y: this.xy * x + this.yy * y + this.ty,
     };
   }
 
   clone(): FakeMat4 {
-    return new FakeMat4(
-      this.scaleX,
-      this.scaleY,
-      this.translateX,
-      this.translateY,
-    );
+    return new FakeMat4(this.xx, this.xy, this.yx, this.yy, this.tx, this.ty);
+  }
+
+  rotate(degrees: number) {
+    const radians = (-degrees * Math.PI) / 180;
+    const cos = Math.cos(radians);
+    const sin = Math.sin(radians);
+    const { xx, xy, yx, yy } = this;
+    this.xx = xx * cos + xy * sin;
+    this.xy = -xx * sin + xy * cos;
+    this.yx = yx * cos + yy * sin;
+    this.yy = -yx * sin + yy * cos;
+  }
+
+  scale(x: number, y: number) {
+    this.xx *= x;
+    this.xy *= x;
+    this.yx *= y;
+    this.yy *= y;
+  }
+
+  translate(x: number, y: number) {
+    this.tx += this.xx * x + this.yx * y;
+    this.ty += this.xy * x + this.yy * y;
   }
 }
 
@@ -105,7 +127,7 @@ export function addFakeBand(
   const mapSize = side * TILE;
   const camera = options.camera ?? { x: mapSize / 2, y: mapSize / 2 };
   const scale = options.scale ?? 1;
-  let viewport = options.viewport ?? { height: mapSize, width: mapSize };
+  const gfx = { ...(options.viewport ?? { height: mapSize, width: mapSize }) };
   const canvases: FakeChunkCanvas[] = [];
   const drawn: string[] = [];
   const quads: FakeQuadOpt[] = [];
@@ -115,30 +137,55 @@ export function addFakeBand(
   let draw: (() => void) | undefined;
   let destroy: (() => void) | undefined;
 
-  function toScreen(world: Point, fixed: boolean): Point {
-    const point = transform.apply(world);
+  function spriteSize(sprite: string): Size {
+    const tileset = tilesets.find(({ spriteName }) => spriteName === sprite)!;
+    return { height: tileset.tileheight, width: tileset.tilewidth };
+  }
+
+  function toScreen(point: Point, fixed: boolean): Point {
     if (fixed) return point;
     return {
-      x: (point.x - camera.x) * scale + viewport.width / 2,
-      y: (point.y - camera.y) * scale + viewport.height / 2,
+      x: (point.x - camera.x) * scale + gfx.width / 2,
+      y: (point.y - camera.y) * scale + gfx.height / 2,
     };
   }
 
   // KAPLAY maps a framebuffer's points through the game's size.
   function toTexel(canvas: FakeChunkCanvas, screen: Point): Point {
     return {
-      x: (screen.x * canvas.width) / viewport.width,
-      y: (screen.y * canvas.height) / viewport.height,
+      x: (screen.x * canvas.width) / gfx.width,
+      y: (screen.y * canvas.height) / gfx.height,
     };
   }
 
-  const drawSprite = vi.fn(({ fixed = false, pos, sprite }: FakeSpriteOpt) => {
-    drawn.push(sprite);
-    target?.draws.push({
+  // drawSprite with a centre anchor, as KAPLAY's drawUVQuad transforms it.
+  function bakedDraw(
+    canvas: FakeChunkCanvas,
+    { angle = 0, fixed = false, pos, sprite }: FakeSpriteOpt,
+  ): BakedDraw {
+    const quad = transform.clone();
+    quad.translate(pos.x, pos.y);
+    quad.rotate(angle);
+    const { height, width } = spriteSize(sprite);
+    const corners = [
+      { x: -width / 2, y: -height / 2 },
+      { x: width / 2, y: height / 2 },
+    ].map((corner) => toTexel(canvas, toScreen(quad.apply(corner), fixed)));
+
+    return {
+      footprint: {
+        height: Math.abs(corners[1]!.y - corners[0]!.y),
+        width: Math.abs(corners[1]!.x - corners[0]!.x),
+      },
       sprite,
-      texel: toTexel(target, toScreen(pos, fixed)),
+      texel: toTexel(canvas, toScreen(transform.apply(pos), fixed)),
       world: pos,
-    });
+    };
+  }
+
+  const drawSprite = vi.fn((sprite: FakeSpriteOpt) => {
+    drawn.push(sprite.sprite);
+    if (target) target.draws.push(bakedDraw(target, sprite));
   });
   const makeCanvas = vi.fn((width: number, height: number) => {
     const canvas: FakeChunkCanvas & { draw: (action: () => void) => void } = {
@@ -157,6 +204,7 @@ export function addFakeBand(
     return canvas;
   });
   const k = {
+    _k: { gfx },
     add: (components: Array<{ destroy?: () => void; draw?: () => void }>) => {
       draw = components.find((component) => component.draw)?.draw;
       destroy = components.find((component) => component.destroy)?.destroy;
@@ -165,7 +213,7 @@ export function addFakeBand(
     drawUVQuad: (quad: FakeQuadOpt) => quads.push(quad),
     getCamPos: () => camera,
     getCamScale: () => ({ x: scale, y: scale }),
-    height: () => viewport.height,
+    height: () => gfx.height,
     layer: (name: string) => ({ name }),
     makeCanvas,
     Mat4: FakeMat4,
@@ -175,17 +223,11 @@ export function addFakeBand(
     pushMatrix: (matrix: FakeMat4) => {
       transform = matrix.clone();
     },
-    pushScale: (x: number, y: number) => {
-      transform.scaleX *= x;
-      transform.scaleY *= y;
-    },
+    pushScale: (x: number, y: number) => transform.scale(x, y),
     pushTransform: () => transforms.push(transform.clone()),
-    pushTranslate: (x: number, y: number) => {
-      transform.translateX += transform.scaleX * x;
-      transform.translateY += transform.scaleY * y;
-    },
+    pushTranslate: (x: number, y: number) => transform.translate(x, y),
     vec2: (x: number, y: number) => ({ x, y }),
-    width: () => viewport.width,
+    width: () => gfx.width,
   } as unknown as KAPLAYCtx;
   const map: CampusTiledMap = {
     height: side,
@@ -215,10 +257,8 @@ export function addFakeBand(
       return [...drawn];
     },
     drawSprite,
+    gameSize: () => ({ height: gfx.height, width: gfx.width }),
     makeCanvas,
     quads: () => [...quads],
-    resize(size: Size) {
-      viewport = size;
-    },
   };
 }

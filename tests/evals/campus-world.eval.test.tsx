@@ -297,7 +297,7 @@ function chunkRects(chunkSize: number): Rect[] {
   return rects;
 }
 
-describe("Campus world eval (required threshold: 18/18)", () => {
+describe("Campus world eval (required threshold: 21/21)", () => {
   it.each(layerArrangements)(
     "draws stacked layers bottom to top with %s",
     (_, layerTilesets) => {
@@ -333,6 +333,45 @@ describe("Campus world eval (required threshold: 18/18)", () => {
 
         expect(baked).toEqual(expect.arrayContaining(expected));
       }
+    },
+  );
+
+  it.each([
+    ["a wide", { height: 1077, width: 2097 }],
+    ["a tall", { height: 900, width: 400 }],
+    ["a square", { height: 48, width: 48 }],
+  ])(
+    "bakes every flip and rotation at tile size on %s canvas",
+    (_, viewport) => {
+      const diagonal = 0x20_00_00_00;
+      const horizontal = 0x80_00_00_00;
+      const vertical = 0x40_00_00_00;
+      const gid = drawTilesets[0]!.firstgid;
+      const orientations = [
+        0,
+        horizontal,
+        vertical,
+        diagonal,
+        diagonal | horizontal,
+        diagonal | vertical,
+        diagonal | horizontal | vertical,
+      ].map((flags) => (gid | flags) >>> 0);
+      const band = addFakeBand(
+        [squareLayer([...orientations, 0, 0])],
+        drawTilesets,
+        { viewport },
+      );
+
+      band.drawFrame();
+
+      const footprints = band
+        .canvases()
+        .flatMap(({ draws }) => draws.map(({ footprint }) => footprint));
+      expect(footprints).toHaveLength(orientations.length);
+      footprints.forEach(({ height, width }) => {
+        expect(width).toBeCloseTo(16);
+        expect(height).toBeCloseTo(16);
+      });
     },
   );
 

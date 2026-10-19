@@ -71,8 +71,40 @@ describe("addMapBand", () => {
     band.drawFrame();
 
     expect(canvasAt(band, { x: 32, y: 32 })?.draws).toEqual([
-      { sprite: "grounds", texel: { x: 24, y: 8 }, world: { x: 56, y: 40 } },
+      {
+        footprint: { height: 16, width: 16 },
+        sprite: "grounds",
+        texel: { x: 24, y: 8 },
+        world: { x: 56, y: 40 },
+      },
     ]);
+  });
+
+  it("bakes a rotated tile at its own size on a wide canvas", () => {
+    const rotatedQuarterTurn = 0xa0_00_00_01;
+    const band = addFakeBand(
+      [squareLayer([rotatedQuarterTurn, 0, 0, 0])],
+      tilesets,
+      { chunkSize: 32, viewport: { height: 32, width: 64 } },
+    );
+
+    band.drawFrame();
+
+    expect(band.canvases()[0]?.draws[0]?.footprint).toEqual({
+      height: expect.closeTo(16),
+      width: expect.closeTo(16),
+    });
+  });
+
+  it("restores the game size after baking", () => {
+    const band = addFakeBand([squareLayer([1, 1, 1, 1])], tilesets, {
+      chunkSize: 16,
+      viewport: { height: 32, width: 64 },
+    });
+
+    band.drawFrame();
+
+    expect(band.gameSize()).toEqual({ height: 32, width: 64 });
   });
 
   it("draws each chunk upright at its world position", () => {
@@ -130,23 +162,6 @@ describe("addMapBand", () => {
 
     expect(band.makeCanvas).not.toHaveBeenCalled();
     expect(band.quads()).toEqual([]);
-    expect(onDraw).toHaveBeenCalledOnce();
-  });
-
-  it("waits for a sized canvas before baking", () => {
-    const onDraw = vi.fn();
-    const band = addFakeBand([squareLayer([1, 1, 1, 1])], tilesets, {
-      onDraw,
-      viewport: { height: 0, width: 0 },
-    });
-
-    band.drawFrame();
-    expect(band.makeCanvas).not.toHaveBeenCalled();
-    expect(onDraw).not.toHaveBeenCalled();
-
-    band.resize({ height: 32, width: 32 });
-    band.drawFrame();
-    expect(band.makeCanvas).toHaveBeenCalledOnce();
     expect(onDraw).toHaveBeenCalledOnce();
   });
 
