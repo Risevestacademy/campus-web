@@ -1,14 +1,18 @@
 import { z } from "zod";
 
+import {
+  feedbackStatusSchema,
+  feedbackTypeSchema,
+  paginationMetaWithTotalSchema,
+} from "@/core/api/schemas";
+
 import type {
+  FeedbackContext,
   FeedbackPage,
   FeedbackPerson,
   FeedbackRecord,
   FeedbackSummary,
 } from "../types/feedback.types";
-
-const feedbackTypeSchema = z.enum(["bug", "idea", "report"]);
-const feedbackStatusSchema = z.enum(["open", "resolved"]);
 
 export const feedbackPersonSchema = z.toZod<FeedbackPerson>()(
   z.object({
@@ -33,19 +37,14 @@ export const feedbackSummarySchema = z.toZod<FeedbackSummary>()(
   z.object(summaryShape),
 );
 
-const feedbackContextSchema = z.object({
-  path: z.string().optional(),
-  mapId: z.string().optional(),
-  mapVersion: z.string().optional(),
-  x: z.number().optional(),
-  y: z.number().optional(),
-});
+const feedbackContextSchema = z.toZod<FeedbackContext>()(
+  z.object({ path: z.string().optional() }),
+);
 
 export const feedbackRecordSchema = z.toZod<FeedbackRecord>()(
   z.object({
     ...summaryShape,
     details: z.string(),
-    cohortId: z.string().nullable(),
     context: feedbackContextSchema.nullable(),
     userAgent: z.string().nullable(),
     resolvedBy: feedbackPersonSchema.nullable(),
@@ -55,11 +54,7 @@ export const feedbackRecordSchema = z.toZod<FeedbackRecord>()(
 
 const feedbackListSchema = z.object({
   items: z.array(feedbackSummarySchema),
-  meta: z.object({
-    page: z.number().int().positive(),
-    totalPages: z.number().int().nonnegative(),
-    total: z.number().int().nonnegative(),
-  }),
+  meta: paginationMetaWithTotalSchema,
 });
 
 export function parseFeedbackList(

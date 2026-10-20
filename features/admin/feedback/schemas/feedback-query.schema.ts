@@ -13,7 +13,7 @@ const TAB_FILTERS: Readonly<Record<FeedbackTab, readonly FeedbackFilter[]>> = {
   reports: ["open", "resolved"],
 };
 
-const DEFAULT_FILTER: Readonly<Record<FeedbackTab, FeedbackFilter>> = {
+export const DEFAULT_FILTER: Readonly<Record<FeedbackTab, FeedbackFilter>> = {
   feedback: "all",
   reports: "open",
 };
@@ -22,7 +22,7 @@ const querySchema = z.object({
   tab: z.enum(["feedback", "reports"]).catch("feedback"),
   filter: z.string().optional().catch(undefined),
   page: pageNumberSchema.catch(FIRST_PAGE),
-  item: z.string().min(1).max(64).optional().catch(undefined),
+  item: z.uuid().optional().catch(undefined),
 });
 
 export function parseFeedbackQuery(raw: {

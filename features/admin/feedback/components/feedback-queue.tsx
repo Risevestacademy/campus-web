@@ -67,8 +67,8 @@ export function FeedbackQueue({
       </ul>
       {page.truncated ? (
         <p className="text-foreground-secondary px-3 py-2 text-sm">
-          Showing the newest 100 of each kind. Filter by Bugs or Ideas to see
-          more.
+          Showing the newest 100 of each kind, so paging stops there. Filter by
+          Bugs or Ideas to reach older items.
         </p>
       ) : null}
     </section>

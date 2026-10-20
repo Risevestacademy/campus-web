@@ -13,7 +13,7 @@ import {
   listFeedback,
   readFeedback,
 } from "./feedback-api.adapter";
-import { currentTime } from "./feedback-clock";
+import { difference, sum } from "./feedback-totals";
 
 export interface FeedbackCounts {
   feedback: number | undefined;
@@ -28,7 +28,7 @@ export interface FeedbackView {
   detail: FeedbackRecordRead | undefined;
 }
 
-async function totalOf(
+async function countOf(
   api: ApiClient,
   filters: { type: FeedbackType; status?: FeedbackStatus },
 ): Promise<number | undefined> {
@@ -36,32 +36,19 @@ async function totalOf(
   return count.kind === "loaded" ? count.total : undefined;
 }
 
-function sum(...values: (number | undefined)[]): number | undefined {
-  return values.every((value) => value !== undefined)
-    ? values.reduce<number>((total, value) => total + (value ?? 0), 0)
-    : undefined;
-}
-
-function difference(
-  whole: number | undefined,
-  part: number | undefined,
-): number | undefined {
-  return whole === undefined || part === undefined ? undefined : whole - part;
-}
-
 async function readCounts(
   api: ApiClient,
   tab: FeedbackQuery["tab"],
 ): Promise<FeedbackCounts> {
   const [bugs, ideas, openReports] = await Promise.all([
-    totalOf(api, { type: "bug" }),
-    totalOf(api, { type: "idea" }),
-    totalOf(api, { type: "report", status: "open" }),
+    countOf(api, { type: "bug" }),
+    countOf(api, { type: "idea" }),
+    countOf(api, { type: "report", status: "open" }),
   ]);
   const feedback = sum(bugs, ideas);
 
   if (tab === "reports") {
-    const resolvedReports = await totalOf(api, {
+    const resolvedReports = await countOf(api, {
       type: "report",
       status: "resolved",
     });
@@ -73,8 +60,8 @@ async function readCounts(
   }
 
   const [openBugs, openIdeas] = await Promise.all([
-    totalOf(api, { type: "bug", status: "open" }),
-    totalOf(api, { type: "idea", status: "open" }),
+    countOf(api, { type: "bug", status: "open" }),
+    countOf(api, { type: "idea", status: "open" }),
   ]);
   const open = sum(openBugs, openIdeas);
 
@@ -132,5 +119,5 @@ export async function loadFeedbackView(
       : undefined);
   const detail = selectedId ? await readFeedback(api, selectedId) : undefined;
 
-  return { now: currentTime(), counts, list, detail };
+  return { now: Date.now(), counts, list, detail };
 }

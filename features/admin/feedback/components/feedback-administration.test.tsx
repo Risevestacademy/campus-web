@@ -27,6 +27,8 @@ const ada = {
 };
 const sodiq = { id: "u-2", email: "sodiq@campus.local", displayName: null };
 
+const R1 = "0b9a6a52-6ad8-4c1a-9f0a-2a0d6a7b8c11";
+
 function summary(
   id: string,
   type: "bug" | "idea" | "report",
@@ -218,14 +220,14 @@ describe("FeedbackAdministration", () => {
 
   it("shows the selected report's detail below the table without a Report pill", async () => {
     useFeedbackApi({
-      reports: [summary("r1", "report")],
-      detail: record("r1", "report", { about: "Sodiq Semiu | Main hallway" }),
+      reports: [summary(R1, "report")],
+      detail: record(R1, "report", { about: "Sodiq Semiu | Main hallway" }),
     });
 
-    await renderPage({ tab: "reports", item: "r1" });
+    await renderPage({ tab: "reports", item: R1 });
 
     expect(
-      screen.getByRole("heading", { level: 2, name: "Title r1" }),
+      screen.getByRole("heading", { level: 2, name: `Title ${R1}` }),
     ).toBeVisible();
     const detail = screen.getByRole("article");
     expect(within(detail).getByText("Open")).toBeVisible();

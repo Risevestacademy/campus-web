@@ -1,14 +1,14 @@
 import Link from "next/link";
 
+import { splitReportAbout } from "@/shared/lib/report-about";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { buttonVariants } from "@/shared/ui/button";
 
-import { splitReportAbout } from "../feedback-about";
 import {
   avatarTone,
   describeAge,
   initialOf,
-  personName,
+  reportedNameOf,
 } from "../feedback-format";
 import { feedbackAdministrationHref } from "../feedback-href";
 import type { FeedbackFilter, FeedbackPage } from "../types/feedback.types";
@@ -71,12 +71,8 @@ export function ReportsTable({
         </thead>
         <tbody>
           {page.items.map((report) => {
-            const { reported, where } = splitReportAbout(report.about);
-            const reportedName =
-              reported ??
-              (report.reportedUser
-                ? personName(report.reportedUser)
-                : undefined);
+            const { where } = splitReportAbout(report.about);
+            const reportedName = reportedNameOf(report);
 
             return (
               <tr key={report.id} className="group/row">

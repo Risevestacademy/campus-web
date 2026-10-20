@@ -4,8 +4,7 @@ import type { ReactNode } from "react";
 
 import { buttonVariants } from "@/shared/ui/button";
 
-import { feedbackTypeDetails } from "../feedback/components/feedback-type-badge";
-import type { FeedbackType } from "../feedback/types/feedback.types";
+import { type FeedbackType, feedbackTypeDetails } from "../feedback";
 
 export interface AttentionItem {
   id: string;

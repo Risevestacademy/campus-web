@@ -5,15 +5,16 @@ import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 import { cn } from "cn";
 import type { ReactNode } from "react";
 
+import { splitReportAbout } from "@/shared/lib/report-about";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 
-import { splitReportAbout } from "../feedback-about";
 import {
   avatarTone,
   describeAge,
   describeDevice,
   personInitial,
   personName,
+  reportedNameOf,
 } from "../feedback-format";
 import type { FeedbackRecord } from "../types/feedback.types";
 import { FeedbackStatusControl } from "./feedback-status-control";
@@ -61,12 +62,9 @@ export function FeedbackDetail({
   now: number;
   className?: string;
 }) {
-  const { submittedBy, reportedUser, resolvedBy } = feedback;
+  const { submittedBy, resolvedBy } = feedback;
   const reportedName =
-    feedback.type === "report"
-      ? (splitReportAbout(feedback.about).reported ??
-        (reportedUser ? personName(reportedUser) : undefined))
-      : undefined;
+    feedback.type === "report" ? reportedNameOf(feedback) : undefined;
 
   return (
     <article

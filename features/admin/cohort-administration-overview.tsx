@@ -10,14 +10,14 @@ import Link from "next/link";
 import { getServerApi } from "@/core/api/client/server";
 import { Button, buttonVariants } from "@/shared/ui/button";
 
-import { describeAge } from "./feedback/feedback-format";
-import { feedbackAdministrationHref } from "./feedback/feedback-href";
 import {
   attentionItems,
+  describeAge,
+  feedbackAdministrationHref,
   isMissingData,
   loadOpenFeedback,
   openCounts,
-} from "./feedback/services/open-feedback.service";
+} from "./feedback";
 import {
   type AttentionItem,
   NeedsAttentionCard,

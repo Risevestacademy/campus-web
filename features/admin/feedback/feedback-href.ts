@@ -1,11 +1,7 @@
 import type { Route } from "next";
 
+import { DEFAULT_FILTER } from "./schemas/feedback-query.schema";
 import type { FeedbackFilter, FeedbackTab } from "./types/feedback.types";
-
-const DEFAULT_FILTER: Readonly<Record<FeedbackTab, FeedbackFilter>> = {
-  feedback: "all",
-  reports: "open",
-};
 
 export function feedbackAdministrationHref(
   cohortId: string,

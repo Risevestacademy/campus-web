@@ -2,7 +2,7 @@ import type { ApiClient } from "@/core/api/client";
 
 import type { FeedbackSummary } from "../types/feedback.types";
 import { type LatestOpenRead, readLatestOpen } from "./feedback-api.adapter";
-import { currentTime } from "./feedback-clock";
+import { sum } from "./feedback-totals";
 
 export interface OpenFeedback {
   now: number;
@@ -18,10 +18,10 @@ export async function loadOpenFeedback(api: ApiClient): Promise<OpenFeedback> {
     readLatestOpen(api, "idea"),
   ]);
 
-  return { now: currentTime(), reports, bugs, ideas };
+  return { now: Date.now(), reports, bugs, ideas };
 }
 
-function totalOf(read: LatestOpenRead): number | undefined {
+function openTotalOf(read: LatestOpenRead): number | undefined {
   return read.kind === "loaded" ? read.total : undefined;
 }
 
@@ -30,20 +30,12 @@ export function openCounts(open: OpenFeedback): {
   feedback: number | undefined;
   all: number | undefined;
 } {
-  const reports = totalOf(open.reports);
-  const bugs = totalOf(open.bugs);
-  const ideas = totalOf(open.ideas);
-  const feedback =
-    bugs === undefined || ideas === undefined ? undefined : bugs + ideas;
+  const reports = openTotalOf(open.reports);
+  const bugs = openTotalOf(open.bugs);
+  const ideas = openTotalOf(open.ideas);
+  const feedback = sum(bugs, ideas);
 
-  return {
-    reports,
-    feedback,
-    all:
-      reports === undefined || feedback === undefined
-        ? undefined
-        : reports + feedback,
-  };
+  return { reports, feedback, all: sum(reports, feedback) };
 }
 
 // The most recent open item of each kind, a report first, then a bug, then an

@@ -2,14 +2,18 @@ import "server-only";
 
 import { LockIcon } from "@phosphor-icons/react/dist/ssr/Lock";
 import { cn } from "cn";
+import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { getServerApi } from "@/core/api/client/server";
 
+import { CataloguePagination } from "../../catalogue/catalogue-presentation";
 import { feedbackAdministrationHref } from "../feedback-href";
-import { parseFeedbackQuery } from "../schemas/feedback-query.schema";
-import { filtersFor } from "../schemas/feedback-query.schema";
+import {
+  filtersFor,
+  parseFeedbackQuery,
+} from "../schemas/feedback-query.schema";
 import {
   type FeedbackView,
   loadFeedbackView,
@@ -20,7 +24,6 @@ import type {
   FeedbackTab,
 } from "../types/feedback.types";
 import { FeedbackDetail } from "./feedback-detail";
-import { FeedbackPagination } from "./feedback-pagination";
 import { FeedbackQueue } from "./feedback-queue";
 import { ReportsTable } from "./reports-table";
 
@@ -40,6 +43,23 @@ function Notice({ children }: { children: ReactNode }) {
     >
       {children}
     </p>
+  );
+}
+
+function LoadFailedNotice({
+  what,
+  retryHref,
+}: {
+  what: string;
+  retryHref: Route;
+}) {
+  return (
+    <Notice>
+      We couldn&apos;t load {what}.{" "}
+      <Link className="text-primary underline" href={retryHref}>
+        Try again
+      </Link>
+    </Notice>
   );
 }
 
@@ -149,15 +169,10 @@ function FeedbackTabContent({
 
   if (list.kind === "unavailable") {
     return (
-      <Notice>
-        We couldn&apos;t load feedback.{" "}
-        <Link
-          className="text-primary underline"
-          href={feedbackAdministrationHref(cohortId, query)}
-        >
-          Try again
-        </Link>
-      </Notice>
+      <LoadFailedNotice
+        what="feedback"
+        retryHref={feedbackAdministrationHref(cohortId, query)}
+      />
     );
   }
   if (list.items.length === 0) {
@@ -177,10 +192,15 @@ function FeedbackTabContent({
           now={now}
           selectedId={selectedId}
         />
-        <FeedbackPagination
-          cohortId={cohortId}
-          tab="feedback"
-          filter={query.filter}
+        <CataloguePagination
+          ariaLabel="Feedback pages"
+          hrefForPage={(page) =>
+            feedbackAdministrationHref(cohortId, {
+              tab: "feedback",
+              filter: query.filter,
+              page,
+            })
+          }
           page={list.page}
           totalPages={list.totalPages}
         />
@@ -203,15 +223,10 @@ function ReportsTabContent({
 
   if (list.kind === "unavailable") {
     return (
-      <Notice>
-        We couldn&apos;t load reports.{" "}
-        <Link
-          className="text-primary underline"
-          href={feedbackAdministrationHref(cohortId, query)}
-        >
-          Try again
-        </Link>
-      </Notice>
+      <LoadFailedNotice
+        what="reports"
+        retryHref={feedbackAdministrationHref(cohortId, query)}
+      />
     );
   }
 
@@ -227,10 +242,15 @@ function ReportsTabContent({
           now={now}
         />
       )}
-      <FeedbackPagination
-        cohortId={cohortId}
-        tab="reports"
-        filter={query.filter}
+      <CataloguePagination
+        ariaLabel="Feedback pages"
+        hrefForPage={(page) =>
+          feedbackAdministrationHref(cohortId, {
+            tab: "reports",
+            filter: query.filter,
+            page,
+          })
+        }
         page={list.page}
         totalPages={list.totalPages}
       />

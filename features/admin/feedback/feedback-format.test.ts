@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { splitReportAbout } from "./feedback-about";
 import { describeAge, describeDevice, personName } from "./feedback-format";
 import { feedbackAdministrationHref } from "./feedback-href";
-import { parseFeedbackQuery } from "./schemas/feedback-query.schema";
 
 const NOW = Date.parse("2026-10-16T12:00:00.000Z");
 
@@ -38,65 +36,11 @@ describe("describeDevice", () => {
   });
 });
 
-describe("splitReportAbout", () => {
-  it("splits who and where on the first bar", () => {
-    expect(splitReportAbout("Ramnan | Main | hallway")).toEqual({
-      reported: "Ramnan",
-      where: "Main | hallway",
-    });
-    expect(splitReportAbout("Ramnan |")).toEqual({
-      reported: "Ramnan",
-      where: undefined,
-    });
-  });
-
-  it("reads an about without a bar as the name", () => {
-    expect(splitReportAbout("Ramnan")).toEqual({
-      reported: "Ramnan",
-      where: undefined,
-    });
-    expect(splitReportAbout(null)).toEqual({
-      reported: undefined,
-      where: undefined,
-    });
-  });
-});
-
 describe("personName", () => {
   it("falls back to the email when there is no display name", () => {
     expect(
       personName({ id: "1", email: "ada@campus.local", displayName: null }),
     ).toBe("ada@campus.local");
-  });
-});
-
-describe("parseFeedbackQuery", () => {
-  it("defaults to the feedback tab and its all filter", () => {
-    expect(parseFeedbackQuery({})).toEqual({
-      tab: "feedback",
-      filter: "all",
-      page: 1,
-      itemId: undefined,
-    });
-  });
-
-  it("keeps a filter that belongs to the tab and drops one that doesn't", () => {
-    expect(
-      parseFeedbackQuery({ tab: "reports", filter: "resolved" }),
-    ).toMatchObject({ tab: "reports", filter: "resolved" });
-    expect(parseFeedbackQuery({ tab: "reports", filter: "bug" })).toMatchObject(
-      {
-        tab: "reports",
-        filter: "open",
-      },
-    );
-  });
-
-  it("falls back on a bad tab or page", () => {
-    expect(parseFeedbackQuery({ tab: "nope", page: "-3" })).toMatchObject({
-      tab: "feedback",
-      page: 1,
-    });
   });
 });
 

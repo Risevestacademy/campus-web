@@ -1,6 +1,14 @@
 import { render, screen, within } from "@testing-library/react";
 import { http } from "msw";
-import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 const mockApi = await vi.hoisted(async () => {
   const { startMockApi } = await import("@/tests/fixtures/mock-api");
@@ -15,9 +23,6 @@ vi.mock("next/headers", () => ({
   headers: () => Promise.resolve(new Headers()),
 }));
 vi.mock("server-only", () => ({}));
-vi.mock("./feedback/services/feedback-clock", () => ({
-  currentTime: () => NOW,
-}));
 
 import { CohortAdministrationOverview } from "./cohort-administration-overview";
 
@@ -66,7 +71,13 @@ const ALL_KINDS: Open = {
   idea: [1, item("i1", "idea", 24 * 60 * 2)],
 };
 
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   mockApi.reset();
   vi.unstubAllEnvs();
 });

@@ -2,6 +2,8 @@ import { FeedbackAdministration } from "@/features/admin";
 import { requireRouteAccess, SessionUnavailable } from "@/features/auth";
 import { firstSearchParameter } from "@/shared/lib/search-params";
 
+import { requireCohortId } from "../../require-cohort-id";
+
 interface FeedbackPageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{
@@ -16,9 +18,9 @@ export default async function FeedbackPage({
   params,
   searchParams,
 }: FeedbackPageProps) {
-  const [access, { id }, query] = await Promise.all([
+  const id = await requireCohortId(params);
+  const [access, query] = await Promise.all([
     requireRouteAccess({ kind: "system-admin" }),
-    params,
     searchParams,
   ]);
 

@@ -5,10 +5,41 @@ type Schemas = components["schemas"];
 
 export type FeedbackType = Schemas["FeedbackType"];
 export type FeedbackStatus = Schemas["FeedbackStatus"];
-export type FeedbackPerson = Simplify<Schemas["FeedbackPersonDto"]>;
-export type FeedbackContext = Simplify<Schemas["FeedbackContextDto"]>;
-export type FeedbackSummary = Simplify<Schemas["FeedbackListItemDto"]>;
-export type FeedbackRecord = Simplify<Schemas["FeedbackDto"]>;
+export type FeedbackPerson = Simplify<
+  Pick<Schemas["FeedbackPersonDto"], "id" | "email" | "displayName">
+>;
+// The page reads where a member said they were, nothing else of the context.
+export type FeedbackContext = Simplify<
+  Pick<Schemas["FeedbackContextDto"], "path">
+>;
+export type FeedbackSummary = Simplify<
+  Pick<
+    Schemas["FeedbackListItemDto"],
+    "id" | "type" | "title" | "about" | "status" | "createdAt"
+  > & {
+    submittedBy: FeedbackPerson;
+    reportedUser: FeedbackPerson | null;
+  }
+>;
+export type FeedbackRecord = Simplify<
+  Pick<
+    Schemas["FeedbackDto"],
+    | "id"
+    | "type"
+    | "title"
+    | "about"
+    | "status"
+    | "createdAt"
+    | "details"
+    | "userAgent"
+    | "resolvedAt"
+  > & {
+    submittedBy: FeedbackPerson;
+    reportedUser: FeedbackPerson | null;
+    context: FeedbackContext | null;
+    resolvedBy: FeedbackPerson | null;
+  }
+>;
 
 export interface FeedbackPage {
   items: FeedbackSummary[];
