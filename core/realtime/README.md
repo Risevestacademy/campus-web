@@ -13,11 +13,13 @@ policy for a closed socket, and the socket client that applies all three.
 import {
   classifyClose,
   createRealtimeClient,
+  movementFor,
   parseServerMessage,
   parseSocketClose,
   reconnectDelay,
   type ClientMessage,
   type ServerMessage,
+  type WorldMovement,
   type WorldCloseCode,
   type WorldCloseReason,
 } from "@/core/realtime";
@@ -25,7 +27,9 @@ import {
 
 - `ServerMessage`, `ClientMessage`, `WorldCloseCode`, `WorldCloseReason`, one
   type per message (`WelcomeMessage`, `MoveResultMessage`, …), and `Player`,
-  `Avatar`, `Direction`, `MoveOutcome`: generated from world's protocol.
+  `Avatar`, `Direction`, `MoveOutcome`, `ErrorCode`: derived from world's
+  generated protocol. `MoveOutcome` and `ErrorCode` also hold `"unknown"`
+  (see Inbound frames).
 - `parseServerMessage(text)`: one socket frame's text as a
   `ServerMessageResult`; see [Inbound frames](#inbound-frames).
 - `parseSocketClose(code, reason)`: a close event's fields, bounded to the
@@ -36,6 +40,9 @@ import {
   what to do when the socket closes; see [Close policy](#close-policy).
 - `createRealtimeClient(options)`: one cohort's socket, from connect to the
   last retry; see [Socket client](#socket-client).
+- `movementFor(cohortId)`: one cohort's `WorldMovement` port. It accepts
+  movement only after `welcome` and `snapshot`, exposes world's `stepMs`, and
+  sends typed `move` frames through the current admitted socket.
 - `browserIsOnline()` and `subscribeToBrowserWake(listener)` in
   `browser-lifecycle.ts`: the browser's online state and its wake signals
   (`online`, the tab becoming visible or focused, a page restored from the
@@ -107,6 +114,12 @@ result.
   promise that it will never add a field.
 - `z.toZod` cannot see bounds. Tiles are non-negative safe integers; the
   tests cover that.
+- An `outcome` or error `code` string world added after the last
+  `pnpm world:types` reads as `"unknown"`, so a `moveResult` still answers its
+  move. The value world sent is dropped. `MoveOutcome` and `ErrorCode` are the
+  generated unions plus `"unknown"`, so a value `pnpm world:types` adds fails
+  `pnpm typecheck` until the schema's list names it. `Direction` stays closed:
+  a new direction breaks the grid model and needs a client release.
 - `parseServerMessage` returns `{ ok: true, message }` or a failure:
   - `{ reason: "unknown-type" }`: a message world added after the last
     `pnpm world:types`. Log it and skip it; never close the socket.
@@ -176,6 +189,10 @@ const client = createRealtimeClient({
 client.connect();
 useSyncExternalStore(client.subscribe, client.getStatus);
 ```
+
+`WorldSession` binds the cohort's movement channel to this client. A close
+disables sending immediately. The next `welcome` and `snapshot` re-enable it,
+so reconnect state always starts from world's authoritative snapshot.
 
 Features never construct a `WebSocket`; whoever composes the client passes
 `createSocket`. `isOnline` and `subscribeToWake` are optional ports: without

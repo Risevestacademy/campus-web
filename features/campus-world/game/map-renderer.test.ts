@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   addFakeBand,
@@ -7,6 +7,16 @@ import {
 } from "../testing/fake-kaplay-band";
 
 const tilesets = renderTilesets(["grounds", "terrains"]);
+
+function canvasAt(
+  band: ReturnType<typeof addFakeBand>,
+  position: { x: number; y: number },
+) {
+  const quad = band
+    .quads()
+    .find(({ pos }) => pos.x === position.x && pos.y === position.y);
+  return band.canvases().find(({ fb }) => fb.tex === quad?.tex);
+}
 
 describe("addMapBand", () => {
   it("draws a lower layer before an upper layer from an earlier tileset", () => {
@@ -18,30 +28,215 @@ describe("addMapBand", () => {
     expect(band.drawFrame()).toEqual(["terrains", "grounds"]);
   });
 
-  it("draws each visible tile exactly once per frame", () => {
+  it("bakes each tile once, then draws the band from its chunk textures", () => {
     const band = addFakeBand(
       [squareLayer([1, 11, 0, 2]), squareLayer([0, 0, 12, 0])],
       tilesets,
     );
 
-    band.drawFrame();
-    expect(band.drawSprite).toHaveBeenCalledTimes(4);
-
-    band.drawSprite.mockClear();
-    band.drawFrame();
-    expect(band.drawSprite).toHaveBeenCalledTimes(4);
+    expect(band.drawFrame()).toHaveLength(4);
+    expect(band.drawFrame()).toEqual([]);
+    expect(band.quads()).toHaveLength(1);
   });
 
-  it("draws a tall tile whose base cell is below the viewport", () => {
+  it("bakes a tall tile into every chunk its art reaches", () => {
     const band = addFakeBand(
       [squareLayer([0, 0, 0, 0, 0, 0, 1, 0, 0])],
       [{ ...tilesets[0]!, tileheight: 46 }],
-      {
-        camera: { x: 8, y: 8 },
-        viewport: { height: 16, width: 16 },
-      },
+      { chunkSize: 32 },
     );
 
-    expect(band.drawFrame()).toEqual(["grounds"]);
+    band.drawFrame();
+
+    expect(
+      band.canvases().map(({ draws, height, width }) => ({
+        height,
+        sprites: draws.map(({ sprite }) => sprite),
+        width,
+      })),
+    ).toEqual([
+      { height: 32, sprites: ["grounds"], width: 32 },
+      { height: 16, sprites: ["grounds"], width: 32 },
+    ]);
+  });
+
+  it("bakes each tile at its texel in the chunk, whatever the camera", () => {
+    const data = Array<number>(16).fill(0);
+    data[11] = 1;
+    const band = addFakeBand([squareLayer(data)], tilesets, {
+      camera: { x: 40, y: 24 },
+      chunkSize: 32,
+    });
+
+    band.drawFrame();
+
+    expect(canvasAt(band, { x: 32, y: 32 })?.draws).toEqual([
+      {
+        footprint: { height: 16, width: 16 },
+        sprite: "grounds",
+        texel: { x: 24, y: 8 },
+        world: { x: 56, y: 40 },
+      },
+    ]);
+  });
+
+  it("bakes a rotated tile at its own size on a wide canvas", () => {
+    const rotatedQuarterTurn = 0xa0_00_00_01;
+    const band = addFakeBand(
+      [squareLayer([rotatedQuarterTurn, 0, 0, 0])],
+      tilesets,
+      { chunkSize: 32, viewport: { height: 32, width: 64 } },
+    );
+
+    band.drawFrame();
+
+    expect(band.canvases()[0]?.draws[0]?.footprint).toEqual({
+      height: expect.closeTo(16),
+      width: expect.closeTo(16),
+    });
+  });
+
+  it("restores the game size after baking", () => {
+    const band = addFakeBand([squareLayer([1, 1, 1, 1])], tilesets, {
+      chunkSize: 16,
+      viewport: { height: 32, width: 64 },
+    });
+
+    band.drawFrame();
+
+    expect(band.gameSize()).toEqual({ height: 32, width: 64 });
+  });
+
+  it("draws each chunk upright at its world position", () => {
+    const band = addFakeBand([squareLayer([1, 1, 1, 1])], tilesets, {
+      chunkSize: 16,
+    });
+
+    band.drawFrame();
+
+    expect(band.quads()).toEqual(
+      [
+        { x: 0, y: 0 },
+        { x: 16, y: 0 },
+        { x: 0, y: 16 },
+        { x: 16, y: 16 },
+      ].map((pos, index) => ({
+        flipY: true,
+        height: 16,
+        pos,
+        tex: `chunk-${index}`,
+        width: 16,
+      })),
+    );
+  });
+
+  it("draws only the chunks a zoomed-in view reaches", () => {
+    const band = addFakeBand([squareLayer(Array(25).fill(1))], tilesets, {
+      camera: { x: 40, y: 40 },
+      chunkSize: 32,
+      scale: 2,
+      viewport: { height: 32, width: 32 },
+    });
+
+    band.drawFrame();
+
+    expect(band.quads().map(({ pos }) => pos)).toEqual([{ x: 32, y: 32 }]);
+  });
+
+  describe("on a map larger than the view", () => {
+    // 9 × 9 tiles in 32 px chunks: a 5 × 5 grid. At 2x a 32 px viewport
+    // sees the 16 px around (40, 40), inside chunk (32, 32) alone.
+    function zoomedIn() {
+      return addFakeBand([squareLayer(Array(81).fill(1))], tilesets, {
+        camera: { x: 40, y: 40 },
+        chunkSize: 32,
+        scale: 2,
+        viewport: { height: 32, width: 32 },
+      });
+    }
+
+    function canvasesAfterEachFrame(
+      band: ReturnType<typeof zoomedIn>,
+      frames: number,
+    ) {
+      return Array.from({ length: frames }, () => {
+        band.drawFrame();
+        return band.makeCanvas.mock.calls.length;
+      });
+    }
+
+    it("bakes only the chunks in view on the first frame", () => {
+      const band = zoomedIn();
+
+      band.drawFrame();
+
+      expect(band.makeCanvas).toHaveBeenCalledOnce();
+      expect(band.quads().map(({ tex }) => tex)).toEqual(["chunk-0"]);
+    });
+
+    it("then bakes one chunk a frame within a chunk of the view, and no further", () => {
+      const band = zoomedIn();
+
+      expect(canvasesAfterEachFrame(band, 11)).toEqual([
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9,
+      ]);
+      expect(band.makeCanvas.mock.calls).toEqual(Array(9).fill([32, 32]));
+    });
+
+    it("bakes a chunk the frame the camera brings it into view", () => {
+      const band = zoomedIn();
+      canvasesAfterEachFrame(band, 9);
+
+      band.panTo({ x: 136, y: 136 });
+
+      expect(canvasesAfterEachFrame(band, 2)).toEqual([10, 11]);
+      expect(band.quads()).toEqual([
+        expect.objectContaining({ pos: { x: 128, y: 128 }, tex: "chunk-9" }),
+      ]);
+    });
+
+    it("frees only the chunks it baked", () => {
+      const band = zoomedIn();
+      band.drawFrame();
+
+      band.destroy();
+
+      expect(band.canvases()).toHaveLength(1);
+      expect(band.canvases()[0]?.free).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("skips chunks with no tiles", () => {
+    const data = Array<number>(16).fill(0);
+    data[0] = 1;
+    const band = addFakeBand([squareLayer(data)], tilesets, { chunkSize: 32 });
+
+    band.drawFrame();
+
+    expect(band.makeCanvas).toHaveBeenCalledOnce();
+    expect(band.quads().map(({ pos }) => pos)).toEqual([{ x: 0, y: 0 }]);
+  });
+
+  it("bakes nothing for an empty band and still reports its draw", () => {
+    const onDraw = vi.fn();
+    const band = addFakeBand([], tilesets, { onDraw });
+
+    band.drawFrame();
+
+    expect(band.makeCanvas).not.toHaveBeenCalled();
+    expect(band.quads()).toEqual([]);
+    expect(onDraw).toHaveBeenCalledOnce();
+  });
+
+  it("frees every chunk texture when the band is destroyed", () => {
+    const band = addFakeBand([squareLayer([1, 1, 1, 1])], tilesets, {
+      chunkSize: 16,
+    });
+    band.drawFrame();
+
+    band.destroy();
+
+    expect(band.canvases()).toHaveLength(4);
+    band.canvases().forEach(({ free }) => expect(free).toHaveBeenCalledOnce());
   });
 });

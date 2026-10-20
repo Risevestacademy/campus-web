@@ -5,7 +5,7 @@ import { flushSync } from "react-dom";
 import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
 import { createPresenceStore } from "@/core/presence";
-import type { Avatar } from "@/core/realtime";
+import { type Avatar, createWorldMovementChannel } from "@/core/realtime";
 
 import { campusRuntime } from "../game/campus-runtime";
 import type { CampusWorldDependencies } from "../hooks/campus-world-dependencies";
@@ -72,6 +72,7 @@ function storyPresence() {
 const dependencies: CampusWorldDependencies = {
   configuration: { dataset: "staging", projectId: "sj3zsz66" },
   fetch: storyFetch,
+  movement: () => createWorldMovementChannel(),
   presence: storyPresence,
   runtime: campusRuntime,
 };

@@ -11,6 +11,7 @@ Administration too.
 const world = createWorldSession({
   url,
   cohortId,
+  movement, // movementFor(cohortId)
   presence, // presenceFor(cohortId)
   refreshSession, // the shared refresh port (core/session)
   captureEvent, // ([name, properties]) => capture
@@ -32,6 +33,10 @@ In React, `useWorldSession()` gives `status`, `connect` and `reconnect` under
 
 - Every parsed frame goes to `presence.apply`, which rebuilds from each
   `snapshot`, so a reconnect never duplicates an avatar.
+- `connect()` and `reconnect()` bind movement to the active client's sender,
+  only when they open a socket: `reconnect()` on a live or retrying session
+  does nothing, so movement keeps its `stepMs`. Constructing a discarded React
+  Strict Mode session cannot steal that binding.
 - Every recoverable close clears the remote participants (yourself and the
   authoritative map stay), so a drop never leaves frozen stand-ins.
 - Outcomes that leave the Presence Session empty the map, then reach

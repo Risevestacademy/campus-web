@@ -18,6 +18,11 @@ interface FakeKaplaySettings {
   autoUpload?: boolean;
 }
 
+interface Point {
+  x: number;
+  y: number;
+}
+
 interface FakeObject {
   destroy: () => void;
   draw?: () => void;
@@ -30,15 +35,48 @@ function createContext(
   uploads: FakeSpriteUpload[],
 ) {
   const objects = new Set<FakeObject>();
+  const downKeys = new Set<string>();
   const errorHandlers: Array<(error: Error) => void> = [];
+  const pressedKeys = new Set<string>();
+  const keyPressHandlers = new Set<(key: string) => void>();
+  const scrollHandlers = new Set<(delta: Point) => void>();
   const stopLoop = vi.fn();
+  let deltaSeconds = 0;
+  let camPos: Point = { x: 0, y: 0 };
+  let camScale = 1;
+  let mouse: Point = { x: 0, y: 0 };
+  let viewport = { height: 480, width: 640 };
+
+  function listen<Handler>(handlers: Set<Handler>, handler: Handler) {
+    handlers.add(handler);
+    return { cancel: () => handlers.delete(handler) };
+  }
+
+  function readsKey(keys: string | string[] | undefined, state: Set<string>) {
+    if (keys === undefined) return state.size > 0;
+    return Array.isArray(keys)
+      ? keys.some((key) => state.has(key))
+      : state.has(keys);
+  }
 
   const k = {
     _k: { app: { quit: stopLoop } },
     add: vi.fn(
-      (components: Array<{ draw?: () => void; update?: () => void }>) => {
+      (
+        components: Array<{
+          destroy?: () => void;
+          draw?: () => void;
+          update?: () => void;
+        }>,
+      ) => {
+        const onDestroy = components.find(
+          (component) => component.destroy,
+        )?.destroy;
         const object: FakeObject = {
-          destroy: () => objects.delete(object),
+          destroy: () => {
+            onDestroy?.();
+            objects.delete(object);
+          },
           draw: components.find((component) => component.draw)?.draw,
           update: components.find((component) => component.update)?.update,
         };
@@ -50,9 +88,15 @@ function createContext(
     drawCircle: vi.fn(),
     drawFormattedText: vi.fn(),
     drawSprite: vi.fn(),
+    dt: vi.fn(() => deltaSeconds),
     formatText: vi.fn((options: { text: string }) => ({ text: options.text })),
-    getCamPos: vi.fn(() => ({ x: 0, y: 0 })),
-    height: vi.fn(() => 480),
+    getCamPos: vi.fn(() => camPos),
+    getCamScale: vi.fn(() => ({ x: camScale, y: camScale })),
+    height: vi.fn(() => viewport.height),
+    isKeyDown: vi.fn((keys?: string | string[]) => readsKey(keys, downKeys)),
+    isKeyPressed: vi.fn((keys?: string | string[]) =>
+      readsKey(keys, pressedKeys),
+    ),
     layer: vi.fn((name: string) => ({ name })),
     loadSprite: vi.fn((name: string, source: unknown) => {
       let onLoad: (() => void) | undefined;
@@ -78,29 +122,60 @@ function createContext(
       if (autoUpload) queueMicrotask(upload.finish);
       return asset;
     }),
+    mousePos: vi.fn(() => mouse),
     onError: vi.fn((handler: (error: Error) => void) => {
       errorHandlers.push(handler);
     }),
+    onKeyPress: vi.fn((handler: (key: string) => void) =>
+      listen(keyPressHandlers, handler),
+    ),
+    onScroll: vi.fn((handler: (delta: Point) => void) =>
+      listen(scrollHandlers, handler),
+    ),
     popTransform: vi.fn(),
     pushTransform: vi.fn(),
     pushTranslate: vi.fn(),
     quad: vi.fn(() => ({})),
     quit: vi.fn(),
     rgb: vi.fn((hex: string) => hex),
-    setCamPos: vi.fn(),
+    setCamPos: vi.fn((position: Point) => {
+      camPos = position;
+    }),
+    setCamScale: vi.fn((scale: number) => {
+      camScale = scale;
+    }),
     setLayers: vi.fn(),
     vec2: vi.fn((x: number, y: number) => ({ x, y })),
-    width: vi.fn(() => 640),
+    width: vi.fn(() => viewport.width),
   };
 
   return {
     drawFrame: () => objects.forEach((object) => object.draw?.()),
-    updateFrame: () => objects.forEach((object) => object.update?.()),
+    updateFrame: (deltaMs = 16) => {
+      deltaSeconds = deltaMs / 1000;
+      objects.forEach((object) => object.update?.());
+      pressedKeys.clear();
+    },
     failFrame: (error = new Error("A frame failed.")) =>
       errorHandlers.forEach((handler) => handler(error)),
     k: k as unknown as KAPLAYCtx,
+    inputHandlers: () => keyPressHandlers.size + scrollHandlers.size,
     liveObjects: () => objects.size,
+    moveMouse: (position: Point) => {
+      mouse = position;
+    },
     options,
+    pressKey: (key: string) => {
+      downKeys.add(key);
+      pressedKeys.add(key);
+      keyPressHandlers.forEach((handler) => handler(key));
+    },
+    releaseKey: (key: string) => downKeys.delete(key),
+    resize: (width: number, height: number) => {
+      viewport = { height, width };
+    },
+    scroll: (deltaY: number) =>
+      scrollHandlers.forEach((handler) => handler({ x: 0, y: deltaY })),
     stopLoop,
   };
 }
@@ -112,6 +187,7 @@ export function fakeKaplay(settings: FakeKaplaySettings = {}) {
   const uploads: FakeSpriteUpload[] = [];
   const kaplay = vi.fn((options: KAPLAYOpt) => {
     const context = createContext(options, settings, uploads);
+    if (options.focus !== false) options.canvas?.focus();
     contexts.push(context);
     return context.k;
   });

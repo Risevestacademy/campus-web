@@ -3,9 +3,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createPresenceStore } from "@/core/presence";
+import { createWorldMovementChannel } from "@/core/realtime";
 import {
   admit,
   closeWith,
+  type MockConnection,
   settle,
   SNAPSHOT,
   startMockWorld,
@@ -19,12 +21,14 @@ const { closeAfterTest, serveWorld } = startMockWorld();
 
 function startSession(overrides: Partial<WorldSessionOptions> = {}) {
   const presence = createPresenceStore();
+  const movement = overrides.movement ?? createWorldMovementChannel();
   const captureEvent = vi.fn<WorldSessionOptions["captureEvent"]>();
   const onOutcome = vi.fn<WorldSessionOptions["onOutcome"]>();
   const session = closeAfterTest(
     createWorldSession({
       url: WORLD_SOCKET_URL,
       cohortId: "cohort-1",
+      movement,
       presence,
       refreshSession: async () => ({ kind: "refreshed" }),
       captureEvent,
@@ -36,10 +40,75 @@ function startSession(overrides: Partial<WorldSessionOptions> = {}) {
     }),
   );
 
-  return { captureEvent, onOutcome, presence, session };
+  return { captureEvent, movement, onOutcome, presence, session };
 }
 
 describe("createWorldSession", () => {
+  it("sends movement through the admitted socket", async () => {
+    const received: unknown[] = [];
+    serveWorld((connection) => {
+      connection.client.addEventListener("message", ({ data }) => {
+        received.push(JSON.parse(String(data)));
+      });
+      admit(connection);
+    });
+    const { movement, session } = startSession();
+    session.connect();
+    await vi.waitFor(() =>
+      expect(session.getStatus()).toEqual({ phase: "connected" }),
+    );
+
+    expect(movement.sendMove({ direction: "right", seq: 1 })).toBe(true);
+
+    await vi.waitFor(() =>
+      expect(received).toContainEqual({
+        type: "move",
+        direction: "right",
+        seq: 1,
+      }),
+    );
+  });
+
+  it("keeps movement on the active session when another constructed session is discarded", async () => {
+    const received: unknown[] = [];
+    serveWorld((connection) => {
+      connection.client.addEventListener("message", ({ data }) => {
+        received.push(JSON.parse(String(data)));
+      });
+      admit(connection);
+    });
+    const movement = createWorldMovementChannel();
+    const active = startSession({ movement });
+    startSession({ movement });
+
+    active.session.connect();
+    await vi.waitFor(() =>
+      expect(active.session.getStatus()).toEqual({ phase: "connected" }),
+    );
+
+    expect(movement.sendMove({ direction: "right", seq: 1 })).toBe(true);
+    await vi.waitFor(() =>
+      expect(received).toContainEqual({
+        type: "move",
+        direction: "right",
+        seq: 1,
+      }),
+    );
+  });
+
+  it("keeps movement sendable when the member reconnects a live session", async () => {
+    const world = serveWorld(admit);
+    const { movement, session } = startSession();
+    session.connect();
+    await vi.waitFor(() => expect(movement.readStepMs()).not.toBeNull());
+
+    session.reconnect();
+
+    expect(movement.readStepMs()).not.toBeNull();
+    expect(movement.sendMove({ direction: "right", seq: 1 })).toBe(true);
+    expect(world.connections).toHaveLength(1);
+  });
+
   it("draws everyone the snapshot names and reports the connect", async () => {
     serveWorld(admit);
     const { captureEvent, presence, session } = startSession();
@@ -124,6 +193,29 @@ describe("createWorldSession", () => {
     expect(session.getStatus()).toEqual({ phase: "idle" });
     expect(presence.getState().participants.size).toBe(0);
     expect(onOutcome).not.toHaveBeenCalled();
+  });
+
+  it("disables movement when replacement stops the socket", async () => {
+    let connection: MockConnection | undefined;
+    serveWorld((connected) => {
+      admit(connected);
+      connection = connected;
+    });
+    const { movement, onOutcome, session } = startSession();
+
+    session.connect();
+    await vi.waitFor(() =>
+      expect(session.getStatus()).toEqual({ phase: "connected" }),
+    );
+    expect(movement.readStepMs()).toBe(100);
+
+    connection?.client.send(JSON.stringify({ type: "replaced" }));
+    await vi.waitFor(() =>
+      expect(onOutcome).toHaveBeenCalledWith("entered-elsewhere"),
+    );
+
+    expect(movement.readStepMs()).toBeNull();
+    expect(movement.sendMove({ direction: "right", seq: 1 })).toBe(false);
   });
 
   describe("after world closed it for good", () => {

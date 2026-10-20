@@ -13,6 +13,7 @@ import {
   PresenceSessionGate,
   SidebarCollapseButton,
 } from "@/features/campus";
+import { CampusZoomControls } from "@/features/campus-world";
 import { FeedbackPopup } from "@/features/feedback";
 import { CampusOverviewPanel } from "@/features/roster";
 
@@ -70,7 +71,10 @@ export default async function ActiveCampusLayout({
         cohortId={id}
         userName={access.session.user.displayName}
       >
-        <ActiveCampus viewModel={PLACEHOLDER_ACTIVE_CAMPUS_VIEW_MODEL}>
+        <ActiveCampus
+          viewModel={PLACEHOLDER_ACTIVE_CAMPUS_VIEW_MODEL}
+          zoomControls={<CampusZoomControls />}
+        >
           {children}
         </ActiveCampus>
       </CampusShell>

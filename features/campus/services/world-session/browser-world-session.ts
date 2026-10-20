@@ -4,6 +4,7 @@ import { createConsoleLogger } from "@/core/observability";
 import { presenceFor } from "@/core/presence";
 import {
   browserIsOnline,
+  movementFor,
   type RealtimeOutcome,
   subscribeToBrowserWake,
 } from "@/core/realtime";
@@ -27,6 +28,7 @@ export function createBrowserWorldSession(
   return createWorldSession({
     url: readWorldSocketUrl(publicEnvironment, cohortId),
     cohortId,
+    movement: movementFor(cohortId),
     presence: presenceFor(cohortId),
     refreshSession: ports.refreshSession,
     captureEvent: captureRealtimeEvent,

@@ -36,6 +36,7 @@ vi.mock(
 vi.mock("@/features/campus-world", () => ({
   CampusMapPreparationGate: ({ children }: { children: ReactNode }) => children,
   CampusWorld: () => null,
+  CampusZoomControls: () => null,
 }));
 vi.mock("server-only", () => ({}));
 

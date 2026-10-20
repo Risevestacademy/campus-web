@@ -5,6 +5,7 @@ import {
   EMPTY_PRESENCE,
   type Presence,
 } from "@/core/presence";
+import { createWorldMovementChannel } from "@/core/realtime";
 
 import { fakeKaplay, fakePreparedMap } from "../testing/fake-kaplay";
 import { fakeImage } from "../testing/sanity-map-fixture";
@@ -19,12 +20,16 @@ function container() {
 function mountOptions(
   overrides: {
     onRenderError?: () => void;
+    onZoomChanged?: () => void;
     readPresence?: () => Presence;
     signal?: AbortSignal;
   } = {},
 ) {
   return {
+    movement: createWorldMovementChannel(),
+    onMoveCorrected: vi.fn(),
     onRenderError: vi.fn(),
+    onZoomChanged: vi.fn(),
     readPresence: () => EMPTY_PRESENCE,
     signal: new AbortController().signal,
     ...overrides,
@@ -37,6 +42,27 @@ afterEach(() => {
 });
 
 describe("createCampusRuntime", () => {
+  it("focuses an accessible movement canvas", async () => {
+    const kaplay = fakeKaplay();
+    const element = container();
+
+    await createCampusRuntime().start(
+      element,
+      fakePreparedMap(kaplay.module),
+      mountOptions(),
+    );
+
+    expect(kaplay.kaplay).toHaveBeenCalledWith(
+      expect.objectContaining({ focus: true }),
+    );
+    expect(element.querySelector("canvas")).toHaveAttribute(
+      "aria-label",
+      "Campus movement. Use Arrow keys or W, A, S, D to move, plus or minus to zoom, and drag to look around.",
+    );
+    expect(element.querySelector("canvas")).toHaveAttribute("tabindex", "0");
+    expect(document.activeElement).toBe(element.querySelector("canvas"));
+  });
+
   it("draws the cohort's avatars with the map, and removes them when the game stops", async () => {
     const kaplay = fakeKaplay({ autoDraw: false });
     const presence = createPresenceStore();
@@ -86,6 +112,7 @@ describe("createCampusRuntime", () => {
 
     expect(kaplay.kaplay).toHaveBeenCalledOnce();
     expect(canvas).not.toBeNull();
+    expect(document.activeElement).toBe(canvas);
     expect(first.querySelector("canvas")).toBeNull();
     expect(second.querySelector("canvas")).toBe(canvas);
   });
@@ -129,6 +156,40 @@ describe("createCampusRuntime", () => {
     game.stop();
 
     expect(kaplay.contexts[0]!.liveObjects()).toBe(0);
+  });
+
+  it("zooms the running game's camera", async () => {
+    const kaplay = fakeKaplay();
+    const runtime = createCampusRuntime();
+    const onZoomChanged = vi.fn();
+    await runtime.start(
+      container(),
+      fakePreparedMap(kaplay.module),
+      mountOptions({ onZoomChanged }),
+    );
+
+    runtime.zoom(1);
+    kaplay.contexts[0]!.updateFrame(10_000);
+
+    expect(kaplay.contexts[0]!.k.getCamScale().x).toBe(3);
+    expect(onZoomChanged).toHaveBeenCalledExactlyOnceWith(3);
+  });
+
+  it("stops the camera's input when its game stops", async () => {
+    const kaplay = fakeKaplay();
+    const runtime = createCampusRuntime();
+    const onZoomChanged = vi.fn();
+    const game = await runtime.start(
+      container(),
+      fakePreparedMap(kaplay.module),
+      mountOptions({ onZoomChanged }),
+    );
+
+    game.stop();
+    runtime.zoom(1);
+
+    expect(kaplay.contexts[0]!.inputHandlers()).toBe(0);
+    expect(onZoomChanged).not.toHaveBeenCalled();
   });
 
   it("paints the background from the theme token", async () => {
@@ -359,6 +420,35 @@ describe("createCampusRuntime", () => {
     expect(kaplay.uploads).toHaveLength(4);
     expect(element.querySelectorAll("canvas")).toHaveLength(1);
     expect(runtime.holdsMap(identity)).toBe(true);
+  });
+
+  it("replaces the context when WebGL loses it", async () => {
+    const kaplay = fakeKaplay();
+    const runtime = createCampusRuntime();
+    const onRenderError = vi.fn();
+    const element = container();
+
+    const game = await runtime.start(
+      element,
+      fakePreparedMap(kaplay.module),
+      mountOptions({ onRenderError }),
+    );
+    element
+      .querySelector("canvas")!
+      .dispatchEvent(new Event("webglcontextlost"));
+    game.stop();
+
+    expect(onRenderError).toHaveBeenCalledOnce();
+    expect(runtime.holdsMap({ mapId: "campus", version: "version-1" })).toBe(
+      false,
+    );
+
+    await runtime.start(
+      container(),
+      fakePreparedMap(kaplay.module),
+      mountOptions(),
+    );
+    expect(kaplay.kaplay).toHaveBeenCalledTimes(2);
   });
 
   it("clears a start whose signal aborts before its first frame", async () => {

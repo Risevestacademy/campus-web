@@ -1,17 +1,21 @@
 import type { GameObj, KAPLAYCtx } from "kaplay";
 
 import type { Presence } from "@/core/presence";
+import type { WorldMovement } from "@/core/realtime";
 
-import { spawnCamera } from "../services/camera";
+import { spawnTarget, type ZoomLevel, type ZoomStep } from "../services/camera";
 import {
   type CampusMapIdentity,
   type CampusMapModule,
   type PreparedCampusMap,
   takePreparedTilesetImages,
 } from "../services/map/prepare-campus-map";
+import { prefersReducedMotion } from "../services/reduced-motion";
 import { campusBackground } from "../services/theme-background";
 import { addAvatarLayer } from "./avatar-layer";
+import { type CampusCamera, createCampusCamera } from "./campus-camera";
 import { addMapBand, type RenderTileset } from "./map-renderer";
+import type { MoveCorrectionOutcome } from "./own-avatar-movement";
 import { uploadTilesetSprites } from "./tileset-sprites";
 
 export interface CampusGame {
@@ -19,7 +23,10 @@ export interface CampusGame {
 }
 
 export interface CampusGameOptions {
+  movement: WorldMovement;
+  onMoveCorrected: (outcome: MoveCorrectionOutcome) => void;
   onRenderError: () => void;
+  onZoomChanged: (level: ZoomLevel) => void;
   readPresence: () => Presence;
   signal: AbortSignal;
 }
@@ -31,6 +38,7 @@ export interface CampusRuntime {
     prepared: PreparedCampusMap,
     options: CampusGameOptions,
   ) => Promise<CampusGame>;
+  zoom: (step: ZoomStep) => void;
 }
 
 interface RuntimeContext {
@@ -42,6 +50,7 @@ interface RuntimeContext {
 }
 
 interface Mount {
+  camera?: CampusCamera;
   objects: GameObj[];
   onRenderError: () => void;
   ready: boolean;
@@ -89,7 +98,11 @@ export function createCampusRuntime(
     container: HTMLElement,
   ): RuntimeContext {
     const canvas = document.createElement("canvas");
-    canvas.setAttribute("aria-hidden", "true");
+    canvas.tabIndex = 0;
+    canvas.setAttribute(
+      "aria-label",
+      "Campus movement. Use Arrow keys or W, A, S, D to move, plus or minus to zoom, and drag to look around.",
+    );
     container.append(canvas);
 
     let k: KAPLAYCtx;
@@ -99,7 +112,7 @@ export function createCampusRuntime(
         canvas,
         crisp: true,
         debug: process.env.NODE_ENV !== "production",
-        focus: false,
+        focus: true,
         global: false,
         loadingScreen: false,
         root: container,
@@ -108,7 +121,6 @@ export function createCampusRuntime(
       canvas.remove();
       throw error;
     }
-    canvas.tabIndex = -1;
     k.setLayers(["below", "avatars", "above"], "below");
 
     const created: RuntimeContext = {
@@ -118,10 +130,18 @@ export function createCampusRuntime(
       k,
       sprites: new Map(),
     };
-    k.onError((error) => {
+    const breakContext = (error: Error) => {
       created.broken = true;
       if (created === context) reportRenderError(error);
-    });
+    };
+    k.onError(breakContext);
+    // KAPLAY never restores a lost context and every texture goes with it, so
+    // the context is replaced like any other render failure.
+    canvas.addEventListener(
+      "webglcontextlost",
+      () => breakContext(new Error("The WebGL context was lost.")),
+      { once: true },
+    );
     return created;
   }
 
@@ -131,6 +151,7 @@ export function createCampusRuntime(
   ): RuntimeContext {
     if (context && !context.broken) {
       container.append(context.canvas);
+      context.canvas.focus();
       return context;
     }
 
@@ -176,11 +197,14 @@ export function createCampusRuntime(
   }
 
   function drawMap(
-    k: KAPLAYCtx,
+    { canvas, k }: RuntimeContext,
     mount: Mount,
     prepared: PreparedCampusMap,
     tilesets: RenderTileset[],
-    readPresence: () => Presence,
+    options: Pick<
+      CampusGameOptions,
+      "movement" | "onMoveCorrected" | "onZoomChanged" | "readPresence"
+    >,
   ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       mount.rejectFirstDraw = reject;
@@ -189,11 +213,15 @@ export function createCampusRuntime(
         return;
       }
 
-      const camera = spawnCamera(prepared.map, prepared.layout, {
-        height: k.height(),
-        width: k.width(),
+      const { onZoomChanged, ...avatarOptions } = options;
+      const camera = createCampusCamera(k, {
+        canvas,
+        map: prepared.map,
+        onZoomChanged,
+        prefersReducedMotion,
+        start: spawnTarget(prepared.map, prepared.layout),
       });
-      k.setCamPos(k.vec2(camera.x, camera.y));
+      mount.camera = camera;
 
       const band = { map: prepared.map, tilesets };
       mount.objects.push(
@@ -204,7 +232,12 @@ export function createCampusRuntime(
         }),
       );
       mount.objects.push(
-        addAvatarLayer(k, { map: prepared.map, readPresence }),
+        addAvatarLayer(k, {
+          camera,
+          layout: prepared.layout,
+          map: prepared.map,
+          ...avatarOptions,
+        }),
       );
       mount.objects.push(
         addMapBand(k, {
@@ -223,6 +256,8 @@ export function createCampusRuntime(
     mount.stopped = true;
     mount.objects.forEach((object) => object.destroy());
     mount.objects = [];
+    mount.camera?.stop();
+    mount.camera = undefined;
     mount.rejectFirstDraw?.(stoppedError());
 
     if (active === mount) {
@@ -238,7 +273,8 @@ export function createCampusRuntime(
       );
     },
 
-    async start(container, prepared, { onRenderError, readPresence, signal }) {
+    async start(container, prepared, options) {
+      const { onRenderError, signal } = options;
       if (active) stop(active);
 
       const mount: Mount = {
@@ -257,13 +293,7 @@ export function createCampusRuntime(
         const tilesets = await spritesFor(runtimeContext, prepared, images);
         if (mount.stopped) throw stoppedError();
 
-        await drawMap(
-          runtimeContext.k,
-          mount,
-          prepared,
-          tilesets,
-          readPresence,
-        );
+        await drawMap(runtimeContext, mount, prepared, tilesets, options);
         if (mount.renderError) throw mount.renderError;
         mount.ready = true;
         return { stop: () => stop(mount) };
@@ -274,6 +304,10 @@ export function createCampusRuntime(
       } finally {
         signal.removeEventListener("abort", stopOnAbort);
       }
+    },
+
+    zoom(step) {
+      active?.camera?.zoom(step);
     },
   };
 }

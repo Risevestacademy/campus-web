@@ -15,23 +15,26 @@ export type {
   Avatar,
   ClientMessage,
   Direction,
-  ErrorMessage,
   JoinedMessage,
   LeftMessage,
   MovedMessage,
   MoveMessage,
-  MoveOutcome,
-  MoveResultMessage,
   PingMessage,
   Player,
   PongMessage,
   ReplacedMessage,
-  ServerMessage,
   SnapshotMessage,
   WelcomeMessage,
   CloseCode as WorldCloseCode,
   CloseReason as WorldCloseReason,
 } from "./generated/world-protocol";
+export {
+  createWorldMovementChannel,
+  movementFor,
+  type WorldMovement,
+  type WorldMovementChannel,
+  type WorldMovementMessage,
+} from "./movement-channel";
 export {
   createRealtimeClient,
   isManuallyRecoverable,
@@ -42,7 +45,12 @@ export {
   type RealtimeStatus,
 } from "./realtime-client";
 export {
+  type ErrorCode,
+  type ErrorMessage,
+  type MoveOutcome,
+  type MoveResultMessage,
   parseServerMessage,
+  type ServerMessage,
   type ServerMessageResult,
 } from "./server-message.schema";
 export { parseSocketClose } from "./socket-close.schema";

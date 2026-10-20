@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import {
   type BrowserContext,
   expect,
@@ -12,6 +10,7 @@ import type { Avatar, ServerMessage, SnapshotMessage } from "@/core/realtime";
 
 import { serverFrames } from "../fixtures/world-frames";
 import { enterCampus, joinButton } from "./support/campus-entry";
+import { canvasDigest, expectCanvasDigest } from "./support/canvas-digest";
 import {
   type FakeApi,
   membership,
@@ -90,15 +89,6 @@ async function enterReadyCampus(page: Page): Promise<Locator> {
     timeout: 15_000,
   });
   return map.locator("canvas");
-}
-
-async function canvasDigest(canvas: Locator): Promise<string> {
-  const screenshot = await canvas.screenshot();
-  return createHash("sha256").update(screenshot).digest("hex");
-}
-
-async function expectCanvasDigest(canvas: Locator, digest: string) {
-  await expect.poll(() => canvasDigest(canvas)).toBe(digest);
 }
 
 async function expectNoAdditionalSocket(sockets: WebSocketRoute[]) {

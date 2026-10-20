@@ -96,9 +96,11 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "auth.verification_sent": ["verification_type"],
   "campus.presence_tab_conflict_shown": ["surface"],
   "campus.presence_tab_moved": ["surface"],
+  "campus_world.camera_zoomed": ["level"],
   "campus_world.map_failed": ["error_kind", "map_id"],
   "campus_world.map_loaded": ["load_ms", "map_id", "tilesets", "version"],
   "campus_world.map_ready": ["first_frame_ms", "map_id", "version"],
+  "campus_world.move_corrected": ["outcome"],
   "cohort.created": ["cohort_status"],
   "identity.profile_setup_completed": ["cohort_id", "role", "track_id"],
   "identity.profile_setup_started": ["cohort_id", "role", "track_id"],
@@ -266,6 +268,21 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       expect(JSON.stringify([unknownType, corruptedWelcome])).not.toMatch(
         new RegExp(`${TOKEN}|${UNEXPECTED.phone.slice(1)}`),
       );
+    });
+
+    it("reads an outcome or error code it does not know as unknown, never as the text world sent", () => {
+      const parsed = [
+        parsedMessage(
+          JSON.stringify({ ...serverFrames.moveResult, outcome: TOKEN }),
+        ),
+        parsedMessage(JSON.stringify({ ...serverFrames.error, code: TOKEN })),
+      ];
+
+      expect(parsed).toEqual([
+        { ...serverFrames.moveResult, outcome: "unknown" },
+        { ...serverFrames.error, code: "unknown" },
+      ]);
+      expect(JSON.stringify(parsed)).not.toContain(TOKEN);
     });
 
     it("cannot reach the prototype through a __proto__ key in a frame", () => {

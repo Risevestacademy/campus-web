@@ -5,6 +5,7 @@ import { useStore } from "zustand";
 
 import { ANALYTICS_EVENTS } from "@/core/analytics/events";
 import type { PresenceStore } from "@/core/presence";
+import type { WorldMovement } from "@/core/realtime";
 
 import type { CampusGame } from "../game/campus-runtime";
 import { failureEventProperties } from "../services/map/campus-map-error";
@@ -22,6 +23,7 @@ import { useCampusWorldStatus } from "./use-campus-world-status";
 
 interface CampusGameMount {
   dependencies: CampusWorldDependencies;
+  movement: WorldMovement;
   presence: PresenceStore;
   prepared: PreparedCampusMap;
   store: CampusWorldStore;
@@ -29,7 +31,7 @@ interface CampusGameMount {
 
 function mountCampusGame(
   container: HTMLElement,
-  { dependencies, presence, prepared, store }: CampusGameMount,
+  { dependencies, movement, presence, prepared, store }: CampusGameMount,
 ): () => void {
   const { mapId, version } = prepared.manifest;
   const attempt = store.getState().begin();
@@ -48,7 +50,20 @@ function mountCampusGame(
 
   void dependencies.runtime
     .start(container, prepared, {
+      movement,
+      onMoveCorrected(outcome) {
+        dependencies.captureEvent?.(
+          ANALYTICS_EVENTS.CAMPUS_WORLD_MOVE_CORRECTED,
+          { outcome },
+        );
+      },
       onRenderError: failRender,
+      onZoomChanged(level) {
+        dependencies.captureEvent?.(
+          ANALYTICS_EVENTS.CAMPUS_WORLD_CAMERA_ZOOMED,
+          { level },
+        );
+      },
       readPresence: presence.getState,
       signal: lifetime.signal,
     })
@@ -83,6 +98,7 @@ export function useCampusGame(
   cohortId: string,
 ) {
   const [store] = useState(createCampusWorldStore);
+  const [movement] = useState(() => dependencies.movement(cohortId));
   const [presence] = useState(() => dependencies.presence(cohortId));
   const [mountVersion, setMountVersion] = useState(0);
   const state = useCampusWorldStatus(store);
@@ -96,12 +112,13 @@ export function useCampusGame(
       if (!container || !prepared) return;
       return mountCampusGame(container, {
         dependencies,
+        movement,
         presence,
         prepared,
         store,
       });
     },
-    [dependencies, presence, prepared, store],
+    [dependencies, movement, presence, prepared, store],
   );
 
   function retry() {
