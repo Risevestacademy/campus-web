@@ -186,6 +186,9 @@ network hop and complicates cookie forwarding and caching.
 `app/api/[...path]/route.ts` is a policy-enforcing browser-facing proxy. It:
 
 - fixes the upstream host from `API_BASE_URL`;
+- forwards only routes listed in `upstream-routes.ts`; any other path, or one
+  with a `.` or `..` segment, gets a backend-shaped `404` with no upstream
+  call, logged as `api.proxy.rejected` with `errorCode: "unknown_route"`;
 - forwards only allowlisted request and response headers;
 - forwards only `campus_session`, `campus_refresh`, and
   `campus_oauth_state`;
@@ -206,6 +209,12 @@ network hop and complicates cookie forwarding and caching.
 
 The proxy preserves backend success and error documents without introducing a
 second frontend-owned response contract.
+
+### Adding a route
+
+Run `pnpm api:types` after campus-api publishes the route. `pnpm typecheck`
+then fails on `PUBLISHED_ROUTES` in `upstream-routes.ts` until the new
+template is listed there; until then the proxy answers it with `404`.
 
 ## Google OAuth
 

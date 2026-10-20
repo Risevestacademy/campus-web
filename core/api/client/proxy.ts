@@ -5,6 +5,10 @@ import type { ClientOptions } from "openapi-fetch";
 import type { Logger } from "@/core/observability";
 
 import { REFRESH_ATTEMPTED_COOKIE, SESSION_COOKIE } from "./auth-cookies";
+import type { components } from "./generated/schema";
+import { isPublishedRoute } from "./upstream-routes";
+
+type ExceptionCode = components["schemas"]["ExceptionCode"];
 
 const AUTH_COOKIE_NAMES = new Set([
   "campus_oauth_state",
@@ -88,6 +92,32 @@ interface ApiProxyOptions {
 function resolveBaseUrl(baseUrl: string | (() => string)): string {
   return typeof baseUrl === "function" ? baseUrl() : baseUrl;
 }
+
+interface ApiError {
+  code: ExceptionCode;
+  message: string;
+}
+
+interface Rejection {
+  error: ApiError;
+  errorCode: string;
+  status: number;
+}
+
+const UNKNOWN_ROUTE: Rejection = {
+  error: { code: "NOT_FOUND", message: "API route not found." },
+  errorCode: "unknown_route",
+  status: 404,
+};
+const CROSS_ORIGIN: Rejection = {
+  error: { code: "FORBIDDEN", message: "Cross-origin request rejected." },
+  errorCode: "cross_origin",
+  status: 403,
+};
+const API_UNAVAILABLE: ApiError = {
+  code: "INTERNAL_ERROR",
+  message: "API is unavailable.",
+};
 
 interface ApiProxyContext {
   params: Promise<{ path: string[] }>;
@@ -367,38 +397,31 @@ function isCrossOriginUnsafeRequest(request: Request): boolean {
   return origin !== requestOrigin;
 }
 
-function createCrossOriginRejection(requestId: string): Response {
+function findRejection(
+  request: Request,
+  path: readonly string[],
+): Rejection | undefined {
+  if (!isPublishedRoute(path)) return UNKNOWN_ROUTE;
+  if (isCrossOriginUnsafeRequest(request)) return CROSS_ORIGIN;
+  return undefined;
+}
+
+function createErrorResponse(
+  requestId: string,
+  status: number,
+  error: ApiError,
+): Response {
   return Response.json(
-    {
-      error: {
-        code: "FORBIDDEN",
-        message: "Cross-origin request rejected.",
-      },
-    },
+    { error },
     {
       headers: { "x-request-id": requestId },
-      status: 403,
+      status,
     },
   );
 }
 
 function getErrorName(reason: unknown): string {
   return reason instanceof Error ? reason.name : "UnknownError";
-}
-
-function createUnavailableResponse(requestId: string): Response {
-  return Response.json(
-    {
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "API is unavailable.",
-      },
-    },
-    {
-      headers: { "x-request-id": requestId },
-      status: 502,
-    },
-  );
 }
 
 function rewriteSuccessfulOauthDestination(
@@ -437,17 +460,19 @@ export function createApiProxy(options: ApiProxyOptions) {
     const route = `/${path.join("/")}`;
     const secure = new URL(request.url).protocol === "https:";
 
-    if (isCrossOriginUnsafeRequest(request)) {
+    const rejection = findRejection(request, path);
+
+    if (rejection) {
       options.logger.warn("api.proxy.rejected", {
         durationMs: Math.max(0, clock() - startedAt),
-        errorCode: "cross_origin",
+        errorCode: rejection.errorCode,
         method: request.method,
         requestId,
         route,
-        status: 403,
+        status: rejection.status,
       });
 
-      return createCrossOriginRejection(requestId);
+      return createErrorResponse(requestId, rejection.status, rejection.error);
     }
 
     try {
@@ -525,7 +550,7 @@ export function createApiProxy(options: ApiProxyOptions) {
         status: 502,
       });
 
-      const response = createUnavailableResponse(requestId);
+      const response = createErrorResponse(requestId, 502, API_UNAVAILABLE);
 
       if (route === GOOGLE_CALLBACK_ROUTE) {
         appendReturnCookie(response.headers, undefined, secure);

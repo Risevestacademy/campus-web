@@ -1,8 +1,17 @@
 // @vitest-environment node
 
+import { readFile } from "node:fs/promises";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { PUBLISHED_ROUTE_TEMPLATES } from "@/core/api/client/upstream-routes";
+
 vi.mock("server-only", () => ({}));
+
+const GENERATED_SCHEMA = new URL(
+  "../../core/api/client/generated/schema.ts",
+  import.meta.url,
+);
 
 function context(...path: string[]) {
   return { params: Promise.resolve({ path }) };
@@ -21,6 +30,7 @@ function requireSetCookie(response: Response, name: string): string {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.resetModules();
@@ -163,5 +173,40 @@ describe("API client authentication journey eval", () => {
     expect(requireSetCookie(logoutResponse, "campus_refresh")).toBe(
       "campus_refresh=; Max-Age=0; HttpOnly; SameSite=Lax; Path=/api/v1/auth",
     );
+  });
+});
+
+describe("API proxy route allow-list eval", () => {
+  it("answers a route campus-api does not publish without contacting it", async () => {
+    let upstreamCalls = 0;
+    vi.stubEnv("API_BASE_URL", "https://api.example.test");
+    vi.spyOn(process.stdout, "write").mockReturnValue(true);
+    vi.stubGlobal("fetch", () => {
+      upstreamCalls += 1;
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+    const { GET } = await import("../../app/api/[...path]/route");
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/v1/internal/metrics"),
+      context("v1", "internal", "metrics"),
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("x-request-id")).toBeTruthy();
+    expect(await response.json()).toEqual({
+      error: { code: "NOT_FOUND", message: "API route not found." },
+    });
+    expect(upstreamCalls).toBe(0);
+  });
+
+  it("lists exactly the routes in the generated API schema", async () => {
+    const schema = await readFile(GENERATED_SCHEMA, "utf8");
+    const generatedRoutes = [...schema.matchAll(/^ {2}"(\/v1[^"]*)": \{$/gm)]
+      .map(([, route]) => route)
+      .sort();
+
+    expect(generatedRoutes).not.toHaveLength(0);
+    expect([...PUBLISHED_ROUTE_TEMPLATES].sort()).toEqual(generatedRoutes);
   });
 });
