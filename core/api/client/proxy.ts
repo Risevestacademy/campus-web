@@ -14,6 +14,7 @@ const AUTH_COOKIE_NAMES = new Set([
 const OAUTH_RETURN_COOKIE_NAME = "campus_oauth_return_to";
 const OAUTH_RETURN_COOKIE_PATH = "/api/v1/auth";
 const OAUTH_RETURN_MAX_AGE_SECONDS = 600;
+const AUTH_ROUTE_PREFIX = "/v1/auth/";
 const GOOGLE_AUTH_ROUTE = "/v1/auth/google";
 const GOOGLE_CALLBACK_ROUTE = "/v1/auth/google/callback";
 const REFRESH_ROUTE = "/v1/auth/refresh";
@@ -283,17 +284,18 @@ function expireCookies(
   }
 }
 
-function enforceAuthenticatedResponsePrivacy(
-  request: Request,
-  responseHeaders: Headers,
-): void {
-  const sessionCookie = findCookies(
-    request.headers.get("cookie"),
-    new Set([SESSION_COOKIE]),
-  )[0];
+function hasSessionCookie(request: Request): boolean {
+  return (
+    findCookies(request.headers.get("cookie"), new Set([SESSION_COOKIE]))
+      .length > 0
+  );
+}
 
-  if (!sessionCookie) return;
+function isPrivateResponse(route: string, request: Request): boolean {
+  return route.startsWith(AUTH_ROUTE_PREFIX) || hasSessionCookie(request);
+}
 
+function forbidCaching(responseHeaders: Headers): void {
   responseHeaders.set("cache-control", "private, no-store");
   responseHeaders.delete("expires");
 }
@@ -465,7 +467,9 @@ export function createApiProxy(options: ApiProxyOptions) {
         RESPONSE_HEADERS,
       );
 
-      enforceAuthenticatedResponsePrivacy(request, responseHeaders);
+      if (isPrivateResponse(route, request)) {
+        forbidCaching(responseHeaders);
+      }
       copyAuthSetCookies(upstreamResponse.headers, responseHeaders, secure);
 
       if (

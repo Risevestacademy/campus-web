@@ -388,6 +388,37 @@ describe("Data privacy eval (threshold: every case holds)", () => {
     });
   });
 
+  describe("an auth response is never cached", () => {
+    it("forbids caching a signed-out OAuth callback the backend marked public", async () => {
+      vi.stubEnv("API_BASE_URL", "https://api.example.test");
+      vi.stubGlobal("fetch", () =>
+        Promise.resolve(
+          new Response(null, {
+            headers: {
+              "cache-control": "public, max-age=60",
+              expires: "Wed, 21 Oct 2026 07:28:00 GMT",
+              location: `${ORIGIN}/sign-in?error=denied`,
+            },
+            status: 302,
+          }),
+        ),
+      );
+      const { GET } = await import("@/app/api/[...path]/route");
+
+      const response = await GET(
+        new Request(`${ORIGIN}/api/v1/auth/google/callback?code=google-code`),
+        {
+          params: Promise.resolve({
+            path: ["v1", "auth", "google", "callback"],
+          }),
+        },
+      );
+
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      expect(response.headers.get("expires")).toBeNull();
+    });
+  });
+
   describe("the world origin only names a host the browser can reach", () => {
     it.each([
       "http://world.railway.internal:8001",

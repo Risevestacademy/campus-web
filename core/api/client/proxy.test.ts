@@ -81,7 +81,7 @@ describe("createApiProxy", () => {
     expect(await response.json()).toEqual(responseBody);
   });
 
-  it("preserves backend cache policy for anonymous responses", async () => {
+  it("preserves backend cache policy for an anonymous response outside auth", async () => {
     const handler = createApiProxy({
       ...baseOptions,
       fetch: () =>
@@ -106,6 +106,44 @@ describe("createApiProxy", () => {
 
     expect(response.headers.get("cache-control")).toBe("public, max-age=60");
   });
+
+  it.each([
+    ["POST", "v1/auth/refresh"],
+    ["POST", "v1/auth/logout"],
+    ["GET", "v1/auth/google/callback"],
+  ])(
+    "never lets a signed-out %s /%s response be cached",
+    async (method, route) => {
+      const handler = createApiProxy({
+        ...baseOptions,
+        fetch: () =>
+          Promise.resolve(
+            new Response(null, {
+              headers: {
+                "cache-control": "public, max-age=60",
+                expires: "Wed, 21 Oct 2026 07:28:00 GMT",
+              },
+              status: 204,
+            }),
+          ),
+      });
+
+      const response = await handler(
+        new Request(`https://frontend.example.test/api/${route}`, {
+          headers: {
+            origin: "https://frontend.example.test",
+            "x-forwarded-host": "frontend.example.test",
+            "x-forwarded-proto": "https",
+          },
+          method,
+        }),
+        { params: Promise.resolve({ path: route.split("/") }) },
+      );
+
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      expect(response.headers.get("expires")).toBeNull();
+    },
+  );
 
   it("streams an unsafe request body to the backend", async () => {
     let outboundBody: string | undefined;

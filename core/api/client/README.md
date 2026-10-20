@@ -201,7 +201,8 @@ network hop and complicates cookie forwarding and caching.
 - rewrites `campus_refresh` and `campus_oauth_state` to
   `Path=/api/v1/auth` without a backend domain;
 - enforces `HttpOnly`, `SameSite=Lax`, and `Secure` on HTTPS;
-- forces authenticated responses to `Cache-Control: private, no-store`.
+- forces `Cache-Control: private, no-store` on every `/v1/auth/*` response
+  and on any response to a request carrying `campus_session`.
 
 The proxy preserves backend success and error documents without introducing a
 second frontend-owned response contract.
