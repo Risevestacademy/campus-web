@@ -265,50 +265,58 @@ describe("own-avatar prediction against recorded moveResults", () => {
   });
 });
 
+function startPacedOwnAvatar(start: Omit<Player, "userId">) {
+  const presence = createPresenceStore();
+  const movement = createWorldMovementChannel();
+  const sent: Array<{ direction: Direction; seq: number }> = [];
+  const corrections: string[] = [];
+  const welcome = {
+    type: "welcome" as const,
+    userId: ADA,
+    connectionId: "connection-1",
+    heartbeatSeconds: 30,
+    stepMs: 100,
+    tickMs: 50,
+    displayName: "Ada",
+    spriteKey: null,
+  };
+  const snapshot = {
+    type: "snapshot" as const,
+    map: { id: "campus", version: "v1", width: 5, height: 4 },
+    players: [{ userId: ADA, ...start, displayName: "Ada", spriteKey: null }],
+  };
+  movement.bind(({ direction, seq }) => {
+    sent.push({ direction, seq });
+    return true;
+  });
+  presence.getState().apply(welcome);
+  presence.getState().apply(snapshot);
+  movement.apply(welcome);
+  movement.apply(snapshot);
+  const controller = createOwnAvatarMovement({
+    layout: movementLayout,
+    movement,
+    onMoveCorrected: (outcome) => corrections.push(outcome),
+    prefersReducedMotion: () => false,
+    readPresence: presence.getState,
+  });
+
+  function receive(result: unknown) {
+    const message = readMoveResult(result);
+    presence.getState().apply(message);
+    movement.apply(message);
+    return message;
+  }
+
+  return { controller, corrections, receive, sent };
+}
+
 describe("own-avatar input pacing", () => {
   it("holds one tile per stepMs and reports a refused move", () => {
-    const presence = createPresenceStore();
-    const movement = createWorldMovementChannel();
-    const sent: Array<{ direction: Direction; seq: number }> = [];
-    const corrections: string[] = [];
-    const welcome = {
-      type: "welcome" as const,
-      userId: ADA,
-      connectionId: "connection-1",
-      heartbeatSeconds: 30,
-      stepMs: 100,
-      tickMs: 50,
-      displayName: "Ada",
-      spriteKey: null,
-    };
-    const snapshot = {
-      type: "snapshot" as const,
-      map: { id: "campus", version: "v1", width: 5, height: 4 },
-      players: [
-        {
-          userId: ADA,
-          x: 0,
-          y: 0,
-          facing: "right" as const,
-          displayName: "Ada",
-          spriteKey: null,
-        },
-      ],
-    };
-    movement.bind(({ direction, seq }) => {
-      sent.push({ direction, seq });
-      return true;
-    });
-    presence.getState().apply(welcome);
-    presence.getState().apply(snapshot);
-    movement.apply(welcome);
-    movement.apply(snapshot);
-    const controller = createOwnAvatarMovement({
-      layout: movementLayout,
-      movement,
-      onMoveCorrected: (outcome) => corrections.push(outcome),
-      prefersReducedMotion: () => false,
-      readPresence: presence.getState,
+    const { controller, corrections, receive, sent } = startPacedOwnAvatar({
+      x: 0,
+      y: 0,
+      facing: "right",
     });
 
     controller.update({ deltaMs: 0, held: ["right"], pressed: "right" });
@@ -321,17 +329,33 @@ describe("own-avatar input pacing", () => {
       { direction: "right", seq: 2 },
     ]);
 
-    const refused = readMoveResult({
+    const refused = receive({
       type: "moveResult",
       seq: 2,
       outcome: "too_fast",
       player: { userId: ADA, x: 1, y: 0, facing: "right" },
     });
-    presence.getState().apply(refused);
-    movement.apply(refused);
 
     expect(corrections).toEqual(["too_fast"]);
     expect(controller.readPlayer()).toEqual(refused.player);
+  });
+
+  it("reports nothing while held into a wall it predicted", () => {
+    const facingWall = { x: 1, y: 1, facing: "right" as const };
+    const { controller, corrections, receive, sent } =
+      startPacedOwnAvatar(facingWall);
+
+    controller.update({ deltaMs: 0, held: ["right"], pressed: "right" });
+    for (let frame = 0; frame < 9; frame += 1) {
+      controller.update({ deltaMs: 100, held: ["right"], pressed: null });
+    }
+    for (const { seq } of sent) {
+      receive(moveResult(seq, "blocked", facingWall).receive);
+    }
+
+    expect(sent).toHaveLength(10);
+    expect(corrections).toEqual([]);
+    expect(controller.readPlayer()).toEqual({ userId: ADA, ...facingWall });
   });
 });
 

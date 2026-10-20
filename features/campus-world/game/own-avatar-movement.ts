@@ -91,7 +91,8 @@ export function createOwnAvatarMovement({
     pending = reconciled.pending;
     predicted = reconciled.player;
 
-    if (!samePlayer(before, reconciled.player)) {
+    const corrected = !samePlayer(before, reconciled.player);
+    if (corrected) {
       displayed = reconciled.player;
       if (animation) {
         const remainingMs = Math.max(
@@ -110,7 +111,9 @@ export function createOwnAvatarMovement({
       }
     }
 
-    if (message.outcome !== "moved") onMoveCorrected(message.outcome);
+    if (corrected && message.outcome !== "moved") {
+      onMoveCorrected(message.outcome);
+    }
   }
 
   // Returns how far the frame ran past the end of the step, so the next step

@@ -37,7 +37,8 @@ gate prepare the map again.
 Analytics: `campus_world.map_loaded` carries preparation time (`load_ms`);
 `campus_world.map_ready` carries the time from game start to the first drawn
 frame (`first_frame_ms`), once per ready start;
-`campus_world.move_corrected` carries a non-`moved` result (`outcome`); and
+`campus_world.move_corrected` carries a non-`moved` result (`outcome`), only
+when world's answer puts you somewhere other than predicted; and
 `campus_world.camera_zoomed` carries each new zoom level (`level`).
 
 ## Modules
@@ -212,7 +213,8 @@ a chunk beyond a chunk of the camera's path bakes. The avatar eval protects host
 unknown sprite keys. The movement eval replays recorded `moveResult` sessions
 (a blocked step mid-burst, `too_fast` and recovery, an outcome added upstream)
 and remote `moved` gaps through the frame controller. It fails on a correction
-after a right prediction, a diagonal remote step, a remote wall crossing, a
+after a right prediction, a correction reported while held into a wall you
+predicted, a diagonal remote step, a remote wall crossing, a
 camera more than a tile behind your drawn avatar, or one that does not land
 on you once you stop. Its zoom eval plays a fixed 200-action script of zooms,
 wheel, drags, walks and resizes, and fails on any frame that shows past the

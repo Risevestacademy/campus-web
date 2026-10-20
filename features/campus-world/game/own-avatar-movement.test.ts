@@ -188,6 +188,31 @@ describe("createOwnAvatarMovement", () => {
     expect(onMoveCorrected).toHaveBeenCalledExactlyOnceWith("too_fast");
   });
 
+  it("reports no correction while held against the edge it predicted", () => {
+    const { controller, onMoveCorrected, receive, sent, update } =
+      startMovement();
+    update(0, "up", ["up"]);
+    for (let frame = 0; frame < 4; frame += 1) update(100, null, ["up"]);
+
+    for (const { seq } of sent) {
+      receive({
+        type: "moveResult",
+        seq,
+        outcome: "blocked",
+        player: { userId: "ada", x: 0, y: 0, facing: "up" },
+      });
+    }
+
+    expect(sent).toHaveLength(5);
+    expect(onMoveCorrected).not.toHaveBeenCalled();
+    expect(controller.readPlayer()).toEqual({
+      userId: "ada",
+      x: 0,
+      y: 0,
+      facing: "up",
+    });
+  });
+
   it("keeps a correct moved animation and emits no correction", () => {
     const { controller, onMoveCorrected, receive, update } = startMovement();
     update(0, "right");
