@@ -119,8 +119,12 @@ initialized`. The runtime moves its one canvas between containers, clears
 - Keep canvas focusable and auto-focused. Its accessible label must name
   Arrow keys, W, A, S, D, plus and minus, and dragging. Zoom buttons prevent
   default on mousedown so a press leaves focus, and walking, on the canvas.
-- Bake each band once, on its first frame, into 1024 px chunk textures
-  (`makeCanvas`, cropped at the map edge, empty chunks skipped). Tiles
+- Bake each band into 1024 px chunk textures as the camera reaches them
+  (`makeCanvas`, cropped at the map edge, empty chunks skipped). A chunk in
+  view bakes the frame it appears; a frame with nothing to bake in view bakes
+  one chunk of the ring a chunk around the view, so walking rarely waits on a
+  bake.
+  Baked chunks stay until the band is destroyed. Tiles
   resolve through `buildBandDrawList`, and each chunk bakes the cells whose
   rendered tiles can reach it, layer by layer, so a tall tree crossing a
   chunk edge lands in both. Never iterate by tileset: layers that mix
@@ -132,7 +136,7 @@ initialized`. The runtime moves its one canvas between containers, clears
   Never undo that stretch with `pushScale`: KAPLAY's rotate multiplies on
   the left, so a non-uniform scale squashes every rotated tile. Draw chunks
   with `flipY`: framebuffer textures store the bottom row first. A destroyed
-  band frees its chunks.
+  band frees the chunks it baked.
 - Preserve the `avatars` tile layer as the below/above split marker. Hidden
   layers do not draw; without a marker every visible tile layer draws below.
 - Use injected fetch and public Sanity configuration. Do not add a Sanity
@@ -202,8 +206,9 @@ zoom, drag, zoom preference, zoom buttons, scaled culling, theme,
 avatar drawing and label escaping, input pacing, and movement grid rules.
 Shared fakes and the movement test layout live in `testing/`. The runtime eval replays Strict
 Mode, re-entry, retry, and a new map version from world with one live game, and
-fails when a tile is missing from any chunk its art reaches, or when any flip
-or rotation bakes at the wrong size. The avatar eval protects hostile display names and
+fails when a tile is missing from any chunk its art reaches, when any flip
+or rotation bakes at the wrong size, when a chunk in view is not drawn, or when
+a chunk beyond a chunk of the camera's path bakes. The avatar eval protects hostile display names and
 unknown sprite keys. The movement eval replays recorded `moveResult` sessions
 (a blocked step mid-burst, `too_fast` and recovery, an outcome added upstream)
 and remote `moved` gaps through the frame controller. It fails on a correction

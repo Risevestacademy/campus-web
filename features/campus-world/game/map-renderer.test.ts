@@ -143,6 +143,69 @@ describe("addMapBand", () => {
     expect(band.quads().map(({ pos }) => pos)).toEqual([{ x: 32, y: 32 }]);
   });
 
+  describe("on a map larger than the view", () => {
+    // 9 × 9 tiles in 32 px chunks: a 5 × 5 grid. At 2x a 32 px viewport
+    // sees the 16 px around (40, 40), inside chunk (32, 32) alone.
+    function zoomedIn() {
+      return addFakeBand([squareLayer(Array(81).fill(1))], tilesets, {
+        camera: { x: 40, y: 40 },
+        chunkSize: 32,
+        scale: 2,
+        viewport: { height: 32, width: 32 },
+      });
+    }
+
+    function canvasesAfterEachFrame(
+      band: ReturnType<typeof zoomedIn>,
+      frames: number,
+    ) {
+      return Array.from({ length: frames }, () => {
+        band.drawFrame();
+        return band.makeCanvas.mock.calls.length;
+      });
+    }
+
+    it("bakes only the chunks in view on the first frame", () => {
+      const band = zoomedIn();
+
+      band.drawFrame();
+
+      expect(band.makeCanvas).toHaveBeenCalledOnce();
+      expect(band.quads().map(({ tex }) => tex)).toEqual(["chunk-0"]);
+    });
+
+    it("then bakes one chunk a frame within a chunk of the view, and no further", () => {
+      const band = zoomedIn();
+
+      expect(canvasesAfterEachFrame(band, 11)).toEqual([
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9,
+      ]);
+      expect(band.makeCanvas.mock.calls).toEqual(Array(9).fill([32, 32]));
+    });
+
+    it("bakes a chunk the frame the camera brings it into view", () => {
+      const band = zoomedIn();
+      canvasesAfterEachFrame(band, 9);
+
+      band.panTo({ x: 136, y: 136 });
+
+      expect(canvasesAfterEachFrame(band, 2)).toEqual([10, 11]);
+      expect(band.quads()).toEqual([
+        expect.objectContaining({ pos: { x: 128, y: 128 }, tex: "chunk-9" }),
+      ]);
+    });
+
+    it("frees only the chunks it baked", () => {
+      const band = zoomedIn();
+      band.drawFrame();
+
+      band.destroy();
+
+      expect(band.canvases()).toHaveLength(1);
+      expect(band.canvases()[0]?.free).toHaveBeenCalledOnce();
+    });
+  });
+
   it("skips chunks with no tiles", () => {
     const data = Array<number>(16).fill(0);
     data[0] = 1;

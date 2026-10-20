@@ -7,6 +7,7 @@ import type { CampusTiledMap } from "../services/map/load-campus-map";
 import {
   chunkInView,
   chunkView,
+  grownView,
   type MapChunk,
   mapChunks,
   type WorldView,
@@ -44,8 +45,9 @@ interface MapBand {
   tilesets: RenderTileset[];
 }
 
-interface BakedChunk extends MapChunk {
-  canvas: Canvas;
+interface BandChunk extends MapChunk {
+  canvas?: Canvas;
+  tiles: DrawSpriteOpt[];
 }
 
 function layerSprites(
@@ -125,23 +127,31 @@ function bakeChunk(
   return canvas;
 }
 
-function bakeBand(
+function planBand(
   k: KAPLAYCtx,
-  { chunkSize = MAP_CHUNK_SIZE, layers, map, tilesets }: MapBand,
-): BakedChunk[] {
+  { layers, map, tilesets }: MapBand,
+  chunkSize: number,
+): BandChunk[] {
   const sprites = layerSprites(k, map, layers, tilesets);
   const tileBounds = createTileViewportCuller({ layers, map, tilesets });
 
   return mapChunks(worldSize(map), chunkSize).flatMap((chunk) => {
     const tiles = tilesIn(sprites, tileBounds(chunkView(chunk)));
-    return tiles.length > 0
-      ? [{ ...chunk, canvas: bakeChunk(k, chunk, tiles) }]
-      : [];
+    return tiles.length > 0 ? [{ ...chunk, tiles }] : [];
   });
 }
 
+function ensureBaked(k: KAPLAYCtx, chunk: BandChunk): Canvas {
+  chunk.canvas ??= bakeChunk(k, chunk, chunk.tiles);
+  return chunk.canvas;
+}
+
 // Framebuffer textures are stored bottom row first.
-function drawChunk(k: KAPLAYCtx, { canvas, height, width, x, y }: BakedChunk) {
+function drawChunk(
+  k: KAPLAYCtx,
+  { height, width, x, y }: MapChunk,
+  canvas: Canvas,
+) {
   k.drawUVQuad({
     flipY: true,
     height,
@@ -149,6 +159,15 @@ function drawChunk(k: KAPLAYCtx, { canvas, height, width, x, y }: BakedChunk) {
     tex: canvas.fb.tex,
     width,
   });
+}
+
+// A bake takes tens of milliseconds, so only a frame with nothing to bake in
+// view bakes one chunk of the ring a chunk around it: walking rarely waits.
+function bakeOneInRing(k: KAPLAYCtx, chunks: BandChunk[], ring: WorldView) {
+  const next = chunks.find(
+    (chunk) => !chunk.canvas && chunkInView(chunk, ring),
+  );
+  if (next) ensureBaked(k, next);
 }
 
 function cameraView(k: KAPLAYCtx): WorldView {
@@ -161,21 +180,25 @@ function cameraView(k: KAPLAYCtx): WorldView {
 }
 
 export function addMapBand(k: KAPLAYCtx, band: MapBand): GameObj {
-  let chunks: BakedChunk[] | undefined;
+  const chunkSize = band.chunkSize ?? MAP_CHUNK_SIZE;
+  let chunks: BandChunk[] | undefined;
 
   return k.add([
     k.layer(band.layer),
     {
       destroy() {
-        chunks?.forEach(({ canvas }) => canvas.free());
+        chunks?.forEach(({ canvas }) => canvas?.free());
       },
       draw() {
-        chunks ??= bakeBand(k, band);
+        chunks ??= planBand(k, band, chunkSize);
 
         const view = cameraView(k);
-        chunks
-          .filter((chunk) => chunkInView(chunk, view))
-          .forEach((chunk) => drawChunk(k, chunk));
+        const visible = chunks.filter((chunk) => chunkInView(chunk, view));
+        const nothingToBakeInView = visible.every(({ canvas }) => canvas);
+        visible.forEach((chunk) => drawChunk(k, chunk, ensureBaked(k, chunk)));
+        if (nothingToBakeInView) {
+          bakeOneInRing(k, chunks, grownView(view, chunkSize));
+        }
         band.onDraw?.();
       },
     },

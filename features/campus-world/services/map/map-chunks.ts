@@ -55,3 +55,11 @@ export function chunkInView(chunk: MapChunk, view: WorldView): boolean {
     chunk.y + chunk.height > view.y - view.height / 2
   );
 }
+
+export function grownView(view: WorldView, margin: number): WorldView {
+  return {
+    ...view,
+    height: view.height + margin * 2,
+    width: view.width + margin * 2,
+  };
+}

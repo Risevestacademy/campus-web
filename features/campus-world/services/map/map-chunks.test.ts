@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { chunkInView, chunkView, mapChunks } from "./map-chunks";
+import { chunkInView, chunkView, grownView, mapChunks } from "./map-chunks";
 
 describe("mapChunks", () => {
   it("tiles the campus map into 1024 px chunks, cropped at the edge", () => {
@@ -57,5 +57,16 @@ describe("chunkInView", () => {
     ["larger than the world", { height: 900, width: 900, x: 48, y: 48 }, true],
   ])("is %s: %o", (_, view, expected) => {
     expect(chunkInView(chunk, view)).toBe(expected);
+  });
+});
+
+describe("grownView", () => {
+  it("grows every side by the margin around the same centre", () => {
+    expect(grownView({ height: 16, width: 32, x: 40, y: 24 }, 8)).toEqual({
+      height: 32,
+      width: 48,
+      x: 40,
+      y: 24,
+    });
   });
 });

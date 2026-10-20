@@ -281,8 +281,10 @@ function coverageTiles() {
   });
 }
 
-function chunkRects(chunkSize: number): Rect[] {
-  const world = COVERAGE_SIDE * COVERAGE_TILE;
+function chunkRects(
+  chunkSize: number,
+  world = COVERAGE_SIDE * COVERAGE_TILE,
+): Rect[] {
   const rects: Rect[] = [];
   for (let top = 0; top < world; top += chunkSize) {
     for (let left = 0; left < world; left += chunkSize) {
@@ -297,7 +299,7 @@ function chunkRects(chunkSize: number): Rect[] {
   return rects;
 }
 
-describe("Campus world eval (required threshold: 21/21)", () => {
+describe("Campus world eval (required threshold: 22/22)", () => {
   it.each(layerArrangements)(
     "draws stacked layers bottom to top with %s",
     (_, layerTilesets) => {
@@ -335,6 +337,63 @@ describe("Campus world eval (required threshold: 21/21)", () => {
       }
     },
   );
+
+  it("bakes each chunk by the frame it shows, and none beyond a chunk of the camera's path", () => {
+    const side = 40;
+    const chunkSize = 64;
+    const scale = 2;
+    const viewport = { height: 64, width: 96 };
+    const world = side * COVERAGE_TILE;
+    const band = addFakeBand(
+      [squareLayer(Array(side ** 2).fill(1))],
+      renderTilesets(["grounds"]),
+      { camera: { x: 40, y: 40 }, chunkSize, scale, viewport },
+    );
+    const halfWidth = viewport.width / scale / 2;
+    const halfHeight = viewport.height / scale / 2;
+    const ring: Rect[] = [];
+
+    for (let frame = 0; frame < 60; frame += 1) {
+      const camera = { x: 40 + frame * 8, y: 40 + frame * 4 };
+      band.panTo(camera);
+      band.drawFrame();
+      const view = {
+        bottom: camera.y + halfHeight,
+        left: camera.x - halfWidth,
+        right: camera.x + halfWidth,
+        top: camera.y - halfHeight,
+      };
+
+      expect(band.quads().map(({ pos }) => `${pos.x},${pos.y}`)).toEqual(
+        chunkRects(chunkSize, world)
+          .filter((chunk) => overlaps(chunk, view))
+          .map(({ left, top }) => `${left},${top}`),
+      );
+      ring.push({
+        bottom: view.bottom + chunkSize,
+        left: view.left - chunkSize,
+        right: view.right + chunkSize,
+        top: view.top - chunkSize,
+      });
+    }
+
+    // A baked tile's texel is its offset from the chunk's corner.
+    const bakedChunks = band.canvases().map(({ draws, height, width }) => {
+      const { texel, world } = draws[0]!;
+      const left = world.x - texel.x;
+      const top = world.y - texel.y;
+      return { bottom: top + height, left, right: left + width, top };
+    });
+    expect(bakedChunks.length).toBeGreaterThan(0);
+    expect(
+      bakedChunks.filter(
+        (chunk) => !ring.some((near) => overlaps(chunk, near)),
+      ),
+    ).toEqual([]);
+    expect(band.canvases().length).toBeLessThan(
+      chunkRects(chunkSize, world).length / 2,
+    );
+  });
 
   it.each([
     ["a wide", { height: 1077, width: 2097 }],

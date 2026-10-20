@@ -125,7 +125,7 @@ export function addFakeBand(
 ) {
   const side = layers[0]?.width ?? 1;
   const mapSize = side * TILE;
-  const camera = options.camera ?? { x: mapSize / 2, y: mapSize / 2 };
+  const camera = { ...(options.camera ?? { x: mapSize / 2, y: mapSize / 2 }) };
   const scale = options.scale ?? 1;
   const gfx = { ...(options.viewport ?? { height: mapSize, width: mapSize }) };
   const canvases: FakeChunkCanvas[] = [];
@@ -259,6 +259,9 @@ export function addFakeBand(
     drawSprite,
     gameSize: () => ({ height: gfx.height, width: gfx.width }),
     makeCanvas,
+    panTo(point: Point) {
+      Object.assign(camera, point);
+    },
     quads: () => [...quads],
   };
 }
