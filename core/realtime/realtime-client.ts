@@ -7,7 +7,8 @@ import {
   type CloseAction,
   reconnectDelay,
 } from "./close-policy";
-import type { ClientMessage, ServerMessage } from "./generated/world-protocol";
+import type { ClientMessage } from "./generated/world-protocol";
+import type { ServerMessage } from "./server-message.schema";
 import { openWorldConnection, type WorldConnection } from "./world-connection";
 
 export type RealtimeOutcome =

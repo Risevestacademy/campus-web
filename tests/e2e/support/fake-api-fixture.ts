@@ -245,7 +245,7 @@ export interface FakeWorld {
   replaceHandler(handler: WorldSocketHandler): void;
 }
 
-function admitToWorld(socket: WebSocketRoute) {
+export function admitToWorld(socket: WebSocketRoute) {
   socket.send(JSON.stringify(serverFrames.welcome));
   // world announces the map it is running; the Sanity stub publishes the
   // same one.

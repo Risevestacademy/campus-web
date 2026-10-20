@@ -1,8 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { createPresenceStore } from "@/core/presence";
+import { createWorldMovementChannel } from "@/core/realtime";
 
 import type { CampusGame, CampusRuntime } from "../game/campus-runtime";
 import type { CampusWorldDependencies } from "../hooks/campus-world-dependencies";
@@ -104,6 +111,7 @@ function renderWorld(
     configuration: sanityConfiguration,
     fetch: vi.fn(),
     loadImage: vi.fn(),
+    movement: () => createWorldMovementChannel(),
     presence: () => connectedPresence(),
     runtime: fakeCampusRuntime(),
     ...overrides,
@@ -235,6 +243,90 @@ describe("CampusWorld", () => {
     },
   );
 
+  it("prepares world's placeholder map locally, walled only by its edges", async () => {
+    const store = createPresenceStore();
+    store.getState().apply({
+      type: "snapshot",
+      map: { id: "placeholder", version: "placeholder", width: 5, height: 4 },
+      players: [],
+    });
+    const { dependencies } = renderWorld(
+      {
+        loadKaplay: vi.fn(async () => ({}) as CampusMapModule),
+        presence: () => store,
+      },
+      null,
+    );
+
+    await expectReady();
+
+    expect(dependencies.fetch).not.toHaveBeenCalled();
+    const [, prepared] = vi.mocked(dependencies.runtime.start).mock.calls[0]!;
+    expect(prepared.layout).toMatchObject({
+      collisions: [],
+      heightTiles: 4,
+      widthTiles: 5,
+    });
+  });
+
+  it("restarts on the map version a later snapshot names", async () => {
+    const store = connectedPresence();
+    const firstGame = { stop: vi.fn() };
+    const start = vi
+      .fn<CampusRuntime["start"]>()
+      .mockResolvedValueOnce(firstGame)
+      .mockResolvedValue({ stop: vi.fn() });
+    renderWorld({
+      fetch: stubSanityFetch(entryManifest("campus", true, "version-2")),
+      loadImage: vi.fn(async () => fakeImage()),
+      loadKaplay: vi.fn(async () => ({}) as CampusMapModule),
+      presence: () => store,
+      runtime: fakeCampusRuntime({ start }),
+    });
+    await expectReady();
+
+    act(() => {
+      store.getState().apply({
+        type: "snapshot",
+        map: { ...WORLD_MAP, version: "version-2" },
+        players: [],
+      });
+    });
+
+    await waitFor(() => {
+      expect(start).toHaveBeenCalledTimes(2);
+    });
+    expect(firstGame.stop).toHaveBeenCalled();
+    const [, prepared] = start.mock.calls[1]!;
+    expect(prepared.manifest).toMatchObject({
+      mapId: "campus",
+      version: "version-2",
+    });
+    await expectReady();
+  });
+
+  it("keeps the running game when a reconnect snapshot names the same map", async () => {
+    const store = connectedPresence();
+    const game = { stop: vi.fn() };
+    const start = vi.fn<CampusRuntime["start"]>(async () => game);
+    const { dependencies } = renderWorld({
+      presence: () => store,
+      runtime: fakeCampusRuntime({ start }),
+    });
+    await expectReady();
+
+    act(() => {
+      store
+        .getState()
+        .apply({ type: "snapshot", map: { ...WORLD_MAP }, players: [] });
+    });
+
+    expect(region()).toHaveAttribute("data-status", "ready");
+    expect(start).toHaveBeenCalledOnce();
+    expect(game.stop).not.toHaveBeenCalled();
+    expect(dependencies.fetch).not.toHaveBeenCalled();
+  });
+
   it("draws the presence of the cohort it shows", () => {
     const game = startedGame();
     const store = connectedPresence();
@@ -247,6 +339,46 @@ describe("CampusWorld", () => {
       region(),
       expect.anything(),
       expect.objectContaining({ readPresence: store.getState }),
+    );
+  });
+
+  it("passes cohort movement into KAPLAY and reports refused moves", () => {
+    const game = startedGame();
+    const movement = createWorldMovementChannel();
+    const resolveMovement = vi.fn(() => movement);
+    const { dependencies } = renderWorld({
+      movement: resolveMovement,
+      runtime: game.runtime,
+    });
+
+    expect(resolveMovement).toHaveBeenCalledExactlyOnceWith("cohort-1");
+    expect(game.start).toHaveBeenCalledWith(
+      region(),
+      expect.anything(),
+      expect.objectContaining({
+        movement,
+        onMoveCorrected: expect.any(Function),
+      }),
+    );
+
+    const [, , options] = game.start.mock.calls[0]!;
+    options.onMoveCorrected("blocked");
+    expect(dependencies.captureEvent).toHaveBeenCalledWith(
+      "campus_world.move_corrected",
+      { outcome: "blocked" },
+    );
+  });
+
+  it("reports each zoom level the camera settles on", () => {
+    const game = startedGame();
+    const { dependencies } = renderWorld({ runtime: game.runtime });
+
+    const [, , options] = game.start.mock.calls[0]!;
+    options.onZoomChanged(3);
+
+    expect(dependencies.captureEvent).toHaveBeenCalledWith(
+      "campus_world.camera_zoomed",
+      { level: 3 },
     );
   });
 

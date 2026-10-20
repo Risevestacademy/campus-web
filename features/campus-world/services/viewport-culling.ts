@@ -23,7 +23,7 @@ interface Viewport {
   y: number;
 }
 
-interface TileBounds {
+export interface TileBounds {
   bottom: number;
   left: number;
   right: number;

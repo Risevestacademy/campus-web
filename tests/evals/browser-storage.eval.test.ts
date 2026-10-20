@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { sharedSessionExpiry } from "@/features/auth/services/browser-session";
 import { parseStoredSidebarPreferences } from "@/features/campus/schemas/sidebar-preferences.schema";
 import { loadMediaDevicePreferences } from "@/features/campus/services/media-session/media-device-preferences";
+import { loadZoomLevel } from "@/features/campus-world/services/zoom-preference";
 
 // Anyone with the page open (an extension, a script, a stale build) can edit
 // localStorage, so every value read back is treated as untrusted input.
 
 const SHARED_EXPIRY_KEY = "campus.session-expires-at";
 const PREFERENCES_KEY = "campus-media-device-preferences";
+const ZOOM_KEY = "campus-world-zoom";
 const MINUTE = 60_000;
 const INVENTED_PLACEHOLDER_ID = /^(?:audioinput|videoinput|audiooutput)-\d+$/;
 
@@ -97,6 +99,37 @@ describe("Browser storage eval (threshold: every case holds)", () => {
         sidebarMode: "admin",
         sidebarOpen: true,
       });
+    });
+  });
+
+  // A fractional or huge scale would blur the pixel art or blank the map.
+  describe("a stored zoom only ever restores a known level", () => {
+    it.each([
+      "not json",
+      "null",
+      "0",
+      "4",
+      "2.5",
+      '"2"',
+      '"Whole"',
+      '"fit"',
+      "[2]",
+      '{"__proto__":2}',
+      "1e308",
+      "-1",
+    ])("reads %s as 2x", (value) => {
+      localStorage.setItem(ZOOM_KEY, value);
+
+      expect(loadZoomLevel()).toBe(2);
+    });
+
+    it.each([
+      ["3", 3],
+      ['"whole"', "whole"],
+    ])("restores %s, a level the viewer chose", (value, level) => {
+      localStorage.setItem(ZOOM_KEY, value);
+
+      expect(loadZoomLevel()).toBe(level);
     });
   });
 });

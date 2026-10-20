@@ -19,7 +19,12 @@ and the Active Campus media UI inside it. Admin catalogues and pages belong to
   cohortId={id}
   initialSidebarMode="admin" // Cohort Administration only
 >
-  <ActiveCampus viewModel={activeCampusViewModel}>{children}</ActiveCampus>
+  <ActiveCampus
+    viewModel={activeCampusViewModel}
+    zoomControls={<CampusZoomControls />} // from campus-world
+  >
+    {children}
+  </ActiveCampus>
 </CampusShell>
 ```
 

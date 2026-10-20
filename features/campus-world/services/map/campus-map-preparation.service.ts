@@ -20,9 +20,11 @@ import {
 } from "./prepare-campus-map";
 
 type CampusWorldEventName =
+  | typeof ANALYTICS_EVENTS.CAMPUS_WORLD_CAMERA_ZOOMED
   | typeof ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_FAILED
   | typeof ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_LOADED
-  | typeof ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_READY;
+  | typeof ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_READY
+  | typeof ANALYTICS_EVENTS.CAMPUS_WORLD_MOVE_CORRECTED;
 
 export type CampusWorldCapture = <EventName extends CampusWorldEventName>(
   eventName: EventName,

@@ -1,24 +1,51 @@
 import { z } from "zod";
 
+import type { Simplify } from "@/core/api/schemas";
 import { parseJson } from "@/shared/lib/parse-json";
 
 import type {
   AppearanceMessage,
   Avatar,
   Direction,
-  ErrorMessage,
+  ErrorMessage as PublishedErrorMessage,
   JoinedMessage,
   LeftMessage,
   MovedMessage,
-  MoveOutcome,
-  MoveResultMessage,
+  MoveOutcome as PublishedMoveOutcome,
+  MoveResultMessage as PublishedMoveResultMessage,
   Player,
   PongMessage,
   ReplacedMessage,
-  ServerMessage,
+  ServerMessage as PublishedServerMessage,
   SnapshotMessage,
   WelcomeMessage,
 } from "./generated/world-protocol";
+
+// A value world added after the last `pnpm world:types` reads as "unknown",
+// so the frame still arrives and the move it answers still resolves.
+type OrUnknown<Value extends string> = Value | "unknown";
+
+export type MoveOutcome = OrUnknown<PublishedMoveOutcome>;
+export type ErrorCode = OrUnknown<PublishedErrorMessage["code"]>;
+export type MoveResultMessage = Simplify<
+  Omit<PublishedMoveResultMessage, "outcome"> & { outcome: MoveOutcome }
+>;
+export type ErrorMessage = Simplify<
+  Omit<PublishedErrorMessage, "code"> & { code: ErrorCode }
+>;
+export type ServerMessage =
+  | Exclude<PublishedServerMessage, { type: "moveResult" | "error" }>
+  | MoveResultMessage
+  | ErrorMessage;
+
+function orUnknown<const Values extends readonly [string, ...string[]]>(
+  values: Values,
+) {
+  return z.union([
+    z.enum(values),
+    z.string().transform(() => "unknown" as const),
+  ]);
+}
 
 const tileSchema = z.int().min(0);
 
@@ -32,7 +59,11 @@ const directionSchema = z.toZod<Direction>()(
 );
 
 const moveOutcomeSchema = z.toZod<MoveOutcome>()(
-  z.enum(["moved", "blocked", "too_fast"]),
+  orUnknown(["moved", "blocked", "too_fast"]),
+);
+
+const errorCodeSchema = z.toZod<ErrorCode>()(
+  orUnknown(["UNAUTHORIZED", "BAD_MESSAGE"]),
 );
 
 const playerSchema = z.toZod<Player>()(
@@ -113,7 +144,7 @@ const moveResultMessageSchema = z.toZod<MoveResultMessage>()(
 const errorMessageSchema = z.toZod<ErrorMessage>()(
   z.object({
     type: z.literal("error"),
-    code: z.enum(["UNAUTHORIZED", "BAD_MESSAGE"]),
+    code: errorCodeSchema,
     message: z.string(),
   }),
 );

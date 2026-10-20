@@ -1,9 +1,25 @@
-import type { DrawSpriteOpt, GameObj, KAPLAYCtx } from "kaplay";
+import type { Canvas, DrawSpriteOpt, GameObj, KAPLAYCtx } from "kaplay";
 
+import { visibleArea, worldSize } from "../services/camera";
 import { buildBandDrawList } from "../services/map/band-draw-list";
 import type { TiledTileLayer } from "../services/map/layer-bands";
 import type { CampusTiledMap } from "../services/map/load-campus-map";
-import { createTileViewportCuller } from "../services/viewport-culling";
+import {
+  chunkInView,
+  chunkView,
+  grownView,
+  type MapChunk,
+  mapChunks,
+  type WorldView,
+} from "../services/map/map-chunks";
+import {
+  createTileViewportCuller,
+  type TileBounds,
+} from "../services/viewport-culling";
+
+// Every reported device takes a 4096 texture; 1024 wastes the least at the
+// map's ragged edges and keeps each bake allocation small.
+export const MAP_CHUNK_SIZE = 1024;
 
 export interface RenderTileset {
   firstgid: number;
@@ -20,6 +36,20 @@ interface LayerSprites {
   width: number;
 }
 
+interface MapBand {
+  chunkSize?: number;
+  layer: "above" | "below";
+  layers: TiledTileLayer[];
+  map: CampusTiledMap;
+  onDraw?: () => void;
+  tilesets: RenderTileset[];
+}
+
+interface BandChunk extends MapChunk {
+  canvas?: Canvas;
+  tiles: DrawSpriteOpt[];
+}
+
 function layerSprites(
   k: KAPLAYCtx,
   map: CampusTiledMap,
@@ -32,6 +62,8 @@ function layerSprites(
         tile && {
           anchor: "center",
           angle: tile.angle,
+          // The bake draws in chunk space; the camera must not apply.
+          fixed: true,
           flipX: tile.flipX,
           flipY: tile.flipY,
           frame: tile.frame,
@@ -44,46 +76,130 @@ function layerSprites(
   }));
 }
 
-interface MapBand {
-  layer: "above" | "below";
-  layers: TiledTileLayer[];
-  map: CampusTiledMap;
-  onDraw?: () => void;
-  tilesets: RenderTileset[];
+function tilesIn(sprites: LayerSprites[], bounds: TileBounds): DrawSpriteOpt[] {
+  const tiles: DrawSpriteOpt[] = [];
+  for (const { cells, width } of sprites) {
+    for (let row = bounds.top; row <= bounds.bottom; row += 1) {
+      for (let column = bounds.left; column <= bounds.right; column += 1) {
+        const tile = cells[row * width + column];
+        if (tile) tiles.push(tile);
+      }
+    }
+  }
+  return tiles;
 }
 
-export function addMapBand(
+// Canvas.draw maps points through KAPLAY's game size, so the bake sets it to
+// the chunk's, as KAPLAY's own frameEnd does. Scaling instead would squash
+// rotated tiles: KAPLAY's rotate multiplies on the left of the scale.
+function withGameSize(
   k: KAPLAYCtx,
-  { layer, layers, map, onDraw, tilesets }: MapBand,
-): GameObj {
+  size: Pick<MapChunk, "height" | "width">,
+  draw: () => void,
+) {
+  const { gfx } = k._k;
+  const { height, width } = gfx;
+  gfx.width = size.width;
+  gfx.height = size.height;
+  try {
+    draw();
+  } finally {
+    gfx.width = width;
+    gfx.height = height;
+  }
+}
+
+function bakeChunk(
+  k: KAPLAYCtx,
+  chunk: MapChunk,
+  tiles: DrawSpriteOpt[],
+): Canvas {
+  const canvas = k.makeCanvas(chunk.width, chunk.height);
+  canvas.draw(() =>
+    withGameSize(k, chunk, () => {
+      k.pushTransform();
+      k.pushMatrix(new k.Mat4());
+      k.pushTranslate(-chunk.x, -chunk.y);
+      tiles.forEach((tile) => k.drawSprite(tile));
+      k.popTransform();
+    }),
+  );
+  return canvas;
+}
+
+function planBand(
+  k: KAPLAYCtx,
+  { layers, map, tilesets }: MapBand,
+  chunkSize: number,
+): BandChunk[] {
   const sprites = layerSprites(k, map, layers, tilesets);
-  const visibleBounds = createTileViewportCuller({ layers, map, tilesets });
+  const tileBounds = createTileViewportCuller({ layers, map, tilesets });
+
+  return mapChunks(worldSize(map), chunkSize).flatMap((chunk) => {
+    const tiles = tilesIn(sprites, tileBounds(chunkView(chunk)));
+    return tiles.length > 0 ? [{ ...chunk, tiles }] : [];
+  });
+}
+
+function ensureBaked(k: KAPLAYCtx, chunk: BandChunk): Canvas {
+  chunk.canvas ??= bakeChunk(k, chunk, chunk.tiles);
+  return chunk.canvas;
+}
+
+// Framebuffer textures are stored bottom row first.
+function drawChunk(
+  k: KAPLAYCtx,
+  { height, width, x, y }: MapChunk,
+  canvas: Canvas,
+) {
+  k.drawUVQuad({
+    flipY: true,
+    height,
+    pos: k.vec2(x, y),
+    tex: canvas.fb.tex,
+    width,
+  });
+}
+
+// A bake takes tens of milliseconds, so only a frame with nothing to bake in
+// view bakes one chunk of the ring a chunk around it: walking rarely waits.
+function bakeOneInRing(k: KAPLAYCtx, chunks: BandChunk[], ring: WorldView) {
+  const next = chunks.find(
+    (chunk) => !chunk.canvas && chunkInView(chunk, ring),
+  );
+  if (next) ensureBaked(k, next);
+}
+
+function cameraView(k: KAPLAYCtx): WorldView {
+  const camera = k.getCamPos();
+  return {
+    ...visibleArea({ height: k.height(), width: k.width() }, k.getCamScale().x),
+    x: camera.x,
+    y: camera.y,
+  };
+}
+
+export function addMapBand(k: KAPLAYCtx, band: MapBand): GameObj {
+  const chunkSize = band.chunkSize ?? MAP_CHUNK_SIZE;
+  let chunks: BandChunk[] | undefined;
 
   return k.add([
-    k.layer(layer),
+    k.layer(band.layer),
     {
+      destroy() {
+        chunks?.forEach(({ canvas }) => canvas?.free());
+      },
       draw() {
-        const camera = k.getCamPos();
-        const bounds = visibleBounds({
-          height: k.height(),
-          width: k.width(),
-          x: camera.x,
-          y: camera.y,
-        });
+        chunks ??= planBand(k, band, chunkSize);
 
-        for (const { cells, width } of sprites) {
-          for (let row = bounds.top; row <= bounds.bottom; row += 1) {
-            for (
-              let column = bounds.left;
-              column <= bounds.right;
-              column += 1
-            ) {
-              const sprite = cells[row * width + column];
-              if (sprite) k.drawSprite(sprite);
-            }
-          }
+        const view = cameraView(k);
+        const visible = chunks.filter((chunk) => chunkInView(chunk, view));
+        const nothingToBakeInView = visible.every(({ canvas }) => canvas);
+        visible.forEach((chunk) => drawChunk(k, chunk, ensureBaked(k, chunk)));
+        if (nothingToBakeInView) {
+          bakeOneInRing(k, chunks, grownView(view, chunkSize));
         }
-        onDraw?.();
+        band.onDraw?.();
       },
     },
   ]);

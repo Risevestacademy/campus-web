@@ -8,6 +8,7 @@ export function fakeCampusRuntime(
   return {
     holdsMap: vi.fn(() => false),
     start: vi.fn(async () => ({ stop: vi.fn() })),
+    zoom: vi.fn(),
     ...overrides,
   };
 }

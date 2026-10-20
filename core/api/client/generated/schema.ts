@@ -2824,7 +2824,7 @@ export interface operations {
   InvitesController_list: {
     parameters: {
       query?: {
-        /** @description Page to fetch, 1-based. */
+        /** @description Page to fetch, 1-based, up to 10000. */
         page?: number;
         /** @description Number of items per page. */
         perPage?: number;
@@ -3381,7 +3381,7 @@ export interface operations {
   TracksController_list: {
     parameters: {
       query?: {
-        /** @description Page to fetch, 1-based. */
+        /** @description Page to fetch, 1-based, up to 10000. */
         page?: number;
         /** @description Number of items per page. */
         perPage?: number;
@@ -3618,7 +3618,7 @@ export interface operations {
   CohortsController_list: {
     parameters: {
       query?: {
-        /** @description Page to fetch, 1-based. */
+        /** @description Page to fetch, 1-based, up to 10000. */
         page?: number;
         /** @description Number of items per page. */
         perPage?: number;
@@ -3912,7 +3912,7 @@ export interface operations {
   CohortsController_listMembers: {
     parameters: {
       query?: {
-        /** @description Page to fetch, 1-based. */
+        /** @description Page to fetch, 1-based, up to 10000. */
         page?: number;
         /** @description Number of items per page. */
         perPage?: number;
@@ -4545,7 +4545,7 @@ export interface operations {
   UsersController_list: {
     parameters: {
       query?: {
-        /** @description Page to fetch, 1-based. */
+        /** @description Page to fetch, 1-based, up to 10000. */
         page?: number;
         /** @description Number of items per page. */
         perPage?: number;
@@ -4939,7 +4939,7 @@ export interface operations {
   AuditLogController_list: {
     parameters: {
       query?: {
-        /** @description Page to fetch, 1-based. */
+        /** @description Page to fetch, 1-based, up to 10000. */
         page?: number;
         /** @description Number of items per page. */
         perPage?: number;
@@ -5069,7 +5069,7 @@ export interface operations {
   FeedbackController_list: {
     parameters: {
       query?: {
-        /** @description Page to fetch, 1-based. */
+        /** @description Page to fetch, 1-based, up to 10000. */
         page?: number;
         /** @description Number of items per page. */
         perPage?: number;
