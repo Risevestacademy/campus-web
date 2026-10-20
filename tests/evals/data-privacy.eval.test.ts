@@ -13,8 +13,13 @@ import {
   type ServerMessage,
 } from "@/core/realtime";
 import { readWorldOrigin } from "@/core/realtime/configuration";
+import {
+  parseFeedbackList,
+  parseFeedbackRecord,
+} from "@/features/admin/feedback/schemas/feedback.schema";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
+import { parseFeedbackReceipt } from "@/features/feedback/schemas/feedback.schema";
 import {
   parseInvitePreview,
   parsePendingInvite,
@@ -40,6 +45,40 @@ function keyPaths(value: unknown, prefix = ""): string[] {
     )
     .sort();
 }
+
+const person = { id: "u-1", email: "ada@campus.local", displayName: "Ada" };
+const FEEDBACK_SUMMARY = {
+  id: "f-1",
+  type: "report",
+  title: "Rude in chat",
+  about: "Ana | Hall",
+  status: "open",
+  createdAt: "2026-10-16T12:00:00.000Z",
+  submittedBy: person,
+  reportedUser: person,
+};
+const FEEDBACK_SUMMARY_ALLOW_LIST = [
+  "about",
+  "createdAt",
+  "id",
+  "reportedUser.displayName",
+  "reportedUser.email",
+  "reportedUser.id",
+  "status",
+  "submittedBy.displayName",
+  "submittedBy.email",
+  "submittedBy.id",
+  "title",
+  "type",
+].sort();
+const FEEDBACK_RECORD_ALLOW_LIST = [
+  ...FEEDBACK_SUMMARY_ALLOW_LIST,
+  "context.path",
+  "details",
+  "resolvedAt",
+  "resolvedBy",
+  "userAgent",
+].sort();
 
 const SESSION_ALLOW_LIST = [
   "expiresAt",
@@ -228,6 +267,48 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       const preview = parseInvitePreview({ ...invitePreview(), ...UNEXPECTED });
 
       expect(keyPaths(preview)).toEqual(INVITE_PREVIEW_ALLOW_LIST);
+    });
+
+    it("keeps only the feedback fields the admin queue renders", () => {
+      const page = parseFeedbackList({
+        items: [
+          {
+            ...FEEDBACK_SUMMARY,
+            ...UNEXPECTED,
+            submittedBy: { ...person, ...UNEXPECTED },
+          },
+        ],
+        meta: { page: 1, totalPages: 1, total: 1, perPage: 20, ...UNEXPECTED },
+      });
+
+      expect(keyPaths(page?.items[0])).toEqual(FEEDBACK_SUMMARY_ALLOW_LIST);
+      expect(Object.keys(page ?? {}).sort()).toEqual([
+        "items",
+        "page",
+        "total",
+        "totalPages",
+      ]);
+    });
+
+    it("keeps only the feedback fields the detail panel renders", () => {
+      const record = parseFeedbackRecord({
+        ...FEEDBACK_SUMMARY,
+        ...UNEXPECTED,
+        cohortId: "c-1",
+        details: "Said something unkind.",
+        userAgent: "Chrome/128",
+        resolvedAt: null,
+        resolvedBy: null,
+        context: { path: "/campus/c-1", mapId: "m", x: 1, y: 2, ...UNEXPECTED },
+      });
+
+      expect(keyPaths(record)).toEqual(FEEDBACK_RECORD_ALLOW_LIST);
+    });
+
+    it("keeps only the id of a sent feedback receipt", () => {
+      expect(
+        parseFeedbackReceipt({ id: "f-1", title: "x", ...UNEXPECTED }),
+      ).toEqual({ id: "f-1" });
     });
 
     it("keeps only the pending-invite fields the confirmation renders", () => {

@@ -12,6 +12,7 @@ import {
 
 import { AdministrationCatalogue } from "@/features/admin";
 import { parseAdministrationQuery } from "@/features/admin/catalogue/administration-query.schema";
+import { parseFeedbackQuery } from "@/features/admin/feedback/schemas/feedback-query.schema";
 import { parsePageNumber } from "@/shared/lib/search-params";
 import { withQueryClient } from "@/tests/fixtures/query-client";
 
@@ -76,6 +77,30 @@ describe("Admin page params eval (threshold: every case holds)", () => {
         expect(parseAdministrationQuery("tracks", page)).toEqual({
           view: "cohorts",
           page: 1,
+        });
+      },
+    );
+
+    it.each(HOSTILE_PAGES)(
+      "resets the feedback query for page %j to page 1",
+      (page) => {
+        expect(parseFeedbackQuery({ page }).page).toBe(1);
+      },
+    );
+
+    it.each(["", "../etc", "x".repeat(500), "00000000-0000", "__proto__"])(
+      "drops the feedback item %j that is not an id",
+      (item) => {
+        expect(parseFeedbackQuery({ item }).itemId).toBeUndefined();
+      },
+    );
+
+    it.each(["bug", "__proto__", "ALL", "open%20"])(
+      "falls back to a known filter for %j on the reports tab",
+      (filter) => {
+        expect(parseFeedbackQuery({ tab: "reports", filter })).toMatchObject({
+          tab: "reports",
+          filter: "open",
         });
       },
     );
