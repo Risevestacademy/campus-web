@@ -7,6 +7,7 @@ import { createPresenceStore } from "@/core/presence";
 import {
   createWorldMovementChannel,
   type RealtimeOutcome,
+  type RealtimeStatus,
 } from "@/core/realtime";
 import type { SessionRefreshResult } from "@/core/session";
 import { createAdmissionStore } from "@/features/campus/services/presence-session/admission-store";
@@ -17,7 +18,9 @@ import { createCountingMediaSession } from "@/features/campus/testing/presence-t
 import {
   admit,
   closeWith,
+  inTurn,
   type MockConnection,
+  settle,
   SNAPSHOT,
   startMockWorld,
   WELCOME,
@@ -59,11 +62,12 @@ async function joinedSession(
   const outcomes: RealtimeOutcome[] = [];
   const captures: AnalyticsCapture[] = [];
   const presence = createPresenceStore();
+  const movement = createWorldMovementChannel();
   const session = closeAfterTest(
     createWorldSession({
       url: WORLD_SOCKET_URL,
       cohortId: "cohort-1",
-      movement: createWorldMovementChannel(),
+      movement,
       presence,
       refreshSession,
       captureEvent: (capture) => captures.push(capture),
@@ -81,6 +85,7 @@ async function joinedSession(
     admission,
     captures,
     media,
+    movement,
     outcomes,
     presence,
     reloadDocument,
@@ -88,6 +93,16 @@ async function joinedSession(
     session,
     sockets,
   };
+}
+
+async function untilPhase(
+  session: { getStatus(): RealtimeStatus },
+  phase: RealtimeStatus["phase"],
+) {
+  for (let tick = 0; tick < 20 && session.getStatus().phase !== phase; tick++) {
+    await settle();
+  }
+  expect(session.getStatus().phase).toBe(phase);
 }
 
 // Every cohort page mounting PresenceSessionGate calls connect().
@@ -213,6 +228,29 @@ describe("realtime session eval (threshold: every case holds)", () => {
         expect(allowAnalyticsProperties(name, properties)).toEqual(properties);
       }
       expect(JSON.stringify(captures)).not.toContain(MARKER);
+    },
+  );
+
+  it.each<
+    [RealtimeStatus["phase"], (connection: MockConnection) => void, number]
+  >([
+    ["connecting", admit, 1],
+    ["connected", admit, 1],
+    ["reconnecting", inTurn(closeWith(1001, "server shutting down"), admit), 2],
+  ])(
+    "keeps movement sendable when the member reconnects while %s",
+    async (phase, world, socketCount) => {
+      const { movement, session, sockets } = await joinedSession(world);
+
+      session.connect();
+      await untilPhase(session, phase);
+      session.reconnect();
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(session.getStatus()).toEqual({ phase: "connected" });
+      expect(movement.readStepMs()).toBe(WELCOME.stepMs);
+      expect(movement.sendMove({ direction: "right", seq: 1 })).toBe(true);
+      expect(sockets.connections).toHaveLength(socketCount);
     },
   );
 

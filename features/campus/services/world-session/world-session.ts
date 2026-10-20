@@ -69,6 +69,12 @@ export function createWorldSession({
   const client = createRealtimeClient({ ...clientOptions, onEvent });
   let unbindMovement: (() => void) | undefined;
 
+  // Mirrors the client's connect(): any other phase ignores the call, and
+  // rebinding then would clear stepMs until a welcome that never comes.
+  function opensOnConnect() {
+    return ["idle", "closed"].includes(client.getStatus().phase);
+  }
+
   function bindMovement() {
     unbindMovement?.();
     unbindMovement = movement.bind(client.send);
@@ -81,6 +87,7 @@ export function createWorldSession({
       client.connect();
     },
     reconnect() {
+      if (!opensOnConnect()) return;
       bindMovement();
       client.connect();
     },

@@ -96,6 +96,19 @@ describe("createWorldSession", () => {
     );
   });
 
+  it("keeps movement sendable when the member reconnects a live session", async () => {
+    const world = serveWorld(admit);
+    const { movement, session } = startSession();
+    session.connect();
+    await vi.waitFor(() => expect(movement.readStepMs()).not.toBeNull());
+
+    session.reconnect();
+
+    expect(movement.readStepMs()).not.toBeNull();
+    expect(movement.sendMove({ direction: "right", seq: 1 })).toBe(true);
+    expect(world.connections).toHaveLength(1);
+  });
+
   it("draws everyone the snapshot names and reports the connect", async () => {
     serveWorld(admit);
     const { captureEvent, presence, session } = startSession();
