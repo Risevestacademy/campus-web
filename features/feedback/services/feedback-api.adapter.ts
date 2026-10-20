@@ -1,5 +1,7 @@
 import type { ApiClient } from "@/core/api/client";
+import { packReportAbout } from "@/shared/lib/report-about";
 
+import { parseFeedbackReceipt } from "../schemas/feedback.schema";
 import type { NewFeedback } from "../types";
 
 export type FeedbackSendProblem =
@@ -22,34 +24,38 @@ const sendProblems: Record<number, FeedbackSendProblem> = {
   429: "rate-limited",
 };
 
-// campus-api has one free-text field, so a report carries who and where in it,
-// split on the first "|". The admin Feedback page reads it back the same way.
-function packAbout(feedback: NewFeedback): string | undefined {
-  if (feedback.kind === "report") {
-    return `${feedback.reported.replaceAll("|", "/")} | ${feedback.location}`.trim();
-  }
-
-  return feedback.location || undefined;
+function aboutOf(feedback: NewFeedback): string | undefined {
+  return feedback.kind === "report"
+    ? packReportAbout({
+        reported: feedback.reported,
+        where: feedback.location,
+      })
+    : feedback.location || undefined;
 }
 
 export async function sendFeedback(
   api: ApiClient,
   { feedback, cohortId, path }: FeedbackSendInput,
 ): Promise<FeedbackSend> {
+  const about = aboutOf(feedback);
+
   try {
     const { data, response } = await api.POST("/v1/feedback", {
       body: {
         type: feedback.kind,
         title: feedback.title,
         details: feedback.details,
-        ...(packAbout(feedback) ? { about: packAbout(feedback) } : {}),
+        ...(about ? { about } : {}),
         ...(cohortId ? { cohortId } : {}),
         ...(path ? { context: { path } } : {}),
       },
     });
 
-    if (response.ok && data) {
-      return { kind: "sent", receipt: { id: data.id } };
+    if (response.ok) {
+      const receipt = parseFeedbackReceipt(data);
+      return receipt
+        ? { kind: "sent", receipt }
+        : { kind: "problem", problem: "unavailable" };
     }
 
     return {

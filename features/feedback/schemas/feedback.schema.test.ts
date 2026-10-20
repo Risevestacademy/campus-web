@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseFeedback,
+  parseFeedbackReceipt,
   pickScreenshot,
   SCREENSHOT_MAX_BYTES,
   screenshotProblem,
@@ -16,7 +17,6 @@ function feedbackForm(fields: Record<string, string>) {
     details: "  It happens often.  ",
     location: "Map view",
     reported: "",
-    includeDeviceInfo: "on",
     ...fields,
   };
   for (const [field, value] of Object.entries(filled)) form.set(field, value);
@@ -33,7 +33,6 @@ describe("parseFeedback", () => {
         details: "It happens often.",
         location: "Map view",
         reported: "",
-        includeDeviceInfo: true,
       },
     });
   });
@@ -89,16 +88,21 @@ describe("parseFeedback", () => {
       errors: { title: `Keep the title under ${TITLE_MAX_LENGTH} characters.` },
     });
   });
+});
 
-  it("reads an unticked device info box as false", () => {
-    const form = feedbackForm({});
-    form.delete("includeDeviceInfo");
-
-    expect(parseFeedback(form)).toMatchObject({
-      kind: "valid",
-      feedback: { includeDeviceInfo: false },
+describe("parseFeedbackReceipt", () => {
+  it("keeps the id and drops everything else", () => {
+    expect(parseFeedbackReceipt({ id: "f1", title: "x", extra: 1 })).toEqual({
+      id: "f1",
     });
   });
+
+  it.each([null, {}, { id: "" }, { id: 4 }, "f1"])(
+    "finds no receipt in %j",
+    (body) => {
+      expect(parseFeedbackReceipt(body)).toBeUndefined();
+    },
+  );
 });
 
 describe("screenshotProblem", () => {

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { components } from "@/core/api/client";
+import { feedbackTypeSchema, type Simplify } from "@/core/api/schemas";
 import {
   type FormErrors,
   type FormInvalid,
@@ -23,7 +25,7 @@ const SCREENSHOT_FORMAT_NAMES = new Intl.ListFormat("en-GB", {
 }).format(Object.values(SCREENSHOT_FORMATS));
 
 export const feedbackKindSchema = z.enum(
-  ["bug", "idea", "report"],
+  feedbackTypeSchema.options,
   "Choose what kind of feedback this is.",
 );
 
@@ -60,7 +62,6 @@ export const feedbackSchema = z
         REPORTED_MAX_LENGTH,
         `Keep this under ${REPORTED_MAX_LENGTH} characters.`,
       ),
-    includeDeviceInfo: z.string().transform(Boolean),
   })
   .refine(({ kind, reported }) => kind !== "report" || reported !== "", {
     path: ["reported"],
@@ -97,4 +98,19 @@ export function pickScreenshot(files: ArrayLike<File>): File | undefined {
 
 export function screenshotProblem(file: File): string | undefined {
   return screenshotSchema.safeParse(file).error?.issues[0]?.message;
+}
+
+type FeedbackReceipt = Simplify<
+  Pick<components["schemas"]["FeedbackReceiptDto"], "id">
+>;
+
+// The receipt of a send is read for its id alone; anything else is dropped.
+const feedbackReceiptSchema = z.toZod<FeedbackReceipt>()(
+  z.object({ id: z.string().min(1) }),
+);
+
+export function parseFeedbackReceipt(
+  body: unknown,
+): FeedbackReceipt | undefined {
+  return feedbackReceiptSchema.safeParse(body).data;
 }

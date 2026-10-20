@@ -4,7 +4,6 @@ import { PaperPlaneTiltIcon } from "@phosphor-icons/react/dist/ssr/PaperPlaneTil
 import { type ClipboardEvent, type FormEvent, useId, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
-import { Checkbox } from "@/shared/ui/checkbox";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Textarea } from "@/shared/ui/textarea";
@@ -224,13 +223,6 @@ export function FeedbackForm({
             setScreenshotError(undefined);
           }}
         />
-      </div>
-
-      <div className="flex items-center gap-2.5">
-        <Checkbox id={`${id}-device`} name="includeDeviceInfo" defaultChecked />
-        <Label htmlFor={`${id}-device`} className="font-normal">
-          Include device and browser info (helps us fix bugs faster)
-        </Label>
       </div>
 
       <div className="flex justify-end gap-3">

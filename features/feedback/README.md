@@ -31,7 +31,7 @@ Feedback.
 Sending calls `POST /v1/feedback` through the browser proxy. A report asks who
 is being reported as well as where, but campus-api has one free-text `about`
 field, so `services/feedback-api.adapter.ts` packs a report's `about` as
-`Who | Where`, and `admin` splits it on the first `|`. Replace this when the
+`Who | Where`, and `admin` splits it on the first `|` (both through `shared/lib/report-about.ts`). Replace this when the
 backend gains separate fields. Members cannot
 read feedback back, so the history lists only what this session sent and
 resets on reload. Admins read it in `admin`. Screenshots are not sent: the
