@@ -9,7 +9,6 @@ import type {
 } from "@/core/realtime";
 
 import { interpolatePlayer } from "../services/movement/interpolate-player";
-import { isWalkable } from "../services/movement/step";
 import { walkPath } from "../services/movement/walk-path";
 
 const MAX_QUEUED_STEPS = 4;
@@ -114,14 +113,14 @@ export function createRemoteAvatarMovement({
 
       const target = playerOf(moved);
       const path = walkPath(state.target, target, layout);
-      if (path.length === 0) {
+      if (path?.length === 0) {
         state.target = target;
         if (state.queued.length === 0) snap(state, target);
         continue;
       }
       if (
+        !path ||
         prefersReducedMotion() ||
-        !path.every((tile) => isWalkable(layout, tile)) ||
         state.queued.length + path.length > MAX_QUEUED_STEPS
       ) {
         snap(state, target);

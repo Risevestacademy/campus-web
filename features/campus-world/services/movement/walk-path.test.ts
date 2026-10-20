@@ -50,12 +50,16 @@ describe("walkPath", () => {
     expect(walkPath(tile(2, 2), tile(2, 2), movementLayout)).toEqual([]);
   });
 
+  it("is null when both L-routes meet a wall", () => {
+    expect(walkPath(tile(1, 1), tile(3, 1), movementLayout)).toBeNull();
+  });
+
   it.each(PATHS)("walks %s", (_case, from, to, path) => {
     expect(walkPath(from, to, movementLayout)).toEqual(path);
   });
 
   it.each(PATHS)("never cuts a diagonal walking %s", (_case, from, to) => {
-    const path = walkPath(from, to, movementLayout);
+    const path = walkPath(from, to, movementLayout) ?? [];
 
     expect(walksOneTileAtATime(from, path)).toBe(true);
     expect(path.at(-1)).toEqual(to);

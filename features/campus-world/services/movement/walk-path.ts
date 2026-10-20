@@ -3,13 +3,20 @@ import type { MapLayout, Tile } from "campus-world-map";
 import { isWalkable } from "./step";
 
 // world sends where someone ended up, not the way they went. Of the two
-// L-shaped routes, take the one with no wall on it.
-export function walkPath(from: Tile, to: Tile, layout: MapLayout): Tile[] {
+// L-shaped routes, take the first with no wall on it, or null if both meet one.
+export function walkPath(
+  from: Tile,
+  to: Tile,
+  layout: MapLayout,
+): Tile[] | null {
   const acrossFirst = route(from, { x: to.x, y: from.y }, to);
+  const downFirst = route(from, { x: from.x, y: to.y }, to);
 
-  return acrossFirst.every((tile) => isWalkable(layout, tile))
-    ? acrossFirst
-    : route(from, { x: from.x, y: to.y }, to);
+  return (
+    [acrossFirst, downFirst].find((path) =>
+      path.every((tile) => isWalkable(layout, tile)),
+    ) ?? null
+  );
 }
 
 function route(from: Tile, corner: Tile, to: Tile): Tile[] {
