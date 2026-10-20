@@ -1,8 +1,8 @@
 # API schemas
 
 Runtime Zod schemas for Campus API vocabulary that more than one feature
-reads: session scopes, roles, cohort statuses, pagination meta, and the error
-envelope. Each schema is bound to
+reads: session scopes, roles, cohort statuses, feedback types and statuses,
+pagination meta, and the error envelope. Each schema is bound to
 its generated OpenAPI type with `z.toZod`, so a value added or removed upstream
 fails `pnpm typecheck` here instead of drifting silently.
 
@@ -19,8 +19,12 @@ import {
 - `sessionScopeSchema`, `systemRoleSchema`, `cohortRoleSchema`,
   `cohortStatusSchema`, `exceptionCodeSchema`: enums equal to the generated
   types.
+- `feedbackTypeSchema`, `feedbackStatusSchema`: the feedback vocabulary read
+  by both the member popup and the admin page.
 - `paginationMetaSchema`: `{ page, totalPages }` of a paginated list; other
   meta fields are stripped.
+- `paginationMetaWithTotalSchema`: the same plus `total`, for a screen that
+  shows counts.
 - `parseExceptionCode(body)`: the `error.code` of an API error body, or
   `undefined` for anything else.
 - `Simplify<T>`: flattens a `Pick<…> & {…}` type so `z.toZod` can compare

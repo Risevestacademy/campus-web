@@ -13,3 +13,18 @@ export const paginationMetaSchema = z.toZod<PaginationMeta>()(
     totalPages: z.number().int().nonnegative(),
   }),
 );
+
+type PaginationMetaWithTotal = Simplify<
+  Pick<
+    components["schemas"]["PaginationMetaDto"],
+    "page" | "totalPages" | "total"
+  >
+>;
+
+export const paginationMetaWithTotalSchema = z.toZod<PaginationMetaWithTotal>()(
+  z.object({
+    page: z.number().int().positive(),
+    totalPages: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative(),
+  }),
+);
