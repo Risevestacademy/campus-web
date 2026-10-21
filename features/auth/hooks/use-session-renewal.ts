@@ -1,5 +1,8 @@
 import { ANALYTICS_EVENTS } from "@/core/analytics";
-import { captureBrowserAnalyticsEvent } from "@/core/analytics/client";
+import {
+  captureBrowserAnalyticsEvent,
+  resetAnalyticsUser,
+} from "@/core/analytics/client";
 import { replaceDocument } from "@/shared/lib/document-navigation";
 import { useMountEffect } from "@/shared/lib/use-mount-effect";
 import { toast } from "@/shared/ui/toast";
@@ -40,7 +43,10 @@ function reportRenewal({ kind, failedAttempts }: RenewalOutcome) {
     outcome: kind,
     failed_attempts: failedAttempts,
   });
-  if (kind === "expired") announceSessionEnded();
+  if (kind === "expired") {
+    resetAnalyticsUser();
+    announceSessionEnded();
+  }
 }
 
 const sessionRenewal = createSessionRenewal({
