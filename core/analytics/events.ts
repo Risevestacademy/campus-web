@@ -203,6 +203,7 @@ export const analyticsCohortSchema = z.object({
 export type AnalyticsIdentity = Readonly<
   z.input<typeof analyticsIdentitySchema>
 >;
+export type AllowedAnalyticsIdentity = z.output<typeof analyticsIdentitySchema>;
 export type AnalyticsCohort = Readonly<z.input<typeof analyticsCohortSchema>>;
 export type AuthMethod = z.output<typeof authMethodSchema>;
 export type AnalyticsPlatform = z.output<typeof platformSchema>;
@@ -252,7 +253,9 @@ export function allowAnalyticsProperties(
   return allow(schema, properties, `Analytics event ${eventName}`);
 }
 
-export function allowAnalyticsIdentity(identity: unknown) {
+export function allowAnalyticsIdentity(
+  identity: unknown,
+): AllowedAnalyticsIdentity | undefined {
   return allow(analyticsIdentitySchema, identity, "Analytics identity");
 }
 

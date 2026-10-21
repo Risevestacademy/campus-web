@@ -6,6 +6,7 @@ import {
   allowAnalyticsCohort,
   allowAnalyticsIdentity,
   allowAnalyticsProperties,
+  type AllowedAnalyticsIdentity,
   type AnalyticsCohort,
   type AnalyticsEventMap,
   type AnalyticsEventName,
@@ -29,7 +30,10 @@ interface CohortProperties {
 let activeCohort: CohortProperties | null = null;
 let lastPageviewPath: string | null = null;
 
+export type AnalyticsConsent = "granted" | "denied" | "pending";
+
 let browserAnalytics: Promise<PostHog | null> | null = null;
+let latestIdentity: AllowedAnalyticsIdentity | null = null;
 
 async function loadBrowserAnalytics(): Promise<PostHog | null> {
   const configuration = readAnalyticsConfiguration();
@@ -56,6 +60,8 @@ async function loadBrowserAnalytics(): Promise<PostHog | null> {
       defaults: "2026-01-30",
       disable_session_recording: true,
       mask_personal_data_properties: true,
+      opt_out_capturing_by_default: true,
+      opt_out_persistence_by_default: true,
       person_profiles: "identified_only",
     });
     return posthog;
@@ -70,6 +76,13 @@ async function loadBrowserAnalytics(): Promise<PostHog | null> {
 export function initializeBrowserAnalytics(): Promise<boolean> {
   browserAnalytics ??= loadBrowserAnalytics();
   return browserAnalytics.then((posthog) => posthog !== null);
+}
+
+export async function readAnalyticsConsent(): Promise<
+  AnalyticsConsent | "unavailable"
+> {
+  const posthog = await browserAnalytics;
+  return posthog ? posthog.get_explicit_consent_status() : "unavailable";
 }
 
 function withBrowserAnalytics(
@@ -108,9 +121,26 @@ export function identifyAnalyticsUser(identity: AnalyticsIdentity): void {
   const allowed = allowAnalyticsIdentity(identity);
   if (!allowed) return;
 
+  latestIdentity = allowed;
   withBrowserAnalytics("PostHog browser identification failed.", (posthog) => {
-    if (isIdentifiedAsAnother(posthog, allowed.id)) forgetMember(posthog);
-    posthog.identify(allowed.id, { system_role: allowed.systemRole });
+    if (isGranted(posthog)) identify(posthog, allowed);
+  });
+}
+
+// opt_in_capturing sends no $pageview while capture_pageview is off, so the
+// page the member accepted on is captured here, after identify.
+export function grantAnalyticsConsent(): void {
+  withBrowserAnalytics("PostHog consent grant failed.", (posthog) => {
+    posthog.opt_in_capturing();
+    if (latestIdentity) identify(posthog, latestIdentity);
+    posthog.capture("$pageview");
+  });
+}
+
+export function denyAnalyticsConsent(): void {
+  withBrowserAnalytics("PostHog consent denial failed.", (posthog) => {
+    if (isGranted(posthog)) forgetMember(posthog);
+    posthog.opt_out_capturing();
   });
 }
 
@@ -162,15 +192,21 @@ function attachActiveCohort(event: CaptureResult | null): CaptureResult | null {
 }
 
 export function resetAnalyticsUser(): void {
+  latestIdentity = null;
   withBrowserAnalytics("PostHog browser identity reset failed.", forgetMember);
 }
 
 // Only an identified member is forgotten, so an invitee's anonymous visit
 // still joins the login that follows it.
 export function resetIdentifiedAnalyticsUser(): void {
+  latestIdentity = null;
   withBrowserAnalytics("PostHog browser identity reset failed.", (posthog) => {
     if (isIdentified(posthog)) forgetMember(posthog);
   });
+}
+
+function isGranted(posthog: PostHog): boolean {
+  return posthog.get_explicit_consent_status() === "granted";
 }
 
 function isIdentified(posthog: PostHog): boolean {
@@ -181,8 +217,23 @@ function isIdentifiedAsAnother(posthog: PostHog, id: string): boolean {
   return isIdentified(posthog) && posthog.get_distinct_id() !== id;
 }
 
+function identify(posthog: PostHog, identity: AllowedAnalyticsIdentity): void {
+  if (isIdentifiedAsAnother(posthog, identity.id)) forgetMember(posthog);
+  posthog.identify(identity.id, { system_role: identity.systemRole });
+}
+
 // A new device ID too, so the next person cannot be joined to this member
-// through $device_id.
+// through $device_id. reset() also wipes the consent choice, so it goes back.
 function forgetMember(posthog: PostHog): void {
+  const consent = posthog.get_explicit_consent_status();
   posthog.reset({ resetDeviceID: true });
+  restoreConsent(posthog, consent);
+}
+
+// Without $opt_in, so a logout is not counted as a new acceptance.
+function restoreConsent(posthog: PostHog, consent: AnalyticsConsent): void {
+  if (consent === "granted") {
+    posthog.opt_in_capturing({ captureEventName: false });
+  }
+  if (consent === "denied") posthog.opt_out_capturing();
 }

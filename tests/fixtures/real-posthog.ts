@@ -27,6 +27,16 @@ export function stubPostHogEnvironment(token: string): string[] {
   return requests;
 }
 
+// Where posthog-js keeps the consent choice: "1" granted, "0" denied.
+export function consentKey(token: string): string {
+  return `__ph_opt_in_out_${token}`;
+}
+
+// PostHog starts opted out; a stored grant lets an eval reach capture.
+export function grantStoredConsent(token: string): void {
+  localStorage.setItem(consentKey(token), "1");
+}
+
 export function storedKeys(): string[] {
   const cookies = document.cookie
     .split(";")
