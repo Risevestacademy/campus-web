@@ -186,7 +186,12 @@ interface SessionReply {
   scope: string;
   expiresAt: string;
   inviteId: string | null;
-  user: { email: string; displayName: string | null; systemRole: string };
+  user: {
+    id: string;
+    email: string;
+    displayName: string | null;
+    systemRole: string;
+  };
   memberships: readonly CohortPlace[];
 }
 
@@ -203,12 +208,14 @@ function seenByRoutes({
     expiresAt,
     inviteId,
     user: {
+      id: user.id,
       email: user.email,
       displayName: user.displayName,
       systemRole: user.systemRole,
     },
-    memberships: memberships.map(({ cohortId, cohort }) => ({
+    memberships: memberships.map(({ cohortId, role, cohort }) => ({
       cohortId,
+      role,
       cohort,
     })),
   };

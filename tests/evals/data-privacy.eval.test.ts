@@ -47,9 +47,11 @@ const SESSION_ALLOW_LIST = [
   "memberships[].cohort.code",
   "memberships[].cohort.name",
   "memberships[].cohortId",
+  "memberships[].role",
   "scope",
   "user.displayName",
   "user.email",
+  "user.id",
   "user.systemRole",
 ];
 

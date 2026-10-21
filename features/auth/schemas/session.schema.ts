@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { sessionScopeSchema, systemRoleSchema } from "@/core/api/schemas";
+import {
+  cohortRoleSchema,
+  sessionScopeSchema,
+  systemRoleSchema,
+} from "@/core/api/schemas";
 import { parseJson } from "@/shared/lib/parse-json";
 
 import type { Session } from "../types/auth.types";
@@ -11,6 +15,7 @@ const sessionSchema = z.toZod<Session>()(
     expiresAt: z.iso.datetime({ offset: true }),
     inviteId: z.string().min(1).nullish(),
     user: z.object({
+      id: z.string().min(1),
       email: z.string().min(1),
       displayName: z.string().nullish(),
       systemRole: systemRoleSchema,
@@ -18,6 +23,7 @@ const sessionSchema = z.toZod<Session>()(
     memberships: z.array(
       z.object({
         cohortId: z.string().min(1),
+        role: cohortRoleSchema,
         cohort: z.object({ name: z.string(), code: z.string() }),
       }),
     ),

@@ -36,12 +36,17 @@ describe("parseSessionBody", () => {
       expiresAt: "2026-10-02T12:15:00.000Z",
       inviteId: null,
       user: {
+        id: "55555555-5555-4555-8555-555555555555",
         email: "ada@campus.local",
         displayName: "Ada Lovelace",
         systemRole: "user",
       },
       memberships: [
-        { cohortId: "c-1", cohort: { name: "Cohort 3", code: "C3" } },
+        {
+          cohortId: "c-1",
+          role: "student",
+          cohort: { name: "Cohort 3", code: "C3" },
+        },
       ],
     });
   });
@@ -79,6 +84,17 @@ describe("parseSessionBody", () => {
     [
       "memberships that are not a list",
       body({ ...sessionDto, memberships: null }),
+    ],
+    [
+      "a user without an id",
+      body({ ...sessionDto, user: { ...sessionDto.user, id: "" } }),
+    ],
+    [
+      "a membership with an unknown role",
+      body({
+        ...sessionDto,
+        memberships: [{ ...sessionDto.memberships[0], role: "owner" }],
+      }),
     ],
   ])("rejects %s", (_, value) => {
     expect(parseSessionBody(value)).toBeUndefined();

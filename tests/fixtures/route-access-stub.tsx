@@ -22,6 +22,8 @@ export function AccountMenu({ children }: { children: ReactNode }) {
   return children;
 }
 
+export const AnalyticsIdentity = () => null;
+
 export function CohortGate({ children }: { children: ReactNode }) {
   return children;
 }

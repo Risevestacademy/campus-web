@@ -1,4 +1,5 @@
 import {
+  AnalyticsIdentity,
   CohortGate,
   SessionRefreshProvider,
   SessionRenewal,
@@ -21,6 +22,7 @@ export default async function CohortLayout({
   return (
     <CohortGate cohortId={id}>
       <SessionRenewal cohortId={id} />
+      <AnalyticsIdentity cohortId={id} />
       <SessionRefreshProvider>
         <PresenceSession cohortId={id} key={id}>
           {children}

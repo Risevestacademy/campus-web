@@ -9,7 +9,9 @@ Typed PostHog product analytics for Campus by Rise.
 - Feature code uses `ANALYTICS_EVENTS`; it does not import PostHog.
 - Trusted outcomes are emitted by the server with the authenticated
   Campus/Rise user ID.
-- Browser identification uses the same stable ID.
+- Browser identification uses the same stable ID. It runs on cohort pages,
+  through auth's `AnalyticsIdentity`, with only `role` and `cohort_id` as
+  person properties. A consent gate is pending.
 - Logout captures its event before calling `resetAnalyticsUser()`.
 
 ## Successful business operations
