@@ -18,6 +18,7 @@ export function useAnalyticsConsent() {
 
   return {
     isOpen: isConsentChoiceOpen(snapshot),
+    isReviewing: snapshot.reviewing,
     accept: acceptAnalyticsConsent,
     reject: rejectAnalyticsConsent,
   };

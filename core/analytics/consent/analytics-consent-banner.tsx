@@ -1,25 +1,37 @@
 "use client";
 
-import { useId } from "react";
+import { type Ref, useId } from "react";
 
 import { Button } from "@/shared/ui/button";
 
 import { useAnalyticsConsent } from "./use-analytics-consent";
 
 export function AnalyticsConsentBanner() {
-  const { isOpen, accept, reject } = useAnalyticsConsent();
+  const { isOpen, isReviewing, accept, reject } = useAnalyticsConsent();
 
   if (!isOpen) return null;
 
-  return <AnalyticsConsentNotice onAccept={accept} onReject={reject} />;
+  return (
+    <AnalyticsConsentNotice
+      ref={isReviewing ? focusElement : undefined}
+      onAccept={accept}
+      onReject={reject}
+    />
+  );
+}
+
+function focusElement(element: HTMLElement | null): void {
+  element?.focus();
 }
 
 type AnalyticsConsentNoticeProps = Readonly<{
+  ref?: Ref<HTMLElement>;
   onAccept: () => void;
   onReject: () => void;
 }>;
 
 export function AnalyticsConsentNotice({
+  ref,
   onAccept,
   onReject,
 }: AnalyticsConsentNoticeProps) {
@@ -27,8 +39,10 @@ export function AnalyticsConsentNotice({
 
   return (
     <section
+      ref={ref}
+      tabIndex={-1}
       aria-labelledby={headingId}
-      className="bg-surface border-border text-foreground fixed inset-x-4 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 grid gap-3 rounded-2xl border p-4 shadow-lg transition-opacity duration-200 motion-reduce:transition-none sm:right-auto sm:bottom-3 sm:left-16 sm:w-full sm:max-w-sm starting:opacity-0"
+      className="bg-surface border-border text-foreground focus-visible:ring-border-focus fixed inset-x-4 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 grid gap-3 rounded-2xl border p-4 shadow-lg transition-opacity duration-200 outline-none focus-visible:ring-2 motion-reduce:transition-none sm:right-auto sm:bottom-3 sm:left-16 sm:w-full sm:max-w-sm starting:opacity-0"
     >
       <h2 id={headingId} className="font-semibold text-balance">
         Analytics cookies

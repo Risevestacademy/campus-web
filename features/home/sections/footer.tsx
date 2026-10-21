@@ -2,6 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 
 import inverseLogo from "@/assets/logo-inverse.svg";
+import { PrivacyChoicesButton } from "@/core/analytics/consent";
+
+const FOOTER_LINK_CLASS_NAME =
+  "rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-neutral-50";
 
 const footerLinks = [
   { label: "Explore Campus", href: "#explore-campus" },
@@ -37,14 +41,16 @@ export function FooterSection() {
             <ul className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 text-[15px] leading-6 font-medium">
               {footerLinks.map(({ label, href }) => (
                 <li key={href}>
-                  <Link
-                    href={href}
-                    className="rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-neutral-50"
-                  >
+                  <Link href={href} className={FOOTER_LINK_CLASS_NAME}>
                     {label}
                   </Link>
                 </li>
               ))}
+              <li>
+                <PrivacyChoicesButton
+                  className={`${FOOTER_LINK_CLASS_NAME} cursor-pointer`}
+                />
+              </li>
             </ul>
           </nav>
         </div>

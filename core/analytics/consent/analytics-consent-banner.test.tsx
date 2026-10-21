@@ -60,6 +60,17 @@ describe("AnalyticsConsentBanner", () => {
     expect(screen.getByRole("button", { name: "Accept" })).toBeVisible();
   });
 
+  it("leaves focus where it was on a first visit", async () => {
+    const { AnalyticsConsentBanner } = await import(".");
+
+    render(<AnalyticsConsentBanner />);
+
+    expect(
+      await screen.findByRole("region", { name: "Analytics cookies" }),
+    ).not.toHaveFocus();
+    expect(document.body).toHaveFocus();
+  });
+
   it("gives Reject and Accept equal weight, Reject first", async () => {
     const { AnalyticsConsentBanner } = await import(".");
 
