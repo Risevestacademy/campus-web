@@ -2,14 +2,13 @@ import { useMutation } from "@tanstack/react-query";
 import { useRef } from "react";
 
 import { browserApi } from "@/core/api/client/browser";
+import { SIGN_IN_PATH } from "@/core/navigation";
 import { replaceDocument } from "@/shared/lib/document-navigation";
 
 import {
   type FeedbackSendInput,
   sendFeedback,
 } from "../services/feedback-api.adapter";
-
-const SIGN_IN_PATH = "/sign-in";
 
 export function useSendFeedback({
   onSent,
