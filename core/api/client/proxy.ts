@@ -5,6 +5,7 @@ import type { ClientOptions } from "openapi-fetch";
 import type { Logger } from "@/core/observability";
 
 import { REFRESH_ATTEMPTED_COOKIE, SESSION_COOKIE } from "./auth-cookies";
+import { CLIENT_ADDRESS_HEADER, readClientAddress } from "./client-address";
 import type { components } from "./generated/schema";
 import { isPublishedRoute } from "./upstream-routes";
 
@@ -33,7 +34,6 @@ const REQUEST_HEADERS = [
   "if-none-match",
   "if-unmodified-since",
   "range",
-  "x-forwarded-for",
 ];
 const RESPONSE_HEADERS = [
   "accept-ranges",
@@ -355,8 +355,13 @@ function createUpstreamHeaders(request: Request, requestId: string): Headers {
     request.headers.get("cookie"),
     AUTH_COOKIE_NAMES,
   );
+  const clientAddress = readClientAddress(request.headers);
 
   headers.set("x-request-id", requestId);
+
+  if (clientAddress) {
+    headers.set(CLIENT_ADDRESS_HEADER, clientAddress);
+  }
 
   if (authCookies.length > 0) {
     headers.set("cookie", authCookies.join("; "));
@@ -528,6 +533,9 @@ export function createApiProxy(options: ApiProxyOptions) {
 
       responseHeaders.set("x-request-id", requestId);
       options.logger.info("api.proxy.completed", {
+        clientAddress: upstreamRequest.headers.has(CLIENT_ADDRESS_HEADER)
+          ? "forwarded"
+          : "absent",
         durationMs: Math.max(0, clock() - startedAt),
         method: request.method,
         requestId,

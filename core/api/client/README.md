@@ -170,9 +170,12 @@ const api = await getServerApi();
 ```
 
 The default reads `campus_session` with Next.js `cookies()` and forwards only
-that cookie. It also forwards the visitor's `X-Forwarded-For` unchanged:
-campus-api rate-limits per client address (`TRUST_PROXY_HOPS=1`), and without
-it every server read would share the Next server's address and one bucket. A
+that cookie. It also sends the visitor's address as a one-entry
+`X-Forwarded-For`, read from the edge's `X-Real-IP` (see
+`client-address.ts`): campus-api rate-limits per client address
+(`TRUST_PROXY_HOPS=1`), and without it every server read would share the Next
+server's address and one bucket. A client-sent `X-Forwarded-For` is never
+forwarded, and with no valid `X-Real-IP` (local development) none is sent. A
 new client is created for the request, so credentials and addresses cannot leak
 between concurrent users. Use `authentication: "none"` for public data so
 Next.js does not opt the render path into request-time rendering merely to read
@@ -196,7 +199,9 @@ network hop and complicates cookie forwarding and caching.
 - rejects cross-origin unsafe methods;
 - preserves backend `Location` headers while keeping upstream fetches in
   manual redirect mode;
-- forwards the edge-provided `X-Forwarded-For` value;
+- sends the edge's `X-Real-IP` as a one-entry `X-Forwarded-For`, never the
+  client's own chain, and logs `clientAddress: "forwarded" | "absent"` on
+  `api.proxy.completed`;
 - correlates requests with `x-request-id` and structured logs;
 - returns a sanitized backend-shaped `502` when the upstream is unavailable;
 - exposes only the three backend authentication cookies;

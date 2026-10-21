@@ -210,3 +210,28 @@ describe("API proxy route allow-list eval", () => {
     expect([...PUBLISHED_ROUTE_TEMPLATES].sort()).toEqual(generatedRoutes);
   });
 });
+
+describe("API proxy client address eval", () => {
+  it("sends campus-api the edge's client address, never a client-sent chain", async () => {
+    let upstreamClientAddress: string | null | undefined;
+    vi.stubEnv("API_BASE_URL", "https://api.example.test");
+    vi.spyOn(process.stdout, "write").mockReturnValue(true);
+    vi.stubGlobal("fetch", (request: Request) => {
+      upstreamClientAddress = request.headers.get("x-forwarded-for");
+      return Promise.resolve(Response.json({ status: "ok" }));
+    });
+    const { GET } = await import("../../app/api/[...path]/route");
+
+    await GET(
+      new Request("http://localhost:3000/api/v1/health", {
+        headers: {
+          "x-forwarded-for": "198.51.100.66",
+          "x-real-ip": "203.0.113.10",
+        },
+      }),
+      context("v1", "health"),
+    );
+
+    expect(upstreamClientAddress).toBe("203.0.113.10");
+  });
+});

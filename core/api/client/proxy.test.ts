@@ -54,7 +54,8 @@ describe("createApiProxy", () => {
           accept: "application/json",
           cookie: "campus_session=session-token; theme=dark",
           origin: "https://frontend.example.test",
-          "x-forwarded-for": "203.0.113.10",
+          "x-forwarded-for": "198.51.100.66",
+          "x-real-ip": "203.0.113.10",
           "x-untrusted-header": "must-not-be-forwarded",
         },
       },
@@ -79,6 +80,55 @@ describe("createApiProxy", () => {
     expect(response.headers.get("expires")).toBeNull();
     expect(response.headers.get("etag")).toBe('"health-1"');
     expect(await response.json()).toEqual(responseBody);
+  });
+
+  it("sends no client address when the edge supplied none", async () => {
+    let outboundRequest: Request | undefined;
+    const handler = createApiProxy({
+      ...baseOptions,
+      fetch: (request) => {
+        outboundRequest = request;
+        return Promise.resolve(Response.json({}));
+      },
+    });
+
+    await handler(
+      new Request("https://frontend.example.test/api/v1/health", {
+        headers: {
+          origin: "https://frontend.example.test",
+          "x-forwarded-for": "198.51.100.66",
+        },
+      }),
+      { params: Promise.resolve({ path: ["v1", "health"] }) },
+    );
+
+    expect(outboundRequest?.headers.has("x-forwarded-for")).toBe(false);
+  });
+
+  it("records in the completion log that the edge client address was forwarded", async () => {
+    const records: Array<Parameters<Logger["info"]>[1]> = [];
+    const handler = createApiProxy({
+      ...baseOptions,
+      logger: {
+        ...quietLogger,
+        info: (_event, fields) => records.push(fields),
+      },
+      fetch: () => Promise.resolve(Response.json({})),
+    });
+
+    await handler(
+      new Request("https://frontend.example.test/api/v1/health", {
+        headers: {
+          origin: "https://frontend.example.test",
+          "x-real-ip": "203.0.113.10",
+        },
+      }),
+      { params: Promise.resolve({ path: ["v1", "health"] }) },
+    );
+
+    expect(records).toEqual([
+      expect.objectContaining({ clientAddress: "forwarded" }),
+    ]);
   });
 
   it("preserves backend cache policy for an anonymous response outside auth", async () => {
@@ -408,6 +458,7 @@ describe("createApiProxy", () => {
       {
         event: "api.proxy.completed",
         fields: {
+          clientAddress: "absent",
           durationMs: 25,
           method: "GET",
           requestId: "proxy-request-2",
