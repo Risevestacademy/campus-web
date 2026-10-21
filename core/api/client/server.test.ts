@@ -111,9 +111,12 @@ describe("getServerApi", () => {
     );
   });
 
-  it("forwards the visitor's X-Forwarded-For so the backend rate-limits each client separately", async () => {
+  it("forwards the edge's client address so the backend rate-limits each client separately", async () => {
     nextHeaders.headers.mockResolvedValue(
-      new Headers({ "x-forwarded-for": "198.51.100.7, 203.0.113.10" }),
+      new Headers({
+        "x-forwarded-for": "198.51.100.66",
+        "x-real-ip": "203.0.113.10",
+      }),
     );
     const outbound = captureOutbound();
     const api = await getServerApi({ fetch: outbound.fetch });
@@ -121,8 +124,20 @@ describe("getServerApi", () => {
     await api.GET("/v1/health");
 
     expect(outbound.sent[0]?.headers.get("x-forwarded-for")).toBe(
-      "198.51.100.7, 203.0.113.10",
+      "203.0.113.10",
     );
+  });
+
+  it("sends no client address when the edge supplied none", async () => {
+    nextHeaders.headers.mockResolvedValue(
+      new Headers({ "x-forwarded-for": "198.51.100.66" }),
+    );
+    const outbound = captureOutbound();
+    const api = await getServerApi({ fetch: outbound.fetch });
+
+    await api.GET("/v1/health");
+
+    expect(outbound.sent[0]?.headers.has("x-forwarded-for")).toBe(false);
   });
 
   it("sends no X-Forwarded-For when the visitor's request carried none", async () => {
@@ -136,10 +151,8 @@ describe("getServerApi", () => {
 
   it("keeps client addresses isolated between concurrent server clients", async () => {
     nextHeaders.headers
-      .mockResolvedValueOnce(new Headers({ "x-forwarded-for": "198.51.100.1" }))
-      .mockResolvedValueOnce(
-        new Headers({ "x-forwarded-for": "198.51.100.2" }),
-      );
+      .mockResolvedValueOnce(new Headers({ "x-real-ip": "198.51.100.1" }))
+      .mockResolvedValueOnce(new Headers({ "x-real-ip": "198.51.100.2" }));
     const outbound = captureOutbound();
 
     const [firstApi, secondApi] = await Promise.all([

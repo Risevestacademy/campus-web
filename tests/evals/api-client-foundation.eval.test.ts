@@ -21,6 +21,7 @@ function requireSetCookie(response: Response, name: string): string {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.resetModules();
@@ -163,5 +164,56 @@ describe("API client authentication journey eval", () => {
     expect(requireSetCookie(logoutResponse, "campus_refresh")).toBe(
       "campus_refresh=; Max-Age=0; HttpOnly; SameSite=Lax; Path=/api/v1/auth",
     );
+  });
+});
+
+describe("API proxy route allow-list eval", () => {
+  it("answers a route campus-api does not publish without contacting it", async () => {
+    let upstreamCalls = 0;
+    vi.stubEnv("API_BASE_URL", "https://api.example.test");
+    vi.spyOn(process.stdout, "write").mockReturnValue(true);
+    vi.stubGlobal("fetch", () => {
+      upstreamCalls += 1;
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+    const { GET } = await import("../../app/api/[...path]/route");
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/v1/internal/metrics"),
+      context("v1", "internal", "metrics"),
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("x-request-id")).toBeTruthy();
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(await response.json()).toEqual({
+      error: { code: "NOT_FOUND", message: "API route not found." },
+    });
+    expect(upstreamCalls).toBe(0);
+  });
+});
+
+describe("API proxy client address eval", () => {
+  it("sends campus-api the edge's client address, never a client-sent chain", async () => {
+    let upstreamClientAddress: string | null | undefined;
+    vi.stubEnv("API_BASE_URL", "https://api.example.test");
+    vi.spyOn(process.stdout, "write").mockReturnValue(true);
+    vi.stubGlobal("fetch", (request: Request) => {
+      upstreamClientAddress = request.headers.get("x-forwarded-for");
+      return Promise.resolve(Response.json({ status: "ok" }));
+    });
+    const { GET } = await import("../../app/api/[...path]/route");
+
+    await GET(
+      new Request("http://localhost:3000/api/v1/health", {
+        headers: {
+          "x-forwarded-for": "198.51.100.66",
+          "x-real-ip": "203.0.113.10",
+        },
+      }),
+      context("v1", "health"),
+    );
+
+    expect(upstreamClientAddress).toBe("203.0.113.10");
   });
 });

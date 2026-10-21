@@ -170,9 +170,12 @@ const api = await getServerApi();
 ```
 
 The default reads `campus_session` with Next.js `cookies()` and forwards only
-that cookie. It also forwards the visitor's `X-Forwarded-For` unchanged:
-campus-api rate-limits per client address (`TRUST_PROXY_HOPS=1`), and without
-it every server read would share the Next server's address and one bucket. A
+that cookie. It also sends the visitor's address as a one-entry
+`X-Forwarded-For`, read from the edge's `X-Real-IP` (see
+`client-address.ts`): campus-api rate-limits per client address
+(`TRUST_PROXY_HOPS=1`), and without it every server read would share the Next
+server's address and one bucket. A client-sent `X-Forwarded-For` is never
+forwarded, and with no valid `X-Real-IP` (local development) none is sent. A
 new client is created for the request, so credentials and addresses cannot leak
 between concurrent users. Use `authentication: "none"` for public data so
 Next.js does not opt the render path into request-time rendering merely to read
@@ -186,6 +189,9 @@ network hop and complicates cookie forwarding and caching.
 `app/api/[...path]/route.ts` is a policy-enforcing browser-facing proxy. It:
 
 - fixes the upstream host from `API_BASE_URL`;
+- forwards only routes listed in `upstream-routes.ts`; any other path, or one
+  with a `.` or `..` segment, gets a backend-shaped `404` with no upstream
+  call, logged as `api.proxy.rejected` with `errorCode: "unknown_route"`;
 - forwards only allowlisted request and response headers;
 - forwards only `campus_session`, `campus_refresh`, and
   `campus_oauth_state`;
@@ -193,7 +199,9 @@ network hop and complicates cookie forwarding and caching.
 - rejects cross-origin unsafe methods;
 - preserves backend `Location` headers while keeping upstream fetches in
   manual redirect mode;
-- forwards the edge-provided `X-Forwarded-For` value;
+- sends the edge's `X-Real-IP` as a one-entry `X-Forwarded-For`, never the
+  client's own chain, and logs `clientAddress: "forwarded" | "absent"` on
+  `api.proxy.completed` and `api.proxy.failed`;
 - correlates requests with `x-request-id` and structured logs;
 - returns a sanitized backend-shaped `502` when the upstream is unavailable;
 - exposes only the three backend authentication cookies;
@@ -201,10 +209,18 @@ network hop and complicates cookie forwarding and caching.
 - rewrites `campus_refresh` and `campus_oauth_state` to
   `Path=/api/v1/auth` without a backend domain;
 - enforces `HttpOnly`, `SameSite=Lax`, and `Secure` on HTTPS;
-- forces authenticated responses to `Cache-Control: private, no-store`.
+- forces `Cache-Control: private, no-store` on every `/v1/auth/*` response,
+  on any response to a request carrying `campus_session`, on any response
+  that sets a cookie, and on the proxy's own `404`, `403` and `502`.
 
 The proxy preserves backend success and error documents without introducing a
 second frontend-owned response contract.
+
+### Adding a route
+
+Run `pnpm api:types` after campus-api publishes the route. `pnpm typecheck`
+then fails on `PUBLISHED_ROUTES` in `upstream-routes.ts` until the new
+template is listed there; until then the proxy answers it with `404`.
 
 ## Google OAuth
 
@@ -336,8 +352,10 @@ Backend HTTP failures remain typed OpenAPI results. Network failures on the
 direct server path reject normally so the owning feature decides how to map
 them. Network failures at the browser proxy become a sanitized `502` response.
 
-Logs contain request ID, route, method, status, duration, and error name when
-applicable. They never contain cookies, tokens, request bodies, or query values.
+Logs contain request ID, route template (`/v1/users/{id}/profile`), method,
+status, duration, and error name when applicable. They never contain the
+requested path, cookies, tokens, request bodies, or query values; an unknown
+route is logged without one.
 
 The API factory and proxy never emit PostHog events. The owning feature
 application service emits a trusted event only after its business operation has

@@ -54,7 +54,8 @@ describe("createApiProxy", () => {
           accept: "application/json",
           cookie: "campus_session=session-token; theme=dark",
           origin: "https://frontend.example.test",
-          "x-forwarded-for": "203.0.113.10",
+          "x-forwarded-for": "198.51.100.66",
+          "x-real-ip": "203.0.113.10",
           "x-untrusted-header": "must-not-be-forwarded",
         },
       },
@@ -81,7 +82,56 @@ describe("createApiProxy", () => {
     expect(await response.json()).toEqual(responseBody);
   });
 
-  it("preserves backend cache policy for anonymous responses", async () => {
+  it("sends no client address when the edge supplied none", async () => {
+    let outboundRequest: Request | undefined;
+    const handler = createApiProxy({
+      ...baseOptions,
+      fetch: (request) => {
+        outboundRequest = request;
+        return Promise.resolve(Response.json({}));
+      },
+    });
+
+    await handler(
+      new Request("https://frontend.example.test/api/v1/health", {
+        headers: {
+          origin: "https://frontend.example.test",
+          "x-forwarded-for": "198.51.100.66",
+        },
+      }),
+      { params: Promise.resolve({ path: ["v1", "health"] }) },
+    );
+
+    expect(outboundRequest?.headers.has("x-forwarded-for")).toBe(false);
+  });
+
+  it("records in the completion log that the edge client address was forwarded", async () => {
+    const records: Array<Parameters<Logger["info"]>[1]> = [];
+    const handler = createApiProxy({
+      ...baseOptions,
+      logger: {
+        ...quietLogger,
+        info: (_event, fields) => records.push(fields),
+      },
+      fetch: () => Promise.resolve(Response.json({})),
+    });
+
+    await handler(
+      new Request("https://frontend.example.test/api/v1/health", {
+        headers: {
+          origin: "https://frontend.example.test",
+          "x-real-ip": "203.0.113.10",
+        },
+      }),
+      { params: Promise.resolve({ path: ["v1", "health"] }) },
+    );
+
+    expect(records).toEqual([
+      expect.objectContaining({ clientAddress: "forwarded" }),
+    ]);
+  });
+
+  it("preserves backend cache policy for an anonymous response outside auth", async () => {
     const handler = createApiProxy({
       ...baseOptions,
       fetch: () =>
@@ -107,6 +157,72 @@ describe("createApiProxy", () => {
     expect(response.headers.get("cache-control")).toBe("public, max-age=60");
   });
 
+  it.each([
+    ["POST", "v1/auth/refresh"],
+    ["POST", "v1/auth/logout"],
+    ["GET", "v1/auth/google/callback"],
+  ])(
+    "never lets a signed-out %s /%s response be cached",
+    async (method, route) => {
+      const handler = createApiProxy({
+        ...baseOptions,
+        fetch: () =>
+          Promise.resolve(
+            new Response(null, {
+              headers: {
+                "cache-control": "public, max-age=60",
+                expires: "Wed, 21 Oct 2026 07:28:00 GMT",
+              },
+              status: 204,
+            }),
+          ),
+      });
+
+      const response = await handler(
+        new Request(`https://frontend.example.test/api/${route}`, {
+          headers: {
+            origin: "https://frontend.example.test",
+            "x-forwarded-host": "frontend.example.test",
+            "x-forwarded-proto": "https",
+          },
+          method,
+        }),
+        { params: Promise.resolve({ path: route.split("/") }) },
+      );
+
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      expect(response.headers.get("expires")).toBeNull();
+    },
+  );
+
+  it("never lets a response that sets a session cookie be cached", async () => {
+    const handler = createApiProxy({
+      ...baseOptions,
+      fetch: () =>
+        Promise.resolve(
+          Response.json(
+            {},
+            {
+              headers: {
+                "cache-control": "public, max-age=60",
+                "set-cookie": "campus_session=new-session; Path=/",
+              },
+            },
+          ),
+        ),
+    });
+
+    const response = await handler(
+      new Request("https://frontend.example.test/api/v1/users/me", {
+        headers: { origin: "https://frontend.example.test" },
+      }),
+      { params: Promise.resolve({ path: ["v1", "users", "me"] }) },
+    );
+
+    expect(response.headers.getSetCookie()).toHaveLength(1);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+
   it("streams an unsafe request body to the backend", async () => {
     let outboundBody: string | undefined;
     const handler = createApiProxy({
@@ -117,7 +233,7 @@ describe("createApiProxy", () => {
       },
     });
     const request = new Request(
-      "https://frontend.example.test/api/v1/profile",
+      "https://frontend.example.test/api/v1/users/me",
       {
         body: JSON.stringify({ displayName: "Ada" }),
         headers: {
@@ -132,7 +248,7 @@ describe("createApiProxy", () => {
     );
 
     const response = await handler(request, {
-      params: Promise.resolve({ path: ["v1", "profile"] }),
+      params: Promise.resolve({ path: ["v1", "users", "me"] }),
     });
 
     expect(response.status).toBe(204);
@@ -161,7 +277,7 @@ describe("createApiProxy", () => {
       },
     });
     const request = new Request(
-      "https://frontend.example.test/api/v1/profile",
+      "https://frontend.example.test/api/v1/users/me",
       {
         body: JSON.stringify({ displayName: "Mallory" }),
         headers: {
@@ -176,11 +292,12 @@ describe("createApiProxy", () => {
     );
 
     const response = await handler(request, {
-      params: Promise.resolve({ path: ["v1", "profile"] }),
+      params: Promise.resolve({ path: ["v1", "users", "me"] }),
     });
 
     expect(response.status).toBe(403);
     expect(response.headers.get("x-request-id")).toBe("proxy-request-csrf");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(await response.json()).toEqual({
       error: {
         code: "FORBIDDEN",
@@ -196,11 +313,91 @@ describe("createApiProxy", () => {
           errorCode: "cross_origin",
           method: "PATCH",
           requestId: "proxy-request-csrf",
-          route: "/v1/profile",
+          route: "/v1/users/me",
           status: 403,
         },
       },
     ]);
+  });
+
+  describe("routes campus-api does not publish", () => {
+    it.each([
+      ["an unknown route", ["v1", "profile"]],
+      ["a dot segment in a literal slot", ["v1", "..", "v1", "health"]],
+      ["a dot-dot parameter", ["v1", "tracks", ".."]],
+      ["a dot parameter", ["v1", "tracks", "."]],
+    ])(
+      "answers %s with 404 before contacting the backend",
+      async (_case, path) => {
+        let upstreamCalls = 0;
+        const records: Array<{
+          event: string;
+          fields: Parameters<Logger["warn"]>[1];
+        }> = [];
+        const handler = createApiProxy({
+          ...baseOptions,
+          clock: () => 300,
+          generateRequestId: () => "proxy-request-unknown",
+          logger: {
+            ...quietLogger,
+            warn: (event, fields) => records.push({ event, fields }),
+          },
+          fetch: () => {
+            upstreamCalls += 1;
+            return Promise.resolve(new Response(null, { status: 204 }));
+          },
+        });
+
+        const response = await handler(
+          new Request(`https://frontend.example.test/api/${path.join("/")}`, {
+            headers: { origin: "https://frontend.example.test" },
+          }),
+          { params: Promise.resolve({ path }) },
+        );
+
+        expect(response.status).toBe(404);
+        expect(response.headers.get("x-request-id")).toBe(
+          "proxy-request-unknown",
+        );
+        expect(response.headers.get("cache-control")).toBe("private, no-store");
+        expect(await response.json()).toEqual({
+          error: { code: "NOT_FOUND", message: "API route not found." },
+        });
+        expect(upstreamCalls).toBe(0);
+        expect(records).toEqual([
+          {
+            event: "api.proxy.rejected",
+            fields: {
+              durationMs: 0,
+              errorCode: "unknown_route",
+              method: "GET",
+              requestId: "proxy-request-unknown",
+              status: 404,
+            },
+          },
+        ]);
+      },
+    );
+
+    it("keeps an encoded slash inside one parameter segment", async () => {
+      let outboundUrl: string | undefined;
+      const handler = createApiProxy({
+        ...baseOptions,
+        fetch: (request) => {
+          outboundUrl = request.url;
+          return Promise.resolve(Response.json({}));
+        },
+      });
+
+      await handler(
+        new Request("https://frontend.example.test/api/v1/tracks/a%2Fb", {
+          headers: { origin: "https://frontend.example.test" },
+        }),
+        { params: Promise.resolve({ path: ["v1", "tracks", "a/b"] }) },
+      );
+
+      expect(outboundUrl).toBe("https://api.example.test/v1/tracks/a%2Fb");
+    });
   });
 
   it("sanitizes an upstream failure while preserving correlated diagnostics", async () => {
@@ -233,6 +430,7 @@ describe("createApiProxy", () => {
 
     expect(response.status).toBe(502);
     expect(response.headers.get("x-request-id")).toBe("proxy-request-1");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(responseText).toBe(
       '{"error":{"code":"INTERNAL_ERROR","message":"API is unavailable."}}',
     );
@@ -241,6 +439,7 @@ describe("createApiProxy", () => {
       {
         event: "api.proxy.failed",
         fields: {
+          clientAddress: "absent",
           durationMs: 0,
           errorName: "TypeError",
           method: "GET",
@@ -290,6 +489,7 @@ describe("createApiProxy", () => {
       {
         event: "api.proxy.completed",
         fields: {
+          clientAddress: "absent",
           durationMs: 25,
           method: "GET",
           requestId: "proxy-request-2",
@@ -297,6 +497,34 @@ describe("createApiProxy", () => {
           status: 200,
         },
       },
+    ]);
+  });
+
+  it("logs the route template, not the identifiers in the path", async () => {
+    const records: Array<Parameters<Logger["info"]>[1]> = [];
+    const handler = createApiProxy({
+      ...baseOptions,
+      logger: {
+        ...quietLogger,
+        info: (_event, fields) => records.push(fields),
+      },
+      fetch: () => Promise.resolve(Response.json({})),
+    });
+
+    await handler(
+      new Request(
+        "https://frontend.example.test/api/v1/users/user-42/profile",
+        { headers: { origin: "https://frontend.example.test" } },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["v1", "users", "user-42", "profile"],
+        }),
+      },
+    );
+
+    expect(records).toEqual([
+      expect.objectContaining({ route: "/v1/users/{id}/profile" }),
     ]);
   });
 
@@ -329,10 +557,10 @@ describe("createApiProxy", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/v1/session", {
+      new Request("https://frontend.example.test/api/v1/auth/me", {
         headers: { origin: "https://frontend.example.test" },
       }),
-      { params: Promise.resolve({ path: ["v1", "session"] }) },
+      { params: Promise.resolve({ path: ["v1", "auth", "me"] }) },
     );
 
     expect(response.headers.getSetCookie()).toEqual([
@@ -352,10 +580,10 @@ describe("createApiProxy", () => {
     });
 
     const response = await handler(
-      new Request("http://localhost:3000/api/v1/session", {
+      new Request("http://localhost:3000/api/v1/auth/me", {
         headers: { origin: "http://localhost:3000" },
       }),
-      { params: Promise.resolve({ path: ["v1", "session"] }) },
+      { params: Promise.resolve({ path: ["v1", "auth", "me"] }) },
     );
 
     expect(response.headers.getSetCookie()).toEqual([
@@ -379,13 +607,13 @@ describe("createApiProxy", () => {
     });
 
     const response = await handler(
-      new Request("https://frontend.example.test/api/v1/profile", {
+      new Request("https://frontend.example.test/api/v1/users/me", {
         headers: {
           cookie: "campus_session=session-token",
           origin: "https://frontend.example.test",
         },
       }),
-      { params: Promise.resolve({ path: ["v1", "profile"] }) },
+      { params: Promise.resolve({ path: ["v1", "users", "me"] }) },
     );
 
     expect(redirectMode).toBe("manual");
