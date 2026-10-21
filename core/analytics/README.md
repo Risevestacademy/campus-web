@@ -15,8 +15,8 @@ Typed PostHog product analytics for Campus by Rise.
   memory, a `before_send` step adds them to the tab's events with
   `$groups: { cohort }` (the group campus-api and world use; never
   `posthog.group()`, which persists it), and the returned cleanup drops them. Memory ends with the page, so a full load never inherits
-  a cohort and a PostHog session rotation never drops one. A consent gate is
-  pending.
+  a cohort and a PostHog session rotation never drops one. Browser capture and
+  identify wait for consent (see Consent).
 - `identifyAnalyticsUser` forgets a different member still identified on the
   device first; auth's sign-in and invitation pages call
   `resetIdentifiedAnalyticsUser()` for a signed-out visitor. Every reset passes
@@ -96,6 +96,52 @@ keys and other secrets must never use a `NEXT_PUBLIC_` variable.
 Analytics consumes normalized browser-safe values from
 `config/environment/public.ts`; it does not access `process.env` directly.
 
+## Consent
+
+PostHog starts opted out (`opt_out_capturing_by_default`) with persistence
+off (`opt_out_persistence_by_default`): before a choice it sends no capture
+and writes no `ph_*` cookie or storage. PostHog may still fetch its remote
+config.
+
+`core/analytics/consent` owns the choice:
+
+- `AnalyticsConsentBanner`, mounted once in the root layout, asks while the
+  choice is `pending`. Reject and Accept carry equal weight; Escape and outside
+  clicks decide nothing.
+- Accept calls `grantAnalyticsConsent`: `opt_in_capturing()` sends one
+  `$opt_in`, then it identifies a member who was waiting on a cohort page and
+  captures the page's `$pageview`. `BrowserPageview` already ran while opted
+  out, and `opt_in_capturing()` sends no pageview with `capture_pageview` off.
+- Reject calls `denyAnalyticsConsent`: `opt_out_capturing()`, after
+  forgetting the member when consent had been granted, so the device is
+  unlinked from them.
+- `openAnalyticsConsentChoices` reopens the banner and moves focus to it.
+  "Privacy choices" in auth's `AccountMenu` and the home footer call it.
+
+The choice is PostHog's own key, `__ph_opt_in_out_<project token>` (`1` or
+`0`) in localStorage; there is no second copy. `reset()` clears that key, so
+every reset (logout, session expiry, sign-in, identify as another member) reads
+the choice first and re-applies it, without a new `$opt_in`. A logout or
+sign-in also drops a member still waiting for Accept.
+
+The `$opt_in` count in PostHog is the consent-uptake trace. A rejection sends
+nothing, by design.
+
+Campus members are adults (18+), so no age-specific consent applies.
+
+### Known gaps
+
+- The choice is per device and browser, not per account: campus-api has no
+  consent field.
+- Another open tab picks up a choice only after a reload.
+- Where localStorage cannot be written, PostHog keeps the choice in memory
+  and the banner asks again on the next load. Nothing is captured meanwhile.
+- After a choice made from a reopened banner, focus falls to `<body>`.
+- The banner links no privacy policy yet.
+- Server events from `captureServerAnalyticsEvent` (login and signup
+  outcomes) are not consent-gated. They set no browser storage, but they are
+  PostHog data about the member.
+
 ## Browser example
 
 ```ts
@@ -173,10 +219,13 @@ Verify that:
 
 ## Verification
 
-Run the unit tests, the contract evaluation and `pnpm eval:privacy`, then use a normal browser with
+Run the unit tests, `pnpm eval:analytics` (contract, identity and consent; the
+consent eval drives the real SDK) and `pnpm eval:privacy`, then use a normal browser with
 the non-production project token configured. Confirm:
 
-1. One initial `$pageview` appears.
+1. In a fresh profile, no capture request (`/e/`, `/i/v0/e/`) and no `ph_*`
+   cookie or storage key appear before a choice; after Accept, one `$opt_in`
+   and then a `$pageview` appear.
 2. One additional `$pageview` appears after client navigation.
 3. No autocapture or session replay events appear.
 4. No PostHog request occurs when the token is empty.
