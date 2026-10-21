@@ -13,6 +13,6 @@ export default async function InvitationPage() {
   if (!token) return <ResumeInvitation />;
 
   // The preview needs no session, but campus-api rate-limits per client
-  // address and only the default server client forwards X-Forwarded-For.
+  // address and only the default server client forwards the visitor's.
   return <InvitationOffer api={await getServerApi()} token={token} />;
 }

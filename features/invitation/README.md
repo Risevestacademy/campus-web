@@ -37,7 +37,7 @@ renders `ResumeInvitation`, which sends the session on to `/preview`.
 
 Both components are async Server Components that take the route's server `ApiClient`.
 Pass the default `getServerApi()`, not `authentication: "none"`: only it
-forwards `X-Forwarded-For`, which campus-api rate-limits on.
+forwards the visitor's address, which campus-api rate-limits on.
 
 ## Modules
 
