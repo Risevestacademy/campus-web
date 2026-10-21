@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AnalyticsConsentBanner } from "@/core/analytics/consent";
 
-import { FooterSection } from "./footer";
+import { FooterSection } from "./footer-section";
 
 vi.mock("@/core/analytics/client", () => ({
   denyAnalyticsConsent: () => undefined,
