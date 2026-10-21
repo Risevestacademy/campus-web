@@ -7,7 +7,7 @@ import type { Logger } from "@/core/observability";
 import { REFRESH_ATTEMPTED_COOKIE, SESSION_COOKIE } from "./auth-cookies";
 import { CLIENT_ADDRESS_HEADER, readClientAddress } from "./client-address";
 import type { components } from "./generated/schema";
-import { isPublishedRoute } from "./upstream-routes";
+import { findPublishedRoute } from "./upstream-routes";
 
 type ExceptionCode = components["schemas"]["ExceptionCode"];
 
@@ -321,8 +321,16 @@ function hasSessionCookie(request: Request): boolean {
   );
 }
 
-function isPrivateResponse(route: string, request: Request): boolean {
-  return route.startsWith(AUTH_ROUTE_PREFIX) || hasSessionCookie(request);
+function isPrivateResponse(
+  route: string,
+  request: Request,
+  responseHeaders: Headers,
+): boolean {
+  return (
+    route.startsWith(AUTH_ROUTE_PREFIX) ||
+    hasSessionCookie(request) ||
+    responseHeaders.has("set-cookie")
+  );
 }
 
 function forbidCaching(responseHeaders: Headers): void {
@@ -349,13 +357,16 @@ function createUpstreamUrl(
   return upstreamUrl;
 }
 
-function createUpstreamHeaders(request: Request, requestId: string): Headers {
+function createUpstreamHeaders(
+  request: Request,
+  requestId: string,
+  clientAddress: string | undefined,
+): Headers {
   const headers = copyHeaders(request.headers, REQUEST_HEADERS);
   const authCookies = findCookies(
     request.headers.get("cookie"),
     AUTH_COOKIE_NAMES,
   );
-  const clientAddress = readClientAddress(request.headers);
 
   headers.set("x-request-id", requestId);
 
@@ -373,12 +384,13 @@ function createUpstreamHeaders(request: Request, requestId: string): Headers {
 function createUpstreamRequest(
   request: Request,
   requestId: string,
+  clientAddress: string | undefined,
   url: URL,
 ): Request {
   const requestInit: StreamingRequestInit = {
     body: request.body,
     duplex: "half",
-    headers: createUpstreamHeaders(request, requestId),
+    headers: createUpstreamHeaders(request, requestId, clientAddress),
     method: request.method,
     redirect: "manual",
     signal: request.signal,
@@ -402,13 +414,10 @@ function isCrossOriginUnsafeRequest(request: Request): boolean {
   return origin !== requestOrigin;
 }
 
-function findRejection(
-  request: Request,
-  path: readonly string[],
-): Rejection | undefined {
-  if (!isPublishedRoute(path)) return UNKNOWN_ROUTE;
-  if (isCrossOriginUnsafeRequest(request)) return CROSS_ORIGIN;
-  return undefined;
+function describeClientAddress(
+  clientAddress: string | undefined,
+): "absent" | "forwarded" {
+  return clientAddress ? "forwarded" : "absent";
 }
 
 function createErrorResponse(
@@ -416,13 +425,9 @@ function createErrorResponse(
   status: number,
   error: ApiError,
 ): Response {
-  return Response.json(
-    { error },
-    {
-      headers: { "x-request-id": requestId },
-      status,
-    },
-  );
+  const headers = new Headers({ "x-request-id": requestId });
+  forbidCaching(headers);
+  return Response.json({ error }, { headers, status });
 }
 
 function getErrorName(reason: unknown): string {
@@ -462,28 +467,34 @@ export function createApiProxy(options: ApiProxyOptions) {
     const startedAt = clock();
     const requestId = generateRequestId();
     const { path } = await context.params;
-    const route = `/${path.join("/")}`;
     const secure = new URL(request.url).protocol === "https:";
 
-    const rejection = findRejection(request, path);
-
-    if (rejection) {
+    // Logs carry the route template, never the requested path: a mistyped
+    // URL can hold an invite token or an email address.
+    const reject = (rejection: Rejection, route?: string) => {
       options.logger.warn("api.proxy.rejected", {
         durationMs: Math.max(0, clock() - startedAt),
         errorCode: rejection.errorCode,
         method: request.method,
         requestId,
-        route,
+        ...(route && { route }),
         status: rejection.status,
       });
 
       return createErrorResponse(requestId, rejection.status, rejection.error);
-    }
+    };
+
+    const route = findPublishedRoute(path);
+    if (!route) return reject(UNKNOWN_ROUTE);
+    if (isCrossOriginUnsafeRequest(request)) return reject(CROSS_ORIGIN, route);
+
+    const clientAddress = readClientAddress(request.headers);
 
     try {
       const upstreamRequest = createUpstreamRequest(
         request,
         requestId,
+        clientAddress,
         createUpstreamUrl(
           resolveBaseUrl(options.baseUrl),
           path,
@@ -497,9 +508,6 @@ export function createApiProxy(options: ApiProxyOptions) {
         RESPONSE_HEADERS,
       );
 
-      if (isPrivateResponse(route, request)) {
-        forbidCaching(responseHeaders);
-      }
       copyAuthSetCookies(upstreamResponse.headers, responseHeaders, secure);
 
       if (
@@ -531,11 +539,13 @@ export function createApiProxy(options: ApiProxyOptions) {
         }
       }
 
+      if (isPrivateResponse(route, request, responseHeaders)) {
+        forbidCaching(responseHeaders);
+      }
+
       responseHeaders.set("x-request-id", requestId);
       options.logger.info("api.proxy.completed", {
-        clientAddress: upstreamRequest.headers.has(CLIENT_ADDRESS_HEADER)
-          ? "forwarded"
-          : "absent",
+        clientAddress: describeClientAddress(clientAddress),
         durationMs: Math.max(0, clock() - startedAt),
         method: request.method,
         requestId,
@@ -550,6 +560,7 @@ export function createApiProxy(options: ApiProxyOptions) {
       });
     } catch (reason) {
       options.logger.error("api.proxy.failed", {
+        clientAddress: describeClientAddress(clientAddress),
         durationMs: Math.max(0, clock() - startedAt),
         errorName: getErrorName(reason),
         method: request.method,

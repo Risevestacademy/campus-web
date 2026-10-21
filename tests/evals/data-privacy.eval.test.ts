@@ -184,6 +184,7 @@ async function completeGoogleSignIn(
 }
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.resetModules();
@@ -416,6 +417,34 @@ describe("Data privacy eval (threshold: every case holds)", () => {
 
       expect(response.headers.get("cache-control")).toBe("private, no-store");
       expect(response.headers.get("expires")).toBeNull();
+    });
+  });
+
+  describe("the API proxy never logs a requested path", () => {
+    it("keeps an invite token and an email in a mistyped path out of the logs", async () => {
+      const logged: string[] = [];
+      vi.stubEnv("API_BASE_URL", "https://api.example.test");
+      vi.stubGlobal("fetch", () =>
+        Promise.resolve(new Response(null, { status: 204 })),
+      );
+      vi.spyOn(process.stderr, "write").mockImplementation((record) => {
+        logged.push(String(record));
+        return true;
+      });
+      const { GET } = await import("@/app/api/[...path]/route");
+      const path = ["v1", "invites", "invite-token-123", "ada@campus.local"];
+
+      const response = await GET(
+        new Request(`${ORIGIN}/api/${path.join("/")}`),
+        {
+          params: Promise.resolve({ path }),
+        },
+      );
+
+      expect(response.status).toBe(404);
+      expect(logged).toHaveLength(1);
+      expect(logged[0]).not.toContain("invite-token-123");
+      expect(logged[0]).not.toContain("ada@campus.local");
     });
   });
 

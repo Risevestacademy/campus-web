@@ -195,6 +195,34 @@ describe("createApiProxy", () => {
     },
   );
 
+  it("never lets a response that sets a session cookie be cached", async () => {
+    const handler = createApiProxy({
+      ...baseOptions,
+      fetch: () =>
+        Promise.resolve(
+          Response.json(
+            {},
+            {
+              headers: {
+                "cache-control": "public, max-age=60",
+                "set-cookie": "campus_session=new-session; Path=/",
+              },
+            },
+          ),
+        ),
+    });
+
+    const response = await handler(
+      new Request("https://frontend.example.test/api/v1/users/me", {
+        headers: { origin: "https://frontend.example.test" },
+      }),
+      { params: Promise.resolve({ path: ["v1", "users", "me"] }) },
+    );
+
+    expect(response.headers.getSetCookie()).toHaveLength(1);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+
   it("streams an unsafe request body to the backend", async () => {
     let outboundBody: string | undefined;
     const handler = createApiProxy({
@@ -269,6 +297,7 @@ describe("createApiProxy", () => {
 
     expect(response.status).toBe(403);
     expect(response.headers.get("x-request-id")).toBe("proxy-request-csrf");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(await response.json()).toEqual({
       error: {
         code: "FORBIDDEN",
@@ -330,6 +359,7 @@ describe("createApiProxy", () => {
         expect(response.headers.get("x-request-id")).toBe(
           "proxy-request-unknown",
         );
+        expect(response.headers.get("cache-control")).toBe("private, no-store");
         expect(await response.json()).toEqual({
           error: { code: "NOT_FOUND", message: "API route not found." },
         });
@@ -342,7 +372,6 @@ describe("createApiProxy", () => {
               errorCode: "unknown_route",
               method: "GET",
               requestId: "proxy-request-unknown",
-              route: `/${path.join("/")}`,
               status: 404,
             },
           },
@@ -401,6 +430,7 @@ describe("createApiProxy", () => {
 
     expect(response.status).toBe(502);
     expect(response.headers.get("x-request-id")).toBe("proxy-request-1");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(responseText).toBe(
       '{"error":{"code":"INTERNAL_ERROR","message":"API is unavailable."}}',
     );
@@ -409,6 +439,7 @@ describe("createApiProxy", () => {
       {
         event: "api.proxy.failed",
         fields: {
+          clientAddress: "absent",
           durationMs: 0,
           errorName: "TypeError",
           method: "GET",
@@ -466,6 +497,34 @@ describe("createApiProxy", () => {
           status: 200,
         },
       },
+    ]);
+  });
+
+  it("logs the route template, not the identifiers in the path", async () => {
+    const records: Array<Parameters<Logger["info"]>[1]> = [];
+    const handler = createApiProxy({
+      ...baseOptions,
+      logger: {
+        ...quietLogger,
+        info: (_event, fields) => records.push(fields),
+      },
+      fetch: () => Promise.resolve(Response.json({})),
+    });
+
+    await handler(
+      new Request(
+        "https://frontend.example.test/api/v1/users/user-42/profile",
+        { headers: { origin: "https://frontend.example.test" } },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["v1", "users", "user-42", "profile"],
+        }),
+      },
+    );
+
+    expect(records).toEqual([
+      expect.objectContaining({ route: "/v1/users/{id}/profile" }),
     ]);
   });
 

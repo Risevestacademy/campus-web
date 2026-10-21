@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  isPublishedRoute,
-  matchesRouteTemplate,
+  createRouteMatcher,
+  findPublishedRoute,
   PUBLISHED_ROUTE_TEMPLATES,
 } from "./upstream-routes";
 
@@ -13,18 +13,21 @@ function withSampleParameters(template: string): string[] {
     .map((segment) => segment.replace(/^\{(\w+)\}$/, "sample-$1"));
 }
 
-describe("isPublishedRoute", () => {
-  it.each(PUBLISHED_ROUTE_TEMPLATES)("accepts %s", (template) => {
-    expect(isPublishedRoute(withSampleParameters(template))).toBe(true);
+describe("findPublishedRoute", () => {
+  it.each(PUBLISHED_ROUTE_TEMPLATES)("finds %s", (template) => {
+    expect(findPublishedRoute(withSampleParameters(template))).toBe(template);
   });
 
   it.each([
-    [["v1"]],
-    [["v1", "auth", "google", "callback"]],
-    [["v1", "cohorts", "c-1", "members", "u-1", "graduate"]],
-    [["v1", "tracks", "a/b"]],
-  ])("accepts %j", (path) => {
-    expect(isPublishedRoute(path)).toBe(true);
+    [["v1"], "/v1"],
+    [["v1", "auth", "google", "callback"], "/v1/auth/google/callback"],
+    [
+      ["v1", "cohorts", "c-1", "members", "u-1", "graduate"],
+      "/v1/cohorts/{cohortId}/members/{userId}/graduate",
+    ],
+    [["v1", "tracks", "a/b"], "/v1/tracks/{id}"],
+  ])("finds the template for %j", (path, template) => {
+    expect(findPublishedRoute(path)).toBe(template);
   });
 
   it.each([
@@ -37,16 +40,16 @@ describe("isPublishedRoute", () => {
     ["a dot-dot parameter", ["v1", "tracks", ".."]],
     ["a dot-dot literal", ["v1", "..", "v1", "health"]],
     ["a different case", ["V1", "health"]],
-  ])("rejects %s", (_case, path) => {
-    expect(isPublishedRoute(path)).toBe(false);
+  ])("finds nothing for %s", (_case, path) => {
+    expect(findPublishedRoute(path)).toBeUndefined();
   });
 });
 
-describe("matchesRouteTemplate", () => {
+describe("createRouteMatcher", () => {
   it.each([
     ["/v1/exports/{id}.csv", ["v1", "exports", "42.csv"]],
     ["/v1/files/{path*}", ["v1", "files", "a"]],
   ])("fails closed on the unknown segment shape in %s", (template, path) => {
-    expect(matchesRouteTemplate(template, path)).toBe(false);
+    expect(createRouteMatcher([template])(path)).toBeUndefined();
   });
 });

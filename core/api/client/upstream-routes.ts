@@ -44,29 +44,44 @@ const PUBLISHED_ROUTES = {
 
 const PARAMETER_SEGMENT = /^\{[A-Za-z]+\}$/;
 const DOT_SEGMENTS = new Set([".", ".."]);
+const PARAMETER = Symbol("parameter");
+
+type TemplateSegment = string | typeof PARAMETER;
+
+interface CompiledTemplate<Template extends string> {
+  segments: readonly TemplateSegment[];
+  template: Template;
+}
 
 export const PUBLISHED_ROUTE_TEMPLATES = Object.keys(
   PUBLISHED_ROUTES,
 ) as readonly (keyof paths)[];
 
-function toSegments(template: string): readonly string[] {
-  return template.split("/").slice(1);
+function compileTemplate<Template extends string>(
+  template: Template,
+): CompiledTemplate<Template> {
+  const segments = template
+    .split("/")
+    .slice(1)
+    .map((segment) => (PARAMETER_SEGMENT.test(segment) ? PARAMETER : segment));
+  return { segments, template };
 }
-
-const publishedTemplateSegments = PUBLISHED_ROUTE_TEMPLATES.map(toSegments);
 
 function isParameterValue(segment: string): boolean {
   return segment !== "" && !DOT_SEGMENTS.has(segment);
 }
 
-function matchesSegment(templateSegment: string, segment: string): boolean {
-  return PARAMETER_SEGMENT.test(templateSegment)
+function matchesSegment(
+  templateSegment: TemplateSegment,
+  segment: string,
+): boolean {
+  return templateSegment === PARAMETER
     ? isParameterValue(segment)
     : templateSegment === segment;
 }
 
 function matchesSegments(
-  templateSegments: readonly string[],
+  templateSegments: readonly TemplateSegment[],
   path: readonly string[],
 ): boolean {
   return (
@@ -78,15 +93,14 @@ function matchesSegments(
   );
 }
 
-export function matchesRouteTemplate(
-  template: string,
-  path: readonly string[],
-): boolean {
-  return matchesSegments(toSegments(template), path);
+export function createRouteMatcher<Template extends string>(
+  templates: readonly Template[],
+): (path: readonly string[]) => Template | undefined {
+  const compiledTemplates = templates.map(compileTemplate);
+
+  return (path) =>
+    compiledTemplates.find(({ segments }) => matchesSegments(segments, path))
+      ?.template;
 }
 
-export function isPublishedRoute(path: readonly string[]): boolean {
-  return publishedTemplateSegments.some((templateSegments) =>
-    matchesSegments(templateSegments, path),
-  );
-}
+export const findPublishedRoute = createRouteMatcher(PUBLISHED_ROUTE_TEMPLATES);

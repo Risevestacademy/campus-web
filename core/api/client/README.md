@@ -201,7 +201,7 @@ network hop and complicates cookie forwarding and caching.
   manual redirect mode;
 - sends the edge's `X-Real-IP` as a one-entry `X-Forwarded-For`, never the
   client's own chain, and logs `clientAddress: "forwarded" | "absent"` on
-  `api.proxy.completed`;
+  `api.proxy.completed` and `api.proxy.failed`;
 - correlates requests with `x-request-id` and structured logs;
 - returns a sanitized backend-shaped `502` when the upstream is unavailable;
 - exposes only the three backend authentication cookies;
@@ -209,8 +209,9 @@ network hop and complicates cookie forwarding and caching.
 - rewrites `campus_refresh` and `campus_oauth_state` to
   `Path=/api/v1/auth` without a backend domain;
 - enforces `HttpOnly`, `SameSite=Lax`, and `Secure` on HTTPS;
-- forces `Cache-Control: private, no-store` on every `/v1/auth/*` response
-  and on any response to a request carrying `campus_session`.
+- forces `Cache-Control: private, no-store` on every `/v1/auth/*` response,
+  on any response to a request carrying `campus_session`, on any response
+  that sets a cookie, and on the proxy's own `404`, `403` and `502`.
 
 The proxy preserves backend success and error documents without introducing a
 second frontend-owned response contract.
@@ -351,8 +352,10 @@ Backend HTTP failures remain typed OpenAPI results. Network failures on the
 direct server path reject normally so the owning feature decides how to map
 them. Network failures at the browser proxy become a sanitized `502` response.
 
-Logs contain request ID, route, method, status, duration, and error name when
-applicable. They never contain cookies, tokens, request bodies, or query values.
+Logs contain request ID, route template (`/v1/users/{id}/profile`), method,
+status, duration, and error name when applicable. They never contain the
+requested path, cookies, tokens, request bodies, or query values; an unknown
+route is logged without one.
 
 The API factory and proxy never emit PostHog events. The owning feature
 application service emits a trusted event only after its business operation has

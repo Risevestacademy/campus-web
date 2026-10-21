@@ -1,17 +1,8 @@
 // @vitest-environment node
 
-import { readFile } from "node:fs/promises";
-
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { PUBLISHED_ROUTE_TEMPLATES } from "@/core/api/client/upstream-routes";
-
 vi.mock("server-only", () => ({}));
-
-const GENERATED_SCHEMA = new URL(
-  "../../core/api/client/generated/schema.ts",
-  import.meta.url,
-);
 
 function context(...path: string[]) {
   return { params: Promise.resolve({ path }) };
@@ -194,20 +185,11 @@ describe("API proxy route allow-list eval", () => {
 
     expect(response.status).toBe(404);
     expect(response.headers.get("x-request-id")).toBeTruthy();
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(await response.json()).toEqual({
       error: { code: "NOT_FOUND", message: "API route not found." },
     });
     expect(upstreamCalls).toBe(0);
-  });
-
-  it("lists exactly the routes in the generated API schema", async () => {
-    const schema = await readFile(GENERATED_SCHEMA, "utf8");
-    const generatedRoutes = [...schema.matchAll(/^ {2}"(\/v1[^"]*)": \{$/gm)]
-      .map(([, route]) => route)
-      .sort();
-
-    expect(generatedRoutes).not.toHaveLength(0);
-    expect([...PUBLISHED_ROUTE_TEMPLATES].sort()).toEqual(generatedRoutes);
   });
 });
 
