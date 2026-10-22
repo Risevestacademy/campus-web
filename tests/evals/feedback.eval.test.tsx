@@ -454,6 +454,34 @@ describe("Feedback eval (threshold: every case holds; 0 requests for a refused s
       },
     );
 
+    it.each([
+      ["an empty body", {}],
+      ["an empty id", { id: "" }],
+      ["a numeric id", { id: 7 }],
+    ])(
+      "a 201 with %s is unavailable, keeps the form, and never retries",
+      async (_name, body) => {
+        mockApi.server.use(
+          http.post(FEEDBACK_URL, () => Response.json(body, { status: 201 })),
+        );
+        renderPopup();
+
+        fillIn(GOOD);
+        send();
+
+        expect(
+          await screen.findByText(
+            "We couldn't send your feedback. Check your connection and try again.",
+          ),
+        ).toBeVisible();
+        expect(screen.getByLabelText("Title")).toHaveValue("Mic cuts out");
+        expect(
+          screen.getByRole("button", { name: "Send feedback" }),
+        ).toBeEnabled();
+        expect(feedbackPosts()).toHaveLength(1);
+      },
+    );
+
     it("a network failure explains itself and keeps the form", async () => {
       mockApi.server.use(http.post(FEEDBACK_URL, () => HttpResponse.error()));
       renderPopup();

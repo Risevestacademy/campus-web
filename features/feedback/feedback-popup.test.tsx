@@ -292,6 +292,33 @@ describe("FeedbackPopup", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
+  it.each([
+    ["an empty body", {}],
+    ["an empty id", { id: "" }],
+  ])(
+    "explains a 201 with %s as unavailable and adds nothing to the history",
+    async (_name, body) => {
+      mockApi.server.use(
+        http.post(FEEDBACK_URL, () => Response.json(body, { status: 201 })),
+      );
+      renderPopup();
+
+      fillIn("Bug", "Mic cuts out");
+      send();
+
+      expect(
+        await screen.findByText(
+          "We couldn't send your feedback. Check your connection and try again.",
+        ),
+      ).toBeVisible();
+      expect(screen.getByLabelText("Title")).toHaveValue("Mic cuts out");
+
+      const history = screen.getByRole("region", { name: "Feedback history" });
+      expect(within(history).queryAllByRole("listitem")).toHaveLength(0);
+      expect(within(history).getByText(/Nothing sent yet/)).toBeVisible();
+    },
+  );
+
   it("goes to sign-in when the session has ended", async () => {
     mockApi.server.use(
       http.post(FEEDBACK_URL, () => new Response(null, { status: 401 })),

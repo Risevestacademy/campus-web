@@ -77,7 +77,6 @@ const FEEDBACK_RECORD_ALLOW_LIST = [
   "details",
   "resolvedAt",
   "resolvedBy",
-  "userAgent",
 ].sort();
 
 const SESSION_ALLOW_LIST = [

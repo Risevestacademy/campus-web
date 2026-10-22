@@ -136,7 +136,7 @@ describe("FeedbackAdministration", () => {
       screen.getByRole("heading", { level: 2, name: "Title b1" }),
     ).toBeVisible();
     expect(screen.getByText("Details for b1")).toBeVisible();
-    expect(screen.getByText("Chrome 128 · macOS")).toBeVisible();
+    expect(screen.queryByText("Device")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Mark as resolved" }),
     ).toBeVisible();
@@ -234,6 +234,7 @@ describe("FeedbackAdministration", () => {
     expect(within(detail).queryByText("Report")).not.toBeInTheDocument();
     expect(within(detail).getByText("Sodiq Semiu")).toBeVisible();
     expect(within(detail).getByText("Main hallway")).toBeVisible();
+    expect(within(detail).queryByText("Device")).not.toBeInTheDocument();
   });
 
   it("explains an empty queue and an unavailable one", async () => {

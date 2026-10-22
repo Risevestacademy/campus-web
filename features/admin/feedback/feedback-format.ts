@@ -54,32 +54,3 @@ export function describeAge(createdAt: string, now: number): string {
   if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)} h ago`;
   return `${Math.floor(elapsed / DAY)} d ago`;
 }
-
-const BROWSERS: readonly (readonly [RegExp, string])[] = [
-  [/Edg\/(\d+)/, "Edge"],
-  [/OPR\/(\d+)/, "Opera"],
-  [/Firefox\/(\d+)/, "Firefox"],
-  [/Chrome\/(\d+)/, "Chrome"],
-  [/Version\/(\d+).*Safari/, "Safari"],
-];
-
-const SYSTEMS: readonly (readonly [RegExp, string])[] = [
-  [/iPhone|iPad|iPod/, "iOS"],
-  [/Android/, "Android"],
-  [/Windows/, "Windows"],
-  [/Mac OS X|Macintosh/, "macOS"],
-  [/Linux/, "Linux"],
-];
-
-export function describeDevice(userAgent: string | null): string {
-  if (!userAgent) return "Not recorded";
-
-  const browser = BROWSERS.map(([pattern, name]) => {
-    const version = pattern.exec(userAgent)?.[1];
-    return version ? `${name} ${version}` : undefined;
-  }).find(Boolean);
-  const system = SYSTEMS.find(([pattern]) => pattern.test(userAgent))?.[1];
-  const parts = [browser, system].filter(Boolean);
-
-  return parts.length > 0 ? parts.join(" · ") : "Unknown device";
-}

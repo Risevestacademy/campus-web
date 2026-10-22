@@ -1,6 +1,5 @@
 import type { Icon } from "@phosphor-icons/react";
 import { ClockIcon } from "@phosphor-icons/react/dist/ssr/Clock";
-import { LaptopIcon } from "@phosphor-icons/react/dist/ssr/Laptop";
 import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 import { cn } from "cn";
 import type { ReactNode } from "react";
@@ -11,7 +10,6 @@ import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import {
   avatarTone,
   describeAge,
-  describeDevice,
   personInitial,
   personName,
   reportedNameOf,
@@ -121,12 +119,9 @@ export function FeedbackDetail({
         {feedback.details}
       </p>
 
-      <dl className="grid gap-3 sm:grid-cols-3">
+      <dl className="grid gap-3 sm:grid-cols-2">
         <Fact Icon={MapTrifoldIcon} label="Where">
           {describeWhere(feedback)}
-        </Fact>
-        <Fact Icon={LaptopIcon} label="Device">
-          {describeDevice(feedback.userAgent)}
         </Fact>
         <Fact Icon={ClockIcon} label="When">
           <LocalDateTime iso={feedback.createdAt} />
