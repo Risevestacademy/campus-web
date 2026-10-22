@@ -60,7 +60,10 @@ describe("administrator sidebar navigation", () => {
         name: "Programme Tracks",
       }),
     ).toHaveAttribute("href", "/campus/c-1/tracks");
-    expect(within(administration).getAllByRole("link")).toHaveLength(2);
+    expect(
+      within(administration).getByRole("link", { name: "Feedback & reports" }),
+    ).toHaveAttribute("href", "/campus/c-1/feedback");
+    expect(within(administration).getAllByRole("link")).toHaveLength(3);
   });
 
   it("restores Administration mode when an administrator re-enters Active Campus", async () => {

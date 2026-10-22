@@ -7,6 +7,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { ChatCircleWarningIcon } from "@/assets/svgs/chat-circle-warning";
+
 import { cohortAdministrationHref } from "./cohort-administration-href";
 
 function navigationItems(cohortId: string) {
@@ -20,6 +22,11 @@ function navigationItems(cohortId: string) {
       href: cohortAdministrationHref(cohortId, "tracks"),
       label: "Programme Tracks",
       Icon: StackIcon,
+    },
+    {
+      href: cohortAdministrationHref(cohortId, "feedback"),
+      label: "Feedback & reports",
+      Icon: ChatCircleWarningIcon,
     },
   ] as const;
 }

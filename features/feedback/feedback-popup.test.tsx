@@ -1,7 +1,46 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { http, HttpResponse } from "msw";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+
+import { TEST_ORIGIN } from "@/tests/fixtures/mock-api";
+import { withQueryClient } from "@/tests/fixtures/query-client";
+
+const mockApi = await vi.hoisted(async () => {
+  const { startMockApi } = await import("@/tests/fixtures/mock-api");
+  return startMockApi();
+});
+
+const sideEffects = vi.hoisted(() => [] as string[]);
+
+vi.mock("@/shared/lib/document-navigation", () => ({
+  replaceDocument: (href: string) => sideEffects.push(`go ${href}`),
+}));
 
 import { FeedbackPopup } from "./feedback-popup";
+
+const FEEDBACK_URL = `${TEST_ORIGIN}/api/v1/feedback`;
+
+function replyReceipt(sent: unknown[] = []) {
+  return http.post(FEEDBACK_URL, async ({ request }) => {
+    const body = (await request.json()) as { type: string; title: string };
+    sent.push(body);
+    return HttpResponse.json(
+      {
+        id: `feedback-${sent.length}`,
+        type: body.type,
+        title: body.title,
+        createdAt: "2026-10-16T12:00:00.000Z",
+      },
+      { status: 201 },
+    );
+  });
+}
 
 function renderPopup(
   props: Partial<React.ComponentProps<typeof FeedbackPopup>> = {},
@@ -9,24 +48,39 @@ function renderPopup(
   const onClose = vi.fn();
 
   render(
-    <FeedbackPopup
-      isOpen
-      onClose={onClose}
-      userName="Joseph Okoro"
-      {...props}
-    />,
+    withQueryClient(
+      <FeedbackPopup
+        isOpen
+        onClose={onClose}
+        cohortId="cohort-1"
+        userName="Joseph Okoro"
+        {...props}
+      />,
+    ),
   );
 
   return { onClose };
 }
 
-async function fillAndSend(kind: string, title: string) {
+function fillIn(kind: string, title: string, details = "It happens often.") {
   fireEvent.click(screen.getByRole("button", { name: kind }));
   fireEvent.change(screen.getByLabelText("Title"), {
     target: { value: title },
   });
+  fireEvent.change(screen.getByLabelText("Details"), {
+    target: { value: details },
+  });
+}
+
+function send() {
   fireEvent.click(screen.getByRole("button", { name: "Send feedback" }));
 }
+
+afterEach(() => {
+  mockApi.reset();
+  sideEffects.length = 0;
+});
+afterAll(() => mockApi.close());
 
 describe("FeedbackPopup", () => {
   it("renders nothing while closed", () => {
@@ -35,44 +89,116 @@ describe("FeedbackPopup", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("shows the form beside the member's feedback list", () => {
+  it("shows the form beside an empty feedback history", () => {
     renderPopup();
 
     const dialog = screen.getByRole("dialog", { name: "Feedback" });
-    const list = within(dialog).getByRole("region", {
+    const history = within(dialog).getByRole("region", {
       name: "Feedback history",
     });
 
-    expect(within(list).getAllByRole("listitem")).toHaveLength(3);
-    expect(within(dialog).getByLabelText(/Who\/where in Campus/)).toHaveValue(
-      "",
-    );
+    expect(within(history).queryAllByRole("listitem")).toHaveLength(0);
+    expect(within(history).getByText(/Nothing sent yet/)).toBeVisible();
+    expect(within(dialog).getByLabelText(/Where in Campus/)).toHaveValue("");
     expect(within(dialog).getAllByText("Optional")).toHaveLength(2);
+    expect(
+      within(dialog).queryByLabelText("Who are you reporting?"),
+    ).not.toBeInTheDocument();
     expect(
       within(dialog).getByRole("button", { name: "Report" }),
     ).toBeVisible();
-    expect(
-      within(dialog).queryByText(/received|planned|fixed/i),
-    ).not.toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Idea" })).toBeVisible();
   });
 
-  it("asks for a kind and a title before sending", () => {
+  it("asks for a kind, a title and details before sending", () => {
     renderPopup();
 
-    fireEvent.click(screen.getByRole("button", { name: "Send feedback" }));
+    send();
 
     expect(
       screen.getByText("Choose what kind of feedback this is."),
     ).toBeVisible();
     expect(screen.getByText("Give your feedback a short title.")).toBeVisible();
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Tell us a little more so we can look into it."),
+    ).toBeVisible();
+    expect(mockApi.requests).toHaveLength(0);
   });
 
-  it("confirms by first name and adds the feedback to the list", async () => {
+  it("sends the feedback to campus-api with where it came from", async () => {
+    const sent: unknown[] = [];
+    mockApi.server.use(replyReceipt(sent));
     renderPopup();
 
-    await fillAndSend("Idea", "Show who's in a pod before knocking");
+    fillIn("Idea", "Show who's in a pod before knocking");
+    fireEvent.change(screen.getByLabelText(/Where in Campus/), {
+      target: { value: "Mentor pod 2" },
+    });
+    send();
+
+    await screen.findByRole("heading", { name: "Thanks, Joseph. We got it" });
+    expect(sent).toEqual([
+      {
+        type: "idea",
+        title: "Show who's in a pod before knocking",
+        details: "It happens often.",
+        about: "Mentor pod 2",
+        cohortId: "cohort-1",
+        context: { path: "/" },
+      },
+    ]);
+  });
+
+  it("asks who is being reported only for a report, and requires it", async () => {
+    const sent: unknown[] = [];
+    mockApi.server.use(replyReceipt(sent));
+    renderPopup();
+
+    fireEvent.click(screen.getByRole("button", { name: "Report" }));
+    expect(screen.getByLabelText("Who are you reporting?")).toBeVisible();
+
+    fillIn("Report", "Unwanted waves");
+    send();
+    expect(screen.getByText("Tell us who you are reporting.")).toBeVisible();
+    expect(mockApi.requests).toHaveLength(0);
+
+    fireEvent.change(screen.getByLabelText("Who are you reporting?"), {
+      target: { value: "Ramnan | Ramyil" },
+    });
+    fireEvent.change(screen.getByLabelText(/Where in Campus/), {
+      target: { value: "Main hallway" },
+    });
+    send();
+
+    await screen.findByRole("button", { name: "Send another" });
+    expect(sent).toEqual([
+      expect.objectContaining({
+        type: "report",
+        about: "Ramnan / Ramyil | Main hallway",
+      }),
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: /Unwanted waves/ }));
+
+    expect(screen.getByText("Ramnan | Ramyil")).toBeVisible();
+    expect(screen.getByText("Main hallway")).toBeVisible();
+  });
+
+  it("hides the field again when another kind is chosen", () => {
+    renderPopup();
+
+    fireEvent.click(screen.getByRole("button", { name: "Report" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bug" }));
+
+    expect(
+      screen.queryByLabelText("Who are you reporting?"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("confirms by first name and adds the feedback to the history", async () => {
+    mockApi.server.use(replyReceipt());
+    renderPopup();
+
+    fillIn("Idea", "Show who's in a pod before knocking");
+    send();
 
     expect(
       await screen.findByRole("heading", { name: "Thanks, Joseph. We got it" }),
@@ -81,10 +207,10 @@ describe("FeedbackPopup", () => {
       screen.getByText(/Your idea “Show who's in a pod before knocking”/),
     ).toBeVisible();
 
-    const list = screen.getByRole("region", { name: "Feedback history" });
-    const items = within(list).getAllByRole("listitem");
+    const history = screen.getByRole("region", { name: "Feedback history" });
+    const items = within(history).getAllByRole("listitem");
 
-    expect(items).toHaveLength(4);
+    expect(items).toHaveLength(1);
     expect(items[0]).toHaveTextContent("Show who's in a pod before knocking");
     expect(items[0]).toHaveTextContent("just now");
     expect(within(items[0]!).getByRole("button")).toHaveAttribute(
@@ -93,52 +219,99 @@ describe("FeedbackPopup", () => {
     );
   });
 
-  it("shows a history item's details in place of the form and highlights it", () => {
+  it("shows a history item's details in place of the form and highlights it", async () => {
+    mockApi.server.use(replyReceipt());
     renderPopup();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /Dark mode for the map/ }),
-    );
+    fillIn("Bug", "Mic cuts out", "It drops after a minute.");
+    send();
+    await screen.findByRole("button", { name: "Send another" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Mic cuts out/ }));
 
     expect(
-      screen.getByRole("heading", { name: "Dark mode for the map" }),
+      screen.getByRole("heading", { level: 2, name: "Mic cuts out" }),
     ).toBeVisible();
-    expect(screen.getByText(/the map stays bright/)).toBeVisible();
-    expect(screen.getByText("Map view")).toBeVisible();
+    expect(screen.getByText("It drops after a minute.")).toBeVisible();
     expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Dark mode for the map/ }),
-    ).toHaveAttribute("aria-current", "true");
 
     fireEvent.click(screen.getByRole("button", { name: "New feedback" }));
 
     expect(screen.getByLabelText("Title")).toHaveValue("");
   });
 
-  it("returns to an empty form from Send another and New feedback", async () => {
+  it("returns to an empty form from Send another", async () => {
+    mockApi.server.use(replyReceipt());
     renderPopup();
 
-    await fillAndSend("Bug", "Mic cuts out");
+    fillIn("Bug", "Mic cuts out");
+    send();
     fireEvent.click(
       await screen.findByRole("button", { name: "Send another" }),
     );
 
     expect(screen.getByLabelText("Title")).toHaveValue("");
+  });
 
-    await fillAndSend("Bug", "Camera freezes");
-    fireEvent.click(
-      await screen.findByRole("button", { name: "New feedback" }),
+  it("sends once however many times Send is pressed", async () => {
+    mockApi.server.use(replyReceipt());
+    renderPopup();
+
+    fillIn("Bug", "Mic cuts out");
+    send();
+    send();
+
+    await screen.findByRole("button", { name: "Send another" });
+    expect(
+      mockApi.requests.filter((request) => request.method === "POST"),
+    ).toHaveLength(1);
+  });
+
+  it.each([
+    [400, "We couldn't send that. Check the fields and try again."],
+    [403, "You don't have permission to send feedback right now."],
+    [
+      429,
+      "You've sent a lot of feedback in the last hour. Please try again later.",
+    ],
+    [
+      500,
+      "We couldn't send your feedback. Check your connection and try again.",
+    ],
+  ])("explains a %s and keeps what was typed", async (status, message) => {
+    mockApi.server.use(
+      http.post(FEEDBACK_URL, () => new Response(null, { status })),
     );
+    renderPopup();
 
-    expect(screen.getByLabelText("Title")).toHaveValue("");
+    fillIn("Bug", "Mic cuts out");
+    send();
+
+    expect(await screen.findByText(message)).toBeVisible();
+    expect(screen.getByLabelText("Title")).toHaveValue("Mic cuts out");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("goes to sign-in when the session has ended", async () => {
+    mockApi.server.use(
+      http.post(FEEDBACK_URL, () => new Response(null, { status: 401 })),
+    );
+    renderPopup();
+
+    fillIn("Bug", "Mic cuts out");
+    send();
+
+    await waitFor(() => expect(sideEffects).toEqual(["go /sign-in"]));
   });
 
   it("closes from Cancel, the close button and Back to campus", async () => {
+    mockApi.server.use(replyReceipt());
     const { onClose } = renderPopup();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(screen.getByRole("button", { name: "Close feedback" }));
-    await fillAndSend("Idea", "Dark mode");
+    fillIn("Idea", "Dark mode");
+    send();
     fireEvent.click(
       await screen.findByRole("button", { name: "Back to campus" }),
     );

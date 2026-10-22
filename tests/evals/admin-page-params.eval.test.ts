@@ -12,7 +12,15 @@ import {
 
 import { AdministrationCatalogue } from "@/features/admin";
 import { parseAdministrationQuery } from "@/features/admin/catalogue/administration-query.schema";
-import { parsePageNumber } from "@/shared/lib/search-params";
+import {
+  parseFeedbackList,
+  parseFeedbackRecord,
+} from "@/features/admin/feedback/schemas/feedback.schema";
+import { parseFeedbackQuery } from "@/features/admin/feedback/schemas/feedback-query.schema";
+import {
+  firstSearchParameter,
+  parsePageNumber,
+} from "@/shared/lib/search-params";
 import { withQueryClient } from "@/tests/fixtures/query-client";
 
 const mockApi = await vi.hoisted(async () => {
@@ -79,6 +87,79 @@ describe("Admin page params eval (threshold: every case holds)", () => {
         });
       },
     );
+
+    it.each(HOSTILE_PAGES)(
+      "resets the feedback query for page %j to page 1",
+      (page) => {
+        expect(parseFeedbackQuery({ page }).page).toBe(1);
+      },
+    );
+
+    it.each(["", "../etc", "x".repeat(500), "00000000-0000", "__proto__"])(
+      "drops the feedback item %j that is not an id",
+      (item) => {
+        expect(parseFeedbackQuery({ item }).itemId).toBeUndefined();
+      },
+    );
+
+    it.each(["bug", "__proto__", "ALL", "open%20"])(
+      "falls back to a known filter for %j on the reports tab",
+      (filter) => {
+        expect(parseFeedbackQuery({ tab: "reports", filter })).toMatchObject({
+          tab: "reports",
+          filter: "open",
+        });
+      },
+    );
+
+    it.each(["", "nope", "FEEDBACK", "__proto__", "reports ", "constructor"])(
+      "reads the unknown feedback tab %j as the feedback tab",
+      (tab) => {
+        expect(parseFeedbackQuery({ tab })).toMatchObject({
+          tab: "feedback",
+          filter: "all",
+        });
+      },
+    );
+
+    it("reads only the first of a repeated feedback param", () => {
+      const first = firstSearchParameter(["reports", "feedback"]);
+
+      expect(first).toBe("reports");
+      expect(
+        parseFeedbackQuery({
+          tab: firstSearchParameter(["nope", "reports"]),
+          page: firstSearchParameter(["-3", "2"]),
+          filter: firstSearchParameter([]),
+        }),
+      ).toMatchObject({ tab: "feedback", page: 1, filter: "all" });
+    });
+
+    it.each([
+      null,
+      "text",
+      [],
+      {},
+      { items: "x", meta: {} },
+      { items: [{}], meta: { page: 1, totalPages: 1, total: 1 } },
+      { items: [], meta: { page: 0, totalPages: 1, total: 0 } },
+      { items: [], meta: { page: 1.5, totalPages: 1, total: 0 } },
+      { items: [], meta: { page: 1, totalPages: -1, total: 0 } },
+    ])("treats the malformed feedback list %j as unavailable", (body) => {
+      expect(parseFeedbackList(body)).toBeUndefined();
+    });
+
+    it.each([
+      null,
+      "text",
+      [],
+      {},
+      { id: "f-1" },
+      { id: "f-1", type: "praise", title: "x", status: "open" },
+      { id: 1, type: "bug", title: "x", status: "open" },
+    ])("treats the malformed feedback record %j as unavailable", (body) => {
+      expect(parseFeedbackRecord(body)).toBeUndefined();
+    });
 
     it("never requests a fractional page from campus-api", async () => {
       render(
