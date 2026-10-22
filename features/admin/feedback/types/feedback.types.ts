@@ -31,7 +31,6 @@ export type FeedbackRecord = Simplify<
     | "status"
     | "createdAt"
     | "details"
-    | "userAgent"
     | "resolvedAt"
   > & {
     submittedBy: FeedbackPerson;
