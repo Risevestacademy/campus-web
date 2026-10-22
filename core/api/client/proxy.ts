@@ -5,6 +5,11 @@ import type { ClientOptions } from "openapi-fetch";
 import type { Logger } from "@/core/observability";
 
 import { REFRESH_ATTEMPTED_COOKIE, SESSION_COOKIE } from "./auth-cookies";
+import { CLIENT_ADDRESS_HEADER, readClientAddress } from "./client-address";
+import type { components } from "./generated/schema";
+import { findPublishedRoute } from "./upstream-routes";
+
+type ExceptionCode = components["schemas"]["ExceptionCode"];
 
 const AUTH_COOKIE_NAMES = new Set([
   "campus_oauth_state",
@@ -14,6 +19,7 @@ const AUTH_COOKIE_NAMES = new Set([
 const OAUTH_RETURN_COOKIE_NAME = "campus_oauth_return_to";
 const OAUTH_RETURN_COOKIE_PATH = "/api/v1/auth";
 const OAUTH_RETURN_MAX_AGE_SECONDS = 600;
+const AUTH_ROUTE_PREFIX = "/v1/auth/";
 const GOOGLE_AUTH_ROUTE = "/v1/auth/google";
 const GOOGLE_CALLBACK_ROUTE = "/v1/auth/google/callback";
 const REFRESH_ROUTE = "/v1/auth/refresh";
@@ -28,7 +34,6 @@ const REQUEST_HEADERS = [
   "if-none-match",
   "if-unmodified-since",
   "range",
-  "x-forwarded-for",
 ];
 const RESPONSE_HEADERS = [
   "accept-ranges",
@@ -87,6 +92,32 @@ interface ApiProxyOptions {
 function resolveBaseUrl(baseUrl: string | (() => string)): string {
   return typeof baseUrl === "function" ? baseUrl() : baseUrl;
 }
+
+interface ApiError {
+  code: ExceptionCode;
+  message: string;
+}
+
+interface Rejection {
+  error: ApiError;
+  errorCode: string;
+  status: number;
+}
+
+const UNKNOWN_ROUTE: Rejection = {
+  error: { code: "NOT_FOUND", message: "API route not found." },
+  errorCode: "unknown_route",
+  status: 404,
+};
+const CROSS_ORIGIN: Rejection = {
+  error: { code: "FORBIDDEN", message: "Cross-origin request rejected." },
+  errorCode: "cross_origin",
+  status: 403,
+};
+const API_UNAVAILABLE: ApiError = {
+  code: "INTERNAL_ERROR",
+  message: "API is unavailable.",
+};
 
 interface ApiProxyContext {
   params: Promise<{ path: string[] }>;
@@ -283,17 +314,26 @@ function expireCookies(
   }
 }
 
-function enforceAuthenticatedResponsePrivacy(
+function hasSessionCookie(request: Request): boolean {
+  return (
+    findCookies(request.headers.get("cookie"), new Set([SESSION_COOKIE]))
+      .length > 0
+  );
+}
+
+function isPrivateResponse(
+  route: string,
   request: Request,
   responseHeaders: Headers,
-): void {
-  const sessionCookie = findCookies(
-    request.headers.get("cookie"),
-    new Set([SESSION_COOKIE]),
-  )[0];
+): boolean {
+  return (
+    route.startsWith(AUTH_ROUTE_PREFIX) ||
+    hasSessionCookie(request) ||
+    responseHeaders.has("set-cookie")
+  );
+}
 
-  if (!sessionCookie) return;
-
+function forbidCaching(responseHeaders: Headers): void {
   responseHeaders.set("cache-control", "private, no-store");
   responseHeaders.delete("expires");
 }
@@ -317,7 +357,11 @@ function createUpstreamUrl(
   return upstreamUrl;
 }
 
-function createUpstreamHeaders(request: Request, requestId: string): Headers {
+function createUpstreamHeaders(
+  request: Request,
+  requestId: string,
+  clientAddress: string | undefined,
+): Headers {
   const headers = copyHeaders(request.headers, REQUEST_HEADERS);
   const authCookies = findCookies(
     request.headers.get("cookie"),
@@ -325,6 +369,10 @@ function createUpstreamHeaders(request: Request, requestId: string): Headers {
   );
 
   headers.set("x-request-id", requestId);
+
+  if (clientAddress) {
+    headers.set(CLIENT_ADDRESS_HEADER, clientAddress);
+  }
 
   if (authCookies.length > 0) {
     headers.set("cookie", authCookies.join("; "));
@@ -336,12 +384,13 @@ function createUpstreamHeaders(request: Request, requestId: string): Headers {
 function createUpstreamRequest(
   request: Request,
   requestId: string,
+  clientAddress: string | undefined,
   url: URL,
 ): Request {
   const requestInit: StreamingRequestInit = {
     body: request.body,
     duplex: "half",
-    headers: createUpstreamHeaders(request, requestId),
+    headers: createUpstreamHeaders(request, requestId, clientAddress),
     method: request.method,
     redirect: "manual",
     signal: request.signal,
@@ -365,38 +414,24 @@ function isCrossOriginUnsafeRequest(request: Request): boolean {
   return origin !== requestOrigin;
 }
 
-function createCrossOriginRejection(requestId: string): Response {
-  return Response.json(
-    {
-      error: {
-        code: "FORBIDDEN",
-        message: "Cross-origin request rejected.",
-      },
-    },
-    {
-      headers: { "x-request-id": requestId },
-      status: 403,
-    },
-  );
+function describeClientAddress(
+  clientAddress: string | undefined,
+): "absent" | "forwarded" {
+  return clientAddress ? "forwarded" : "absent";
+}
+
+function createErrorResponse(
+  requestId: string,
+  status: number,
+  error: ApiError,
+): Response {
+  const headers = new Headers({ "x-request-id": requestId });
+  forbidCaching(headers);
+  return Response.json({ error }, { headers, status });
 }
 
 function getErrorName(reason: unknown): string {
   return reason instanceof Error ? reason.name : "UnknownError";
-}
-
-function createUnavailableResponse(requestId: string): Response {
-  return Response.json(
-    {
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "API is unavailable.",
-      },
-    },
-    {
-      headers: { "x-request-id": requestId },
-      status: 502,
-    },
-  );
 }
 
 function rewriteSuccessfulOauthDestination(
@@ -432,26 +467,34 @@ export function createApiProxy(options: ApiProxyOptions) {
     const startedAt = clock();
     const requestId = generateRequestId();
     const { path } = await context.params;
-    const route = `/${path.join("/")}`;
     const secure = new URL(request.url).protocol === "https:";
 
-    if (isCrossOriginUnsafeRequest(request)) {
+    // Logs carry the route template, never the requested path: a mistyped
+    // URL can hold an invite token or an email address.
+    const reject = (rejection: Rejection, route?: string) => {
       options.logger.warn("api.proxy.rejected", {
         durationMs: Math.max(0, clock() - startedAt),
-        errorCode: "cross_origin",
+        errorCode: rejection.errorCode,
         method: request.method,
         requestId,
-        route,
-        status: 403,
+        ...(route && { route }),
+        status: rejection.status,
       });
 
-      return createCrossOriginRejection(requestId);
-    }
+      return createErrorResponse(requestId, rejection.status, rejection.error);
+    };
+
+    const route = findPublishedRoute(path);
+    if (!route) return reject(UNKNOWN_ROUTE);
+    if (isCrossOriginUnsafeRequest(request)) return reject(CROSS_ORIGIN, route);
+
+    const clientAddress = readClientAddress(request.headers);
 
     try {
       const upstreamRequest = createUpstreamRequest(
         request,
         requestId,
+        clientAddress,
         createUpstreamUrl(
           resolveBaseUrl(options.baseUrl),
           path,
@@ -465,7 +508,6 @@ export function createApiProxy(options: ApiProxyOptions) {
         RESPONSE_HEADERS,
       );
 
-      enforceAuthenticatedResponsePrivacy(request, responseHeaders);
       copyAuthSetCookies(upstreamResponse.headers, responseHeaders, secure);
 
       if (
@@ -497,8 +539,13 @@ export function createApiProxy(options: ApiProxyOptions) {
         }
       }
 
+      if (isPrivateResponse(route, request, responseHeaders)) {
+        forbidCaching(responseHeaders);
+      }
+
       responseHeaders.set("x-request-id", requestId);
       options.logger.info("api.proxy.completed", {
+        clientAddress: describeClientAddress(clientAddress),
         durationMs: Math.max(0, clock() - startedAt),
         method: request.method,
         requestId,
@@ -513,6 +560,7 @@ export function createApiProxy(options: ApiProxyOptions) {
       });
     } catch (reason) {
       options.logger.error("api.proxy.failed", {
+        clientAddress: describeClientAddress(clientAddress),
         durationMs: Math.max(0, clock() - startedAt),
         errorName: getErrorName(reason),
         method: request.method,
@@ -521,7 +569,7 @@ export function createApiProxy(options: ApiProxyOptions) {
         status: 502,
       });
 
-      const response = createUnavailableResponse(requestId);
+      const response = createErrorResponse(requestId, 502, API_UNAVAILABLE);
 
       if (route === GOOGLE_CALLBACK_ROUTE) {
         appendReturnCookie(response.headers, undefined, secure);
