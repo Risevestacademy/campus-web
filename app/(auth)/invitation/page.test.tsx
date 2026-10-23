@@ -56,7 +56,7 @@ beforeEach(() => {
     backend(new Request(input, init)),
   );
   nextHeaders.headers.mockResolvedValue(
-    new Headers({ "x-forwarded-for": "203.0.113.7" }),
+    new Headers({ "x-real-ip": "203.0.113.7" }),
   );
   withCookies({});
 });

@@ -10,7 +10,8 @@ import { FeedbackDetail } from "./feedback-detail";
 import { FeedbackForm } from "./feedback-form";
 import { FeedbackList } from "./feedback-list";
 import { FeedbackSent } from "./feedback-sent";
-import { mockFeedbackHistory } from "./mock-feedback";
+import { useSendFeedback } from "./hooks/use-send-feedback";
+import type { FeedbackSendProblem } from "./services/feedback-api.adapter";
 import type { FeedbackItem, NewFeedback } from "./types";
 
 type FeedbackView =
@@ -22,8 +23,19 @@ export interface FeedbackPopupProps {
   isOpen: boolean;
   onClose: () => void;
   container?: RefObject<HTMLElement | null>;
+  cohortId?: string;
   userName?: string | null;
 }
+
+const SEND_PROBLEM_MESSAGES: Record<FeedbackSendProblem, string | undefined> = {
+  invalid: "We couldn't send that. Check the fields and try again.",
+  "signed-out": undefined,
+  forbidden: "You don't have permission to send feedback right now.",
+  "rate-limited":
+    "You've sent a lot of feedback in the last hour. Please try again later.",
+  unavailable:
+    "We couldn't send your feedback. Check your connection and try again.",
+};
 
 function firstNameOf(userName: string | null | undefined): string | undefined {
   return userName?.trim().split(/\s+/)[0] || undefined;
@@ -33,10 +45,10 @@ export function FeedbackPopup({
   isOpen,
   onClose,
   container,
+  cohortId,
   userName,
 }: FeedbackPopupProps) {
-  const [history, setHistory] =
-    useState<readonly FeedbackItem[]>(mockFeedbackHistory);
+  const [history, setHistory] = useState<readonly FeedbackItem[]>([]);
   const [view, setView] = useState<FeedbackView>({ kind: "form" });
   const [formKey, setFormKey] = useState(0);
   const activeItem =
@@ -44,23 +56,35 @@ export function FeedbackPopup({
       ? undefined
       : history.find((item) => item.id === view.itemId);
 
+  const sending = useSendFeedback({
+    onSent: (receiptId, { feedback }) => {
+      const item: FeedbackItem = {
+        id: receiptId,
+        kind: feedback.kind,
+        title: feedback.title,
+        details: feedback.details,
+        location: feedback.location,
+        reported: feedback.reported,
+        submittedLabel: "just now",
+      };
+
+      setHistory((current) => [item, ...current]);
+      setView({ kind: "sent", itemId: item.id });
+    },
+  });
+
   function showNewForm() {
+    sending.reset();
     setView({ kind: "form" });
     setFormKey((key) => key + 1);
   }
 
   function send(feedback: NewFeedback) {
-    const item: FeedbackItem = {
-      id: crypto.randomUUID(),
-      kind: feedback.kind,
-      title: feedback.title,
-      details: feedback.details,
-      location: feedback.location,
-      submittedLabel: "just now",
-    };
-
-    setHistory((current) => [item, ...current]);
-    setView({ kind: "sent", itemId: item.id });
+    sending.send({
+      feedback,
+      cohortId,
+      path: window.location.pathname,
+    });
   }
 
   return (
@@ -126,6 +150,12 @@ export function FeedbackPopup({
               ) : (
                 <FeedbackForm
                   key={formKey}
+                  isSending={sending.isPending}
+                  sendError={
+                    sending.problem
+                      ? SEND_PROBLEM_MESSAGES[sending.problem]
+                      : undefined
+                  }
                   onCancel={onClose}
                   onSubmit={send}
                 />

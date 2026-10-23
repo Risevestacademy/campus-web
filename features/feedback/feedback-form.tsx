@@ -4,7 +4,6 @@ import { PaperPlaneTiltIcon } from "@phosphor-icons/react/dist/ssr/PaperPlaneTil
 import { type ClipboardEvent, type FormEvent, useId, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
-import { Checkbox } from "@/shared/ui/checkbox";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Textarea } from "@/shared/ui/textarea";
@@ -18,6 +17,7 @@ import {
   LOCATION_MAX_LENGTH,
   parseFeedback,
   pickScreenshot,
+  REPORTED_MAX_LENGTH,
   screenshotProblem,
   TITLE_MAX_LENGTH,
 } from "./schemas/feedback.schema";
@@ -43,9 +43,13 @@ function isTextIntoField(event: ClipboardEvent<HTMLFormElement>): boolean {
 }
 
 export function FeedbackForm({
+  isSending,
+  sendError,
   onCancel,
   onSubmit,
 }: {
+  isSending: boolean;
+  sendError: string | undefined;
   onCancel: () => void;
   onSubmit: (feedback: NewFeedback) => void;
 }) {
@@ -94,9 +98,9 @@ export function FeedbackForm({
       onPaste={pasteScreenshot}
       className="grid content-start gap-5"
     >
-      {formError ? (
+      {(formError ?? sendError) ? (
         <p role="alert" className="text-destructive text-sm">
-          {formError}
+          {formError ?? sendError}
         </p>
       ) : null}
       <fieldset className="grid gap-2">
@@ -164,9 +168,27 @@ export function FeedbackForm({
         ) : null}
       </div>
 
+      {kind === "report" ? (
+        <div className="grid gap-2">
+          <Label htmlFor={`${id}-reported`}>Who are you reporting?</Label>
+          <Input
+            id={`${id}-reported`}
+            name="reported"
+            maxLength={REPORTED_MAX_LENGTH + 20}
+            aria-invalid={errors.reported ? true : undefined}
+            className="h-11 rounded-xl px-4 text-base focus-visible:border-[#3155D6] dark:border-[#2B3B5F] dark:focus-visible:border-[#3155D6]"
+          />
+          {errors.reported ? (
+            <p role="alert" className="text-destructive text-sm">
+              {errors.reported}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="grid gap-2">
         <Label htmlFor={`${id}-location`}>
-          Who/where in Campus?
+          Where in Campus?
           <span className="text-foreground-muted text-xs font-normal">
             Optional
           </span>
@@ -203,13 +225,6 @@ export function FeedbackForm({
         />
       </div>
 
-      <div className="flex items-center gap-2.5">
-        <Checkbox id={`${id}-device`} name="includeDeviceInfo" defaultChecked />
-        <Label htmlFor={`${id}-device`} className="font-normal">
-          Include device and browser info (helps us fix bugs faster)
-        </Label>
-      </div>
-
       <div className="flex justify-end gap-3">
         <Button
           type="button"
@@ -220,9 +235,14 @@ export function FeedbackForm({
         >
           Cancel
         </Button>
-        <Button type="submit" size="sm" className="h-11 px-6 text-base">
+        <Button
+          type="submit"
+          size="sm"
+          disabled={isSending}
+          className="h-11 px-6 text-base"
+        >
           <PaperPlaneTiltIcon aria-hidden />
-          Send feedback
+          {isSending ? "Sending…" : "Send feedback"}
         </Button>
       </div>
     </form>

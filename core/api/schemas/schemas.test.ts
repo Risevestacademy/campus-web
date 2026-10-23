@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   cohortRoleSchema,
   cohortStatusSchema,
+  feedbackStatusSchema,
+  feedbackTypeSchema,
   paginationMetaSchema,
+  paginationMetaWithTotalSchema,
   parseExceptionCode,
   sessionScopeSchema,
   systemRoleSchema,
@@ -15,6 +18,8 @@ describe("API enum schemas", () => {
     [systemRoleSchema, ["user", "admin", "super_admin"]],
     [cohortRoleSchema, ["student", "professor", "mentor", "guest"]],
     [cohortStatusSchema, ["upcoming", "active", "completed"]],
+    [feedbackTypeSchema, ["bug", "idea", "report"]],
+    [feedbackStatusSchema, ["open", "resolved"]],
   ] as const)("accepts exactly the generated values", (schema, values) => {
     expect(schema.options).toEqual(values);
   });
@@ -75,5 +80,27 @@ describe("parseExceptionCode", () => {
     ["no body", undefined],
   ])("returns undefined for %s", (_, body) => {
     expect(parseExceptionCode(body)).toBeUndefined();
+  });
+});
+
+describe("paginationMetaWithTotalSchema", () => {
+  it("keeps the page fields and the total, and strips the rest", () => {
+    expect(
+      paginationMetaWithTotalSchema.parse({
+        page: 2,
+        perPage: 20,
+        total: 152,
+        totalPages: 8,
+      }),
+    ).toStrictEqual({ page: 2, total: 152, totalPages: 8 });
+  });
+
+  it.each([
+    ["a missing total", { page: 1, totalPages: 1 }],
+    ["a negative total", { page: 1, totalPages: 1, total: -1 }],
+    ["a fractional total", { page: 1, totalPages: 1, total: 1.5 }],
+    ["a string total", { page: 1, totalPages: 1, total: "3" }],
+  ])("rejects %s", (_, meta) => {
+    expect(paginationMetaWithTotalSchema.safeParse(meta).success).toBe(false);
   });
 });

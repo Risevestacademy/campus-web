@@ -34,6 +34,21 @@ export function FeedbackDetail({ item }: { item: FeedbackItem }) {
         </p>
       </section>
 
+      {item.reported ? (
+        <section
+          aria-labelledby="feedback-detail-reported"
+          className="grid gap-2"
+        >
+          <h3
+            id="feedback-detail-reported"
+            className="text-foreground-secondary text-xs font-medium tracking-wider uppercase"
+          >
+            Who you reported
+          </h3>
+          <p>{item.reported}</p>
+        </section>
+      ) : null}
+
       {item.location ? (
         <section
           aria-labelledby="feedback-detail-location"
@@ -43,7 +58,7 @@ export function FeedbackDetail({ item }: { item: FeedbackItem }) {
             id="feedback-detail-location"
             className="text-foreground-secondary text-xs font-medium tracking-wider uppercase"
           >
-            Who/where in Campus
+            Where in Campus
           </h3>
           <p>{item.location}</p>
         </section>

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { components } from "@/core/api/client";
+import { feedbackTypeSchema, type Simplify } from "@/core/api/schemas";
 import {
   type FormErrors,
   type FormInvalid,
@@ -9,6 +11,7 @@ import {
 export const TITLE_MAX_LENGTH = 100;
 export const DETAILS_MAX_LENGTH = 2000;
 export const LOCATION_MAX_LENGTH = 100;
+export const REPORTED_MAX_LENGTH = 80;
 export const SCREENSHOT_MAX_BYTES = 5 * 1024 * 1024;
 const SCREENSHOT_FORMATS = {
   "image/png": "PNG",
@@ -22,36 +25,48 @@ const SCREENSHOT_FORMAT_NAMES = new Intl.ListFormat("en-GB", {
 }).format(Object.values(SCREENSHOT_FORMATS));
 
 export const feedbackKindSchema = z.enum(
-  ["bug", "idea", "report"],
+  feedbackTypeSchema.options,
   "Choose what kind of feedback this is.",
 );
 
-export const feedbackSchema = z.object({
-  kind: feedbackKindSchema,
-  title: z
-    .string()
-    .trim()
-    .min(1, "Give your feedback a short title.")
-    .max(
-      TITLE_MAX_LENGTH,
-      `Keep the title under ${TITLE_MAX_LENGTH} characters.`,
-    ),
-  details: z
-    .string()
-    .trim()
-    .max(
-      DETAILS_MAX_LENGTH,
-      `Keep the details under ${DETAILS_MAX_LENGTH} characters.`,
-    ),
-  location: z
-    .string()
-    .trim()
-    .max(
-      LOCATION_MAX_LENGTH,
-      `Keep this under ${LOCATION_MAX_LENGTH} characters.`,
-    ),
-  includeDeviceInfo: z.string().transform(Boolean),
-});
+export const feedbackSchema = z
+  .object({
+    kind: feedbackKindSchema,
+    title: z
+      .string()
+      .trim()
+      .min(1, "Give your feedback a short title.")
+      .max(
+        TITLE_MAX_LENGTH,
+        `Keep the title under ${TITLE_MAX_LENGTH} characters.`,
+      ),
+    details: z
+      .string()
+      .trim()
+      .min(1, "Tell us a little more so we can look into it.")
+      .max(
+        DETAILS_MAX_LENGTH,
+        `Keep the details under ${DETAILS_MAX_LENGTH} characters.`,
+      ),
+    location: z
+      .string()
+      .trim()
+      .max(
+        LOCATION_MAX_LENGTH,
+        `Keep this under ${LOCATION_MAX_LENGTH} characters.`,
+      ),
+    reported: z
+      .string()
+      .trim()
+      .max(
+        REPORTED_MAX_LENGTH,
+        `Keep this under ${REPORTED_MAX_LENGTH} characters.`,
+      ),
+  })
+  .refine(({ kind, reported }) => kind !== "report" || reported !== "", {
+    path: ["reported"],
+    error: "Tell us who you are reporting.",
+  });
 
 const screenshotSchema = z
   .file()
@@ -83,4 +98,19 @@ export function pickScreenshot(files: ArrayLike<File>): File | undefined {
 
 export function screenshotProblem(file: File): string | undefined {
   return screenshotSchema.safeParse(file).error?.issues[0]?.message;
+}
+
+type FeedbackReceipt = Simplify<
+  Pick<components["schemas"]["FeedbackReceiptDto"], "id">
+>;
+
+// The receipt of a send is read for its id alone; anything else is dropped.
+const feedbackReceiptSchema = z.toZod<FeedbackReceipt>()(
+  z.object({ id: z.string().min(1) }),
+);
+
+export function parseFeedbackReceipt(
+  body: unknown,
+): FeedbackReceipt | undefined {
+  return feedbackReceiptSchema.safeParse(body).data;
 }

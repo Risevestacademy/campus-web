@@ -15,6 +15,7 @@ import {
   AttachCohortTrackForm,
   DetachCohortTrackDialog,
 } from "@/features/admin/cohorts/components/cohort-track-actions";
+import { FeedbackStatusControl } from "@/features/admin/feedback/components/feedback-status-control";
 import { CreateTrackTile } from "@/features/admin/tracks/components/create-track-tile";
 import { TrackAdministrationCard } from "@/features/admin/tracks/components/track-administration-card";
 import { toast, Toaster } from "@/shared/ui/toast";
@@ -99,6 +100,8 @@ const UNAVAILABLE_TRACK_EDIT =
   "We couldn't update this Programme Track. Check your connection and try again.";
 const UNAVAILABLE_TRACK_DELETE =
   "We couldn't delete this Programme Track. Check your connection and try again.";
+const UNAVAILABLE_FEEDBACK_STATUS =
+  "We couldn't update this feedback. Nothing was changed. Check your connection and try again.";
 const UNAVAILABLE_ATTACH =
   "We couldn't attach this Programme Track. Try again.";
 const UNAVAILABLE_DETACH =
@@ -256,6 +259,31 @@ const MUTATIONS: readonly Mutation[] = [
       409: "Students or Invitations still reference this Programme Track. Move or remove those references before detaching it.",
       500: UNAVAILABLE_DETACH,
       0: UNAVAILABLE_DETACH,
+    },
+  },
+  {
+    name: "Feedback resolve",
+    method: "patch",
+    url: `${API}/feedback/feedback-1`,
+    succeeded: "Marked as resolved",
+    render: () => (
+      <FeedbackStatusControl
+        feedbackId="feedback-1"
+        title="Mic cuts out"
+        status="open"
+      />
+    ),
+    doubleSubmit: async () => {
+      const button = screen.getByRole("button", { name: "Mark as resolved" });
+      fireEvent.click(button);
+      fireEvent.click(button);
+    },
+    explanations: {
+      400: "campus-api rejected this change. Refresh the page and try again.",
+      403: "You no longer have permission to update feedback.",
+      404: "This feedback no longer exists. Refresh the page.",
+      500: UNAVAILABLE_FEEDBACK_STATUS,
+      0: UNAVAILABLE_FEEDBACK_STATUS,
     },
   },
 ];

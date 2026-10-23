@@ -38,6 +38,13 @@ export function FeedbackList({
         Feedback history
       </h3>
 
+      {items.length === 0 ? (
+        <p className="text-foreground-secondary text-sm">
+          Nothing sent yet. Feedback you send shows up here until you reload
+          Campus.
+        </p>
+      ) : null}
+
       <ul className="grid gap-1">
         {items.map((item) => {
           const { Icon, label } = feedbackKindDetails(item.kind);

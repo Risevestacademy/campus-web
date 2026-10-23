@@ -86,7 +86,11 @@ export function CampusShell({
               map: <OverviewPanel collapseButton={collapseButton} />,
             }}
           />
-          <FeedbackLayer FeedbackPopup={FeedbackPopup} userName={userName}>
+          <FeedbackLayer
+            FeedbackPopup={FeedbackPopup}
+            cohortId={cohortId}
+            userName={userName}
+          >
             {children}
           </FeedbackLayer>
         </main>

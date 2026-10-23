@@ -13,6 +13,7 @@ export interface FeedbackItem {
   title: string;
   details: string;
   location: string;
+  reported: string;
   submittedLabel: string;
 }
 
