@@ -89,15 +89,21 @@ describe("parseSessionBody", () => {
       "a user without an id",
       body({ ...sessionDto, user: { ...sessionDto.user, id: "" } }),
     ],
-    [
-      "a membership with an unknown role",
+  ])("rejects %s", (_, value) => {
+    expect(parseSessionBody(value)).toBeUndefined();
+  });
+
+  it("keeps the session and drops a cohort role this build does not know", () => {
+    const session = parseSessionBody(
       body({
         ...sessionDto,
         memberships: [{ ...sessionDto.memberships[0], role: "owner" }],
       }),
-    ],
-  ])("rejects %s", (_, value) => {
-    expect(parseSessionBody(value)).toBeUndefined();
+    );
+
+    expect(session?.memberships).toEqual([
+      { cohortId: "c-1", cohort: { name: "Cohort 3", code: "C3" } },
+    ]);
   });
 });
 

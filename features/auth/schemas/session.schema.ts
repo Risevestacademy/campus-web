@@ -23,7 +23,9 @@ const sessionSchema = z.toZod<Session>()(
     memberships: z.array(
       z.object({
         cohortId: z.string().min(1),
-        role: cohortRoleSchema,
+        // Only analytics reads it: a role this build does not know drops out
+        // of analytics instead of failing the whole session.
+        role: cohortRoleSchema.optional().catch(undefined),
         cohort: z.object({ name: z.string(), code: z.string() }),
       }),
     ),

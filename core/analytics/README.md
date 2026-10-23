@@ -10,8 +10,13 @@ Typed PostHog product analytics for Campus by Rise.
 - Trusted outcomes are emitted by the server with the authenticated
   Campus/Rise user ID.
 - Browser identification uses the same stable ID. It runs on cohort pages,
-  through auth's `AnalyticsIdentity`, with only `role` and `cohort_id` as
-  person properties. A consent gate is pending.
+  through auth's `CohortSession`, with only `system_role` as a person
+  property. `enterAnalyticsCohort` adds `cohort_id` and `cohort_role` to the
+  tab's events (`register_for_session`) and returns the cleanup that drops
+  them. A consent gate is pending.
+- `identifyAnalyticsUser` forgets a different member still identified on the
+  device first; auth's sign-in page calls `resetIdentifiedAnalyticsUser()`.
+  Every reset passes `resetDeviceID: true`.
 - Logout captures its event before calling `resetAnalyticsUser()`.
 
 ## Successful business operations

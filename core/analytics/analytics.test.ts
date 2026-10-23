@@ -5,9 +5,13 @@ import { ANALYTICS_EVENTS } from "./events";
 const analyticsMocks = vi.hoisted(() => {
   const browser = {
     capture: vi.fn(),
+    get_distinct_id: vi.fn(),
+    get_property: vi.fn(),
     identify: vi.fn(),
     init: vi.fn(),
+    register_for_session: vi.fn(),
     reset: vi.fn(),
+    unregister_for_session: vi.fn(),
   };
   const server = {
     captureImmediate: vi.fn(),
@@ -177,7 +181,7 @@ describe("browser analytics", () => {
     );
     analytics.identifyAnalyticsUser({
       id: "ada@campus.local",
-      role: "student",
+      systemRole: "user",
     });
     await analytics.initializeBrowserAnalytics();
 
@@ -204,12 +208,7 @@ describe("browser analytics", () => {
       ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED,
       properties,
     );
-    analytics.identifyAnalyticsUser({
-      cohortId: "cohort-1",
-      id: " user-1 ",
-      role: "student",
-      trackId: "track-1",
-    });
+    analytics.identifyAnalyticsUser({ id: " user-1 ", systemRole: "user" });
     analytics.resetAnalyticsUser();
     await analytics.initializeBrowserAnalytics();
 
@@ -218,12 +217,114 @@ describe("browser analytics", () => {
       properties,
     );
     expect(analyticsMocks.browser.identify).toHaveBeenCalledWith("user-1", {
-      account_status: undefined,
-      cohort_id: "cohort-1",
-      role: "student",
-      track_id: "track-1",
+      system_role: "user",
     });
-    expect(analyticsMocks.browser.reset).toHaveBeenCalledOnce();
+    expect(analyticsMocks.browser.reset).toHaveBeenCalledExactlyOnceWith({
+      resetDeviceID: true,
+    });
+  });
+
+  it("forgets a different identified member before identifying the next", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.browser.get_property.mockReturnValueOnce("identified");
+    analyticsMocks.browser.get_distinct_id.mockReturnValueOnce("member-a");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.identifyAnalyticsUser({ id: "member-b", systemRole: "user" });
+    await analytics.initializeBrowserAnalytics();
+
+    const { identify, reset } = analyticsMocks.browser;
+    expect(reset).toHaveBeenCalledExactlyOnceWith({ resetDeviceID: true });
+    expect(reset.mock.invocationCallOrder[0]).toBeLessThan(
+      identify.mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(identify).toHaveBeenCalledWith("member-b", { system_role: "user" });
+  });
+
+  it("re-identifies the same member without forgetting them", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.browser.get_property.mockReturnValueOnce("identified");
+    analyticsMocks.browser.get_distinct_id.mockReturnValueOnce("member-a");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.identifyAnalyticsUser({ id: "member-a", systemRole: "admin" });
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.reset).not.toHaveBeenCalled();
+    expect(analyticsMocks.browser.identify).toHaveBeenCalledWith("member-a", {
+      system_role: "admin",
+    });
+  });
+
+  it.each([
+    ["forgets an identified member", "identified", 1],
+    ["keeps an anonymous visitor", "anonymous", 0],
+  ])("at sign-in %s", async (_, userState, resets) => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.browser.get_property.mockReturnValueOnce(userState);
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.resetIdentifiedAnalyticsUser();
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.reset).toHaveBeenCalledTimes(resets);
+  });
+
+  it.each([
+    ["the member's role", "mentor", "mentor"],
+    ["null for an admin without a place", undefined, null],
+  ] as const)(
+    "keeps the cohort and %s per tab, and drops both on leaving",
+    async (_, cohortRole, sentRole) => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+
+      const leave = analytics.enterAnalyticsCohort({
+        cohortId: "cohort-3",
+        cohortRole,
+      });
+      await analytics.initializeBrowserAnalytics();
+
+      expect(
+        analyticsMocks.browser.register_for_session,
+      ).toHaveBeenCalledExactlyOnceWith({
+        cohort_id: "cohort-3",
+        cohort_role: sentRole,
+      });
+      expect(
+        analyticsMocks.browser.unregister_for_session,
+      ).not.toHaveBeenCalled();
+
+      leave();
+      await analytics.initializeBrowserAnalytics();
+
+      expect(analyticsMocks.browser.unregister_for_session.mock.calls).toEqual([
+        ["cohort_id"],
+        ["cohort_role"],
+      ]);
+    },
+  );
+
+  it("drops a cohort context outside the contract", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    const leave = analytics.enterAnalyticsCohort({
+      cohortId: "https://campus.example/c/3",
+    });
+    leave();
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.register_for_session).not.toHaveBeenCalled();
+    expect(
+      analyticsMocks.browser.unregister_for_session,
+    ).not.toHaveBeenCalled();
   });
 
   it("does not let initialization failures break hydration", async () => {
@@ -279,7 +380,7 @@ describe("browser analytics", () => {
     expect(() =>
       analytics.identifyAnalyticsUser({
         id: "user-1",
-        role: "student",
+        systemRole: "user",
       }),
     ).not.toThrow();
     expect(() => analytics.resetAnalyticsUser()).not.toThrow();

@@ -8,10 +8,10 @@ reads and acceptance belong to `invitation`.
 
 ## Interface
 
-| Entry      | Imported by         | Exports                                                                                                                                                                                       |
-| ---------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.ts` | route code          | `requireRouteAccess`, `CohortGate`, `SessionRenewal`, `AnalyticsIdentity`, `SessionRefreshProvider`, `InvitationGate`, `ResumeInvitation`, `redirectSignedInVisitor`, `SessionUnavailable`, … |
-| `proxy.ts` | the root `proxy.ts` | `guardCampusRequest` (no React, no `server-only`)                                                                                                                                             |
+| Entry      | Imported by         | Exports                                                                                                                                                                                         |
+| ---------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.ts` | route code          | `requireRouteAccess`, `CohortGate`, `CohortSession`, `ForgetPreviousMember`, `SessionRefreshProvider`, `InvitationGate`, `ResumeInvitation`, `redirectSignedInVisitor`, `SessionUnavailable`, … |
+| `proxy.ts` | the root `proxy.ts` | `guardCampusRequest` (no React, no `server-only`)                                                                                                                                               |
 
 ```tsx
 const access = await requireRouteAccess({ kind: "system-admin" });
@@ -46,17 +46,18 @@ access.session;
 | `services/session-renewal.ts`             | Session Renewal: when to renew, retries, cross-tab skips      | ports: refresh, lock, shared expiry, wake      |
 | `services/browser-session.ts`             | browser adapters for those ports; the refresh singletons      | `browserApi`, Web Locks, `localStorage`        |
 | `services/refresh-cooldown.ts`            | the 1/2/4/8 s backoff, stretched by `Retry-After`             | none                                           |
-| `services/analytics-identity.ts`          | a cohort visit's analytics identity: user ID, role, cohort    | none: pure                                     |
+| `services/member-analytics.ts`            | a cohort visit's analytics: user, system role, cohort, role   | none: pure                                     |
 | `schemas/`                                | session parsing; return-destination rules; sign-in error copy | none                                           |
-| `components/`                             | gates, `SessionRenewal`, refresh page, account menu           | none                                           |
+| `components/`                             | gates, `CohortSession`, refresh page, account menu            | none                                           |
 | `components/session-refresh-provider.tsx` | fills the shared refresh port with the locked refresher       | `core/session`                                 |
-| `components/analytics-identity.tsx`       | identifies the member to PostHog on cohort pages              | `core/analytics/client`                        |
+| `components/cohort-analytics.tsx`         | identifies the member and enters the cohort in PostHog        | `core/analytics/client`                        |
+| `components/forget-previous-member.tsx`   | forgets an identified member when sign-in mounts              | `core/analytics/client`                        |
 | `hooks/`                                  | refresh, renewal and logout; countdown                        | `browserApi`, shared `useMountEffect`          |
 
 Flow: page → gate or `requireRouteAccess` → `authorizeRoute` →
 `route-policy` + `session.service`.
 
-Session Renewal: the cohort layout's `SessionRenewal` (server) seeds
+Session Renewal: the cohort layout's `CohortSession` (server) seeds
 `SessionRenewalTimer` (client) with the cached session's `expiresAt`; its hook
 starts `createSessionRenewal`, which POSTs the refresh at
 `expiresAt − min(2 min, remaining / 4)` under the `campus-session-renewal` Web
@@ -66,13 +67,20 @@ than one 15-minute access-token lifetime ahead), and re-checks on
 the Presence Session keeps running. `/session/refresh` remains the cold-load
 path: a reload, a new tab, or a wake after the access cookie already lapsed.
 
-Analytics identity: the cohort layout's `AnalyticsIdentity` (server) maps the
-cached session through `analyticsIdentityFor` to the Campus user ID, the
-member's role in that cohort (the system role for an admin without a place)
-and the cohort ID. `IdentifyAnalyticsUser` (client, keyed by cohort) passes it
-to `identifyAnalyticsUser` once on mount. No name or email leaves the session.
-An `expired` renewal calls `resetAnalyticsUser()` before its toast, so the next
-person on the device is not counted as this member.
+Analytics identity: `CohortSession` reads route access once and also maps the
+cached session through `memberAnalyticsFor`. PostHog gets the Campus user ID
+with `system_role` on the person, and `cohort_id` + `cohort_role` (`null` for
+an admin without a place) on the tab's events only. `CohortAnalytics` (client)
+identifies and enters the cohort on mount and leaves it on unmount; its key is
+those values, so a role picked up by `router.refresh()` re-sends them. No name
+or email leaves the session. A cohort role this build does not know parses as
+absent, so the member keeps access.
+
+Every reset takes a new device ID. An `expired` renewal calls
+`resetAnalyticsUser()` before its toast. The sign-in page's
+`ForgetPreviousMember` forgets an identified member, which covers a cold
+expiry; an anonymous visit stays, so an invitation joins its login. Identify
+also forgets a different member still identified on the device.
 
 `SessionRefreshProvider` lends the same locked refresher to features that may
 not import auth, through `useRefreshSession()` in `core/session` — the
@@ -178,9 +186,9 @@ layout and its page in parallel, and keeps layouts across soft navigation.
 - A server clock more than 2 min behind the browser can reject a renewed token
   within 60 s; the relay's `campus_refresh_attempted` marker then sends that
   request to sign-in instead of refresh.
-- A cold expiry (`/session/refresh` sending the visitor to sign-in) does not
-  reset the analytics identity; the next sign-in's identify switches the
-  distinct ID.
+- An anonymous visit on a shared device (an invitation opened but never
+  signed in) merges into the next member who signs in there. Sign-in keeps
+  anonymous visits so an invitation joins its login.
 
 ## Tests
 
@@ -197,9 +205,12 @@ pnpm build && pnpm playwright test tests/e2e/authorization.spec.ts tests/e2e/pre
 `eval:route-protection` walks every entry route and session state for loops
 and leaks. `eval:session-renewal` keeps renewal mounted outside the keyed
 Presence Session, the proxy cookie-only, and cohort code off `/session/refresh`.
-`eval:analytics` keeps `AnalyticsIdentity` inside `CohortGate` and outside the
-Presence Session, and checks that every session shape sends PostHog only the
-user ID, cohort ID and role. `eval:architecture` keeps the root proxy on `proxy.ts`. Playwright
+`eval:analytics` keeps `CohortSession` inside `CohortGate` and outside the
+Presence Session and `ForgetPreviousMember` on sign-in, checks that every
+session shape sends only the user ID, system role, cohort ID and cohort role,
+and drives the real PostHog SDK: no invitation token in `$identify`, cohort
+context on the tab only, a new person and device at sign-in, and an
+invitation's visit joined to its login. `eval:architecture` keeps the root proxy on `proxy.ts`. Playwright
 asserts what unit tests cannot: one `/v1/auth/me` per navigation, retries
 reaching the network, explicit pre-join preparation, stateless Join
 navigation, and a camera that stays live past the access token's lifetime.

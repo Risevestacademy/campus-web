@@ -13,9 +13,9 @@ export type Session = Simplify<
       Schemas["SessionUserDto"],
       "id" | "email" | "displayName" | "systemRole"
     >;
-    memberships: Pick<
-      Schemas["SessionCohortPlaceDto"],
-      "cohortId" | "role" | "cohort"
+    memberships: Simplify<
+      Pick<Schemas["SessionCohortPlaceDto"], "cohortId" | "cohort"> &
+        Partial<Pick<Schemas["SessionCohortPlaceDto"], "role">>
     >[];
   }
 >;

@@ -192,16 +192,19 @@ export type AnalyticsEventMap = {
 };
 
 export const analyticsIdentitySchema = z.object({
-  accountStatus: labelSchema.optional(),
-  cohortId: opaqueIdSchema.optional(),
   id: opaqueIdSchema,
-  role: roleSchema,
-  trackId: opaqueIdSchema.optional(),
+  systemRole: systemRoleSchema,
+});
+
+export const analyticsCohortSchema = z.object({
+  cohortId: opaqueIdSchema,
+  cohortRole: cohortRoleSchema.optional(),
 });
 
 export type AnalyticsIdentity = Readonly<
   z.input<typeof analyticsIdentitySchema>
 >;
+export type AnalyticsCohort = Readonly<z.input<typeof analyticsCohortSchema>>;
 export type AuthMethod = z.output<typeof authMethodSchema>;
 export type AnalyticsPlatform = z.output<typeof platformSchema>;
 export type PresenceTabSurface = z.output<typeof presenceTabSurfaceSchema>;
@@ -252,6 +255,10 @@ export function allowAnalyticsProperties(
 
 export function allowAnalyticsIdentity(identity: unknown) {
   return allow(analyticsIdentitySchema, identity, "Analytics identity");
+}
+
+export function allowAnalyticsCohort(cohort: unknown) {
+  return allow(analyticsCohortSchema, cohort, "Analytics cohort");
 }
 
 export function allowDistinctId(distinctId: unknown): string | undefined {

@@ -22,13 +22,11 @@ export function AccountMenu({ children }: { children: ReactNode }) {
   return children;
 }
 
-export const AnalyticsIdentity = () => null;
-
 export function CohortGate({ children }: { children: ReactNode }) {
   return children;
 }
 
-export const SessionRenewal = () => null;
+export const CohortSession = () => null;
 
 export function SessionRefreshProvider({ children }: { children: ReactNode }) {
   return children;
