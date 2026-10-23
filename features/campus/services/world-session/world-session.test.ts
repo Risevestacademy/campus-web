@@ -27,7 +27,6 @@ function startSession(overrides: Partial<WorldSessionOptions> = {}) {
   const session = closeAfterTest(
     createWorldSession({
       url: WORLD_SOCKET_URL,
-      cohortId: "cohort-1",
       movement,
       presence,
       refreshSession: async () => ({ kind: "refreshed" }),
@@ -123,7 +122,7 @@ describe("createWorldSession", () => {
     );
     expect(captureEvent).toHaveBeenCalledExactlyOnceWith([
       "realtime.connected",
-      { cohort_id: "cohort-1", reconnect: false },
+      { reconnect: false },
     ]);
   });
 

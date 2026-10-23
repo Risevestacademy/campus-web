@@ -170,7 +170,6 @@ export const analyticsEventSchemas = {
   [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_STARTED]: placementSchema,
   [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_COMPLETED]: placementSchema,
   [ANALYTICS_EVENTS.REALTIME_CONNECTED]: z.object({
-    cohort_id: opaqueIdSchema,
     reconnect: z.boolean(),
   }),
   [ANALYTICS_EVENTS.REALTIME_CLOSED]: z.object({

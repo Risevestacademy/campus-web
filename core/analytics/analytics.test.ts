@@ -323,7 +323,7 @@ describe("browser analytics", () => {
     ["the member's role", "mentor", "mentor"],
     ["null for an admin without a place", undefined, null],
   ] as const)(
-    "adds the cohort and %s to every event while in the cohort, and drops both on leaving",
+    "adds the cohort, its group and %s to every event while in the cohort, and drops them on leaving",
     async (_, cohortRole, sentRole) => {
       vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
       const analytics = await import("./client");
@@ -342,6 +342,7 @@ describe("browser analytics", () => {
         auth_method: "email",
         cohort_id: "cohort-3",
         cohort_role: sentRole,
+        $groups: { cohort: "cohort-3" },
       });
 
       leave();
@@ -352,6 +353,22 @@ describe("browser analytics", () => {
       });
     },
   );
+
+  it("keeps the groups an event already carries beside the cohort", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+    analytics.enterAnalyticsCohort({ cohortId: "cohort-3" });
+    await analytics.initializeBrowserAnalytics();
+
+    const event = loginEvent();
+    event.properties.$groups = { track: "track-1" };
+
+    expect(beforeSend(event)?.properties.$groups).toEqual({
+      track: "track-1",
+      cohort: "cohort-3",
+    });
+  });
 
   it("passes a dropped event through without a cohort", async () => {
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");

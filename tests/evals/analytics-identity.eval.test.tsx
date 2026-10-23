@@ -295,7 +295,7 @@ describe("Analytics identity eval (threshold: every case holds)", () => {
       expect(JSON.stringify(sent)).not.toContain("@campus");
     });
 
-    it("carries the cohort and cohort role on the tab's events, never on the person", async () => {
+    it("carries the cohort, its group and cohort role on the tab's events, never on the person", async () => {
       const analytics = await loadRealAnalytics();
 
       analytics.identifyAnalyticsUser({ id: MEMBER_A, systemRole: "admin" });
@@ -308,6 +308,7 @@ describe("Analytics identity eval (threshold: every case holds)", () => {
       expect(inCohort).toMatchObject({
         cohort_id: COHORT_3,
         cohort_role: "mentor",
+        $groups: { cohort: COHORT_3 },
       });
       expect(lastSent("$identify")?.$set).not.toHaveProperty("cohort_id");
       expect(lastSent("$identify")?.$set).not.toHaveProperty("cohort_role");
@@ -317,6 +318,7 @@ describe("Analytics identity eval (threshold: every case holds)", () => {
 
       expect(afterLeaving).not.toHaveProperty("cohort_id");
       expect(afterLeaving).not.toHaveProperty("cohort_role");
+      expect(afterLeaving).not.toHaveProperty(["$groups", "cohort"]);
     });
 
     it("gives the next person on the device a new distinct ID and device ID at sign-in", async () => {
@@ -408,6 +410,7 @@ describe("Analytics identity eval (threshold: every case holds)", () => {
         distinct_id: MEMBER_A,
         cohort_id: COHORT_4,
         cohort_role: "professor",
+        $groups: { cohort: COHORT_4 },
       });
     });
 
@@ -424,6 +427,7 @@ describe("Analytics identity eval (threshold: every case holds)", () => {
 
       expect(nextPage).not.toHaveProperty("cohort_id");
       expect(nextPage).not.toHaveProperty("cohort_role");
+      expect(nextPage).not.toHaveProperty(["$groups", "cohort"]);
     });
 
     it("keeps the cohort on a tab's events after PostHog starts a new session", async () => {
@@ -442,6 +446,7 @@ describe("Analytics identity eval (threshold: every case holds)", () => {
       expect(afterIdle).toMatchObject({
         cohort_id: COHORT_3,
         cohort_role: "mentor",
+        $groups: { cohort: COHORT_3 },
       });
     });
   });

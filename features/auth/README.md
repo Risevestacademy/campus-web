@@ -70,7 +70,7 @@ path: a reload, a new tab, or a wake after the access cookie already lapsed.
 Analytics identity: `CohortSession` reads route access once and also maps the
 cached session through `memberAnalyticsFor`. PostHog gets the Campus user ID
 with `system_role` on the person, and `cohort_id` + `cohort_role` (`null` for
-an admin without a place) on the tab's events only. `CohortAnalytics` (client)
+an admin without a place) plus the `cohort` group on the tab's events only. `CohortAnalytics` (client)
 identifies and enters the cohort on mount and leaves it on unmount; its key is
 those values, so a role picked up by `router.refresh()` re-sends them. No name
 or email leaves the session. A cohort role this build does not know parses as

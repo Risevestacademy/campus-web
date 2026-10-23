@@ -16,6 +16,9 @@ import {
 // first URL PostHog persists at init, which runs before before_send.
 const PERSONAL_DATA_URL_PARAMS = ["token", "returnTo", "code", "state"];
 
+// The group type campus-api and world use, so one breakdown joins all three.
+const COHORT_GROUP_TYPE = "cohort";
+
 interface CohortProperties {
   cohort_id: string;
   cohort_role: NonNullable<AnalyticsCohort["cohortRole"]> | null;
@@ -145,7 +148,17 @@ export function enterAnalyticsCohort(cohort: AnalyticsCohort): () => void {
 
 function attachActiveCohort(event: CaptureResult | null): CaptureResult | null {
   if (!event || !activeCohort) return event;
-  return { ...event, properties: { ...event.properties, ...activeCohort } };
+  return {
+    ...event,
+    properties: {
+      ...event.properties,
+      ...activeCohort,
+      $groups: {
+        ...event.properties.$groups,
+        [COHORT_GROUP_TYPE]: activeCohort.cohort_id,
+      },
+    },
+  };
 }
 
 export function resetAnalyticsUser(): void {

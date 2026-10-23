@@ -12,8 +12,9 @@ Typed PostHog product analytics for Campus by Rise.
 - Browser identification uses the same stable ID. It runs on cohort pages,
   through auth's `CohortSession`, with only `system_role` as a person
   property. `enterAnalyticsCohort` keeps `cohort_id` and `cohort_role` in
-  memory, a `before_send` step adds them to the tab's events, and the returned
-  cleanup drops them. Memory ends with the page, so a full load never inherits
+  memory, a `before_send` step adds them to the tab's events with
+  `$groups: { cohort }` (the group campus-api and world use; never
+  `posthog.group()`, which persists it), and the returned cleanup drops them. Memory ends with the page, so a full load never inherits
   a cohort and a PostHog session rotation never drops one. A consent gate is
   pending.
 - `identifyAnalyticsUser` forgets a different member still identified on the
