@@ -11,12 +11,24 @@ Typed PostHog product analytics for Campus by Rise.
   Campus/Rise user ID.
 - Browser identification uses the same stable ID. It runs on cohort pages,
   through auth's `CohortSession`, with only `system_role` as a person
-  property. `enterAnalyticsCohort` adds `cohort_id` and `cohort_role` to the
-  tab's events (`register_for_session`) and returns the cleanup that drops
-  them. A consent gate is pending.
+  property. `enterAnalyticsCohort` keeps `cohort_id` and `cohort_role` in
+  memory, a `before_send` step adds them to the tab's events, and the returned
+  cleanup drops them. Memory ends with the page, so a full load never inherits
+  a cohort and a PostHog session rotation never drops one. A consent gate is
+  pending.
 - `identifyAnalyticsUser` forgets a different member still identified on the
-  device first; auth's sign-in page calls `resetIdentifiedAnalyticsUser()`.
-  Every reset passes `resetDeviceID: true`.
+  device first; auth's sign-in and invitation pages call
+  `resetIdentifiedAnalyticsUser()` for a signed-out visitor. Every reset passes
+  `resetDeviceID: true`, so a later member is never joined to an earlier one
+  through `$device_id`. The cost: a member signing back in counts as a new
+  device. People are counted by distinct ID, so person metrics are unaffected.
+- `BrowserPageview`, the last child of the root layout, captures `$pageview`
+  once per pathname in a row (`capture_pageview: false`), so Strict Mode's
+  second mount in development sends nothing. React runs mount effects in tree
+  order and every call queues on one SDK promise, so a page's reset, identify
+  or cohort entry always reaches PostHog before its pageview. A `loading.tsx`
+  or Suspense boundary that streams a page in after the root mounts would
+  break that order.
 - Logout captures its event before calling `resetAnalyticsUser()`.
 
 ## Successful business operations
@@ -43,7 +55,8 @@ transactional outbox instead of best-effort PostHog delivery.
 
 ## Collection policy
 
-The initial configuration captures pageviews and explicitly declared events.
+The configuration captures pageviews (through `BrowserPageview`) and explicitly
+declared events.
 Autocapture, page-leave capture, session replay, heatmaps, dead-click and
 exception capture are disabled. Person profiles are created only for
 identified users.
@@ -55,7 +68,8 @@ Every event passes three privacy layers:
    any undeclared key and drops an event that fails, logging only issue codes
    and paths, never values. The distinct ID and identity are checked the same
    way, so an email can never become a distinct ID.
-2. `before_send` runs `scrubAnalyticsEvent` (`scrub.ts`), which removes the
+2. `before_send` adds the active cohort, then runs `scrubAnalyticsEvent`
+   (`scrub.ts`), which removes the
    query string and hash from every URL-shaped property, keeping only `page`
    and `view`.
 3. `mask_personal_data_properties` with `token`, `returnTo`, `code` and

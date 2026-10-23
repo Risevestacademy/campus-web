@@ -5,8 +5,6 @@ import { vi } from "vitest";
 
 type AnalyticsClient = typeof import("@/core/analytics/client");
 
-const { pushState, replaceState } = history;
-
 export async function loadRealAnalytics(): Promise<AnalyticsClient> {
   vi.resetModules();
   const analytics = await import("@/core/analytics/client");
@@ -47,11 +45,4 @@ export function clearBrowserStorage(): void {
   for (const name of storedKeys()) {
     document.cookie = `${name}=; Max-Age=0; Path=/`;
   }
-}
-
-// Each fresh SDK wraps pushState for history_change pageviews. Unwrapping
-// keeps an earlier case's instance from capturing in a later case.
-export function restoreHistory(): void {
-  history.pushState = pushState;
-  history.replaceState = replaceState;
 }

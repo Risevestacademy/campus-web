@@ -117,6 +117,7 @@ describe("memberAnalyticsKey", () => {
       COHORT_3,
     ],
     ["the cohort", session("user", [place(COHORT_4, "student")]), COHORT_4],
+    ["losing the place", session("user", []), COHORT_3],
   ])("changes with %s", (_, viewer, cohortId) => {
     expect(memberAnalyticsKey(memberAnalyticsFor(viewer, cohortId))).not.toBe(
       memberAnalyticsKey(student),

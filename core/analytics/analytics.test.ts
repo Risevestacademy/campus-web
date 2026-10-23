@@ -1,3 +1,4 @@
+import type { CaptureResult } from "posthog-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ANALYTICS_EVENTS } from "./events";
@@ -9,9 +10,7 @@ const analyticsMocks = vi.hoisted(() => {
     get_property: vi.fn(),
     identify: vi.fn(),
     init: vi.fn(),
-    register_for_session: vi.fn(),
     reset: vi.fn(),
-    unregister_for_session: vi.fn(),
   };
   const server = {
     captureImmediate: vi.fn(),
@@ -35,6 +34,28 @@ vi.mock("posthog-node", () => ({
 }));
 
 vi.mock("server-only", () => ({}));
+
+type BeforeSendStep = (event: CaptureResult | null) => CaptureResult | null;
+
+// Runs an event through the before_send steps in order, as PostHog does.
+function beforeSend(event: CaptureResult): CaptureResult | null {
+  const [, config] = analyticsMocks.browser.init.mock.calls[0] as [
+    string,
+    { before_send: BeforeSendStep[] },
+  ];
+  return config.before_send.reduce<CaptureResult | null>(
+    (current, step) => step(current),
+    event,
+  );
+}
+
+function loginEvent(): CaptureResult {
+  return {
+    uuid: "event-1",
+    event: ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED,
+    properties: { auth_method: "email" },
+  };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -106,12 +127,12 @@ describe("browser analytics", () => {
       {
         api_host: "https://eu.i.posthog.com",
         autocapture: false,
-        before_send: expect.any(Function),
+        before_send: [expect.any(Function), expect.any(Function)],
         capture_dead_clicks: false,
         capture_exceptions: false,
         capture_heatmaps: false,
         capture_pageleave: false,
-        capture_pageview: "history_change",
+        capture_pageview: false,
         custom_personal_data_properties: ["token", "returnTo", "code", "state"],
         defaults: "2026-01-30",
         disable_session_recording: true,
@@ -126,13 +147,8 @@ describe("browser analytics", () => {
     const analytics = await import("./client");
     await analytics.initializeBrowserAnalytics();
 
-    const [, config] = analyticsMocks.browser.init.mock.calls[0] as [
-      string,
-      { before_send: (event: unknown) => unknown },
-    ];
-
     expect(
-      config.before_send({
+      beforeSend({
         uuid: "event-1",
         event: "$pageview",
         properties: {
@@ -273,11 +289,41 @@ describe("browser analytics", () => {
     expect(analyticsMocks.browser.reset).toHaveBeenCalledTimes(resets);
   });
 
+  it("captures a pageview once asked, after what was queued before it", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.browser.get_property.mockReturnValueOnce("identified");
+    const analytics = await import("./client");
+
+    void analytics.initializeBrowserAnalytics();
+    analytics.resetIdentifiedAnalyticsUser();
+    analytics.captureBrowserPageview("/sign-in");
+    await analytics.initializeBrowserAnalytics();
+
+    const { capture, reset } = analyticsMocks.browser;
+    expect(capture).toHaveBeenCalledExactlyOnceWith("$pageview");
+    expect(reset.mock.invocationCallOrder[0]).toBeLessThan(
+      capture.mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
+  it("captures one pageview per pathname in a row, as Strict Mode mounts twice", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    for (const pathname of ["/campus", "/campus", "/campus/3", "/campus"]) {
+      analytics.captureBrowserPageview(pathname);
+    }
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.capture).toHaveBeenCalledTimes(3);
+  });
+
   it.each([
     ["the member's role", "mentor", "mentor"],
     ["null for an admin without a place", undefined, null],
   ] as const)(
-    "keeps the cohort and %s per tab, and drops both on leaving",
+    "adds the cohort and %s to every event while in the cohort, and drops both on leaving",
     async (_, cohortRole, sentRole) => {
       vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
       const analytics = await import("./client");
@@ -287,27 +333,40 @@ describe("browser analytics", () => {
         cohortId: "cohort-3",
         cohortRole,
       });
+      expect(beforeSend(loginEvent())?.properties).not.toHaveProperty(
+        "cohort_id",
+      );
       await analytics.initializeBrowserAnalytics();
 
-      expect(
-        analyticsMocks.browser.register_for_session,
-      ).toHaveBeenCalledExactlyOnceWith({
+      expect(beforeSend(loginEvent())?.properties).toEqual({
+        auth_method: "email",
         cohort_id: "cohort-3",
         cohort_role: sentRole,
       });
-      expect(
-        analyticsMocks.browser.unregister_for_session,
-      ).not.toHaveBeenCalled();
 
       leave();
       await analytics.initializeBrowserAnalytics();
 
-      expect(analyticsMocks.browser.unregister_for_session.mock.calls).toEqual([
-        ["cohort_id"],
-        ["cohort_role"],
-      ]);
+      expect(beforeSend(loginEvent())?.properties).toEqual({
+        auth_method: "email",
+      });
     },
   );
+
+  it("passes a dropped event through without a cohort", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+    analytics.enterAnalyticsCohort({ cohortId: "cohort-3" });
+    await analytics.initializeBrowserAnalytics();
+
+    const [, config] = analyticsMocks.browser.init.mock.calls[0] as [
+      string,
+      { before_send: BeforeSendStep[] },
+    ];
+
+    expect(config.before_send[0]?.(null)).toBeNull();
+  });
 
   it("drops a cohort context outside the contract", async () => {
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
@@ -318,13 +377,12 @@ describe("browser analytics", () => {
     const leave = analytics.enterAnalyticsCohort({
       cohortId: "https://campus.example/c/3",
     });
-    leave();
     await analytics.initializeBrowserAnalytics();
 
-    expect(analyticsMocks.browser.register_for_session).not.toHaveBeenCalled();
-    expect(
-      analyticsMocks.browser.unregister_for_session,
-    ).not.toHaveBeenCalled();
+    expect(beforeSend(loginEvent())?.properties).not.toHaveProperty(
+      "cohort_id",
+    );
+    expect(leave).not.toThrow();
   });
 
   it("does not let initialization failures break hydration", async () => {

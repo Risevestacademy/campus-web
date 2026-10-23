@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import { cleanup, render } from "@testing-library/react";
 import type { CaptureResult, Properties } from "posthog-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,7 +16,6 @@ import type { Session } from "@/features/auth/types/auth.types";
 import {
   clearBrowserStorage,
   loadRealAnalytics,
-  restoreHistory,
   stubPostHogEnvironment,
 } from "@/tests/fixtures/real-posthog";
 
@@ -33,9 +33,19 @@ vi.mock("@/core/analytics/scrub", async (importOriginal) => {
   };
 });
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => window.location.pathname,
+}));
+
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
+const ROOT_LAYOUT = path.join(PROJECT_ROOT, "app/layout.tsx");
 const COHORT_LAYOUT = path.join(PROJECT_ROOT, "app/campus/[id]/layout.tsx");
 const SIGN_IN_PAGE = path.join(PROJECT_ROOT, "app/(auth)/sign-in/page.tsx");
+const INVITATION_PAGE = path.join(
+  PROJECT_ROOT,
+  "app/(auth)/invitation/page.tsx",
+);
+const POSTHOG_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
 const TOKEN = "phc_identity_eval";
 const MEMBER_A = "55555555-5555-4555-8555-555555555555";
@@ -179,6 +189,24 @@ async function lastLogin(analytics: Analytics): Promise<Properties> {
   return lastSent(ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED)?.properties ?? {};
 }
 
+// A full page load: a fresh SDK and fresh components over the same storage.
+// The components load after the SDK so they share its module instance.
+async function loadPage() {
+  const analytics = await loadRealAnalytics();
+  const [{ BrowserPageview }, { ForgetPreviousMember }, { CohortAnalytics }] =
+    await Promise.all([
+      import("@/core/analytics/browser-pageview"),
+      import("@/features/auth/components/forget-previous-member"),
+      import("@/features/auth/components/cohort-analytics"),
+    ]);
+  return { analytics, BrowserPageview, ForgetPreviousMember, CohortAnalytics };
+}
+
+async function lastPageview(analytics: Analytics): Promise<Properties> {
+  await analytics.initializeBrowserAnalytics();
+  return lastSent("$pageview")?.properties ?? {};
+}
+
 describe("Analytics identity eval (threshold: every case holds)", () => {
   describe("placement", () => {
     it("identifies members inside the Cohort Gate, outside the keyed Presence Session", () => {
@@ -201,6 +229,20 @@ describe("Analytics identity eval (threshold: every case holds)", () => {
         "<ForgetPreviousMember />",
       );
     });
+
+    it("forgets the previous member on the invitation page, whose Google button skips sign-in", () => {
+      expect(readFileSync(INVITATION_PAGE, "utf8")).toContain(
+        "signedOut && <ForgetPreviousMember />",
+      );
+    });
+
+    it("captures pageviews after every page's effects, from the end of the root layout", () => {
+      const layout = readFileSync(ROOT_LAYOUT, "utf8");
+      const pageview = layout.indexOf("<BrowserPageview />");
+
+      expect(pageview).toBeGreaterThan(layout.indexOf("{children}"));
+      expect(pageview).toBeLessThan(layout.indexOf("</body>"));
+    });
   });
 
   describe("allow-list", () => {
@@ -220,13 +262,14 @@ describe("Analytics identity eval (threshold: every case holds)", () => {
 
   describe("real PostHog SDK", () => {
     beforeEach(() => {
-      restoreHistory();
       clearBrowserStorage();
       sent.length = 0;
       stubPostHogEnvironment(TOKEN);
     });
 
     afterEach(() => {
+      cleanup();
+      vi.useRealTimers();
       window.history.replaceState(null, "", "/");
       vi.unstubAllEnvs();
       vi.unstubAllGlobals();
@@ -316,6 +359,90 @@ describe("Analytics identity eval (threshold: every case holds)", () => {
       expect(identify?.properties.$anon_distinct_id).not.toBe(MEMBER_A);
       expect(asMemberB.distinct_id).toBe(MEMBER_B);
       expect(asMemberB.$device_id).not.toBe(asMemberA.$device_id);
+    });
+
+    it("sends no pageview by itself, so the page's effects always go first", async () => {
+      const analytics = await loadRealAnalytics();
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      await analytics.initializeBrowserAnalytics();
+
+      expect(lastSent("$pageview")).toBeUndefined();
+    });
+
+    it("sends the sign-in pageview as the next person, even when the SDK loaded first", async () => {
+      const previous = await loadRealAnalytics();
+      previous.identifyAnalyticsUser({ id: MEMBER_A, systemRole: "user" });
+      const asMemberA = await lastLogin(previous);
+
+      window.history.replaceState(null, "", "/sign-in");
+      const { analytics, BrowserPageview, ForgetPreviousMember } =
+        await loadPage();
+      render(
+        <>
+          <ForgetPreviousMember />
+          <BrowserPageview />
+        </>,
+      );
+      const signIn = await lastPageview(analytics);
+
+      expect(signIn.$pathname).toBe("/sign-in");
+      expect(signIn.distinct_id).not.toBe(MEMBER_A);
+      expect(signIn.$device_id).not.toBe(asMemberA.$device_id);
+    });
+
+    it("tags a cohort's landing pageview with that cohort and the member", async () => {
+      window.history.replaceState(null, "", `/campus/${COHORT_4}`);
+      const { analytics, BrowserPageview, CohortAnalytics } = await loadPage();
+      render(
+        <>
+          <CohortAnalytics
+            identity={{ id: MEMBER_A, systemRole: "user" }}
+            cohort={{ cohortId: COHORT_4, cohortRole: "professor" }}
+          />
+          <BrowserPageview />
+        </>,
+      );
+
+      expect(await lastPageview(analytics)).toMatchObject({
+        distinct_id: MEMBER_A,
+        cohort_id: COHORT_4,
+        cohort_role: "professor",
+      });
+    });
+
+    it("never carries a cohort into the next full page load", async () => {
+      const previous = await loadRealAnalytics();
+      previous.enterAnalyticsCohort({
+        cohortId: COHORT_3,
+        cohortRole: "student",
+      });
+      expect(await lastLogin(previous)).toMatchObject({ cohort_id: COHORT_3 });
+
+      const { analytics } = await loadPage();
+      const nextPage = await lastLogin(analytics);
+
+      expect(nextPage).not.toHaveProperty("cohort_id");
+      expect(nextPage).not.toHaveProperty("cohort_role");
+    });
+
+    it("keeps the cohort on a tab's events after PostHog starts a new session", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      const analytics = await loadRealAnalytics();
+      analytics.enterAnalyticsCohort({
+        cohortId: COHORT_3,
+        cohortRole: "mentor",
+      });
+      const beforeIdle = await lastLogin(analytics);
+
+      vi.setSystemTime(Date.now() + POSTHOG_IDLE_TIMEOUT_MS + 60_000);
+      const afterIdle = await lastLogin(analytics);
+
+      expect(afterIdle.$session_id).not.toBe(beforeIdle.$session_id);
+      expect(afterIdle).toMatchObject({
+        cohort_id: COHORT_3,
+        cohort_role: "mentor",
+      });
     });
   });
 });

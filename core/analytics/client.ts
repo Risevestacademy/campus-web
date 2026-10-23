@@ -1,4 +1,4 @@
-import type { PostHog } from "posthog-js";
+import type { CaptureResult, PostHog } from "posthog-js";
 
 import { readAnalyticsConfiguration } from "./configuration";
 import { errorName } from "./error-name";
@@ -16,7 +16,15 @@ import {
 // first URL PostHog persists at init, which runs before before_send.
 const PERSONAL_DATA_URL_PARAMS = ["token", "returnTo", "code", "state"];
 
-const COHORT_PROPERTIES = ["cohort_id", "cohort_role"] as const;
+interface CohortProperties {
+  cohort_id: string;
+  cohort_role: NonNullable<AnalyticsCohort["cohortRole"]> | null;
+}
+
+// Memory, not PostHog's session storage: it ends with the page, so a full load
+// never inherits a cohort and a PostHog session rotation never drops one.
+let activeCohort: CohortProperties | null = null;
+let lastPageviewPath: string | null = null;
 
 let browserAnalytics: Promise<PostHog | null> | null = null;
 
@@ -35,12 +43,12 @@ async function loadBrowserAnalytics(): Promise<PostHog | null> {
     posthog.init(configuration.projectToken, {
       api_host: configuration.host,
       autocapture: false,
-      before_send: scrubAnalyticsEvent,
+      before_send: [attachActiveCohort, scrubAnalyticsEvent],
       capture_dead_clicks: false,
       capture_exceptions: false,
       capture_heatmaps: false,
       capture_pageleave: false,
-      capture_pageview: "history_change",
+      capture_pageview: false,
       custom_personal_data_properties: PERSONAL_DATA_URL_PARAMS,
       defaults: "2026-01-30",
       disable_session_recording: true,
@@ -103,25 +111,41 @@ export function identifyAnalyticsUser(identity: AnalyticsIdentity): void {
   });
 }
 
+// Captured by BrowserPageview after the page's mount effects, so a reset,
+// identify or cohort entry on that page always reaches PostHog first. Once per
+// pathname in a row: Strict Mode mounts it twice in development.
+export function captureBrowserPageview(pathname: string): void {
+  if (pathname === lastPageviewPath) return;
+  lastPageviewPath = pathname;
+
+  withBrowserAnalytics("PostHog pageview capture failed.", (posthog) =>
+    posthog.capture("$pageview"),
+  );
+}
+
 // Per tab, never on the person: one member can hold different roles in two
 // cohorts open side by side. The returned cleanup drops it on leaving.
 export function enterAnalyticsCohort(cohort: AnalyticsCohort): () => void {
   const allowed = allowAnalyticsCohort(cohort);
   if (!allowed) return () => undefined;
 
-  // null, not omitted: a reload keeps the tab's previous cohort role.
-  withBrowserAnalytics("PostHog cohort context failed.", (posthog) =>
-    posthog.register_for_session({
-      cohort_id: allowed.cohortId,
-      cohort_role: allowed.cohortRole ?? null,
-    }),
-  );
+  // Queued like captures, so an event sent before entry never carries it.
+  const properties = {
+    cohort_id: allowed.cohortId,
+    cohort_role: allowed.cohortRole ?? null,
+  };
+  withBrowserAnalytics("PostHog cohort context failed.", () => {
+    activeCohort = properties;
+  });
   return () =>
-    withBrowserAnalytics("PostHog cohort context failed.", (posthog) => {
-      for (const property of COHORT_PROPERTIES) {
-        posthog.unregister_for_session(property);
-      }
+    withBrowserAnalytics("PostHog cohort context failed.", () => {
+      activeCohort = null;
     });
+}
+
+function attachActiveCohort(event: CaptureResult | null): CaptureResult | null {
+  if (!event || !activeCohort) return event;
+  return { ...event, properties: { ...event.properties, ...activeCohort } };
 }
 
 export function resetAnalyticsUser(): void {

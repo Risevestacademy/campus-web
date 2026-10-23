@@ -15,6 +15,7 @@ export {
 } from "./schemas/return-to";
 export {
   authorizeRoute,
+  isSignedOut,
   resolveSignIn,
 } from "./services/authorization.service";
 export {

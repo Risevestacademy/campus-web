@@ -51,7 +51,7 @@ access.session;
 | `components/`                             | gates, `CohortSession`, refresh page, account menu            | none                                           |
 | `components/session-refresh-provider.tsx` | fills the shared refresh port with the locked refresher       | `core/session`                                 |
 | `components/cohort-analytics.tsx`         | identifies the member and enters the cohort in PostHog        | `core/analytics/client`                        |
-| `components/forget-previous-member.tsx`   | forgets an identified member when sign-in mounts              | `core/analytics/client`                        |
+| `components/forget-previous-member.tsx`   | forgets an identified member on sign-in and invitation pages  | `core/analytics/client`                        |
 | `hooks/`                                  | refresh, renewal and logout; countdown                        | `browserApi`, shared `useMountEffect`          |
 
 Flow: page → gate or `requireRouteAccess` → `authorizeRoute` →
@@ -77,10 +77,18 @@ or email leaves the session. A cohort role this build does not know parses as
 absent, so the member keeps access.
 
 Every reset takes a new device ID. An `expired` renewal calls
-`resetAnalyticsUser()` before its toast. The sign-in page's
-`ForgetPreviousMember` forgets an identified member, which covers a cold
-expiry; an anonymous visit stays, so an invitation joins its login. Identify
-also forgets a different member still identified on the device.
+`resetAnalyticsUser()` before its toast. `ForgetPreviousMember` forgets an
+identified member on the sign-in page and, for a signed-out visitor
+(`isSignedOut()`), on the invitation page, whose Google button skips
+sign-in. That covers a cold expiry. A member still signed in keeps their
+identity on a new invite, and an anonymous visit stays, so an invitation
+joins its login. Identify also forgets a different member still identified on
+the device. The root layout's `BrowserPageview` captures each pageview after
+these effects, so the first pageview is never sent as the previous member.
+
+A reset clears PostHog's shared storage, so another open tab drops the
+identity too. That is intended: a reset only follows a session that ended for
+every tab, and a tab that renews re-identifies on its next cohort mount.
 
 `SessionRefreshProvider` lends the same locked refresher to features that may
 not import auth, through `useRefreshSession()` in `core/session` — the
@@ -189,6 +197,9 @@ layout and its page in parallel, and keeps layouts across soft navigation.
 - An anonymous visit on a shared device (an invitation opened but never
   signed in) merges into the next member who signs in there. Sign-in keeps
   anonymous visits so an invitation joins its login.
+- No proxy refresh runs on `/invitation`, so a member whose access cookie
+  lapsed reads as signed out there and is forgotten. They re-identify on their
+  next cohort page, as a new device.
 
 ## Tests
 
@@ -206,11 +217,15 @@ pnpm build && pnpm playwright test tests/e2e/authorization.spec.ts tests/e2e/pre
 and leaks. `eval:session-renewal` keeps renewal mounted outside the keyed
 Presence Session, the proxy cookie-only, and cohort code off `/session/refresh`.
 `eval:analytics` keeps `CohortSession` inside `CohortGate` and outside the
-Presence Session and `ForgetPreviousMember` on sign-in, checks that every
-session shape sends only the user ID, system role, cohort ID and cohort role,
-and drives the real PostHog SDK: no invitation token in `$identify`, cohort
-context on the tab only, a new person and device at sign-in, and an
-invitation's visit joined to its login. `eval:architecture` keeps the root proxy on `proxy.ts`. Playwright
+Presence Session, `ForgetPreviousMember` on sign-in and on the invitation for
+a signed-out visitor, and `BrowserPageview` last in the root layout. It checks
+that every session shape sends only the user ID, system role, cohort ID and
+cohort role, and drives the real PostHog SDK: no invitation token in
+`$identify`, cohort context on the tab only, a new person and device at
+sign-in, an invitation's visit joined to its login, no automatic pageview, the
+sign-in pageview sent as the next person, a cohort's landing pageview tagged
+with it, no cohort carried into a full load, and the cohort kept across a
+PostHog session rotation. `eval:architecture` keeps the root proxy on `proxy.ts`. Playwright
 asserts what unit tests cannot: one `/v1/auth/me` per navigation, retries
 reaching the network, explicit pre-join preparation, stateless Join
 navigation, and a camera that stays live past the access token's lifetime.

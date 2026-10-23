@@ -22,14 +22,6 @@ export function memberAnalyticsFor(
 
 // router.refresh() re-renders the layout without remounting it; a new key
 // remounts CohortAnalytics, so a changed role reaches PostHog.
-export function memberAnalyticsKey({
-  identity,
-  cohort,
-}: MemberAnalytics): string {
-  return [
-    identity.id,
-    identity.systemRole,
-    cohort.cohortId,
-    cohort.cohortRole ?? "none",
-  ].join(":");
+export function memberAnalyticsKey(analytics: MemberAnalytics): string {
+  return JSON.stringify(analytics);
 }
