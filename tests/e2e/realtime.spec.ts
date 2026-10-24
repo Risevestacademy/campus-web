@@ -9,7 +9,7 @@ import {
 import type { Avatar, ServerMessage, SnapshotMessage } from "@/core/realtime";
 
 import { serverFrames } from "../fixtures/world-frames";
-import { enterCampus, joinButton } from "./support/campus-entry";
+import { enterCampus, joinButton, openSecondTab } from "./support/campus-entry";
 import { canvasDigest, expectCanvasDigest } from "./support/canvas-digest";
 import {
   type FakeApi,
@@ -206,8 +206,7 @@ test("stops the moment world announces a replacement and swallows the close that
     }),
   ).toBeVisible();
 
-  const otherPage = await context.newPage();
-  await installSanityMapStub(otherPage);
+  const otherPage = await openSecondTab(context);
   await otherPage.goto(`${CAMPUS_URL}/join`);
   await expect(joinButton(otherPage)).toBeVisible();
   await otherPage.close();

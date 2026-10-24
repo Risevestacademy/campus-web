@@ -75,3 +75,7 @@ export async function resolveSignIn(
 ): Promise<SignInDecision> {
   return decideSignIn(await readRequestSession(), returnTo);
 }
+
+export async function isSignedOut(): Promise<boolean> {
+  return (await readRequestSession()).kind === "unauthenticated";
+}

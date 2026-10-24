@@ -71,7 +71,7 @@ describe("Session Renewal eval (threshold: every case holds)", () => {
   it("mounts Session Renewal for the cohort, outside the keyed Presence Session", () => {
     const layout = read(COHORT_LAYOUT);
     const gate = layout.indexOf("<CohortGate");
-    const renewal = layout.indexOf("<SessionRenewal");
+    const renewal = layout.indexOf("<CohortSession");
     const presenceOpen = layout.indexOf("<PresenceSession");
     const presenceClose = layout.indexOf("</PresenceSession>");
 

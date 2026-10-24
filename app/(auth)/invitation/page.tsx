@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 
 import { getServerApi } from "@/core/api/client/server";
-import { ResumeInvitation } from "@/features/auth";
+import {
+  ForgetPreviousMember,
+  isSignedOut,
+  ResumeInvitation,
+} from "@/features/auth";
 import { InvitationOffer, readInviteToken } from "@/features/invitation";
 
 // The proxy moves the invite token into a cookie before render; this stops a
@@ -12,7 +16,16 @@ export default async function InvitationPage() {
   const token = await readInviteToken();
   if (!token) return <ResumeInvitation />;
 
+  // The invite's Google button skips /sign-in, so forget here too; a member
+  // still signed in keeps their identity.
+  const signedOut = await isSignedOut();
+
   // The preview needs no session, but campus-api rate-limits per client
   // address and only the default server client forwards the visitor's.
-  return <InvitationOffer api={await getServerApi()} token={token} />;
+  return (
+    <>
+      {signedOut && <ForgetPreviousMember />}
+      <InvitationOffer api={await getServerApi()} token={token} />
+    </>
+  );
 }

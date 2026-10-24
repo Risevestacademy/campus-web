@@ -66,7 +66,6 @@ async function joinedSession(
   const session = closeAfterTest(
     createWorldSession({
       url: WORLD_SOCKET_URL,
-      cohortId: "cohort-1",
       movement,
       presence,
       refreshSession,

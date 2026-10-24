@@ -3,6 +3,7 @@ import { cn } from "cn";
 import { GoogleSVG } from "@/assets/svgs/google";
 import {
   authErrorMessage,
+  ForgetPreviousMember,
   parseReturnTo,
   redirectSignedInVisitor,
 } from "@/features/auth";
@@ -33,6 +34,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
   return (
     <div className="flex flex-col items-center justify-center">
+      <ForgetPreviousMember />
       <h1 className="font-display text-3xl font-bold">Sign in</h1>
 
       {errorMessage ? (

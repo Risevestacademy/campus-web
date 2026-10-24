@@ -8,15 +8,12 @@ import { type AnalyticsCapture, realtimeAnalytics } from "./realtime-analytics";
 describe("realtimeAnalytics", () => {
   it("reports a close whose reason world never sent as unknown", () => {
     expect(
-      realtimeAnalytics(
-        {
-          type: "closed",
-          code: 1008,
-          reason: "ada@campus.local",
-          action: "stop",
-        },
-        "cohort-1",
-      ),
+      realtimeAnalytics({
+        type: "closed",
+        code: 1008,
+        reason: "ada@campus.local",
+        action: "stop",
+      }),
     ).toEqual([
       ["realtime.closed", { code: 1008, reason: "unknown", action: "stop" }],
     ]);
@@ -26,13 +23,13 @@ describe("realtimeAnalytics", () => {
     [
       "a first connect",
       { type: "connected", attempt: 0 },
-      [["realtime.connected", { cohort_id: "cohort-1", reconnect: false }]],
+      [["realtime.connected", { reconnect: false }]],
     ],
     [
       "a connect after a drop",
       { type: "connected", attempt: 3 },
       [
-        ["realtime.connected", { cohort_id: "cohort-1", reconnect: true }],
+        ["realtime.connected", { reconnect: true }],
         ["realtime.reconnected", { attempts: 3 }],
       ],
     ],
@@ -63,6 +60,6 @@ describe("realtimeAnalytics", () => {
     ],
     ["a message", { type: "message", message: serverFrames.joined }, []],
   ])("reports %s", (_, event, captures) => {
-    expect(realtimeAnalytics(event, "cohort-1")).toEqual(captures);
+    expect(realtimeAnalytics(event)).toEqual(captures);
   });
 });
