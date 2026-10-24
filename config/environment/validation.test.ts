@@ -15,6 +15,7 @@ const DATASET_MESSAGE =
   "NEXT_PUBLIC_SANITY_DATASET must be 1 to 64 lowercase letters, numbers, hyphens, or underscores, starting and ending with a letter or number.";
 const WORLD_URL_MESSAGE =
   "NEXT_PUBLIC_WORLD_URL must be a public HTTPS origin.";
+const MEDIA_URL_MESSAGE = "NEXT_PUBLIC_MEDIA_URL must be a public WSS origin.";
 
 describe("build environment validation", () => {
   afterEach(() => {
@@ -149,6 +150,37 @@ describe("build environment validation", () => {
       }),
     ).toThrow(
       ["Invalid build environment:", `- ${WORLD_URL_MESSAGE}`].join("\n"),
+    );
+  });
+
+  it.each([
+    ["no media server", undefined],
+    ["an empty media server", ""],
+    ["a public WSS media server", "wss://media.example.test"],
+  ])("accepts a protected build with %s", (_case, mediaUrl) => {
+    expect(() =>
+      validateBuildEnvironment({
+        ...completeProtectedEnvironment,
+        NEXT_PUBLIC_MEDIA_URL: mediaUrl,
+      }),
+    ).not.toThrow();
+  });
+
+  it.each([
+    ["the local LiveKit container", "ws://localhost:7880"],
+    ["plain WS on a public host", "ws://media.example.test"],
+    ["HTTPS instead of WSS", "https://media.example.test"],
+    ["a Railway private host", "wss://media.railway.internal"],
+    ["a path", "wss://media.example.test/rtc"],
+    ["credentials", "wss://user:secret@media.example.test"],
+  ])("rejects a media URL naming %s", (_case, mediaUrl) => {
+    expect(() =>
+      validateBuildEnvironment({
+        ...completeProtectedEnvironment,
+        NEXT_PUBLIC_MEDIA_URL: mediaUrl,
+      }),
+    ).toThrow(
+      ["Invalid build environment:", `- ${MEDIA_URL_MESSAGE}`].join("\n"),
     );
   });
 

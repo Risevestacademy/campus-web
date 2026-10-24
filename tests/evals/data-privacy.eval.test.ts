@@ -23,6 +23,10 @@ import {
 } from "@/features/admin/feedback/schemas/feedback.schema";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
+import {
+  type ConnectionCheckAccess,
+  requestConnectionCheck,
+} from "@/features/campus/services/connection-check/connection-check.service";
 import { parseFeedbackReceipt } from "@/features/feedback/schemas/feedback.schema";
 import {
   parseInvitePreview,
@@ -582,6 +586,71 @@ describe("Data privacy eval (threshold: every case holds)", () => {
     });
   });
 
+  describe("the connection check only connects to the pinned media host", () => {
+    const MEDIA_ORIGIN = "wss://media.campus.example";
+    const grant = {
+      url: MEDIA_ORIGIN,
+      room: "connection-check-0b9e",
+      token: TOKEN,
+      expiresAt: "2026-10-24T12:02:00.000Z",
+    };
+
+    function accessFor(reply: Response): Promise<ConnectionCheckAccess> {
+      return requestConnectionCheck({
+        fetch: async () => reply,
+        worldOrigin: "https://ws.campus.example",
+        mediaOrigin: MEDIA_ORIGIN,
+      });
+    }
+
+    it.each([
+      "wss://evil.example",
+      "wss://media.campus.example@evil.example",
+      "ws://media.campus.example",
+      "wss://media.campus.example.evil.example",
+      "wss://media.campus.example:8443",
+    ])("never hands the token to the unpinned host %s", async (url) => {
+      const access = await accessFor(Response.json({ ...grant, url }));
+
+      expect(access).toEqual({ kind: "failed" });
+      expect(JSON.stringify(access)).not.toContain(TOKEN);
+    });
+
+    it("keeps only the URL and token from world's answer", async () => {
+      const access = await accessFor(
+        Response.json(withUnexpectedFields(grant)),
+      );
+
+      expect(keyPaths(access)).toEqual(["kind", "token", "url"]);
+    });
+
+    it("never carries or logs the token on a refusal", async () => {
+      const consoleCalls = (
+        ["debug", "error", "info", "log", "warn"] as const
+      ).map((method) => vi.spyOn(console, method).mockImplementation(() => {}));
+      const refusals = await Promise.all(
+        [401, 403, 429, 500, 503].map((status) =>
+          accessFor(
+            Response.json(
+              { error: { code: TOKEN, message: TOKEN }, ...grant },
+              { status, headers: { "retry-after": TOKEN } },
+            ),
+          ),
+        ),
+      );
+
+      expect(refusals.map(({ kind }) => kind)).toEqual([
+        "signed-out",
+        "misconfigured",
+        "rate-limited",
+        "failed",
+        "failed",
+      ]);
+      expect(JSON.stringify(refusals)).not.toContain(TOKEN);
+      expect(consoleCalls.flatMap((spy) => spy.mock.calls)).toEqual([]);
+    });
+  });
+
   describe("a protected build only sends traffic to the hosts it names", () => {
     const protectedBuild = {
       CI: "true",
@@ -612,6 +681,24 @@ describe("Data privacy eval (threshold: every case holds)", () => {
             NEXT_PUBLIC_WORLD_URL: worldUrl,
           }),
         ).toThrow("NEXT_PUBLIC_WORLD_URL");
+      },
+    );
+
+    it.each([
+      "ws://media.campus.example",
+      "ws://localhost:7880",
+      "wss://media.railway.internal",
+      "wss://user:secret@media.campus.example",
+      "wss://media.campus.example/rtc",
+    ])(
+      "rejects the media URL %s before a connection check token is sent to it",
+      (mediaUrl) => {
+        expect(() =>
+          validateBuildEnvironment({
+            ...protectedBuild,
+            NEXT_PUBLIC_MEDIA_URL: mediaUrl,
+          }),
+        ).toThrow("NEXT_PUBLIC_MEDIA_URL");
       },
     );
 

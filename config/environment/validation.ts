@@ -13,12 +13,13 @@ const SANITY_DATASET_PATTERN = /^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$/;
 // One hostname label, because the ID is the first label of the map API host.
 const SANITY_PROJECT_ID_PATTERN = /^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/;
 
-// Stricter than readWorldOrigin: a deployed build never points at loopback.
-function isPublicHttpsOrigin(value: string): boolean {
+// Stricter than readWorldOrigin and readMediaOrigin: a deployed build never
+// points at loopback.
+function isPublicOrigin(value: string, protocol: "https:" | "wss:"): boolean {
   const url = parseBareOrigin(value);
 
   return (
-    url?.protocol === "https:" &&
+    url?.protocol === protocol &&
     z.regexes.domain.test(url.hostname) &&
     !isRailwayPrivate(url)
   );
@@ -56,9 +57,17 @@ const protectedBuildEnvironmentSchema = z.object({
       "NEXT_PUBLIC_SANITY_DATASET must be 1 to 64 lowercase letters, numbers, hyphens, or underscores, starting and ending with a letter or number.",
   }),
   NEXT_PUBLIC_WORLD_URL: requiredVariable("NEXT_PUBLIC_WORLD_URL").refine(
-    isPublicHttpsOrigin,
+    (value) => isPublicOrigin(value, "https:"),
     { error: "NEXT_PUBLIC_WORLD_URL must be a public HTTPS origin." },
   ),
+  // Optional: a build without it hides the pre-join connection check.
+  NEXT_PUBLIC_MEDIA_URL: z
+    .string()
+    .trim()
+    .refine((value) => !value || isPublicOrigin(value, "wss:"), {
+      error: "NEXT_PUBLIC_MEDIA_URL must be a public WSS origin.",
+    })
+    .optional(),
 });
 
 function isProtectedBuild(environment: BuildEnvironment): boolean {
