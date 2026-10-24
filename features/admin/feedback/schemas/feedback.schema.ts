@@ -46,7 +46,6 @@ export const feedbackRecordSchema = z.toZod<FeedbackRecord>()(
     ...summaryShape,
     details: z.string(),
     context: feedbackContextSchema.nullable(),
-    userAgent: z.string().nullable(),
     resolvedBy: feedbackPersonSchema.nullable(),
     resolvedAt: z.string().nullable(),
   }),
