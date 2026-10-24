@@ -23,10 +23,14 @@ import {
 } from "@/features/admin/feedback/schemas/feedback.schema";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
+import { checkConnection } from "@/features/campus/services/connection-check/check-connection";
 import {
   type ConnectionCheckAccess,
   requestConnectionCheck,
 } from "@/features/campus/services/connection-check/connection-check.service";
+import { loadLivekitProbe } from "@/features/campus/services/connection-check/livekit-probe";
+import { runConnectionCheck } from "@/features/campus/services/connection-check/run-connection-check";
+import { fakeLivekit, fakeTrack } from "@/features/campus/testing/fake-livekit";
 import { parseFeedbackReceipt } from "@/features/feedback/schemas/feedback.schema";
 import {
   parseInvitePreview,
@@ -649,6 +653,69 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       expect(JSON.stringify(refusals)).not.toContain(TOKEN);
       expect(consoleCalls.flatMap((spy) => spy.mock.calls)).toEqual([]);
     });
+  });
+
+  describe("the connection check only uses the devices the member turned on", () => {
+    const GRANT = { url: "wss://media.campus.example", token: TOKEN };
+
+    it("never opens or publishes a source the member turned off", async () => {
+      const livekit = fakeLivekit();
+      const probe = await loadLivekitProbe(GRANT, async () => livekit.module);
+      const onStep = vi.fn();
+
+      await expect(
+        runConnectionCheck(
+          probe,
+          { microphone: null, camera: null },
+          { onStep },
+        ),
+      ).resolves.toEqual({ kind: "passed" });
+      expect(livekit.published).toEqual([]);
+      expect(onStep).toHaveBeenCalledWith("microphone", "skipped");
+      expect(onStep).toHaveBeenCalledWith("camera", "skipped");
+    });
+
+    it.each([
+      ["a track that sends", {}],
+      ["a track that sends nothing", { packetsSent: 0 }],
+      ["a track that cannot be published", { publishFails: true }],
+    ])("never stops the member's own track: %s", async (_, options) => {
+      vi.useFakeTimers();
+      try {
+        const livekit = fakeLivekit(options);
+        const probe = await loadLivekitProbe(GRANT, async () => livekit.module);
+        const microphone = fakeTrack("audio");
+        const published = probe.publish(microphone);
+        await vi.runAllTimersAsync();
+        await published;
+
+        expect(microphone.stop).not.toHaveBeenCalled();
+        expect(microphone.copy.stop).toHaveBeenCalledOnce();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it.each<ConnectionCheckAccess>([
+      { kind: "unavailable" },
+      { kind: "rate-limited", retryAfterSeconds: 60 },
+      { kind: "signed-out" },
+      { kind: "misconfigured" },
+      { kind: "failed" },
+    ])(
+      "never downloads the media SDK when world answers $kind",
+      async (access) => {
+        const loadProbe = vi.fn();
+
+        await checkConnection(
+          { requestAccess: async () => access, loadProbe },
+          { microphone: fakeTrack("audio"), camera: fakeTrack("video") },
+          { onStep: () => {} },
+        );
+
+        expect(loadProbe).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe("a protected build only sends traffic to the hosts it names", () => {

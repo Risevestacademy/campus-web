@@ -1,0 +1,16 @@
+{
+  "paths": [
+    {
+      "name": "livekit-client",
+      "allowTypeImports": true,
+      "message": "Load livekit-client with import() so it stays out of the first load. Type imports are fine."
+    }
+  ],
+  "patterns": [
+    {
+      "regex": "^livekit-client/",
+      "allowTypeImports": true,
+      "message": "Load livekit-client with import() so it stays out of the first load. Type imports are fine."
+    }
+  ]
+}
