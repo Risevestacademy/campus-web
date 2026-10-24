@@ -4,6 +4,7 @@ const client = vi.hoisted(() => ({
   denyAnalyticsConsent: vi.fn(),
   grantAnalyticsConsent: vi.fn(),
   readAnalyticsConsent: vi.fn(),
+  watchAnalyticsConsent: vi.fn(),
 }));
 
 vi.mock("../client", () => client);
@@ -11,6 +12,7 @@ vi.mock("../client", () => client);
 beforeEach(() => {
   vi.clearAllMocks();
   client.readAnalyticsConsent.mockResolvedValue("pending");
+  client.watchAnalyticsConsent.mockReturnValue(() => undefined);
 });
 
 afterEach(() => {
@@ -134,6 +136,59 @@ describe("analytics consent store", () => {
     await Promise.resolve();
 
     expect(store.getAnalyticsConsentSnapshot().consent).toBe("granted");
+  });
+
+  it("ignores a reopen made before the stored choice was read", async () => {
+    const read = Promise.withResolvers<"granted">();
+    client.readAnalyticsConsent.mockReturnValue(read.promise);
+    const store = await import("./consent-store");
+    store.subscribeToAnalyticsConsent(vi.fn());
+
+    store.openAnalyticsConsentChoices();
+    read.resolve("granted");
+    await consentRead(store);
+
+    expect(isOpen(store)).toBe(false);
+  });
+
+  it("closes a reopened choice without changing it", async () => {
+    client.readAnalyticsConsent.mockResolvedValue("granted");
+    const store = await subscribedStore();
+
+    store.openAnalyticsConsentChoices();
+    store.closeAnalyticsConsentChoices();
+
+    expect(store.getAnalyticsConsentSnapshot()).toEqual({
+      consent: "granted",
+      reviewing: false,
+    });
+    expect(client.grantAnalyticsConsent).not.toHaveBeenCalled();
+    expect(client.denyAnalyticsConsent).not.toHaveBeenCalled();
+  });
+
+  it("watches other tabs once, however many subscribe", async () => {
+    const store = await import("./consent-store");
+
+    store.subscribeToAnalyticsConsent(vi.fn());
+    store.subscribeToAnalyticsConsent(vi.fn());
+
+    expect(client.watchAnalyticsConsent).toHaveBeenCalledOnce();
+  });
+
+  it("takes a choice made in another tab and closes a review here", async () => {
+    const store = await subscribedStore();
+    const [[chosenElsewhere]] = client.watchAnalyticsConsent.mock.calls as [
+      [(consent: "granted" | "denied") => void],
+    ];
+    store.openAnalyticsConsentChoices();
+
+    chosenElsewhere("denied");
+
+    expect(store.getAnalyticsConsentSnapshot()).toEqual({
+      consent: "denied",
+      reviewing: false,
+    });
+    expect(client.denyAnalyticsConsent).not.toHaveBeenCalled();
   });
 
   it("returns the same snapshot until it changes", async () => {

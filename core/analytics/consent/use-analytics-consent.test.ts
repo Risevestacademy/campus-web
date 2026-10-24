@@ -5,6 +5,7 @@ const client = vi.hoisted(() => ({
   denyAnalyticsConsent: vi.fn(),
   grantAnalyticsConsent: vi.fn(),
   readAnalyticsConsent: vi.fn(() => Promise.resolve("pending")),
+  watchAnalyticsConsent: vi.fn(() => () => undefined),
 }));
 
 vi.mock("../client", () => client);

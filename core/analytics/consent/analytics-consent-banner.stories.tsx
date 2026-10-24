@@ -6,7 +6,7 @@ import { AnalyticsConsentNotice } from "./analytics-consent-banner";
 const meta = {
   title: "Analytics/Consent Notice",
   component: AnalyticsConsentNotice,
-  args: { onAccept: fn(), onReject: fn() },
+  args: { onAccept: fn(), onEscape: fn(), onReject: fn() },
   parameters: { layout: "fullscreen" },
 } satisfies Meta<typeof AnalyticsConsentNotice>;
 
@@ -20,8 +20,10 @@ export const PendingChoice: Story = {
 
     await userEvent.click(canvas.getByRole("button", { name: "Reject" }));
     await userEvent.click(canvas.getByRole("button", { name: "Accept" }));
+    await userEvent.keyboard("{Escape}");
 
     await expect(args.onReject).toHaveBeenCalledOnce();
     await expect(args.onAccept).toHaveBeenCalledOnce();
+    await expect(args.onEscape).toHaveBeenCalledOnce();
   },
 };

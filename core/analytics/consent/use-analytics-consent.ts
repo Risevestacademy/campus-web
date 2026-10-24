@@ -2,8 +2,10 @@ import { useSyncExternalStore } from "react";
 
 import {
   acceptAnalyticsConsent,
+  closeAnalyticsConsentChoices,
   getAnalyticsConsentSnapshot,
   getServerAnalyticsConsentSnapshot,
+  isConsentChoiceKnown,
   isConsentChoiceOpen,
   rejectAnalyticsConsent,
   subscribeToAnalyticsConsent,
@@ -17,9 +19,11 @@ export function useAnalyticsConsent() {
   );
 
   return {
+    canReopen: isConsentChoiceKnown(snapshot),
     isOpen: isConsentChoiceOpen(snapshot),
     isReviewing: snapshot.reviewing,
     accept: acceptAnalyticsConsent,
     reject: rejectAnalyticsConsent,
+    close: closeAnalyticsConsentChoices,
   };
 }
