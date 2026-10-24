@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ANALYTICS_EVENTS } from "./events";
+import { ANALYTICS_EVENTS, analyticsEventSchemas } from "./events";
 
 describe("analytics contract evaluation", () => {
   it("passes when every event is a unique canonical object.action name", () => {
@@ -11,5 +11,17 @@ describe("analytics contract evaluation", () => {
     for (const eventName of eventNames) {
       expect(eventName).toMatch(/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/);
     }
+  });
+
+  it("reports every move correction world defines, and never a move that landed", () => {
+    const moveCorrected =
+      analyticsEventSchemas[ANALYTICS_EVENTS.CAMPUS_WORLD_MOVE_CORRECTED];
+    const accepts = (outcome: string) =>
+      moveCorrected.safeParse({ outcome }).success;
+
+    expect(["blocked", "refused", "too_fast", "unknown"].every(accepts)).toBe(
+      true,
+    );
+    expect(accepts("moved")).toBe(false);
   });
 });

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { cohortRoleSchema, systemRoleSchema } from "../api/schemas";
 import { CLOSE_REASONS } from "../realtime/close-codes";
 import { CLOSE_ACTIONS } from "../realtime/close-policy";
+import { MOVE_OUTCOMES } from "../realtime/server-message.schema";
 
 export const ANALYTICS_EVENTS = {
   AUTH_LOGIN_FAILED: "auth.login_failed",
@@ -162,7 +163,7 @@ export const analyticsEventSchemas = {
     level: z.literal(["whole", 1, 2, 3]),
   }),
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MOVE_CORRECTED]: z.object({
-    outcome: z.enum(["blocked", "too_fast", "unknown"]),
+    outcome: z.enum([...MOVE_OUTCOMES, "unknown"]).exclude(["moved"]),
   }),
   [ANALYTICS_EVENTS.COHORT_CREATED]: z.object({
     cohort_status: z.enum(["active", "completed", "upcoming"]),
