@@ -146,16 +146,13 @@ export function grantAnalyticsConsent(): void {
 export function denyAnalyticsConsent(): void {
   withBrowserAnalytics("PostHog consent denial failed.", (posthog) => {
     if (isGranted(posthog)) unlinkDevice(posthog);
-    posthog.opt_out_capturing();
-    // Opting out leaves the session manager's tab ID in sessionStorage.
-    sessionStorage.removeItem(`ph_${posthog.config.token}_window_id`);
+    stopCapturingHere(posthog);
   });
 }
 
-// Another tab's choice arrives only through storage. posthog-js re-reads the
-// key on every check, so this tab already captures under it; this identifies
-// the member waiting here. "pending" is skipped: it is only the gap between a
-// reset and its restore in that tab.
+// Another tab's choice arrives only through storage; this tab then follows it
+// as if chosen here, without another $opt_in. "pending" is skipped: it is only
+// the gap between a reset and its restore in that tab.
 export function watchAnalyticsConsent(
   onChange: (consent: "granted" | "denied") => void,
 ): () => void {
@@ -164,9 +161,8 @@ export function watchAnalyticsConsent(
     withBrowserAnalytics("PostHog consent sync failed.", (posthog) => {
       const consent = posthog.get_explicit_consent_status();
       if (consent === "pending") return;
-      if (consent === "granted" && latestIdentity) {
-        identify(posthog, latestIdentity);
-      }
+      if (consent === "granted") resumeCapturingHere(posthog);
+      else stopCapturingHere(posthog);
       onChange(consent);
     });
   };
@@ -250,6 +246,23 @@ function isIdentifiedAsAnother(posthog: PostHog, id: string): boolean {
 function identify(posthog: PostHog, identity: AllowedAnalyticsIdentity): void {
   if (isIdentifiedAsAnother(posthog, identity.id)) forgetMember(posthog);
   posthog.identify(identity.id, { system_role: identity.systemRole });
+}
+
+// Another tab's Accept never ran opt_in here, so persistence is still off and
+// this tab holds IDs it never stored. Loading the stored ones first keeps one
+// device per browser; opting in would otherwise save these over them.
+function resumeCapturingHere(posthog: PostHog): void {
+  posthog.persistence?.load(true);
+  posthog.opt_in_capturing({ captureEventName: false });
+  if (latestIdentity) identify(posthog, latestIdentity);
+}
+
+// Opting out leaves the session manager's tab keys in sessionStorage.
+function stopCapturingHere(posthog: PostHog): void {
+  posthog.opt_out_capturing();
+  const prefix = `ph_${posthog.config.token}`;
+  sessionStorage.removeItem(`${prefix}_window_id`);
+  sessionStorage.removeItem(`${prefix}_primary_window_exists`);
 }
 
 // reset() also wipes the consent choice, so it goes back.

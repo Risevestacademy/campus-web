@@ -8,6 +8,7 @@ const analyticsMocks = vi.hoisted(() => {
   const browser = {
     capture: vi.fn(),
     config: { token: "phc_non_production" },
+    persistence: { load: vi.fn() },
     get_distinct_id: vi.fn(),
     get_explicit_consent_status: vi.fn(() => consent.status),
     get_property: vi.fn(),
@@ -59,6 +60,20 @@ function beforeSend(event: CaptureResult): CaptureResult | null {
     (current, step) => step(current),
     event,
   );
+}
+
+// What posthog-js's session manager keeps per tab.
+const TAB_SESSION_KEYS = [
+  "ph_phc_non_production_window_id",
+  "ph_phc_non_production_primary_window_exists",
+];
+
+function storeTabSessionKeys(): void {
+  for (const key of TAB_SESSION_KEYS) sessionStorage.setItem(key, "1");
+}
+
+function tabSessionKeys(): string[] {
+  return TAB_SESSION_KEYS.filter((key) => sessionStorage.getItem(key) !== null);
 }
 
 function loginEvent(): CaptureResult {
@@ -556,6 +571,18 @@ describe("browser analytics", () => {
     expect(analyticsMocks.browser.opt_in_capturing).not.toHaveBeenCalled();
   });
 
+  it("clears both of the tab's session keys on Reject", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+    storeTabSessionKeys();
+
+    analytics.denyAnalyticsConsent();
+    await analytics.initializeBrowserAnalytics();
+
+    expect(tabSessionKeys()).toEqual([]);
+  });
+
   it("captures the page a member accepted on, after identifying them", async () => {
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
     const analytics = await import("./client");
@@ -623,12 +650,18 @@ describe("browser analytics", () => {
       await analytics.initializeBrowserAnalytics();
       stop();
 
+      const { identify, opt_in_capturing } = analyticsMocks.browser;
       expect(onChange).toHaveBeenCalledExactlyOnceWith("granted");
-      expect(analyticsMocks.browser.identify).toHaveBeenCalledExactlyOnceWith(
-        "user-1",
-        { system_role: "user" },
-      );
-      expect(analyticsMocks.browser.opt_in_capturing).not.toHaveBeenCalled();
+      expect(identify).toHaveBeenCalledExactlyOnceWith("user-1", {
+        system_role: "user",
+      });
+      expect(opt_in_capturing).toHaveBeenCalledExactlyOnceWith({
+        captureEventName: false,
+      });
+      expect(opt_in_capturing).toHaveBeenCalledBefore(identify);
+      const { load } = analyticsMocks.browser.persistence;
+      expect(load).toHaveBeenCalledExactlyOnceWith(true);
+      expect(load).toHaveBeenCalledBefore(opt_in_capturing);
     });
 
     it("reports a rejection without identifying anyone", async () => {
@@ -645,6 +678,21 @@ describe("browser analytics", () => {
 
       expect(onChange).toHaveBeenCalledExactlyOnceWith("denied");
       expect(analyticsMocks.browser.identify).not.toHaveBeenCalled();
+    });
+
+    it("stops capturing here and clears this tab's session keys once it rejects", async () => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+      const stop = analytics.watchAnalyticsConsent(() => undefined);
+      storeTabSessionKeys();
+
+      chooseInAnotherTab("denied");
+      await analytics.initializeBrowserAnalytics();
+      stop();
+
+      expect(analyticsMocks.browser.opt_out_capturing).toHaveBeenCalledOnce();
+      expect(tabSessionKeys()).toEqual([]);
     });
 
     it("ignores the pending gap while another tab resets and restores its choice", async () => {

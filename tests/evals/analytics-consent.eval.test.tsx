@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ANALYTICS_CONSENT_KEY as CONSENT_KEY } from "@/core/analytics/consent-key";
 import {
   clearBrowserStorage,
+  grantStoredConsent,
   loadRealAnalytics,
   type PostHogRequest,
   storedKeys,
@@ -12,7 +13,10 @@ import {
 
 const TOKEN = "phc_consent_eval";
 
-const observed = vi.hoisted(() => ({ sent: [] as string[] }));
+const observed = vi.hoisted(() => ({
+  identified: [] as Record<string, unknown>[],
+  sent: [] as string[],
+}));
 let requests: PostHogRequest[] = [];
 
 vi.mock("@/core/analytics/scrub", async (importOriginal) => {
@@ -22,6 +26,9 @@ vi.mock("@/core/analytics/scrub", async (importOriginal) => {
       event: Parameters<typeof real.scrubAnalyticsEvent>[0],
     ) => {
       if (event) observed.sent.push(event.event);
+      if (event?.event === "$identify") {
+        observed.identified.push(event.properties);
+      }
       return real.scrubAnalyticsEvent(event);
     },
   };
@@ -48,6 +55,18 @@ async function runStartupTimers(): Promise<void> {
   await vi.advanceTimersByTimeAsync(5_000);
 }
 
+// The choice another tab makes reaches this one as a storage event.
+function chooseInAnotherTab(stored: "0" | "1"): void {
+  localStorage.setItem(CONSENT_KEY, stored);
+  window.dispatchEvent(new StorageEvent("storage", { key: CONSENT_KEY }));
+}
+
+function storedPersistence(): Record<string, unknown> {
+  return JSON.parse(
+    localStorage.getItem(`ph_${TOKEN}_posthog`) ?? "{}",
+  ) as Record<string, unknown>;
+}
+
 // Each fresh SDK wraps pushState for history_change pageviews. Unwrapping
 // keeps an earlier case's instance from capturing in a later case.
 const { pushState, replaceState } = history;
@@ -57,6 +76,7 @@ beforeEach(() => {
   history.replaceState = replaceState;
   clearBrowserStorage();
   observed.sent.length = 0;
+  observed.identified.length = 0;
   requests = stubPostHogEnvironment(TOKEN);
 });
 
@@ -154,16 +174,63 @@ describe("Analytics consent eval (threshold: every case holds)", () => {
   it("identifies the member waiting here when another tab accepts, without a second $opt_in", async () => {
     const analytics = await loadRealAnalytics();
     const stop = analytics.watchAnalyticsConsent(() => undefined);
-    analytics.identifyAnalyticsUser({ id: "user-1", systemRole: "user" });
+    analytics.identifyAnalyticsUser(MEMBER);
     await analytics.initializeBrowserAnalytics();
 
-    localStorage.setItem(CONSENT_KEY, "1");
-    window.dispatchEvent(new StorageEvent("storage", { key: CONSENT_KEY }));
+    chooseInAnotherTab("1");
     await analytics.initializeBrowserAnalytics();
     stop();
 
     expect(await analytics.readAnalyticsConsent()).toBe("granted");
     expect(observed.sent).toEqual(["$identify"]);
+  });
+
+  it("joins this tab to the browser's stored device when another tab accepts", async () => {
+    const here = await loadRealAnalytics();
+    const stop = here.watchAnalyticsConsent(() => undefined);
+    here.identifyAnalyticsUser(MEMBER);
+    await here.initializeBrowserAnalytics();
+    const elsewhere = await loadRealAnalytics();
+    elsewhere.grantAnalyticsConsent();
+    await elsewhere.initializeBrowserAnalytics();
+    const deviceAcceptedElsewhere = storedPersistence().$device_id;
+
+    window.dispatchEvent(new StorageEvent("storage", { key: CONSENT_KEY }));
+    await here.initializeBrowserAnalytics();
+    stop();
+
+    expect(deviceAcceptedElsewhere).toEqual(expect.any(String));
+    expect(observed.identified.at(-1)?.$device_id).toBe(
+      deviceAcceptedElsewhere,
+    );
+    expect(storedPersistence().$device_id).toBe(deviceAcceptedElsewhere);
+  });
+
+  it("leaves only the consent key after Reject on a page that loaded accepted", async () => {
+    grantStoredConsent();
+    const analytics = await loadRealAnalytics();
+    expect(analyticsKeys()).toContain(`ph_${TOKEN}_primary_window_exists`);
+
+    analytics.denyAnalyticsConsent();
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsKeys()).toEqual([CONSENT_KEY]);
+  });
+
+  it("leaves only the consent key here when another tab rejects", async () => {
+    grantStoredConsent();
+    const analytics = await loadRealAnalytics();
+    const stop = analytics.watchAnalyticsConsent(() => undefined);
+    analytics.captureBrowserPageview("/campus");
+    await analytics.initializeBrowserAnalytics();
+    expect(analyticsKeys()).toContain(`ph_${TOKEN}_window_id`);
+
+    chooseInAnotherTab("0");
+    await analytics.initializeBrowserAnalytics();
+    stop();
+
+    expect(await analytics.readAnalyticsConsent()).toBe("denied");
+    expect(analyticsKeys()).toEqual([CONSENT_KEY]);
   });
 
   it("keeps an accepted choice across logout without a second $opt_in", async () => {
