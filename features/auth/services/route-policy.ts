@@ -1,6 +1,6 @@
 import type { Route } from "next";
 
-import { campusJoinHref } from "@/core/navigation";
+import { campusJoinHref, SIGN_IN_PATH } from "@/core/navigation";
 
 import { normalizeReturnTo } from "../schemas/return-to";
 import type {
@@ -19,7 +19,6 @@ const INVITATION_PATH: Route = "/invitation";
 const PREVIEW_PATH: Route = "/preview";
 const INVITE_REQUIRED_PATH = "/sign-in?error=invite_required" as Route;
 const SESSION_REFRESH_PATH = "/session/refresh";
-const SIGN_IN_PATH = "/sign-in";
 
 export interface RouteRequestSignals {
   returnTo: string | undefined;

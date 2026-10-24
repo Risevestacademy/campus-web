@@ -1,11 +1,10 @@
-import type { Route } from "next";
 import { redirect } from "next/navigation";
 import type { ReactElement } from "react";
 
+import { SIGN_IN_PATH } from "@/core/navigation";
+
 import type { InviteProblem } from "../types/invite.types";
 import { InviteProblemNotice } from "./invite-problem-notice";
-
-const SIGN_IN_PATH: Route = "/sign-in";
 
 // Called, not rendered as <Component />: the redirect must interrupt the read
 // that found the 401, not wait for React to render a returned element.

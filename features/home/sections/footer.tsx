@@ -2,12 +2,13 @@ import Image from "next/image";
 import Link from "next/link";
 
 import inverseLogo from "@/assets/logo-inverse.svg";
+import { SIGN_IN_PATH } from "@/core/navigation";
 
 const footerLinks = [
   { label: "Explore Campus", href: "#explore-campus" },
   { label: "How to join", href: "#how-to-join" },
   { label: "FAQs", href: "#faqs" },
-  { label: "Sign in", href: "/sign-in" },
+  { label: "Sign in", href: SIGN_IN_PATH },
 ] as const;
 
 export function FooterSection() {
