@@ -2,8 +2,14 @@ import { WORLD_CLOSE_CODES, WORLD_CLOSE_REASONS } from "./close-codes";
 import type {
   CloseCode as WorldCloseCode,
   CloseReason as WorldCloseReason,
+  ServerMessage as PublishedServerMessage,
 } from "./generated/world-protocol";
-import type { ClientMessage, MoveOutcome, RealtimeEvent } from "./index";
+import type {
+  ClientMessage,
+  MoveOutcome,
+  RealtimeEvent,
+  ServerMessage,
+} from "./index";
 
 type Same<Left, Right> = [Left] extends [Right]
   ? [Right] extends [Left]
@@ -16,6 +22,10 @@ type MessageEvent = Extract<RealtimeEvent, { type: "message" }>;
 const realtimeEventsCarryParsedMessages: Same<
   Extract<MessageEvent["message"], { type: "moveResult" }>["outcome"],
   MoveOutcome
+> = true;
+const everyPublishedMessageIsParsed: Same<
+  ServerMessage["type"],
+  PublishedServerMessage["type"]
 > = true;
 const worldCloseCodesAreComplete: Same<
   WorldCloseCode,
@@ -32,6 +42,7 @@ const move: ClientMessage = { type: "move", direction: "up", seq: 0 };
 void ping;
 void move;
 void realtimeEventsCarryParsedMessages;
+void everyPublishedMessageIsParsed;
 void worldCloseCodesAreComplete;
 void worldCloseReasonsAreComplete;
 
