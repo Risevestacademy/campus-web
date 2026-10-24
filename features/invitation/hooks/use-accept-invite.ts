@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { ANALYTICS_EVENTS } from "@/core/analytics";
 import { captureBrowserAnalyticsEvent } from "@/core/analytics/client";
 import { browserApi } from "@/core/api/client/browser";
+import { SIGN_IN_PATH } from "@/core/navigation";
 import { replaceDocument } from "@/shared/lib/document-navigation";
 import { toast } from "@/shared/ui/toast";
 
@@ -11,8 +12,6 @@ import type {
   ExplainedInviteProblem,
   InviteAcceptance,
 } from "../types/invite.types";
-
-const SIGN_IN_PATH = "/sign-in";
 
 function enterCampus(destination: string) {
   captureBrowserAnalyticsEvent(ANALYTICS_EVENTS.AUTH_VERIFICATION_COMPLETED, {

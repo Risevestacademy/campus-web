@@ -14,7 +14,6 @@ import { type AnalyticsCapture, realtimeAnalytics } from "./realtime-analytics";
 
 export interface WorldSessionOptions {
   url: string;
-  cohortId: string;
   movement: WorldMovementChannel;
   presence: PresenceStore;
   refreshSession: RefreshSession;
@@ -39,7 +38,6 @@ export interface WorldSession {
 
 // One cohort's place on the map: world's socket feeding who is here.
 export function createWorldSession({
-  cohortId,
   movement,
   presence,
   captureEvent,
@@ -47,7 +45,7 @@ export function createWorldSession({
   ...clientOptions
 }: WorldSessionOptions): WorldSession {
   function onEvent(event: RealtimeEvent) {
-    for (const capture of realtimeAnalytics(event, cohortId)) {
+    for (const capture of realtimeAnalytics(event)) {
       captureEvent(capture);
     }
     if (event.type === "message") {

@@ -2,9 +2,8 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 
+import { SIGN_IN_PATH } from "@/core/navigation";
 import { replaceDocument } from "@/shared/lib/document-navigation";
-
-const SIGN_IN_PATH = "/sign-in";
 
 // `kind` is never read here, but without a required member TypeScript rejects
 // success outcomes such as `{ kind: "updated" }` as sharing no properties.

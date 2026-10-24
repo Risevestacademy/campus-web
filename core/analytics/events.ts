@@ -170,7 +170,6 @@ export const analyticsEventSchemas = {
   [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_STARTED]: placementSchema,
   [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_COMPLETED]: placementSchema,
   [ANALYTICS_EVENTS.REALTIME_CONNECTED]: z.object({
-    cohort_id: opaqueIdSchema,
     reconnect: z.boolean(),
   }),
   [ANALYTICS_EVENTS.REALTIME_CLOSED]: z.object({
@@ -192,16 +191,20 @@ export type AnalyticsEventMap = {
 };
 
 export const analyticsIdentitySchema = z.object({
-  accountStatus: labelSchema.optional(),
-  cohortId: opaqueIdSchema.optional(),
   id: opaqueIdSchema,
-  role: roleSchema,
-  trackId: opaqueIdSchema.optional(),
+  systemRole: systemRoleSchema,
+});
+
+export const analyticsCohortSchema = z.object({
+  cohortId: opaqueIdSchema,
+  cohortRole: cohortRoleSchema.optional(),
 });
 
 export type AnalyticsIdentity = Readonly<
   z.input<typeof analyticsIdentitySchema>
 >;
+export type AllowedAnalyticsIdentity = z.output<typeof analyticsIdentitySchema>;
+export type AnalyticsCohort = Readonly<z.input<typeof analyticsCohortSchema>>;
 export type AuthMethod = z.output<typeof authMethodSchema>;
 export type AnalyticsPlatform = z.output<typeof platformSchema>;
 export type PresenceTabSurface = z.output<typeof presenceTabSurfaceSchema>;
@@ -250,8 +253,14 @@ export function allowAnalyticsProperties(
   return allow(schema, properties, `Analytics event ${eventName}`);
 }
 
-export function allowAnalyticsIdentity(identity: unknown) {
+export function allowAnalyticsIdentity(
+  identity: unknown,
+): AllowedAnalyticsIdentity | undefined {
   return allow(analyticsIdentitySchema, identity, "Analytics identity");
+}
+
+export function allowAnalyticsCohort(cohort: unknown) {
+  return allow(analyticsCohortSchema, cohort, "Analytics cohort");
 }
 
 export function allowDistinctId(distinctId: unknown): string | undefined {

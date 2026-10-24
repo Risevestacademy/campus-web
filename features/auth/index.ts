@@ -1,10 +1,11 @@
 export { AccountMenu } from "./components/account-menu";
 export { CohortGate } from "./components/cohort-gate";
+export { CohortSession } from "./components/cohort-session";
+export { ForgetPreviousMember } from "./components/forget-previous-member";
 export { InvitationGate } from "./components/invitation-gate";
 export { RefreshSession } from "./components/refresh-session";
 export { ResumeInvitation } from "./components/resume-invitation";
 export { SessionRefreshProvider } from "./components/session-refresh-provider";
-export { SessionRenewal } from "./components/session-renewal";
 export { SessionUnavailable } from "./components/session-unavailable";
 export { authErrorMessage } from "./schemas/auth-error.schema";
 export {
@@ -14,6 +15,7 @@ export {
 } from "./schemas/return-to";
 export {
   authorizeRoute,
+  isSignedOut,
   resolveSignIn,
 } from "./services/authorization.service";
 export {

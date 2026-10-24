@@ -1,9 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { getURLFromRedirectError } from "next/dist/client/components/redirect";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
-import type { ReactElement, ReactNode } from "react";
+import { Fragment, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ForgetPreviousMember } from "@/features/auth";
 import { invitePreview } from "@/tests/fixtures/invites";
 
 import InvitationPage from "./page";
@@ -29,9 +30,20 @@ function withCookies(values: Record<string, string>) {
   });
 }
 
-// The page returns an async server component; run it the way Next would.
+type PreviewPage = ReactElement<{ children: [ReactNode, ReactElement] }>;
+
+async function previewPage(): Promise<PreviewPage> {
+  const page = (await InvitationPage()) as PreviewPage;
+  expect(page.type).toBe(Fragment);
+  return page;
+}
+
+// The page returns an async server component, beside the analytics reset when
+// it previews; run that component the way Next would.
 async function visit(): Promise<ReactNode> {
-  const element = (await InvitationPage()) as ReactElement;
+  const page = (await InvitationPage()) as ReactElement;
+  const element =
+    page.type === Fragment ? (page as PreviewPage).props.children[1] : page;
   const component = element.type as (props: unknown) => Promise<ReactNode>;
   return component(element.props);
 }
@@ -92,6 +104,28 @@ describe("InvitationPage: an invite token cookie", () => {
 
     const request = backend.mock.calls[0]?.[0];
     await expect(request?.json()).resolves.toEqual({ token: TOKEN });
+  });
+
+  it("forgets a previous member for a signed-out visitor, without asking for a session", async () => {
+    withCookies({ campus_invite_token: TOKEN });
+
+    const [reset] = (await previewPage()).props.children;
+
+    expect(reset).toEqual(<ForgetPreviousMember />);
+    expect(backend).not.toHaveBeenCalled();
+  });
+
+  it("keeps the identity of a member still signed in", async () => {
+    withCookies({
+      campus_invite_token: TOKEN,
+      campus_session: "session-token",
+    });
+    backend.mockResolvedValue(Response.json(invitedSession));
+
+    const [reset] = (await previewPage()).props.children;
+
+    expect(reset).toBe(false);
+    expect(calledPaths()).toEqual(["GET /v1/auth/me"]);
   });
 
   it("forwards the visitor's address, which campus-api rate-limits by", async () => {

@@ -10,13 +10,10 @@ export type AnalyticsCapture = {
 }[AnalyticsEventName];
 
 // A close reason is server text: only one this client knows leaves the app.
-export function realtimeAnalytics(
-  event: RealtimeEvent,
-  cohortId: string,
-): AnalyticsCapture[] {
+export function realtimeAnalytics(event: RealtimeEvent): AnalyticsCapture[] {
   switch (event.type) {
     case "connected":
-      return connected(event.attempt, cohortId);
+      return connected(event.attempt);
     case "closed":
       return [
         [
@@ -38,12 +35,9 @@ export function realtimeAnalytics(
 }
 
 // attempt counts the reconnects in a row; 0 is a first connect.
-function connected(attempt: number, cohortId: string): AnalyticsCapture[] {
+function connected(attempt: number): AnalyticsCapture[] {
   const captures: AnalyticsCapture[] = [
-    [
-      ANALYTICS_EVENTS.REALTIME_CONNECTED,
-      { cohort_id: cohortId, reconnect: attempt > 0 },
-    ],
+    [ANALYTICS_EVENTS.REALTIME_CONNECTED, { reconnect: attempt > 0 }],
   ];
   if (attempt > 0) {
     captures.push([

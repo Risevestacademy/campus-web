@@ -10,7 +10,6 @@ Administration too.
 ```ts
 const world = createWorldSession({
   url,
-  cohortId,
   movement, // movementFor(cohortId)
   presence, // presenceFor(cohortId)
   refreshSession, // the shared refresh port (core/session)
@@ -59,7 +58,7 @@ In React, `useWorldSession()` gives `status`, `connect` and `reconnect` under
 
 | Event                  | Properties                 | When                             |
 | ---------------------- | -------------------------- | -------------------------------- |
-| `realtime.connected`   | `cohort_id`, `reconnect`   | `welcome` and `snapshot` arrived |
+| `realtime.connected`   | `reconnect`                | `welcome` and `snapshot` arrived |
 | `realtime.reconnected` | `attempts`                 | that connect followed a drop     |
 | `realtime.closed`      | `code`, `reason`, `action` | every close but `close()`'s own  |
 | `realtime.gave_up`     | `attempts`                 | ten attempts in a row failed     |

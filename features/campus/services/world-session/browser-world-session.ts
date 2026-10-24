@@ -27,7 +27,6 @@ export function createBrowserWorldSession(
 ): WorldSession {
   return createWorldSession({
     url: readWorldSocketUrl(publicEnvironment, cohortId),
-    cohortId,
     movement: movementFor(cohortId),
     presence: presenceFor(cohortId),
     refreshSession: ports.refreshSession,

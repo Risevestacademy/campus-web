@@ -62,6 +62,7 @@ describe("ActiveCampusLayout", () => {
         memberships: [],
         scope: "full_access",
         user: {
+          id: "user-1",
           displayName: "Ada Lovelace",
           email: "ada@campus.local",
           systemRole: "user",

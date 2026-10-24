@@ -3,6 +3,7 @@
 import { ChatCenteredDotsIcon } from "@phosphor-icons/react/dist/ssr/ChatCenteredDots";
 import { GearSixIcon } from "@phosphor-icons/react/dist/ssr/GearSix";
 import { MoonIcon } from "@phosphor-icons/react/dist/ssr/Moon";
+import { ShieldCheckIcon } from "@phosphor-icons/react/dist/ssr/ShieldCheck";
 import { SquaresFourIcon } from "@phosphor-icons/react/dist/ssr/SquaresFour";
 import { SunIcon } from "@phosphor-icons/react/dist/ssr/Sun";
 import { cn } from "cn";
@@ -12,6 +13,10 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import logoMark from "@/assets/icon-inverse.svg";
+import {
+  openAnalyticsConsentChoices,
+  useAnalyticsConsent,
+} from "@/core/analytics/consent";
 import { campusHref } from "@/core/navigation";
 import { badgeVariants } from "@/shared/ui/badge";
 import { buttonVariants } from "@/shared/ui/button";
@@ -83,6 +88,19 @@ function ThemeRailButton() {
   );
 }
 
+// The rail hides the floating Privacy choices control, so it offers its own.
+function PrivacyRailButton() {
+  const { canReopen } = useAnalyticsConsent();
+
+  if (!canReopen) return null;
+
+  return (
+    <RailButton label="Privacy choices" onClick={openAnalyticsConsentChoices}>
+      <ShieldCheckIcon aria-hidden size="1.3rem" weight="bold" />
+    </RailButton>
+  );
+}
+
 export function CampusRail({
   account,
   cohortId,
@@ -147,6 +165,7 @@ export function CampusRail({
           <ChatCenteredDotsIcon aria-hidden size="1.3rem" weight="bold" />
         </RailButton>
         <ThemeRailButton />
+        <PrivacyRailButton />
         <RailButton label="Settings">
           <GearSixIcon aria-hidden size="1.3rem" weight="bold" />
         </RailButton>

@@ -25,6 +25,7 @@ import {
   authorizeRoute,
   CohortGate,
   InvitationGate,
+  isSignedOut,
   logsOutFromRail,
   redirectSignedInVisitor,
   requireRouteAccess,
@@ -186,7 +187,12 @@ interface SessionReply {
   scope: string;
   expiresAt: string;
   inviteId: string | null;
-  user: { email: string; displayName: string | null; systemRole: string };
+  user: {
+    id: string;
+    email: string;
+    displayName: string | null;
+    systemRole: string;
+  };
   memberships: readonly CohortPlace[];
 }
 
@@ -203,12 +209,14 @@ function seenByRoutes({
     expiresAt,
     inviteId,
     user: {
+      id: user.id,
       email: user.email,
       displayName: user.displayName,
       systemRole: user.systemRole,
     },
-    memberships: memberships.map(({ cohortId, cohort }) => ({
+    memberships: memberships.map(({ cohortId, role, cohort }) => ({
       cohortId,
+      role,
       cohort,
     })),
   };
@@ -882,6 +890,34 @@ describe("redirectSignedInVisitor", () => {
     await expect(
       settle(redirectSignedInVisitor("/campus/42")),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("isSignedOut", () => {
+  it("is false for a signed-in visitor", async () => {
+    backendReplies(ok(fullAccessSession));
+
+    await expect(settle(isSignedOut())).resolves.toBe(false);
+  });
+
+  it("is true when the backend rejects the session", async () => {
+    backendReplies(status(401));
+
+    await expect(settle(isSignedOut())).resolves.toBe(true);
+  });
+
+  it("is true without an access cookie, and asks the backend nothing", async () => {
+    browserCookies({});
+    const requests = backendReplies(ok(fullAccessSession));
+
+    await expect(settle(isSignedOut())).resolves.toBe(true);
+    expect(requests).toEqual([]);
+  });
+
+  it("is false while the session service is down, so no one is forgotten on a guess", async () => {
+    backendReplies(status(503), status(503), status(503));
+
+    await expect(settle(isSignedOut())).resolves.toBe(false);
   });
 });
 

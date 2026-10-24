@@ -1,13 +1,28 @@
+import type { CaptureResult } from "posthog-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ANALYTICS_EVENTS } from "./events";
 
 const analyticsMocks = vi.hoisted(() => {
+  const consent = { status: "pending" as "granted" | "denied" | "pending" };
   const browser = {
     capture: vi.fn(),
+    config: { token: "phc_non_production" },
+    persistence: { load: vi.fn() },
+    get_distinct_id: vi.fn(),
+    get_explicit_consent_status: vi.fn(() => consent.status),
+    get_property: vi.fn(),
     identify: vi.fn(),
     init: vi.fn(),
-    reset: vi.fn(),
+    opt_in_capturing: vi.fn(() => {
+      consent.status = "granted";
+    }),
+    opt_out_capturing: vi.fn(() => {
+      consent.status = "denied";
+    }),
+    reset: vi.fn(() => {
+      consent.status = "pending";
+    }),
   };
   const server = {
     captureImmediate: vi.fn(),
@@ -15,6 +30,7 @@ const analyticsMocks = vi.hoisted(() => {
 
   return {
     browser,
+    consent,
     PostHog: vi.fn(function PostHogMock() {
       return server;
     }),
@@ -32,8 +48,45 @@ vi.mock("posthog-node", () => ({
 
 vi.mock("server-only", () => ({}));
 
+type BeforeSendStep = (event: CaptureResult | null) => CaptureResult | null;
+
+// Runs an event through the before_send steps in order, as PostHog does.
+function beforeSend(event: CaptureResult): CaptureResult | null {
+  const [, config] = analyticsMocks.browser.init.mock.calls[0] as [
+    string,
+    { before_send: BeforeSendStep[] },
+  ];
+  return config.before_send.reduce<CaptureResult | null>(
+    (current, step) => step(current),
+    event,
+  );
+}
+
+// What posthog-js's session manager keeps per tab.
+const TAB_SESSION_KEYS = [
+  "ph_phc_non_production_window_id",
+  "ph_phc_non_production_primary_window_exists",
+];
+
+function storeTabSessionKeys(): void {
+  for (const key of TAB_SESSION_KEYS) sessionStorage.setItem(key, "1");
+}
+
+function tabSessionKeys(): string[] {
+  return TAB_SESSION_KEYS.filter((key) => sessionStorage.getItem(key) !== null);
+}
+
+function loginEvent(): CaptureResult {
+  return {
+    uuid: "event-1",
+    event: ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED,
+    properties: { auth_method: "email" },
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  analyticsMocks.consent.status = "pending";
   analyticsMocks.server.captureImmediate.mockResolvedValue(undefined);
 });
 
@@ -100,18 +153,22 @@ describe("browser analytics", () => {
     expect(analyticsMocks.browser.init).toHaveBeenCalledWith(
       "phc_non_production",
       {
+        advanced_disable_flags: true,
         api_host: "https://eu.i.posthog.com",
         autocapture: false,
-        before_send: expect.any(Function),
+        before_send: [expect.any(Function), expect.any(Function)],
         capture_dead_clicks: false,
         capture_exceptions: false,
         capture_heatmaps: false,
         capture_pageleave: false,
-        capture_pageview: "history_change",
+        capture_pageview: false,
+        consent_persistence_name: "campus_analytics_consent",
         custom_personal_data_properties: ["token", "returnTo", "code", "state"],
         defaults: "2026-01-30",
         disable_session_recording: true,
         mask_personal_data_properties: true,
+        opt_out_capturing_by_default: true,
+        opt_out_persistence_by_default: true,
         person_profiles: "identified_only",
       },
     );
@@ -122,13 +179,8 @@ describe("browser analytics", () => {
     const analytics = await import("./client");
     await analytics.initializeBrowserAnalytics();
 
-    const [, config] = analyticsMocks.browser.init.mock.calls[0] as [
-      string,
-      { before_send: (event: unknown) => unknown },
-    ];
-
     expect(
-      config.before_send({
+      beforeSend({
         uuid: "event-1",
         event: "$pageview",
         properties: {
@@ -177,7 +229,7 @@ describe("browser analytics", () => {
     );
     analytics.identifyAnalyticsUser({
       id: "ada@campus.local",
-      role: "student",
+      systemRole: "user",
     });
     await analytics.initializeBrowserAnalytics();
 
@@ -191,6 +243,7 @@ describe("browser analytics", () => {
 
   it("captures typed events and manages authenticated identity", async () => {
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.consent.status = "granted";
 
     const analytics = await import("./client");
     await analytics.initializeBrowserAnalytics();
@@ -204,12 +257,7 @@ describe("browser analytics", () => {
       ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED,
       properties,
     );
-    analytics.identifyAnalyticsUser({
-      cohortId: "cohort-1",
-      id: " user-1 ",
-      role: "student",
-      trackId: "track-1",
-    });
+    analytics.identifyAnalyticsUser({ id: " user-1 ", systemRole: "user" });
     analytics.resetAnalyticsUser();
     await analytics.initializeBrowserAnalytics();
 
@@ -218,12 +266,500 @@ describe("browser analytics", () => {
       properties,
     );
     expect(analyticsMocks.browser.identify).toHaveBeenCalledWith("user-1", {
-      account_status: undefined,
-      cohort_id: "cohort-1",
-      role: "student",
-      track_id: "track-1",
+      system_role: "user",
     });
+    expect(analyticsMocks.browser.reset).toHaveBeenCalledExactlyOnceWith({
+      resetDeviceID: true,
+    });
+  });
+
+  it("forgets a different identified member before identifying the next", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.consent.status = "granted";
+    analyticsMocks.browser.get_property.mockReturnValueOnce("identified");
+    analyticsMocks.browser.get_distinct_id.mockReturnValueOnce("member-a");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.identifyAnalyticsUser({ id: "member-b", systemRole: "user" });
+    await analytics.initializeBrowserAnalytics();
+
+    const { identify, reset } = analyticsMocks.browser;
+    expect(reset).toHaveBeenCalledExactlyOnceWith({ resetDeviceID: true });
+    expect(reset.mock.invocationCallOrder[0]).toBeLessThan(
+      identify.mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(identify).toHaveBeenCalledWith("member-b", { system_role: "user" });
+  });
+
+  it("re-identifies the same member without forgetting them", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.consent.status = "granted";
+    analyticsMocks.browser.get_property.mockReturnValueOnce("identified");
+    analyticsMocks.browser.get_distinct_id.mockReturnValueOnce("member-a");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.identifyAnalyticsUser({ id: "member-a", systemRole: "admin" });
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.reset).not.toHaveBeenCalled();
+    expect(analyticsMocks.browser.identify).toHaveBeenCalledWith("member-a", {
+      system_role: "admin",
+    });
+  });
+
+  it.each([
+    ["forgets an identified member", "identified", 1],
+    ["keeps an anonymous visitor", "anonymous", 0],
+  ])("at sign-in %s", async (_, userState, resets) => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.browser.get_property.mockReturnValueOnce(userState);
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.resetIdentifiedAnalyticsUser();
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.reset).toHaveBeenCalledTimes(resets);
+  });
+
+  it("captures a pageview once asked, after what was queued before it", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.browser.get_property.mockReturnValueOnce("identified");
+    const analytics = await import("./client");
+
+    void analytics.initializeBrowserAnalytics();
+    analytics.resetIdentifiedAnalyticsUser();
+    analytics.captureBrowserPageview("/sign-in");
+    await analytics.initializeBrowserAnalytics();
+
+    const { capture, reset } = analyticsMocks.browser;
+    expect(capture).toHaveBeenCalledExactlyOnceWith("$pageview");
+    expect(reset.mock.invocationCallOrder[0]).toBeLessThan(
+      capture.mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
+  it("captures one pageview per pathname in a row, as Strict Mode mounts twice", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    for (const pathname of ["/campus", "/campus", "/campus/3", "/campus"]) {
+      analytics.captureBrowserPageview(pathname);
+    }
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.capture).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([
+    ["the member's role", "mentor", "mentor"],
+    ["null for an admin without a place", undefined, null],
+  ] as const)(
+    "adds the cohort, its group and %s to every event while in the cohort, and drops them on leaving",
+    async (_, cohortRole, sentRole) => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+
+      const leave = analytics.enterAnalyticsCohort({
+        cohortId: "cohort-3",
+        cohortRole,
+      });
+      expect(beforeSend(loginEvent())?.properties).not.toHaveProperty(
+        "cohort_id",
+      );
+      await analytics.initializeBrowserAnalytics();
+
+      expect(beforeSend(loginEvent())?.properties).toEqual({
+        auth_method: "email",
+        cohort_id: "cohort-3",
+        cohort_role: sentRole,
+        $groups: { cohort: "cohort-3" },
+      });
+
+      leave();
+      await analytics.initializeBrowserAnalytics();
+
+      expect(beforeSend(loginEvent())?.properties).toEqual({
+        auth_method: "email",
+      });
+    },
+  );
+
+  it("keeps the groups an event already carries beside the cohort", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+    analytics.enterAnalyticsCohort({ cohortId: "cohort-3" });
+    await analytics.initializeBrowserAnalytics();
+
+    const event = loginEvent();
+    event.properties.$groups = { track: "track-1" };
+
+    expect(beforeSend(event)?.properties.$groups).toEqual({
+      track: "track-1",
+      cohort: "cohort-3",
+    });
+  });
+
+  it("passes a dropped event through without a cohort", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+    analytics.enterAnalyticsCohort({ cohortId: "cohort-3" });
+    await analytics.initializeBrowserAnalytics();
+
+    const [, config] = analyticsMocks.browser.init.mock.calls[0] as [
+      string,
+      { before_send: BeforeSendStep[] },
+    ];
+
+    expect(config.before_send[0]?.(null)).toBeNull();
+  });
+
+  it("drops a cohort context outside the contract", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    const leave = analytics.enterAnalyticsCohort({
+      cohortId: "https://campus.example/c/3",
+    });
+    await analytics.initializeBrowserAnalytics();
+
+    expect(beforeSend(loginEvent())?.properties).not.toHaveProperty(
+      "cohort_id",
+    );
+    expect(leave).not.toThrow();
+  });
+
+  it("reports consent as unavailable without a project token", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    await expect(analytics.readAnalyticsConsent()).resolves.toBe("unavailable");
+  });
+
+  it("reports the stored consent choice once PostHog loads", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.consent.status = "denied";
+    const analytics = await import("./client");
+    void analytics.initializeBrowserAnalytics();
+
+    await expect(analytics.readAnalyticsConsent()).resolves.toBe("denied");
+  });
+
+  it("does not identify a member before consent is granted", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.identifyAnalyticsUser({ id: "user-1", systemRole: "user" });
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.identify).not.toHaveBeenCalled();
+  });
+
+  it("identifies the waiting member once consent is granted", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.identifyAnalyticsUser({ id: "user-1", systemRole: "user" });
+    analytics.grantAnalyticsConsent();
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.opt_in_capturing).toHaveBeenCalledWith();
+    expect(analyticsMocks.browser.identify).toHaveBeenCalledExactlyOnceWith(
+      "user-1",
+      { system_role: "user" },
+    );
+    expect(analyticsMocks.browser.opt_in_capturing).toHaveBeenCalledBefore(
+      analyticsMocks.browser.identify,
+    );
+  });
+
+  it("identifies a member at once when consent is already granted", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.consent.status = "granted";
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.identifyAnalyticsUser({ id: "user-1", systemRole: "user" });
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.identify).toHaveBeenCalledOnce();
+    expect(analyticsMocks.browser.opt_in_capturing).not.toHaveBeenCalled();
+  });
+
+  it("keeps a granted choice across reset without a new $opt_in", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.consent.status = "granted";
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.resetAnalyticsUser();
+
+    await expect(analytics.readAnalyticsConsent()).resolves.toBe("granted");
+    expect(
+      analyticsMocks.browser.opt_in_capturing,
+    ).toHaveBeenCalledExactlyOnceWith({ captureEventName: false });
+    expect(analyticsMocks.browser.reset).toHaveBeenCalledBefore(
+      analyticsMocks.browser.opt_in_capturing,
+    );
+  });
+
+  it("keeps a denied choice across reset", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.consent.status = "denied";
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.resetAnalyticsUser();
+
+    await expect(analytics.readAnalyticsConsent()).resolves.toBe("denied");
     expect(analyticsMocks.browser.reset).toHaveBeenCalledOnce();
+    expect(analyticsMocks.browser.opt_out_capturing).toHaveBeenCalledOnce();
+  });
+
+  it("leaves a pending choice pending across reset", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.resetAnalyticsUser();
+
+    await expect(analytics.readAnalyticsConsent()).resolves.toBe("pending");
+    expect(analyticsMocks.browser.reset).toHaveBeenCalledOnce();
+    expect(analyticsMocks.browser.opt_in_capturing).not.toHaveBeenCalled();
+    expect(analyticsMocks.browser.opt_out_capturing).not.toHaveBeenCalled();
+  });
+
+  it("does not identify a member who logged out before consent was granted", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.identifyAnalyticsUser({ id: "user-1", systemRole: "user" });
+    analytics.resetAnalyticsUser();
+    analytics.grantAnalyticsConsent();
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.identify).not.toHaveBeenCalled();
+  });
+
+  it("unlinks the device from the member when consent is withdrawn", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.consent.status = "granted";
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.denyAnalyticsConsent();
+
+    await expect(analytics.readAnalyticsConsent()).resolves.toBe("denied");
+    expect(analyticsMocks.browser.reset).toHaveBeenCalledExactlyOnceWith({
+      resetDeviceID: true,
+    });
+    expect(analyticsMocks.browser.reset).toHaveBeenCalledBefore(
+      analyticsMocks.browser.opt_out_capturing,
+    );
+    expect(analyticsMocks.browser.opt_in_capturing).not.toHaveBeenCalled();
+  });
+
+  it("clears both of the tab's session keys on Reject", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+    storeTabSessionKeys();
+
+    analytics.denyAnalyticsConsent();
+    await analytics.initializeBrowserAnalytics();
+
+    expect(tabSessionKeys()).toEqual([]);
+  });
+
+  it("captures the page a member accepted on, after identifying them", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.identifyAnalyticsUser({ id: "user-1", systemRole: "user" });
+    analytics.grantAnalyticsConsent();
+    await analytics.initializeBrowserAnalytics();
+
+    const { capture, identify } = analyticsMocks.browser;
+    expect(capture).toHaveBeenCalledExactlyOnceWith("$pageview");
+    expect(identify).toHaveBeenCalledBefore(capture);
+  });
+
+  it("keeps a granted choice when sign-in forgets the previous member", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.consent.status = "granted";
+    analyticsMocks.browser.get_property.mockReturnValueOnce("identified");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.resetIdentifiedAnalyticsUser();
+
+    await expect(analytics.readAnalyticsConsent()).resolves.toBe("granted");
+    expect(analyticsMocks.browser.reset).toHaveBeenCalledExactlyOnceWith({
+      resetDeviceID: true,
+    });
+  });
+
+  it("identifies the member waiting when Accept was pressed, not one identified after it", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+
+    void analytics.initializeBrowserAnalytics();
+    analytics.identifyAnalyticsUser({ id: "member-a", systemRole: "user" });
+    analytics.grantAnalyticsConsent();
+    analytics.resetAnalyticsUser();
+    analytics.identifyAnalyticsUser({ id: "member-b", systemRole: "user" });
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.identify.mock.calls).toEqual([
+      ["member-a", { system_role: "user" }],
+      ["member-b", { system_role: "user" }],
+    ]);
+  });
+
+  describe("a choice made in another tab", () => {
+    function chooseInAnotherTab(consent: "granted" | "denied" | "pending") {
+      analyticsMocks.consent.status = consent;
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "campus_analytics_consent" }),
+      );
+    }
+
+    it("identifies the member waiting here once it grants, without a new $opt_in", async () => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+      const onChange = vi.fn();
+      const stop = analytics.watchAnalyticsConsent(onChange);
+      analytics.identifyAnalyticsUser({ id: "user-1", systemRole: "user" });
+      await analytics.initializeBrowserAnalytics();
+
+      chooseInAnotherTab("granted");
+      await analytics.initializeBrowserAnalytics();
+      stop();
+
+      const { identify, opt_in_capturing } = analyticsMocks.browser;
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("granted");
+      expect(identify).toHaveBeenCalledExactlyOnceWith("user-1", {
+        system_role: "user",
+      });
+      expect(opt_in_capturing).toHaveBeenCalledExactlyOnceWith({
+        captureEventName: false,
+      });
+      expect(opt_in_capturing).toHaveBeenCalledBefore(identify);
+      const { load } = analyticsMocks.browser.persistence;
+      expect(load).toHaveBeenCalledExactlyOnceWith(true);
+      expect(load).toHaveBeenCalledBefore(opt_in_capturing);
+    });
+
+    it("reports a rejection without identifying anyone", async () => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+      const onChange = vi.fn();
+      const stop = analytics.watchAnalyticsConsent(onChange);
+      analytics.identifyAnalyticsUser({ id: "user-1", systemRole: "user" });
+
+      chooseInAnotherTab("denied");
+      await analytics.initializeBrowserAnalytics();
+      stop();
+
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("denied");
+      expect(analyticsMocks.browser.identify).not.toHaveBeenCalled();
+    });
+
+    it("stops capturing here and clears this tab's session keys once it rejects", async () => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+      const stop = analytics.watchAnalyticsConsent(() => undefined);
+      storeTabSessionKeys();
+
+      chooseInAnotherTab("denied");
+      await analytics.initializeBrowserAnalytics();
+      stop();
+
+      expect(analyticsMocks.browser.opt_out_capturing).toHaveBeenCalledOnce();
+      expect(tabSessionKeys()).toEqual([]);
+    });
+
+    it("ignores the pending gap while another tab resets and restores its choice", async () => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+      const onChange = vi.fn();
+      const stop = analytics.watchAnalyticsConsent(onChange);
+
+      chooseInAnotherTab("pending");
+      await analytics.initializeBrowserAnalytics();
+      stop();
+
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("ignores storage keys other than the consent key", async () => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+      const onChange = vi.fn();
+      const stop = analytics.watchAnalyticsConsent(onChange);
+
+      analyticsMocks.consent.status = "granted";
+      window.dispatchEvent(new StorageEvent("storage", { key: "theme" }));
+      await analytics.initializeBrowserAnalytics();
+      stop();
+
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("stops listening once unsubscribed", async () => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+      const onChange = vi.fn();
+      analytics.watchAnalyticsConsent(onChange)();
+
+      chooseInAnotherTab("granted");
+      await analytics.initializeBrowserAnalytics();
+
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
+
+  it("does not identify a member left waiting before sign-in once consent is granted", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.identifyAnalyticsUser({ id: "user-1", systemRole: "user" });
+    analytics.resetIdentifiedAnalyticsUser();
+    analytics.grantAnalyticsConsent();
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.identify).not.toHaveBeenCalled();
+  });
+
+  it("denies without a reset when nothing was granted", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.denyAnalyticsConsent();
+
+    await expect(analytics.readAnalyticsConsent()).resolves.toBe("denied");
+    expect(analyticsMocks.browser.reset).not.toHaveBeenCalled();
   });
 
   it("does not let initialization failures break hydration", async () => {
@@ -249,6 +785,7 @@ describe("browser analytics", () => {
 
   it("does not let browser SDK failures break product operations", async () => {
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.consent.status = "granted";
 
     const analytics = await import("./client");
     await analytics.initializeBrowserAnalytics();
@@ -279,7 +816,7 @@ describe("browser analytics", () => {
     expect(() =>
       analytics.identifyAnalyticsUser({
         id: "user-1",
-        role: "student",
+        systemRole: "user",
       }),
     ).not.toThrow();
     expect(() => analytics.resetAnalyticsUser()).not.toThrow();

@@ -3,6 +3,11 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Script from "next/script";
 
+import { BrowserPageview } from "@/core/analytics/browser-pageview";
+import {
+  AnalyticsConsentBanner,
+  PrivacyChoicesButton,
+} from "@/core/analytics/consent";
 import { sidebarInitializerScript } from "@/features/campus/document";
 import { fontVariableClasses } from "@/shared/styles/fonts";
 import { themeInitializerScript } from "@/shared/theme";
@@ -34,7 +39,10 @@ export default function RootLayout({
           {sidebarInitializerScript}
         </Script>
         <ThemeToggle />
+        <PrivacyChoicesButton />
         {children}
+        <AnalyticsConsentBanner />
+        <BrowserPageview />
       </body>
     </html>
   );

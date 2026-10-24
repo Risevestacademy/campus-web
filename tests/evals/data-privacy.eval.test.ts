@@ -5,7 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
 import { validateBuildEnvironment } from "@/config/environment/validation";
-import { analyticsEventSchemas } from "@/core/analytics/events";
+import {
+  analyticsCohortSchema,
+  analyticsEventSchemas,
+  analyticsIdentitySchema,
+} from "@/core/analytics/events";
 import { scrubAnalyticsEvent } from "@/core/analytics/scrub";
 import {
   parseServerMessage,
@@ -85,9 +89,11 @@ const SESSION_ALLOW_LIST = [
   "memberships[].cohort.code",
   "memberships[].cohort.name",
   "memberships[].cohortId",
+  "memberships[].role",
   "scope",
   "user.displayName",
   "user.email",
+  "user.id",
   "user.systemRole",
 ];
 
@@ -143,10 +149,20 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "identity.profile_setup_completed": ["cohort_id", "role", "track_id"],
   "identity.profile_setup_started": ["cohort_id", "role", "track_id"],
   "realtime.closed": ["action", "code", "reason"],
-  "realtime.connected": ["cohort_id", "reconnect"],
+  "realtime.connected": ["reconnect"],
   "realtime.gave_up": ["attempts"],
   "realtime.reconnected": ["attempts"],
 };
+
+// The person carries the identity; each event in a cohort carries the cohort.
+const ANALYTICS_MEMBER_ALLOW_LIST = {
+  identity: ["id", "systemRole"],
+  cohort: ["cohortId", "cohortRole"],
+};
+const analyticsMemberSchemas = [
+  ["identity", analyticsIdentitySchema],
+  ["cohort", analyticsCohortSchema],
+] as const;
 
 const PLAYER_PATHS = ["facing", "userId", "x", "y"];
 const AVATAR_PATHS = [...PLAYER_PATHS, "displayName", "spriteKey"].sort();
@@ -414,6 +430,31 @@ describe("Data privacy eval (threshold: every case holds)", () => {
 
     it.each(eventSchemas)(
       "%s rejects an email in any text property",
+      (_, schema) => {
+        for (const [key, field] of Object.entries(schema.shape)) {
+          expect(
+            field.safeParse("ada@campus.local").success,
+            `${key} accepted an email`,
+          ).toBe(false);
+        }
+      },
+    );
+  });
+
+  describe("the analytics identity and cohort carry only declared properties", () => {
+    it("pins the identity and cohort property lists", () => {
+      const declared = Object.fromEntries(
+        analyticsMemberSchemas.map(([name, schema]) => [
+          name,
+          Object.keys(schema.shape).sort(),
+        ]),
+      );
+
+      expect(declared).toEqual(ANALYTICS_MEMBER_ALLOW_LIST);
+    });
+
+    it.each(analyticsMemberSchemas)(
+      "the %s rejects an email in any property",
       (_, schema) => {
         for (const [key, field] of Object.entries(schema.shape)) {
           expect(

@@ -22,13 +22,13 @@ vi.mock("@/features/auth", () => ({
   CohortGate: ({ cohortId }: { cohortId: string }) => (
     <p role="alert">{`Cohort ${cohortId} access unavailable`}</p>
   ),
+  CohortSession: () => null,
   isSystemAdministrator: () => true,
   normalizeCohortReturnTo: () => "/campus/protected-cohort",
   requireRouteAccess: vi.fn(() =>
     Promise.resolve({ kind: "unavailable", retryHref: "/campus" }),
   ),
   SessionRefreshProvider: ({ children }: { children: ReactNode }) => children,
-  SessionRenewal: () => null,
   SessionUnavailable: () => <p role="alert">Route access unavailable</p>,
 }));
 vi.mock("@/features/campus", () => ({
