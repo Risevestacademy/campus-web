@@ -1,7 +1,7 @@
 import {
   CohortGate,
+  CohortSession,
   SessionRefreshProvider,
-  SessionRenewal,
 } from "@/features/auth";
 import { PresenceSession } from "@/features/campus";
 
@@ -20,7 +20,7 @@ export default async function CohortLayout({
 
   return (
     <CohortGate cohortId={id}>
-      <SessionRenewal cohortId={id} />
+      <CohortSession cohortId={id} />
       <SessionRefreshProvider>
         <PresenceSession cohortId={id} key={id}>
           {children}

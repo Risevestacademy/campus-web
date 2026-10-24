@@ -1,3 +1,4 @@
+import type { CaptureResult } from "posthog-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ANALYTICS_EVENTS } from "./events";
@@ -5,6 +6,8 @@ import { ANALYTICS_EVENTS } from "./events";
 const analyticsMocks = vi.hoisted(() => {
   const browser = {
     capture: vi.fn(),
+    get_distinct_id: vi.fn(),
+    get_property: vi.fn(),
     identify: vi.fn(),
     init: vi.fn(),
     reset: vi.fn(),
@@ -31,6 +34,28 @@ vi.mock("posthog-node", () => ({
 }));
 
 vi.mock("server-only", () => ({}));
+
+type BeforeSendStep = (event: CaptureResult | null) => CaptureResult | null;
+
+// Runs an event through the before_send steps in order, as PostHog does.
+function beforeSend(event: CaptureResult): CaptureResult | null {
+  const [, config] = analyticsMocks.browser.init.mock.calls[0] as [
+    string,
+    { before_send: BeforeSendStep[] },
+  ];
+  return config.before_send.reduce<CaptureResult | null>(
+    (current, step) => step(current),
+    event,
+  );
+}
+
+function loginEvent(): CaptureResult {
+  return {
+    uuid: "event-1",
+    event: ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED,
+    properties: { auth_method: "email" },
+  };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -102,12 +127,12 @@ describe("browser analytics", () => {
       {
         api_host: "https://eu.i.posthog.com",
         autocapture: false,
-        before_send: expect.any(Function),
+        before_send: [expect.any(Function), expect.any(Function)],
         capture_dead_clicks: false,
         capture_exceptions: false,
         capture_heatmaps: false,
         capture_pageleave: false,
-        capture_pageview: "history_change",
+        capture_pageview: false,
         custom_personal_data_properties: ["token", "returnTo", "code", "state"],
         defaults: "2026-01-30",
         disable_session_recording: true,
@@ -122,13 +147,8 @@ describe("browser analytics", () => {
     const analytics = await import("./client");
     await analytics.initializeBrowserAnalytics();
 
-    const [, config] = analyticsMocks.browser.init.mock.calls[0] as [
-      string,
-      { before_send: (event: unknown) => unknown },
-    ];
-
     expect(
-      config.before_send({
+      beforeSend({
         uuid: "event-1",
         event: "$pageview",
         properties: {
@@ -177,7 +197,7 @@ describe("browser analytics", () => {
     );
     analytics.identifyAnalyticsUser({
       id: "ada@campus.local",
-      role: "student",
+      systemRole: "user",
     });
     await analytics.initializeBrowserAnalytics();
 
@@ -204,12 +224,7 @@ describe("browser analytics", () => {
       ANALYTICS_EVENTS.AUTH_LOGIN_SUBMITTED,
       properties,
     );
-    analytics.identifyAnalyticsUser({
-      cohortId: "cohort-1",
-      id: " user-1 ",
-      role: "student",
-      trackId: "track-1",
-    });
+    analytics.identifyAnalyticsUser({ id: " user-1 ", systemRole: "user" });
     analytics.resetAnalyticsUser();
     await analytics.initializeBrowserAnalytics();
 
@@ -218,12 +233,173 @@ describe("browser analytics", () => {
       properties,
     );
     expect(analyticsMocks.browser.identify).toHaveBeenCalledWith("user-1", {
-      account_status: undefined,
-      cohort_id: "cohort-1",
-      role: "student",
-      track_id: "track-1",
+      system_role: "user",
     });
-    expect(analyticsMocks.browser.reset).toHaveBeenCalledOnce();
+    expect(analyticsMocks.browser.reset).toHaveBeenCalledExactlyOnceWith({
+      resetDeviceID: true,
+    });
+  });
+
+  it("forgets a different identified member before identifying the next", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.browser.get_property.mockReturnValueOnce("identified");
+    analyticsMocks.browser.get_distinct_id.mockReturnValueOnce("member-a");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.identifyAnalyticsUser({ id: "member-b", systemRole: "user" });
+    await analytics.initializeBrowserAnalytics();
+
+    const { identify, reset } = analyticsMocks.browser;
+    expect(reset).toHaveBeenCalledExactlyOnceWith({ resetDeviceID: true });
+    expect(reset.mock.invocationCallOrder[0]).toBeLessThan(
+      identify.mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(identify).toHaveBeenCalledWith("member-b", { system_role: "user" });
+  });
+
+  it("re-identifies the same member without forgetting them", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.browser.get_property.mockReturnValueOnce("identified");
+    analyticsMocks.browser.get_distinct_id.mockReturnValueOnce("member-a");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.identifyAnalyticsUser({ id: "member-a", systemRole: "admin" });
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.reset).not.toHaveBeenCalled();
+    expect(analyticsMocks.browser.identify).toHaveBeenCalledWith("member-a", {
+      system_role: "admin",
+    });
+  });
+
+  it.each([
+    ["forgets an identified member", "identified", 1],
+    ["keeps an anonymous visitor", "anonymous", 0],
+  ])("at sign-in %s", async (_, userState, resets) => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.browser.get_property.mockReturnValueOnce(userState);
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    analytics.resetIdentifiedAnalyticsUser();
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.reset).toHaveBeenCalledTimes(resets);
+  });
+
+  it("captures a pageview once asked, after what was queued before it", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    analyticsMocks.browser.get_property.mockReturnValueOnce("identified");
+    const analytics = await import("./client");
+
+    void analytics.initializeBrowserAnalytics();
+    analytics.resetIdentifiedAnalyticsUser();
+    analytics.captureBrowserPageview("/sign-in");
+    await analytics.initializeBrowserAnalytics();
+
+    const { capture, reset } = analyticsMocks.browser;
+    expect(capture).toHaveBeenCalledExactlyOnceWith("$pageview");
+    expect(reset.mock.invocationCallOrder[0]).toBeLessThan(
+      capture.mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
+  it("captures one pageview per pathname in a row, as Strict Mode mounts twice", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    for (const pathname of ["/campus", "/campus", "/campus/3", "/campus"]) {
+      analytics.captureBrowserPageview(pathname);
+    }
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.capture).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([
+    ["the member's role", "mentor", "mentor"],
+    ["null for an admin without a place", undefined, null],
+  ] as const)(
+    "adds the cohort, its group and %s to every event while in the cohort, and drops them on leaving",
+    async (_, cohortRole, sentRole) => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+
+      const leave = analytics.enterAnalyticsCohort({
+        cohortId: "cohort-3",
+        cohortRole,
+      });
+      expect(beforeSend(loginEvent())?.properties).not.toHaveProperty(
+        "cohort_id",
+      );
+      await analytics.initializeBrowserAnalytics();
+
+      expect(beforeSend(loginEvent())?.properties).toEqual({
+        auth_method: "email",
+        cohort_id: "cohort-3",
+        cohort_role: sentRole,
+        $groups: { cohort: "cohort-3" },
+      });
+
+      leave();
+      await analytics.initializeBrowserAnalytics();
+
+      expect(beforeSend(loginEvent())?.properties).toEqual({
+        auth_method: "email",
+      });
+    },
+  );
+
+  it("keeps the groups an event already carries beside the cohort", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+    analytics.enterAnalyticsCohort({ cohortId: "cohort-3" });
+    await analytics.initializeBrowserAnalytics();
+
+    const event = loginEvent();
+    event.properties.$groups = { track: "track-1" };
+
+    expect(beforeSend(event)?.properties.$groups).toEqual({
+      track: "track-1",
+      cohort: "cohort-3",
+    });
+  });
+
+  it("passes a dropped event through without a cohort", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+    analytics.enterAnalyticsCohort({ cohortId: "cohort-3" });
+    await analytics.initializeBrowserAnalytics();
+
+    const [, config] = analyticsMocks.browser.init.mock.calls[0] as [
+      string,
+      { before_send: BeforeSendStep[] },
+    ];
+
+    expect(config.before_send[0]?.(null)).toBeNull();
+  });
+
+  it("drops a cohort context outside the contract", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const analytics = await import("./client");
+    await analytics.initializeBrowserAnalytics();
+
+    const leave = analytics.enterAnalyticsCohort({
+      cohortId: "https://campus.example/c/3",
+    });
+    await analytics.initializeBrowserAnalytics();
+
+    expect(beforeSend(loginEvent())?.properties).not.toHaveProperty(
+      "cohort_id",
+    );
+    expect(leave).not.toThrow();
   });
 
   it("does not let initialization failures break hydration", async () => {
@@ -279,7 +455,7 @@ describe("browser analytics", () => {
     expect(() =>
       analytics.identifyAnalyticsUser({
         id: "user-1",
-        role: "student",
+        systemRole: "user",
       }),
     ).not.toThrow();
     expect(() => analytics.resetAnalyticsUser()).not.toThrow();

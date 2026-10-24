@@ -11,7 +11,7 @@ import {
   vi,
 } from "vitest";
 
-import { Toaster } from "@/shared/ui/toast";
+import { toast, Toaster } from "@/shared/ui/toast";
 import { inOrder, type Reply, TEST_ORIGIN } from "@/tests/fixtures/mock-api";
 
 import { SessionRenewalTimer } from "./session-renewal-timer";
@@ -26,6 +26,9 @@ const sideEffects = vi.hoisted(() => [] as string[]);
 vi.mock("@/core/analytics/client", () => ({
   captureBrowserAnalyticsEvent: (name: string, properties: object) => {
     sideEffects.push(`capture ${name} ${JSON.stringify(properties)}`);
+  },
+  resetAnalyticsUser: () => {
+    sideEffects.push("reset analytics user");
   },
 }));
 vi.mock("@/shared/lib/document-navigation", () => ({
@@ -309,6 +312,7 @@ describe("SessionRenewalTimer: failed renewal", () => {
       'capture auth.session_renewed {"outcome":"lapsed","failed_attempts":2}',
       'capture auth.session_renewed {"outcome":"renewed","failed_attempts":3}',
     ]);
+    expect(sideEffects).not.toContain("reset analytics user");
   });
 
   it("records a renewal and the failed attempts before it", async () => {
@@ -333,6 +337,7 @@ describe("SessionRenewalTimer: ended session", () => {
 
   afterEach(() => {
     window.history.replaceState(null, "", "/");
+    vi.restoreAllMocks();
   });
 
   it("stops renewing and keeps the page", async () => {
@@ -349,6 +354,20 @@ describe("SessionRenewalTimer: ended session", () => {
     expect(renewalEvents()).toEqual([
       'capture auth.session_renewed {"outcome":"expired","failed_attempts":0}',
     ]);
+  });
+
+  it("forgets the member's analytics identity before announcing the end", async () => {
+    vi.spyOn(toast, "add").mockImplementation(() => {
+      sideEffects.push("announce session ended");
+      return "session-ended";
+    });
+    renderRenewal(at(15 * MINUTE));
+
+    await elapse(13 * MINUTE);
+
+    expect(
+      sideEffects.filter((effect) => !effect.startsWith("capture")),
+    ).toEqual(["reset analytics user", "announce session ended"]);
   });
 
   it("offers sign-in, returning to the same page", async () => {

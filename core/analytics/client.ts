@@ -1,10 +1,12 @@
-import type { PostHog } from "posthog-js";
+import type { CaptureResult, PostHog } from "posthog-js";
 
 import { readAnalyticsConfiguration } from "./configuration";
 import { errorName } from "./error-name";
 import {
+  allowAnalyticsCohort,
   allowAnalyticsIdentity,
   allowAnalyticsProperties,
+  type AnalyticsCohort,
   type AnalyticsEventMap,
   type AnalyticsEventName,
   type AnalyticsIdentity,
@@ -13,6 +15,19 @@ import {
 // Invite links and returnTo values carry tokens and paths. Masking covers the
 // first URL PostHog persists at init, which runs before before_send.
 const PERSONAL_DATA_URL_PARAMS = ["token", "returnTo", "code", "state"];
+
+// The group type campus-api and world use, so one breakdown joins all three.
+const COHORT_GROUP_TYPE = "cohort";
+
+interface CohortProperties {
+  cohort_id: string;
+  cohort_role: NonNullable<AnalyticsCohort["cohortRole"]> | null;
+}
+
+// Memory, not PostHog's session storage: it ends with the page, so a full load
+// never inherits a cohort and a PostHog session rotation never drops one.
+let activeCohort: CohortProperties | null = null;
+let lastPageviewPath: string | null = null;
 
 let browserAnalytics: Promise<PostHog | null> | null = null;
 
@@ -31,12 +46,12 @@ async function loadBrowserAnalytics(): Promise<PostHog | null> {
     posthog.init(configuration.projectToken, {
       api_host: configuration.host,
       autocapture: false,
-      before_send: scrubAnalyticsEvent,
+      before_send: [attachActiveCohort, scrubAnalyticsEvent],
       capture_dead_clicks: false,
       capture_exceptions: false,
       capture_heatmaps: false,
       capture_pageleave: false,
-      capture_pageview: "history_change",
+      capture_pageview: false,
       custom_personal_data_properties: PERSONAL_DATA_URL_PARAMS,
       defaults: "2026-01-30",
       disable_session_recording: true,
@@ -93,18 +108,81 @@ export function identifyAnalyticsUser(identity: AnalyticsIdentity): void {
   const allowed = allowAnalyticsIdentity(identity);
   if (!allowed) return;
 
-  withBrowserAnalytics("PostHog browser identification failed.", (posthog) =>
-    posthog.identify(allowed.id, {
-      account_status: allowed.accountStatus,
-      cohort_id: allowed.cohortId,
-      role: allowed.role,
-      track_id: allowed.trackId,
-    }),
+  withBrowserAnalytics("PostHog browser identification failed.", (posthog) => {
+    if (isIdentifiedAsAnother(posthog, allowed.id)) forgetMember(posthog);
+    posthog.identify(allowed.id, { system_role: allowed.systemRole });
+  });
+}
+
+// Captured by BrowserPageview after the page's mount effects, so a reset,
+// identify or cohort entry on that page always reaches PostHog first. Once per
+// pathname in a row: Strict Mode mounts it twice in development.
+export function captureBrowserPageview(pathname: string): void {
+  if (pathname === lastPageviewPath) return;
+  lastPageviewPath = pathname;
+
+  withBrowserAnalytics("PostHog pageview capture failed.", (posthog) =>
+    posthog.capture("$pageview"),
   );
 }
 
+// Per tab, never on the person: one member can hold different roles in two
+// cohorts open side by side. The returned cleanup drops it on leaving.
+export function enterAnalyticsCohort(cohort: AnalyticsCohort): () => void {
+  const allowed = allowAnalyticsCohort(cohort);
+  if (!allowed) return () => undefined;
+
+  // Queued like captures, so an event sent before entry never carries it.
+  const properties = {
+    cohort_id: allowed.cohortId,
+    cohort_role: allowed.cohortRole ?? null,
+  };
+  withBrowserAnalytics("PostHog cohort context failed.", () => {
+    activeCohort = properties;
+  });
+  return () =>
+    withBrowserAnalytics("PostHog cohort context failed.", () => {
+      activeCohort = null;
+    });
+}
+
+function attachActiveCohort(event: CaptureResult | null): CaptureResult | null {
+  if (!event || !activeCohort) return event;
+  return {
+    ...event,
+    properties: {
+      ...event.properties,
+      ...activeCohort,
+      $groups: {
+        ...event.properties.$groups,
+        [COHORT_GROUP_TYPE]: activeCohort.cohort_id,
+      },
+    },
+  };
+}
+
 export function resetAnalyticsUser(): void {
-  withBrowserAnalytics("PostHog browser identity reset failed.", (posthog) =>
-    posthog.reset(),
-  );
+  withBrowserAnalytics("PostHog browser identity reset failed.", forgetMember);
+}
+
+// Only an identified member is forgotten, so an invitee's anonymous visit
+// still joins the login that follows it.
+export function resetIdentifiedAnalyticsUser(): void {
+  withBrowserAnalytics("PostHog browser identity reset failed.", (posthog) => {
+    if (isIdentified(posthog)) forgetMember(posthog);
+  });
+}
+
+function isIdentified(posthog: PostHog): boolean {
+  return posthog.get_property("$user_state") === "identified";
+}
+
+function isIdentifiedAsAnother(posthog: PostHog, id: string): boolean {
+  return isIdentified(posthog) && posthog.get_distinct_id() !== id;
+}
+
+// A new device ID too, so the next person cannot be joined to this member
+// through $device_id.
+function forgetMember(posthog: PostHog): void {
+  posthog.reset({ resetDeviceID: true });
 }
