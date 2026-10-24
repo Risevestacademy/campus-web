@@ -111,15 +111,17 @@ sends no request at all and writes no `ph_*` cookie or storage.
 - `AnalyticsConsentBanner`, mounted once in the root layout, asks while the
   choice is `pending`. Reject and Accept carry equal weight; Escape and outside
   clicks decide nothing. The copy says the choice applies to everyone using
-  this browser.
+  this browser. It sits bottom-left, raised above the Presence Dock, so call
+  controls stay reachable before a choice.
 - Accept calls `grantAnalyticsConsent`: `opt_in_capturing()` sends one
   `$opt_in`, then it identifies a member who was waiting on a cohort page and
   captures the page's `$pageview`. `BrowserPageview` already ran while opted
   out, and `opt_in_capturing()` sends no pageview with `capture_pageview` off.
 - Reject calls `denyAnalyticsConsent`: when consent had been granted it
   resets with a new device ID, so the device is unlinked from the member, then
-  `opt_out_capturing()`, then removes the tab's `ph_<token>_window_id`, which
-  opting out leaves behind. Events captured before Reject may still be sent.
+  `opt_out_capturing()`, then removes the tab's `ph_<token>_window_id` and
+  `ph_<token>_primary_window_exists`, which opting out leaves behind. Events
+  captured before Reject may still be sent.
 - `PrivacyChoicesButton`, mounted in the root layout above the theme toggle,
   and a "Privacy choices" item in the campus rail call
   `openAnalyticsConsentChoices`. Both appear once the choice is known. A
@@ -133,9 +135,11 @@ reset (logout, session expiry, sign-in, identify as another member) reads the
 choice first and re-applies it, without a new `$opt_in`. A logout or sign-in
 also drops a member still waiting for Accept.
 
-Other tabs follow through `storage` events on that key (`watchAnalyticsConsent`):
-their banner closes, and a tab that becomes granted identifies its waiting
-member without another `$opt_in`.
+Other tabs follow through `storage` events on that key (`watchAnalyticsConsent`)
+as if the choice were made there: their banner closes, and a Reject opts out
+and clears that tab's keys too. On an Accept, the tab first loads the IDs the
+accepting tab stored, so one browser stays one device, then opts in without
+another `$opt_in` and identifies its waiting member.
 
 The `$opt_in` count in PostHog is the consent-uptake trace. A rejection sends
 nothing, by design.

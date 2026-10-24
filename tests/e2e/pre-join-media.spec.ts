@@ -153,6 +153,30 @@ test("a camera turned on at pre-join stays live through Cohort Administration", 
   expect(await captureCount()).toBe(capturesAfterJoin);
 });
 
+test("the analytics banner leaves the Presence dock within reach", async ({
+  page,
+  context,
+  baseURL,
+  fakeApi,
+}) => {
+  await signIn(context, baseURL);
+  await fakeApi.scriptSession(sessions.admin());
+  await installSanityMapStub(page);
+  await joinWithCamera(page);
+  await openAdministrationOverview(page);
+
+  await page.getByRole("button", { name: "Privacy choices" }).click();
+  await expect(
+    page.getByRole("region", { name: "Analytics cookies" }),
+  ).toBeVisible();
+
+  await page
+    .getByRole("complementary", { name: "Presence dock" })
+    .getByRole("link", { name: "Campus map" })
+    .click();
+  await expect(page).toHaveURL(CAMPUS);
+});
+
 test("Session Renewal keeps the camera live past the access token's lifetime", async ({
   page,
   context,

@@ -84,7 +84,7 @@ export function AnalyticsConsentNotice({
       tabIndex={-1}
       aria-labelledby={headingId}
       onKeyDown={handleKeyDown}
-      className="bg-surface border-border text-foreground focus-visible:ring-border-focus fixed inset-x-4 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 grid gap-3 rounded-2xl border p-4 shadow-lg transition-opacity duration-200 outline-none focus-visible:ring-2 motion-reduce:transition-none sm:right-auto sm:bottom-3 sm:left-16 sm:w-full sm:max-w-sm starting:opacity-0"
+      className="bg-surface border-border text-foreground focus-visible:ring-border-focus fixed inset-x-4 bottom-[calc(7.5rem+env(safe-area-inset-bottom))] z-40 grid gap-3 rounded-2xl border p-4 shadow-lg transition-opacity duration-200 outline-none focus-visible:ring-2 motion-reduce:transition-none sm:right-auto sm:left-3 sm:w-full sm:max-w-sm starting:opacity-0"
     >
       <h2 id={headingId} className="font-semibold text-balance">
         Analytics cookies
