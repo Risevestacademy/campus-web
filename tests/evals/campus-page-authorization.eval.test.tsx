@@ -34,6 +34,7 @@ vi.mock("@/features/auth", () => ({
 vi.mock("@/features/campus", () => ({
   CampusJoinButton: () => null,
   CohortChooser: () => null,
+  ConnectionCheck: () => null,
   PreJoinPresenceTab: ({ children }: { children: ReactNode }) => children,
   PresenceSession: ({ children }: { children: ReactNode }) => (
     <section aria-label="Presence Session">{children}</section>

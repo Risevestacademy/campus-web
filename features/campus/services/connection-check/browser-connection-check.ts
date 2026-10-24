@@ -34,3 +34,8 @@ export function checkBrowserConnection(
     options,
   );
 }
+
+// An invalid value still counts: pressing the test then reads "couldn't run".
+export function isConnectionCheckConfigured(): boolean {
+  return publicEnvironment.NEXT_PUBLIC_MEDIA_URL !== undefined;
+}

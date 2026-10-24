@@ -80,6 +80,22 @@ through `/api`, with `credentials: "include"` and no body. The spec is
 - **The token is a credential.** It never reaches a log, an analytics
   property or an error message.
 
+## Join Gate UI
+
+`ConnectionCheck` (`components/connection-check.tsx`) sits between the camera
+preview and Join on the Join Gate. It renders nothing when the build has no
+`NEXT_PUBLIC_MEDIA_URL`, and shares no state with Join, so it never blocks it.
+
+- `ConnectionCheckPanel` renders the button, the step list and a
+  `role="status"` region. The region stays mounted and never `display: none`,
+  so the first result is announced. Stories: one per state.
+- `connection-check-feedback.ts` maps each result to plain words and one
+  hint. The copy never names a LiveKit check.
+- A 503 hides the button and says calls are unavailable. A rate limit shows
+  the seconds to wait with no countdown; an early press gets a fresh 429.
+- A 401 reads "couldn't run the test", never a sign-in redirect: `CohortGate`
+  already proved the session, so the cookie is not reaching world.
+
 ## Modules
 
 | Module                        | Owns                                                       |
