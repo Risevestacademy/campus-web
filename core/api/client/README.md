@@ -220,7 +220,9 @@ second frontend-owned response contract.
 
 Run `pnpm api:types` after campus-api publishes the route. `pnpm typecheck`
 then fails on `PUBLISHED_ROUTES` in `upstream-routes.ts` until the new
-template is listed there; until then the proxy answers it with `404`.
+template is listed there; until then the proxy answers it with `404`. List it
+`true` to forward it, or `false` for a route no browser sends (a webhook
+another server calls); the proxy answers a `false` route with the same `404`.
 
 ## Google OAuth
 
