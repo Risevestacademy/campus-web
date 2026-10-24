@@ -17,6 +17,15 @@ import {
 
 const { startClient } = startMockWorld();
 
+const { awayAfterSeconds: _awayAfterSeconds, ...READ_WELCOME } = WELCOME;
+const READ_SNAPSHOT = {
+  type: SNAPSHOT.type,
+  map: SNAPSHOT.map,
+  players: SNAPSHOT.players.map(
+    ({ status: _status, spaceKey: _spaceKey, ...avatar }) => avatar,
+  ),
+};
+
 describe("createRealtimeClient", () => {
   it("is idle until connect opens one socket to the cohort's url", async () => {
     const { client, connections } = startClient();
@@ -40,8 +49,8 @@ describe("createRealtimeClient", () => {
       expect(client.getStatus()).toEqual({ phase: "connected" }),
     );
     expect(events()).toEqual([
-      { type: "message", message: WELCOME },
-      { type: "message", message: SNAPSHOT },
+      { type: "message", message: READ_WELCOME },
+      { type: "message", message: READ_SNAPSHOT },
       { type: "connected", attempt: 0 },
     ]);
     expect(listener).toHaveBeenCalled();
@@ -51,7 +60,7 @@ describe("createRealtimeClient", () => {
     it.each([
       [
         "a type world added later",
-        '{"type":"statusChanged"}',
+        '{"type":"teleport"}',
         "warn",
         "realtime.frame_skipped",
         { reason: "unknown-type" },
