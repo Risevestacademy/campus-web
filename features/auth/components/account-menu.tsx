@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 
-import { openAnalyticsConsentChoices } from "@/core/analytics/consent";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,9 +29,6 @@ export function AccountMenu({
         {children}
       </DropdownMenuTrigger>
       <DropdownMenuContent side={side} align="end">
-        <DropdownMenuItem onClick={openAnalyticsConsentChoices}>
-          Privacy choices
-        </DropdownMenuItem>
         <DropdownMenuItem
           variant="destructive"
           disabled={isPending}

@@ -86,9 +86,7 @@ identity on a new invite, and an anonymous visit stays, so an invitation
 joins its login. Identify also forgets a different member still identified on
 the device. The root layout's `BrowserPageview` captures each pageview after
 these effects, so the first pageview is never sent as the previous member.
-Every reset keeps the device's analytics choice. `AccountMenu` offers
-"Privacy choices" above Log out, which reopens the consent banner
-(`core/analytics/consent`).
+Every reset keeps the browser's analytics choice.
 
 A reset clears PostHog's shared storage, so another open tab drops the
 identity too. That is intended: a reset only follows a session that ended for

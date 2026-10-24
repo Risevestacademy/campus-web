@@ -10,7 +10,6 @@ import {
   vi,
 } from "vitest";
 
-import { AnalyticsConsentBanner } from "@/core/analytics/consent";
 import { toast, Toaster } from "@/shared/ui/toast";
 import { inOrder, type Reply, TEST_ORIGIN } from "@/tests/fixtures/mock-api";
 import { withQueryClient } from "@/tests/fixtures/query-client";
@@ -31,9 +30,6 @@ vi.mock("@/core/analytics/client", () => ({
   resetAnalyticsUser: () => {
     sideEffects.push("reset analytics user");
   },
-  denyAnalyticsConsent: () => undefined,
-  grantAnalyticsConsent: () => undefined,
-  readAnalyticsConsent: () => Promise.resolve("granted"),
 }));
 vi.mock("@/shared/lib/document-navigation", () => ({
   replaceDocument: (href: string) => {
@@ -119,35 +115,6 @@ describe("AccountMenu: logging out", () => {
       expect(logoutPosts()).toHaveLength(1);
     },
   );
-});
-
-describe("AccountMenu: privacy choices", () => {
-  it("reopens the analytics choice above Log out and moves focus to it", async () => {
-    render(
-      <>
-        {withQueryClient(
-          <AccountMenu>
-            <span>A</span>
-          </AccountMenu>,
-        )}
-        <AnalyticsConsentBanner />
-      </>,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Account" }));
-    const items = await screen.findAllByRole("menuitem");
-
-    expect(items.map((item) => item.textContent)).toEqual([
-      "Privacy choices",
-      "Log out",
-    ]);
-
-    fireEvent.click(screen.getByRole("menuitem", { name: "Privacy choices" }));
-
-    const banner = await screen.findByRole("region", {
-      name: "Analytics cookies",
-    });
-    await waitFor(() => expect(banner).toHaveFocus());
-  });
 });
 
 describe("AccountMenu: logging out of every tab", () => {
