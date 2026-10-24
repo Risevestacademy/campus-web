@@ -234,3 +234,8 @@ the non-production project token configured. Confirm:
 6. A protected build fails when either analytics variable is missing.
 7. Opening an invite link produces a `$pageview` whose `$current_url` holds no
    `token`.
+
+Playwright runs against a build that carries the token. Fixture tests block
+`*.posthog.com` and start every page as if Reject was pressed
+(`tests/e2e/support/analytics.ts`), so the banner never mounts over a click.
+A `NEXT_PUBLIC_POSTHOG_HOST` outside `posthog.com` would not be blocked.
