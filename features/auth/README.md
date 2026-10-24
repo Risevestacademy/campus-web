@@ -74,7 +74,8 @@ an admin without a place) plus the `cohort` group on the tab's events only. `Coh
 identifies and enters the cohort on mount and leaves it on unmount; its key is
 those values, so a role picked up by `router.refresh()` re-sends them. No name
 or email leaves the session. A cohort role this build does not know parses as
-absent, so the member keeps access.
+absent, so the member keeps access. PostHog receives the identity only once the
+member accepts analytics; an earlier identity waits and is sent on Accept.
 
 Every reset takes a new device ID. An `expired` renewal calls
 `resetAnalyticsUser()` before its toast. `ForgetPreviousMember` forgets an
@@ -85,6 +86,7 @@ identity on a new invite, and an anonymous visit stays, so an invitation
 joins its login. Identify also forgets a different member still identified on
 the device. The root layout's `BrowserPageview` captures each pageview after
 these effects, so the first pageview is never sent as the previous member.
+Every reset keeps the browser's analytics choice.
 
 A reset clears PostHog's shared storage, so another open tab drops the
 identity too. That is intended: a reset only follows a session that ended for

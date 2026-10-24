@@ -15,6 +15,7 @@ import { memberAnalyticsFor } from "@/features/auth/services/member-analytics";
 import type { Session } from "@/features/auth/types/auth.types";
 import {
   clearBrowserStorage,
+  grantStoredConsent,
   loadRealAnalytics,
   stubPostHogEnvironment,
 } from "@/tests/fixtures/real-posthog";
@@ -263,6 +264,7 @@ describe("Analytics identity eval (threshold: every case holds)", () => {
   describe("real PostHog SDK", () => {
     beforeEach(() => {
       clearBrowserStorage();
+      grantStoredConsent();
       sent.length = 0;
       stubPostHogEnvironment(TOKEN);
     });
