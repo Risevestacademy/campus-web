@@ -40,6 +40,7 @@ describe("findPublishedRoute", () => {
     ["a dot-dot parameter", ["v1", "tracks", ".."]],
     ["a dot-dot literal", ["v1", "..", "v1", "health"]],
     ["a different case", ["V1", "health"]],
+    ["the LiveKit webhook, which no browser sends", ["v1", "calls", "webhook"]],
   ])("finds nothing for %s", (_case, path) => {
     expect(findPublishedRoute(path)).toBeUndefined();
   });
