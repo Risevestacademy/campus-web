@@ -1,6 +1,7 @@
 import type { CaptureResult, PostHog } from "posthog-js";
 
 import { readAnalyticsConfiguration } from "./configuration";
+import { ANALYTICS_CONSENT_KEY } from "./consent-key";
 import { errorName } from "./error-name";
 import {
   allowAnalyticsCohort,
@@ -48,6 +49,8 @@ async function loadBrowserAnalytics(): Promise<PostHog | null> {
       import("./scrub"),
     ]);
     posthog.init(configuration.projectToken, {
+      // Flags are unused; left on, they call PostHog before any choice.
+      advanced_disable_flags: true,
       api_host: configuration.host,
       autocapture: false,
       before_send: [attachActiveCohort, scrubAnalyticsEvent],
@@ -56,6 +59,7 @@ async function loadBrowserAnalytics(): Promise<PostHog | null> {
       capture_heatmaps: false,
       capture_pageleave: false,
       capture_pageview: false,
+      consent_persistence_name: ANALYTICS_CONSENT_KEY,
       custom_personal_data_properties: PERSONAL_DATA_URL_PARAMS,
       defaults: "2026-01-30",
       disable_session_recording: true,
@@ -129,19 +133,45 @@ export function identifyAnalyticsUser(identity: AnalyticsIdentity): void {
 
 // opt_in_capturing sends no $pageview while capture_pageview is off, so the
 // page the member accepted on is captured here, after identify.
+// The member waiting at the press, not one identified while the SDK loads.
 export function grantAnalyticsConsent(): void {
+  const identity = latestIdentity;
   withBrowserAnalytics("PostHog consent grant failed.", (posthog) => {
     posthog.opt_in_capturing();
-    if (latestIdentity) identify(posthog, latestIdentity);
+    if (identity) identify(posthog, identity);
     posthog.capture("$pageview");
   });
 }
 
 export function denyAnalyticsConsent(): void {
   withBrowserAnalytics("PostHog consent denial failed.", (posthog) => {
-    if (isGranted(posthog)) forgetMember(posthog);
+    if (isGranted(posthog)) unlinkDevice(posthog);
     posthog.opt_out_capturing();
+    // Opting out leaves the session manager's tab ID in sessionStorage.
+    sessionStorage.removeItem(`ph_${posthog.config.token}_window_id`);
   });
+}
+
+// Another tab's choice arrives only through storage. posthog-js re-reads the
+// key on every check, so this tab already captures under it; this identifies
+// the member waiting here. "pending" is skipped: it is only the gap between a
+// reset and its restore in that tab.
+export function watchAnalyticsConsent(
+  onChange: (consent: "granted" | "denied") => void,
+): () => void {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== ANALYTICS_CONSENT_KEY) return;
+    withBrowserAnalytics("PostHog consent sync failed.", (posthog) => {
+      const consent = posthog.get_explicit_consent_status();
+      if (consent === "pending") return;
+      if (consent === "granted" && latestIdentity) {
+        identify(posthog, latestIdentity);
+      }
+      onChange(consent);
+    });
+  };
+  window.addEventListener("storage", onStorage);
+  return () => window.removeEventListener("storage", onStorage);
 }
 
 // Captured by BrowserPageview after the page's mount effects, so a reset,
@@ -222,12 +252,17 @@ function identify(posthog: PostHog, identity: AllowedAnalyticsIdentity): void {
   posthog.identify(identity.id, { system_role: identity.systemRole });
 }
 
-// A new device ID too, so the next person cannot be joined to this member
-// through $device_id. reset() also wipes the consent choice, so it goes back.
+// reset() also wipes the consent choice, so it goes back.
 function forgetMember(posthog: PostHog): void {
   const consent = posthog.get_explicit_consent_status();
-  posthog.reset({ resetDeviceID: true });
+  unlinkDevice(posthog);
   restoreConsent(posthog, consent);
+}
+
+// A new device ID too, so the next person cannot be joined to this member
+// through $device_id.
+function unlinkDevice(posthog: PostHog): void {
+  posthog.reset({ resetDeviceID: true });
 }
 
 // Without $opt_in, so a logout is not counted as a new acceptance.

@@ -264,7 +264,7 @@ describe("Analytics identity eval (threshold: every case holds)", () => {
   describe("real PostHog SDK", () => {
     beforeEach(() => {
       clearBrowserStorage();
-      grantStoredConsent(TOKEN);
+      grantStoredConsent();
       sent.length = 0;
       stubPostHogEnvironment(TOKEN);
     });

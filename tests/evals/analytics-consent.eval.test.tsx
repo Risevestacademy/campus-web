@@ -1,20 +1,19 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ANALYTICS_CONSENT_KEY as CONSENT_KEY } from "@/core/analytics/consent-key";
 import {
   clearBrowserStorage,
-  consentKey,
   loadRealAnalytics,
+  type PostHogRequest,
   storedKeys,
   stubPostHogEnvironment,
 } from "@/tests/fixtures/real-posthog";
 
 const TOKEN = "phc_consent_eval";
-const CONSENT_KEY = consentKey(TOKEN);
-const CAPTURE_PATH = /\/(e|i\/v0\/e)\/?(\?|$)/;
 
 const observed = vi.hoisted(() => ({ sent: [] as string[] }));
-let requests: string[] = [];
+let requests: PostHogRequest[] = [];
 
 vi.mock("@/core/analytics/scrub", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/core/analytics/scrub")>();
@@ -30,12 +29,23 @@ vi.mock("@/core/analytics/scrub", async (importOriginal) => {
 
 type AnalyticsClient = typeof import("@/core/analytics/client");
 
-function phKeys(): string[] {
-  return storedKeys().filter((key) => key.includes("ph_"));
+function analyticsKeys(): string[] {
+  return storedKeys().filter(
+    (key) => key.includes("ph_") || key === CONSENT_KEY,
+  );
 }
 
-function captureRequests(): string[] {
-  return requests.filter((url) => CAPTURE_PATH.test(new URL(url).pathname));
+// Fetches plus script loads: posthog-js fetches its remote config as a script.
+function postHogRequests(): string[] {
+  const scripts = [...document.scripts]
+    .map((script) => script.src)
+    .filter((source) => source.includes("posthog"));
+  return [...requests.map(({ url }) => url), ...scripts];
+}
+
+// The flags call fired ~0.7 s after start-up; fake timers run it at once.
+async function runStartupTimers(): Promise<void> {
+  await vi.advanceTimersByTimeAsync(5_000);
 }
 
 // Each fresh SDK wraps pushState for history_change pageviews. Unwrapping
@@ -51,6 +61,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
+  document.querySelectorAll("script[src]").forEach((script) => script.remove());
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
@@ -65,37 +77,41 @@ describe("Analytics consent eval (threshold: every case holds)", () => {
     expect(second).not.toBe(first);
   });
 
-  it("writes nothing and sends no capture before a choice", async () => {
+  it("writes nothing and sends no request at all before a choice", async () => {
+    vi.useFakeTimers();
     const analytics = await loadRealAnalytics();
 
     history.pushState(null, "", "/campus");
     analytics.identifyAnalyticsUser({ id: "user-1", systemRole: "user" });
     await analytics.initializeBrowserAnalytics();
+    await runStartupTimers();
 
     expect(await analytics.readAnalyticsConsent()).toBe("pending");
     expect(observed.sent).toEqual([]);
-    expect(captureRequests()).toEqual([]);
-    expect(phKeys()).toEqual([]);
+    expect(postHogRequests()).toEqual([]);
+    expect(analyticsKeys()).toEqual([]);
   });
 
-  it("stores only the consent key on Reject, and sends nothing after it", async () => {
+  it("stores only the consent key on Reject, and sends no request after it", async () => {
+    vi.useFakeTimers();
     const analytics = await loadRealAnalytics();
 
     analytics.denyAnalyticsConsent();
     await analytics.initializeBrowserAnalytics();
     history.pushState(null, "", "/campus/after-reject");
 
-    expect(phKeys()).toEqual([CONSENT_KEY]);
+    expect(analyticsKeys()).toEqual([CONSENT_KEY]);
     expect(localStorage.getItem(CONSENT_KEY)).toBe("0");
 
     const reloaded = await loadRealAnalytics();
     reloaded.identifyAnalyticsUser({ id: "user-1", systemRole: "user" });
     history.pushState(null, "", "/campus/after-reload");
     await reloaded.initializeBrowserAnalytics();
+    await runStartupTimers();
 
     expect(await reloaded.readAnalyticsConsent()).toBe("denied");
     expect(observed.sent).toEqual([]);
-    expect(captureRequests()).toEqual([]);
+    expect(postHogRequests()).toEqual([]);
   });
 
   it("sends one $opt_in on Accept, then the page's $pageview", async () => {
@@ -106,6 +122,48 @@ describe("Analytics consent eval (threshold: every case holds)", () => {
 
     expect(localStorage.getItem(CONSENT_KEY)).toBe("1");
     expect(observed.sent).toEqual(["$opt_in", "$pageview"]);
+  });
+
+  it("captures nothing after Accept then Reject, and leaves only the consent key", async () => {
+    vi.useFakeTimers();
+    const analytics = await loadRealAnalytics();
+    analytics.grantAnalyticsConsent();
+    await analytics.initializeBrowserAnalytics();
+    const capturedWhileGranted = [...observed.sent];
+    requests.length = 0;
+    observed.sent.length = 0;
+
+    analytics.denyAnalyticsConsent();
+    await analytics.initializeBrowserAnalytics();
+    analytics.captureBrowserPageview("/campus/after-withdrawal");
+    await analytics.initializeBrowserAnalytics();
+    await runStartupTimers();
+
+    expect(await analytics.readAnalyticsConsent()).toBe("denied");
+    expect(analyticsKeys()).toEqual([CONSENT_KEY]);
+    expect(observed.sent).toEqual([]);
+    // Reject flushes what was captured while granted; nothing newer leaves.
+    expect(
+      postHogRequests().filter((url) => new URL(url).pathname !== "/e/"),
+    ).toEqual([]);
+    expect(capturedWhileGranted).toEqual(
+      expect.arrayContaining(requests.flatMap(({ events }) => events)),
+    );
+  });
+
+  it("identifies the member waiting here when another tab accepts, without a second $opt_in", async () => {
+    const analytics = await loadRealAnalytics();
+    const stop = analytics.watchAnalyticsConsent(() => undefined);
+    analytics.identifyAnalyticsUser({ id: "user-1", systemRole: "user" });
+    await analytics.initializeBrowserAnalytics();
+
+    localStorage.setItem(CONSENT_KEY, "1");
+    window.dispatchEvent(new StorageEvent("storage", { key: CONSENT_KEY }));
+    await analytics.initializeBrowserAnalytics();
+    stop();
+
+    expect(await analytics.readAnalyticsConsent()).toBe("granted");
+    expect(observed.sent).toEqual(["$identify"]);
   });
 
   it("keeps an accepted choice across logout without a second $opt_in", async () => {

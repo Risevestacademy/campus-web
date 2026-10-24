@@ -7,6 +7,7 @@ const analyticsMocks = vi.hoisted(() => {
   const consent = { status: "pending" as "granted" | "denied" | "pending" };
   const browser = {
     capture: vi.fn(),
+    config: { token: "phc_non_production" },
     get_distinct_id: vi.fn(),
     get_explicit_consent_status: vi.fn(() => consent.status),
     get_property: vi.fn(),
@@ -137,6 +138,7 @@ describe("browser analytics", () => {
     expect(analyticsMocks.browser.init).toHaveBeenCalledWith(
       "phc_non_production",
       {
+        advanced_disable_flags: true,
         api_host: "https://eu.i.posthog.com",
         autocapture: false,
         before_send: [expect.any(Function), expect.any(Function)],
@@ -145,6 +147,7 @@ describe("browser analytics", () => {
         capture_heatmaps: false,
         capture_pageleave: false,
         capture_pageview: false,
+        consent_persistence_name: "campus_analytics_consent",
         custom_personal_data_properties: ["token", "returnTo", "code", "state"],
         defaults: "2026-01-30",
         disable_session_recording: true,
@@ -544,9 +547,13 @@ describe("browser analytics", () => {
     analytics.denyAnalyticsConsent();
 
     await expect(analytics.readAnalyticsConsent()).resolves.toBe("denied");
+    expect(analyticsMocks.browser.reset).toHaveBeenCalledExactlyOnceWith({
+      resetDeviceID: true,
+    });
     expect(analyticsMocks.browser.reset).toHaveBeenCalledBefore(
       analyticsMocks.browser.opt_out_capturing,
     );
+    expect(analyticsMocks.browser.opt_in_capturing).not.toHaveBeenCalled();
   });
 
   it("captures the page a member accepted on, after identifying them", async () => {
@@ -575,6 +582,111 @@ describe("browser analytics", () => {
     await expect(analytics.readAnalyticsConsent()).resolves.toBe("granted");
     expect(analyticsMocks.browser.reset).toHaveBeenCalledExactlyOnceWith({
       resetDeviceID: true,
+    });
+  });
+
+  it("identifies the member waiting when Accept was pressed, not one identified after it", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+    const analytics = await import("./client");
+
+    void analytics.initializeBrowserAnalytics();
+    analytics.identifyAnalyticsUser({ id: "member-a", systemRole: "user" });
+    analytics.grantAnalyticsConsent();
+    analytics.resetAnalyticsUser();
+    analytics.identifyAnalyticsUser({ id: "member-b", systemRole: "user" });
+    await analytics.initializeBrowserAnalytics();
+
+    expect(analyticsMocks.browser.identify.mock.calls).toEqual([
+      ["member-a", { system_role: "user" }],
+      ["member-b", { system_role: "user" }],
+    ]);
+  });
+
+  describe("a choice made in another tab", () => {
+    function chooseInAnotherTab(consent: "granted" | "denied" | "pending") {
+      analyticsMocks.consent.status = consent;
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "campus_analytics_consent" }),
+      );
+    }
+
+    it("identifies the member waiting here once it grants, without a new $opt_in", async () => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+      const onChange = vi.fn();
+      const stop = analytics.watchAnalyticsConsent(onChange);
+      analytics.identifyAnalyticsUser({ id: "user-1", systemRole: "user" });
+      await analytics.initializeBrowserAnalytics();
+
+      chooseInAnotherTab("granted");
+      await analytics.initializeBrowserAnalytics();
+      stop();
+
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("granted");
+      expect(analyticsMocks.browser.identify).toHaveBeenCalledExactlyOnceWith(
+        "user-1",
+        { system_role: "user" },
+      );
+      expect(analyticsMocks.browser.opt_in_capturing).not.toHaveBeenCalled();
+    });
+
+    it("reports a rejection without identifying anyone", async () => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+      const onChange = vi.fn();
+      const stop = analytics.watchAnalyticsConsent(onChange);
+      analytics.identifyAnalyticsUser({ id: "user-1", systemRole: "user" });
+
+      chooseInAnotherTab("denied");
+      await analytics.initializeBrowserAnalytics();
+      stop();
+
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("denied");
+      expect(analyticsMocks.browser.identify).not.toHaveBeenCalled();
+    });
+
+    it("ignores the pending gap while another tab resets and restores its choice", async () => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+      const onChange = vi.fn();
+      const stop = analytics.watchAnalyticsConsent(onChange);
+
+      chooseInAnotherTab("pending");
+      await analytics.initializeBrowserAnalytics();
+      stop();
+
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("ignores storage keys other than the consent key", async () => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+      const onChange = vi.fn();
+      const stop = analytics.watchAnalyticsConsent(onChange);
+
+      analyticsMocks.consent.status = "granted";
+      window.dispatchEvent(new StorageEvent("storage", { key: "theme" }));
+      await analytics.initializeBrowserAnalytics();
+      stop();
+
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("stops listening once unsubscribed", async () => {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_non_production");
+      const analytics = await import("./client");
+      await analytics.initializeBrowserAnalytics();
+      const onChange = vi.fn();
+      analytics.watchAnalyticsConsent(onChange)();
+
+      chooseInAnotherTab("granted");
+      await analytics.initializeBrowserAnalytics();
+
+      expect(onChange).not.toHaveBeenCalled();
     });
   });
 
