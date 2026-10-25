@@ -173,13 +173,19 @@ function under(prefix: string, paths: string[]): string[] {
 
 const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   appearance: ["displayName", "spriteKey", "type", "userId"],
+  call: ["type"],
   error: ["code", "message", "type"],
   joined: [...under("player", AVATAR_PATHS), "type"],
   left: ["type", "userId"],
+  lockChanged: ["type"],
+  lockableSpaces: ["type"],
   moveResult: ["outcome", ...under("player", PLAYER_PATHS), "seq", "type"],
   moved: [...under("players[]", PLAYER_PATHS), "type"],
+  nearby: ["type"],
   pong: ["type"],
   replaced: ["type"],
+  spaceChanged: ["type"],
+  statusChanged: ["type"],
   snapshot: [
     ...under("map", ["height", "id", "version", "width"]),
     ...under("players[]", AVATAR_PATHS),
@@ -365,6 +371,18 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       expect(JSON.stringify([unknownType, corruptedWelcome])).not.toMatch(
         new RegExp(`${TOKEN}|${UNEXPECTED.phone.slice(1)}`),
       );
+    });
+
+    it("drops a call's media token until a feature joins calls", () => {
+      const call = parsedMessage(
+        JSON.stringify({
+          ...serverFrames.call,
+          call: { ...serverFrames.call.call, token: TOKEN },
+        }),
+      );
+
+      expect(call).toEqual({ type: "call" });
+      expect(JSON.stringify(call)).not.toContain(TOKEN);
     });
 
     it("reads an outcome or error code it does not know as unknown, never as the text world sent", () => {

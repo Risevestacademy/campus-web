@@ -1,7 +1,7 @@
 import type { GameObj, KAPLAYCtx } from "kaplay";
 
 import type { Presence } from "@/core/presence";
-import type { WorldMovement } from "@/core/realtime";
+import type { MoveCorrection, WorldMovement } from "@/core/realtime";
 
 import { spawnTarget, type ZoomLevel, type ZoomStep } from "../services/camera";
 import {
@@ -15,7 +15,6 @@ import { campusBackground } from "../services/theme-background";
 import { addAvatarLayer } from "./avatar-layer";
 import { type CampusCamera, createCampusCamera } from "./campus-camera";
 import { addMapBand, type RenderTileset } from "./map-renderer";
-import type { MoveCorrectionOutcome } from "./own-avatar-movement";
 import { uploadTilesetSprites } from "./tileset-sprites";
 
 export interface CampusGame {
@@ -24,7 +23,7 @@ export interface CampusGame {
 
 export interface CampusGameOptions {
   movement: WorldMovement;
-  onMoveCorrected: (outcome: MoveCorrectionOutcome) => void;
+  onMoveCorrected: (outcome: MoveCorrection) => void;
   onRenderError: () => void;
   onZoomChanged: (level: ZoomLevel) => void;
   readPresence: () => Presence;

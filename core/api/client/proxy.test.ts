@@ -326,6 +326,10 @@ describe("createApiProxy", () => {
       ["a dot segment in a literal slot", ["v1", "..", "v1", "health"]],
       ["a dot-dot parameter", ["v1", "tracks", ".."]],
       ["a dot parameter", ["v1", "tracks", "."]],
+      [
+        "the LiveKit webhook, which no browser sends",
+        ["v1", "calls", "webhook"],
+      ],
     ])(
       "answers %s with 404 before contacting the backend",
       async (_case, path) => {

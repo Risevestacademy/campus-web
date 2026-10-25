@@ -4,19 +4,59 @@ import { describe, expect, it } from "vitest";
 
 import { serverFrames } from "@/tests/fixtures/world-frames";
 
-import { parseServerMessage } from "./server-message.schema";
+import type { Avatar as WorldAvatar } from "./generated/world-protocol";
+import {
+  parseServerMessage,
+  type ServerMessage,
+} from "./server-message.schema";
 
 function frameText(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function avatarAsRead({
+  status: _status,
+  spaceKey: _spaceKey,
+  ...avatar
+}: WorldAvatar) {
+  return avatar;
+}
+
+const { awayAfterSeconds: _awayAfterSeconds, ...welcome } =
+  serverFrames.welcome;
+const {
+  lockableSpaces: _lockableSpaces,
+  lockedSpaces: _lockedSpaces,
+  ...snapshot
+} = serverFrames.snapshot;
+
+// Each frame as the parser hands it on: unread fields dropped, and a frame no
+// feature reads yet cut down to its type.
+const framesAsRead = {
+  ...serverFrames,
+  welcome,
+  snapshot: { ...snapshot, players: snapshot.players.map(avatarAsRead) },
+  joined: {
+    ...serverFrames.joined,
+    player: avatarAsRead(serverFrames.joined.player),
+  },
+  statusChanged: { type: "statusChanged" },
+  spaceChanged: { type: "spaceChanged" },
+  call: { type: "call" },
+  nearby: { type: "nearby" },
+  lockChanged: { type: "lockChanged" },
+  lockableSpaces: { type: "lockableSpaces" },
+} satisfies {
+  [Type in ServerMessage["type"]]: Extract<ServerMessage, { type: Type }>;
+};
+
 describe("parseServerMessage", () => {
   it.each(Object.values(serverFrames))(
-    "reads a $type frame as the server sent it",
+    "reads a $type frame keeping exactly what the client reads",
     (frame) => {
       expect(parseServerMessage(frameText(frame))).toEqual({
         ok: true,
-        message: frame,
+        message: framesAsRead[frame.type],
       });
     },
   );
@@ -87,6 +127,27 @@ describe("parseServerMessage", () => {
       ok: false,
       reason: "invalid",
       type: "moveResult",
+    });
+  });
+
+  it.each(["moved", "blocked", "refused", "too_fast"] as const)(
+    "reads a %s outcome as world sent it",
+    (outcome) => {
+      const frame = { ...serverFrames.moveResult, outcome };
+
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: true,
+        message: frame,
+      });
+    },
+  );
+
+  it("reads a NOT_ALLOWED error as world sent it", () => {
+    const frame = { ...serverFrames.error, code: "NOT_ALLOWED" as const };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: frame,
     });
   });
 

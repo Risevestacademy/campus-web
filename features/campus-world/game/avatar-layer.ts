@@ -2,7 +2,7 @@ import type { MapLayout } from "campus-world-map";
 import type { FormattedText, GameObj, KAPLAYCtx, Key } from "kaplay";
 
 import type { Presence } from "@/core/presence";
-import type { Direction, WorldMovement } from "@/core/realtime";
+import type { Direction, MoveCorrection, WorldMovement } from "@/core/realtime";
 
 import {
   type AvatarDraw,
@@ -10,10 +10,7 @@ import {
 } from "../services/avatars/avatar-draw-list";
 import { prefersReducedMotion } from "../services/reduced-motion";
 import type { CampusCamera } from "./campus-camera";
-import {
-  createOwnAvatarMovement,
-  type MoveCorrectionOutcome,
-} from "./own-avatar-movement";
+import { createOwnAvatarMovement } from "./own-avatar-movement";
 import { createRemoteAvatarMovement } from "./remote-avatar-movement";
 
 interface AvatarLayerOptions {
@@ -21,7 +18,7 @@ interface AvatarLayerOptions {
   layout: MapLayout;
   map: { height: number; tileheight: number; tilewidth: number; width: number };
   movement: WorldMovement;
-  onMoveCorrected: (outcome: MoveCorrectionOutcome) => void;
+  onMoveCorrected: (outcome: MoveCorrection) => void;
   readPresence: () => Presence;
 }
 
