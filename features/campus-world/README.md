@@ -38,7 +38,9 @@ Analytics: `campus_world.map_loaded` carries preparation time (`load_ms`);
 `campus_world.map_ready` carries the time from game start to the first drawn
 frame (`first_frame_ms`), once per ready start;
 `campus_world.move_corrected` carries a non-`moved` result (`outcome`), only
-when world's answer puts you somewhere other than predicted; and
+when world's answer puts you somewhere other than predicted. Prediction treats
+a tile world `refused` as a wall until world moves you onto it, so a key held
+against a locked space reports once instead of every step; and
 `campus_world.camera_zoomed` carries each new zoom level (`level`).
 
 ## Modules
