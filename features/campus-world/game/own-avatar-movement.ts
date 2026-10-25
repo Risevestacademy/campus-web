@@ -1,4 +1,4 @@
-import type { MapLayout } from "campus-world-map";
+import type { MapLayout, Tile } from "campus-world-map";
 
 import type { Presence } from "@/core/presence";
 import type {
@@ -11,6 +11,10 @@ import type {
 
 import { interpolatePlayer } from "../services/movement/interpolate-player";
 import { type PendingMove, reconcile } from "../services/movement/reconcile";
+import {
+  learnRefusedTiles,
+  withRefusedTiles,
+} from "../services/movement/refused-tiles";
 import { predictStep } from "../services/movement/step";
 
 export interface MovementInput {
@@ -62,7 +66,12 @@ export function createOwnAvatarMovement({
   let heldOrder: Direction[] = [];
   let pending: PendingMove[] = [];
   let predicted: Player | undefined;
+  let refused: readonly Tile[] = [];
   let sequence = 0;
+
+  function walkable(): MapLayout {
+    return withRefusedTiles(layout, refused);
+  }
 
   function takePresencePosition() {
     const { positions, selfId } = readPresence();
@@ -75,6 +84,7 @@ export function createOwnAvatarMovement({
     animation = undefined;
     buffered = undefined;
     pending = [];
+    refused = [];
   }
 
   function receive(message: WorldMovementMessage) {
@@ -84,8 +94,9 @@ export function createOwnAvatarMovement({
     }
     if (message.type !== "moveResult" || !predicted) return;
 
+    refused = learnRefusedTiles(refused, message);
     const before = predicted;
-    const reconciled = reconcile(pending, message, layout);
+    const reconciled = reconcile(pending, message, walkable());
     pending = reconciled.pending;
     predicted = reconciled.player;
 
@@ -141,7 +152,7 @@ export function createOwnAvatarMovement({
     if (!movement.sendMove({ direction, seq: nextSequence })) return false;
 
     const from = displayed ?? predicted;
-    const next = predictStep(predicted, direction, layout);
+    const next = predictStep(predicted, direction, walkable());
     sequence = nextSequence;
     pending = [...pending, { direction, seq: sequence }];
     predicted = next;
