@@ -168,7 +168,7 @@ describe("createOwnAvatarMovement", () => {
     });
   });
 
-  it("reconciles a refused move and reports only the non-moved outcome", () => {
+  it("reconciles a too_fast move and reports only the non-moved outcome", () => {
     const { controller, onMoveCorrected, receive, update } = startMovement();
     update(0, "right");
 

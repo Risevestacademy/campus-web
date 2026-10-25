@@ -130,7 +130,10 @@ result.
   `pnpm world:types` reads as `"unknown"`, so a `moveResult` still answers its
   move. The value world sent is dropped. `MoveOutcome` and `ErrorCode` are the
   generated unions plus `"unknown"`, so a value `pnpm world:types` adds fails
-  `pnpm typecheck` until the schema's list names it. `Direction` stays closed:
+  `pnpm typecheck` until the schema's list names it. Outcomes are listed in
+  `move-outcomes.ts`; adding a correction there also adds it to
+  `campus_world.move_corrected`, and the analytics contract eval pins that
+  list, so the change shows up in review. `Direction` stays closed:
   a new direction breaks the grid model and needs a client release.
 - `parseServerMessage` returns `{ ok: true, message }` or a failure:
   - `{ reason: "unknown-type" }`: a message world added after the last
