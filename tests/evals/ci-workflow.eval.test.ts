@@ -17,7 +17,17 @@ function findCommand(job: string, command: string): number {
   return position;
 }
 
-describe("CI workflow eval (required threshold: 2/2)", () => {
+describe("CI workflow eval (required threshold: 3/3)", () => {
+  it("reruns CI when a draft pull request becomes ready for Factory review", async () => {
+    const workflow = await readFile(CI_WORKFLOW, "utf8");
+    const pullRequestStart = findCommand(workflow, "\n  pull_request:\n");
+    const pushStart = findCommand(workflow, "\n  push:\n");
+
+    expect(workflow.slice(pullRequestStart, pushStart)).toContain(
+      "ready_for_review",
+    );
+  });
+
   it("keeps Storybook verification as tests followed by a static build", async () => {
     const packageJson = JSON.parse(await readFile(PACKAGE_JSON, "utf8")) as {
       scripts?: Record<string, string>;
