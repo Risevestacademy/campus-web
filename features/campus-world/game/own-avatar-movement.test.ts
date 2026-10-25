@@ -213,6 +213,58 @@ describe("createOwnAvatarMovement", () => {
     });
   });
 
+  it("reports a refused step once and stops stepping into it while held", () => {
+    const { controller, onMoveCorrected, receive, sent, update } =
+      startMovement();
+    const facingRefused = {
+      userId: "ada",
+      x: 0,
+      y: 0,
+      facing: "right" as const,
+    };
+    update(0, "right", ["right"]);
+
+    for (let frame = 0; frame < 4; frame += 1) {
+      receive({
+        type: "moveResult",
+        seq: sent.length,
+        outcome: "refused",
+        player: facingRefused,
+      });
+      update(100, null, ["right"]);
+      expect(controller.readPlayer()).toEqual(facingRefused);
+    }
+
+    expect(sent).toHaveLength(5);
+    expect(onMoveCorrected).toHaveBeenCalledExactlyOnceWith("refused");
+  });
+
+  it("walks into a refused tile again once world lets them in", () => {
+    const { controller, onMoveCorrected, receive, sent, update } =
+      startMovement();
+    update(0, "right", ["right"]);
+    receive({
+      type: "moveResult",
+      seq: 1,
+      outcome: "refused",
+      player: { userId: "ada", x: 0, y: 0, facing: "right" },
+    });
+    update(100, null, ["right"]);
+
+    receive({
+      type: "moveResult",
+      seq: 2,
+      outcome: "moved",
+      player: { userId: "ada", x: 1, y: 0, facing: "right" },
+    });
+    update(100, null, ["right"]);
+    update(50, null, ["right"]);
+
+    expect(sent).toHaveLength(3);
+    expect(controller.readPlayer()?.x).toBe(1.5);
+    expect(onMoveCorrected).toHaveBeenCalledExactlyOnceWith("refused");
+  });
+
   it("keeps a correct moved animation and emits no correction", () => {
     const { controller, onMoveCorrected, receive, update } = startMovement();
     update(0, "right");
