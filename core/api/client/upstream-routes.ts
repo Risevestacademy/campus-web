@@ -72,7 +72,7 @@ interface CompiledTemplate<Template extends string> {
   template: Template;
 }
 
-export const PUBLISHED_ROUTE_TEMPLATES = Object.entries(PUBLISHED_ROUTES)
+export const FORWARDED_ROUTE_TEMPLATES = Object.entries(PUBLISHED_ROUTES)
   .filter(([, forwarded]) => forwarded)
   .map(([template]) => template) as readonly ForwardedRoute[];
 
@@ -122,4 +122,4 @@ export function createRouteMatcher<Template extends string>(
       ?.template;
 }
 
-export const findPublishedRoute = createRouteMatcher(PUBLISHED_ROUTE_TEMPLATES);
+export const findForwardedRoute = createRouteMatcher(FORWARDED_ROUTE_TEMPLATES);

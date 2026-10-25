@@ -13,15 +13,15 @@ describe("analytics contract evaluation", () => {
     }
   });
 
-  it("reports every move correction world defines, and never a move that landed", () => {
-    const moveCorrected =
-      analyticsEventSchemas[ANALYTICS_EVENTS.CAMPUS_WORLD_MOVE_CORRECTED];
-    const accepts = (outcome: string) =>
-      moveCorrected.safeParse({ outcome }).success;
+  it("sends exactly the move corrections someone chose, never a move that landed", () => {
+    const { outcome } =
+      analyticsEventSchemas[ANALYTICS_EVENTS.CAMPUS_WORLD_MOVE_CORRECTED].shape;
 
-    expect(["blocked", "refused", "too_fast", "unknown"].every(accepts)).toBe(
-      true,
-    );
-    expect(accepts("moved")).toBe(false);
+    expect(outcome.options).toEqual([
+      "blocked",
+      "refused",
+      "too_fast",
+      "unknown",
+    ]);
   });
 });

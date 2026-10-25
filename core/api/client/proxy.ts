@@ -7,7 +7,7 @@ import type { Logger } from "@/core/observability";
 import { REFRESH_ATTEMPTED_COOKIE, SESSION_COOKIE } from "./auth-cookies";
 import { CLIENT_ADDRESS_HEADER, readClientAddress } from "./client-address";
 import type { components } from "./generated/schema";
-import { findPublishedRoute } from "./upstream-routes";
+import { findForwardedRoute } from "./upstream-routes";
 
 type ExceptionCode = components["schemas"]["ExceptionCode"];
 
@@ -484,7 +484,7 @@ export function createApiProxy(options: ApiProxyOptions) {
       return createErrorResponse(requestId, rejection.status, rejection.error);
     };
 
-    const route = findPublishedRoute(path);
+    const route = findForwardedRoute(path);
     if (!route) return reject(UNKNOWN_ROUTE);
     if (isCrossOriginUnsafeRequest(request)) return reject(CROSS_ORIGIN, route);
 

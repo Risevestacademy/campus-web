@@ -20,12 +20,14 @@ import type {
   SnapshotMessage as PublishedSnapshotMessage,
   WelcomeMessage as PublishedWelcomeMessage,
 } from "./generated/world-protocol";
+import { MOVE_OUTCOMES } from "./move-outcomes";
 
 // A value world added after the last `pnpm world:types` reads as "unknown",
 // so the frame still arrives and the move it answers still resolves.
 type OrUnknown<Value extends string> = Value | "unknown";
 
 export type MoveOutcome = OrUnknown<PublishedMoveOutcome>;
+export type MoveCorrection = Exclude<MoveOutcome, "moved">;
 export type ErrorCode = OrUnknown<PublishedErrorMessage["code"]>;
 export type MoveResultMessage = Simplify<
   Omit<PublishedMoveResultMessage, "outcome"> & { outcome: MoveOutcome }
@@ -101,13 +103,6 @@ const appearanceShape = {
 const directionSchema = z.toZod<Direction>()(
   z.enum(["up", "down", "left", "right"]),
 );
-
-export const MOVE_OUTCOMES = [
-  "moved",
-  "blocked",
-  "refused",
-  "too_fast",
-] as const;
 
 const moveOutcomeSchema = z.toZod<MoveOutcome>()(orUnknown(MOVE_OUTCOMES));
 

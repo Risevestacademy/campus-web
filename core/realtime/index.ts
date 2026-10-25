@@ -45,6 +45,7 @@ export {
   type ErrorCode,
   type ErrorMessage,
   type JoinedMessage,
+  type MoveCorrection,
   type MoveOutcome,
   type MoveResultMessage,
   parseServerMessage,

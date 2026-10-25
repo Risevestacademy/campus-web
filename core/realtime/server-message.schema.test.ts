@@ -1,56 +1,65 @@
 // @vitest-environment node
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { serverFrames } from "@/tests/fixtures/world-frames";
 
-import { parseServerMessage } from "./server-message.schema";
+import type { Avatar as WorldAvatar } from "./generated/world-protocol";
+import {
+  parseServerMessage,
+  type ServerMessage,
+} from "./server-message.schema";
 
 function frameText(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function avatarAsRead({
+  status: _status,
+  spaceKey: _spaceKey,
+  ...avatar
+}: WorldAvatar) {
+  return avatar;
+}
+
+const { awayAfterSeconds: _awayAfterSeconds, ...welcome } =
+  serverFrames.welcome;
+const {
+  lockableSpaces: _lockableSpaces,
+  lockedSpaces: _lockedSpaces,
+  ...snapshot
+} = serverFrames.snapshot;
+
+// Each frame as the parser hands it on: unread fields dropped, and a frame no
+// feature reads yet cut down to its type.
+const framesAsRead = {
+  ...serverFrames,
+  welcome,
+  snapshot: { ...snapshot, players: snapshot.players.map(avatarAsRead) },
+  joined: {
+    ...serverFrames.joined,
+    player: avatarAsRead(serverFrames.joined.player),
+  },
+  statusChanged: { type: "statusChanged" },
+  spaceChanged: { type: "spaceChanged" },
+  call: { type: "call" },
+  nearby: { type: "nearby" },
+  lockChanged: { type: "lockChanged" },
+  lockableSpaces: { type: "lockableSpaces" },
+} satisfies {
+  [Type in ServerMessage["type"]]: Extract<ServerMessage, { type: Type }>;
+};
+
 describe("parseServerMessage", () => {
   it.each(Object.values(serverFrames))(
-    "reads a $type frame with the values the server sent",
+    "reads a $type frame keeping exactly what the client reads",
     (frame) => {
-      const result = parseServerMessage(frameText(frame));
-
-      assert(result.ok);
-      expect(frame).toMatchObject(result.message);
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: true,
+        message: framesAsRead[frame.type],
+      });
     },
   );
-
-  it.each([
-    serverFrames.statusChanged,
-    serverFrames.spaceChanged,
-    serverFrames.call,
-    serverFrames.nearby,
-    serverFrames.lockChanged,
-    serverFrames.lockableSpaces,
-  ])("reads a $type frame no feature uses yet as its type alone", (frame) => {
-    expect(parseServerMessage(frameText(frame))).toEqual({
-      ok: true,
-      message: { type: frame.type },
-    });
-  });
-
-  it("keeps only the avatar fields the campus draws", () => {
-    expect(parseServerMessage(frameText(serverFrames.joined))).toEqual({
-      ok: true,
-      message: {
-        type: "joined",
-        player: {
-          userId: serverFrames.joined.player.userId,
-          x: 0,
-          y: 0,
-          facing: "right",
-          displayName: null,
-          spriteKey: null,
-        },
-      },
-    });
-  });
 
   it("drops a field the server adds later instead of rejecting the frame", () => {
     const frame = { ...serverFrames.left, sessionToken: "secret" };
