@@ -353,11 +353,15 @@ Every frame is one JSON object with a `type`. Use the protocol's own names,
 never invented event names:
 
 - server sends: `welcome`, `snapshot`, `joined`, `left`, `appearance`,
-  `moved`, `moveResult`, `pong`, `error`, `replaced`;
-- client sends: `ping`, `move`.
+  `moved`, `moveResult`, `pong`, `error`, `replaced`, `statusChanged`,
+  `spaceChanged`, `call`, `nearby`, `lockChanged`, `lockableSpaces`;
+- client sends: `ping`, `move` (world also accepts `setStatus`, `active` and
+  `setLock`, which no feature sends yet).
 
-A new message arrives by regenerating the types, not by editing a union by
-hand. Inbound frames are a trust boundary: each is parsed once with
+A new message arrives by regenerating the types. `ServerMessage` lists what the
+client reads, by hand, and `contract.typecheck.ts` fails until it names every
+message world publishes; a message no feature reads yet parses to its `type`
+alone. Inbound frames are a trust boundary: each is parsed once with
 `parseServerMessage` where it arrives (see Validation and Data Privacy).
 
 What a client must do with each message (order, step correction, close codes,

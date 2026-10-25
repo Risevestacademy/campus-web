@@ -3,7 +3,7 @@ import type { MapLayout } from "campus-world-map";
 import type { Presence } from "@/core/presence";
 import type {
   Direction,
-  MoveOutcome,
+  MoveCorrection,
   Player,
   WorldMovement,
   WorldMovementMessage,
@@ -12,8 +12,6 @@ import type {
 import { interpolatePlayer } from "../services/movement/interpolate-player";
 import { type PendingMove, reconcile } from "../services/movement/reconcile";
 import { predictStep } from "../services/movement/step";
-
-export type MoveCorrectionOutcome = Exclude<MoveOutcome, "moved">;
 
 export interface MovementInput {
   deltaMs: number;
@@ -30,7 +28,7 @@ export interface OwnAvatarMovement {
 interface OwnAvatarMovementOptions {
   layout: MapLayout;
   movement: WorldMovement;
-  onMoveCorrected: (outcome: MoveCorrectionOutcome) => void;
+  onMoveCorrected: (outcome: MoveCorrection) => void;
   prefersReducedMotion: () => boolean;
   readPresence: () => Presence;
 }

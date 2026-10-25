@@ -12,10 +12,8 @@ export {
 } from "./close-policy";
 export type {
   AppearanceMessage,
-  Avatar,
   ClientMessage,
   Direction,
-  JoinedMessage,
   LeftMessage,
   MovedMessage,
   MoveMessage,
@@ -23,8 +21,6 @@ export type {
   Player,
   PongMessage,
   ReplacedMessage,
-  SnapshotMessage,
-  WelcomeMessage,
   CloseCode as WorldCloseCode,
   CloseReason as WorldCloseReason,
 } from "./generated/world-protocol";
@@ -45,12 +41,17 @@ export {
   type RealtimeStatus,
 } from "./realtime-client";
 export {
+  type Avatar,
   type ErrorCode,
   type ErrorMessage,
+  type JoinedMessage,
+  type MoveCorrection,
   type MoveOutcome,
   type MoveResultMessage,
   parseServerMessage,
   type ServerMessage,
   type ServerMessageResult,
+  type SnapshotMessage,
+  type WelcomeMessage,
 } from "./server-message.schema";
 export { parseSocketClose } from "./socket-close.schema";

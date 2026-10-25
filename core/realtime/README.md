@@ -28,8 +28,9 @@ import {
 - `ServerMessage`, `ClientMessage`, `WorldCloseCode`, `WorldCloseReason`, one
   type per message (`WelcomeMessage`, `MoveResultMessage`, …), and `Player`,
   `Avatar`, `Direction`, `MoveOutcome`, `ErrorCode`: derived from world's
-  generated protocol. `MoveOutcome` and `ErrorCode` also hold `"unknown"`
-  (see Inbound frames).
+  generated protocol. `Avatar`, `WelcomeMessage`, `SnapshotMessage` and
+  `JoinedMessage` keep only the fields a feature reads. `MoveOutcome` and
+  `ErrorCode` also hold `"unknown"` (see Inbound frames).
 - `parseServerMessage(text)`: one socket frame's text as a
   `ServerMessageResult`; see [Inbound frames](#inbound-frames).
 - `parseSocketClose(code, reason)`: a close event's fields, bounded to the
@@ -106,9 +107,20 @@ A frame from the socket is untrusted input, like an API response. Parse each
 frame once with `parseServerMessage` where it arrives and read only the
 result.
 
-- Every message schema in `server-message.schema.ts` is bound to its
-  generated type with `z.toZod`, so a message added, removed or reshaped
-  upstream fails `pnpm typecheck` there after `pnpm world:types`.
+- Every message schema in `server-message.schema.ts` is bound with `z.toZod`
+  to its generated type, or to a `Pick` of the fields a feature reads. A read
+  field removed or reshaped upstream fails `pnpm typecheck` there after
+  `pnpm world:types`. A field world adds is dropped until a feature reads it;
+  reading one widens the `Pick` and the world frame allow-list in
+  `tests/evals/data-privacy.eval.test.ts`.
+- `contract.typecheck.ts` pins `ServerMessage`'s types to the generated
+  union, so a message added, removed or renamed upstream fails
+  `pnpm typecheck` until it has a schema.
+- Messages no feature reads yet (`statusChanged`, `spaceChanged`, `call`,
+  `nearby`, `lockChanged`, `lockableSpaces`) parse to `{ type }` alone. They
+  are known, so they are not logged as skipped, and nothing unread travels on:
+  a `call` carries a media token. The feature that reads one gives it a real
+  schema.
 - Objects strip unknown fields rather than reject them. The schema's
   `additionalProperties: false` describes what world sends today, not a
   promise that it will never add a field.
@@ -118,7 +130,10 @@ result.
   `pnpm world:types` reads as `"unknown"`, so a `moveResult` still answers its
   move. The value world sent is dropped. `MoveOutcome` and `ErrorCode` are the
   generated unions plus `"unknown"`, so a value `pnpm world:types` adds fails
-  `pnpm typecheck` until the schema's list names it. `Direction` stays closed:
+  `pnpm typecheck` until the schema's list names it. Outcomes are listed in
+  `move-outcomes.ts`; adding a correction there also adds it to
+  `campus_world.move_corrected`, and the analytics contract eval pins that
+  list, so the change shows up in review. `Direction` stays closed:
   a new direction breaks the grid model and needs a client release.
 - `parseServerMessage` returns `{ ok: true, message }` or a failure:
   - `{ reason: "unknown-type" }`: a message world added after the last

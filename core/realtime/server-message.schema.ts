@@ -5,10 +5,10 @@ import { parseJson } from "@/shared/lib/parse-json";
 
 import type {
   AppearanceMessage,
-  Avatar,
+  Avatar as PublishedAvatar,
   Direction,
   ErrorMessage as PublishedErrorMessage,
-  JoinedMessage,
+  JoinedMessage as PublishedJoinedMessage,
   LeftMessage,
   MovedMessage,
   MoveOutcome as PublishedMoveOutcome,
@@ -17,15 +17,17 @@ import type {
   PongMessage,
   ReplacedMessage,
   ServerMessage as PublishedServerMessage,
-  SnapshotMessage,
-  WelcomeMessage,
+  SnapshotMessage as PublishedSnapshotMessage,
+  WelcomeMessage as PublishedWelcomeMessage,
 } from "./generated/world-protocol";
+import { MOVE_OUTCOMES } from "./move-outcomes";
 
 // A value world added after the last `pnpm world:types` reads as "unknown",
 // so the frame still arrives and the move it answers still resolves.
 type OrUnknown<Value extends string> = Value | "unknown";
 
 export type MoveOutcome = OrUnknown<PublishedMoveOutcome>;
+export type MoveCorrection = Exclude<MoveOutcome, "moved">;
 export type ErrorCode = OrUnknown<PublishedErrorMessage["code"]>;
 export type MoveResultMessage = Simplify<
   Omit<PublishedMoveResultMessage, "outcome"> & { outcome: MoveOutcome }
@@ -33,10 +35,54 @@ export type MoveResultMessage = Simplify<
 export type ErrorMessage = Simplify<
   Omit<PublishedErrorMessage, "code"> & { code: ErrorCode }
 >;
+export type Avatar = Simplify<
+  Pick<PublishedAvatar, keyof Player | "displayName" | "spriteKey">
+>;
+export type WelcomeMessage = Simplify<
+  Pick<
+    PublishedWelcomeMessage,
+    | "type"
+    | "userId"
+    | "connectionId"
+    | "heartbeatSeconds"
+    | "stepMs"
+    | "tickMs"
+    | "displayName"
+    | "spriteKey"
+  >
+>;
+export type SnapshotMessage = Simplify<
+  Pick<PublishedSnapshotMessage, "type" | "map"> & { players: Avatar[] }
+>;
+export type JoinedMessage = Simplify<
+  Pick<PublishedJoinedMessage, "type"> & { player: Avatar }
+>;
+
+// Frames no feature reads yet. Known, so they are not logged as skipped;
+// stripped to their type, so nothing unread (a call's token) travels on.
+type UnreadType = Extract<
+  PublishedServerMessage["type"],
+  | "statusChanged"
+  | "spaceChanged"
+  | "call"
+  | "nearby"
+  | "lockChanged"
+  | "lockableSpaces"
+>;
+type UnreadMessage = { [Type in UnreadType]: { type: Type } }[UnreadType];
+
 export type ServerMessage =
-  | Exclude<PublishedServerMessage, { type: "moveResult" | "error" }>
+  | WelcomeMessage
+  | PongMessage
+  | SnapshotMessage
+  | JoinedMessage
+  | AppearanceMessage
+  | LeftMessage
+  | ReplacedMessage
+  | MovedMessage
   | MoveResultMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | UnreadMessage;
 
 function orUnknown<const Values extends readonly [string, ...string[]]>(
   values: Values,
@@ -58,12 +104,10 @@ const directionSchema = z.toZod<Direction>()(
   z.enum(["up", "down", "left", "right"]),
 );
 
-const moveOutcomeSchema = z.toZod<MoveOutcome>()(
-  orUnknown(["moved", "blocked", "too_fast"]),
-);
+const moveOutcomeSchema = z.toZod<MoveOutcome>()(orUnknown(MOVE_OUTCOMES));
 
 const errorCodeSchema = z.toZod<ErrorCode>()(
-  orUnknown(["UNAUTHORIZED", "BAD_MESSAGE"]),
+  orUnknown(["UNAUTHORIZED", "BAD_MESSAGE", "NOT_ALLOWED"]),
 );
 
 const playerSchema = z.toZod<Player>()(
@@ -149,6 +193,10 @@ const errorMessageSchema = z.toZod<ErrorMessage>()(
   }),
 );
 
+function unreadMessageSchema<const Type extends UnreadType>(type: Type) {
+  return z.object({ type: z.literal(type) });
+}
+
 const serverMessageSchema = z.toZod<ServerMessage>()(
   z.discriminatedUnion("type", [
     welcomeMessageSchema,
@@ -161,6 +209,12 @@ const serverMessageSchema = z.toZod<ServerMessage>()(
     movedMessageSchema,
     moveResultMessageSchema,
     errorMessageSchema,
+    unreadMessageSchema("statusChanged"),
+    unreadMessageSchema("spaceChanged"),
+    unreadMessageSchema("call"),
+    unreadMessageSchema("nearby"),
+    unreadMessageSchema("lockChanged"),
+    unreadMessageSchema("lockableSpaces"),
   ]),
 );
 

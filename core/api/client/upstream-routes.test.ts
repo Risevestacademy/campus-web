@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   createRouteMatcher,
-  findPublishedRoute,
-  PUBLISHED_ROUTE_TEMPLATES,
+  findForwardedRoute,
+  FORWARDED_ROUTE_TEMPLATES,
 } from "./upstream-routes";
 
 function withSampleParameters(template: string): string[] {
@@ -13,9 +13,9 @@ function withSampleParameters(template: string): string[] {
     .map((segment) => segment.replace(/^\{(\w+)\}$/, "sample-$1"));
 }
 
-describe("findPublishedRoute", () => {
-  it.each(PUBLISHED_ROUTE_TEMPLATES)("finds %s", (template) => {
-    expect(findPublishedRoute(withSampleParameters(template))).toBe(template);
+describe("findForwardedRoute", () => {
+  it.each(FORWARDED_ROUTE_TEMPLATES)("finds %s", (template) => {
+    expect(findForwardedRoute(withSampleParameters(template))).toBe(template);
   });
 
   it.each([
@@ -27,7 +27,7 @@ describe("findPublishedRoute", () => {
     ],
     [["v1", "tracks", "a/b"], "/v1/tracks/{id}"],
   ])("finds the template for %j", (path, template) => {
-    expect(findPublishedRoute(path)).toBe(template);
+    expect(findForwardedRoute(path)).toBe(template);
   });
 
   it.each([
@@ -40,8 +40,9 @@ describe("findPublishedRoute", () => {
     ["a dot-dot parameter", ["v1", "tracks", ".."]],
     ["a dot-dot literal", ["v1", "..", "v1", "health"]],
     ["a different case", ["V1", "health"]],
+    ["the LiveKit webhook, which no browser sends", ["v1", "calls", "webhook"]],
   ])("finds nothing for %s", (_case, path) => {
-    expect(findPublishedRoute(path)).toBeUndefined();
+    expect(findForwardedRoute(path)).toBeUndefined();
   });
 });
 

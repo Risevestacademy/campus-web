@@ -1,5 +1,6 @@
 import type { paths } from "./generated/schema";
 
+// Every route campus-api publishes, and whether the browser proxy forwards it.
 const PUBLISHED_ROUTES = {
   "/v1": true,
   "/v1/health": true,
@@ -30,6 +31,15 @@ const PUBLISHED_ROUTES = {
   "/v1/cohorts/{cohortId}/members/{userId}/defer": true,
   "/v1/cohorts/{cohortId}/members/{userId}/graduate": true,
   "/v1/cohorts/{cohortId}/members/{userId}/remove": true,
+  "/v1/cohorts/{cohortId}/members/{userId}/track": true,
+  "/v1/cohorts/{cohortId}/mentorship-groups": true,
+  "/v1/cohorts/{cohortId}/mentorship-groups/{groupId}": true,
+  "/v1/cohorts/{cohortId}/mentorship-groups/{groupId}/mentor": true,
+  "/v1/cohorts/{cohortId}/mentorship-groups/{groupId}/students": true,
+  "/v1/cohorts/{cohortId}/mentorship-groups/{groupId}/students/{cohortMemberId}": true,
+  "/v1/cohorts/{id}/profiles": true,
+  "/v1/spaces/{id}/memberships": true,
+  "/v1/spaces/{id}/memberships/{membershipId}": true,
   "/v1/users": true,
   "/v1/users/{id}/system-role": true,
   "/v1/users/{id}/suspend": true,
@@ -40,7 +50,16 @@ const PUBLISHED_ROUTES = {
   "/v1/maps/sync": true,
   "/v1/feedback": true,
   "/v1/feedback/{id}": true,
-} as const satisfies Record<keyof paths, true>;
+  "/v1/dashboard": true,
+  // LiveKit calls campus-api directly; no browser sends it.
+  "/v1/calls/webhook": false,
+} as const satisfies Record<keyof paths, boolean>;
+
+type ForwardedRoute = {
+  [
+    Route in keyof typeof PUBLISHED_ROUTES
+  ]: (typeof PUBLISHED_ROUTES)[Route] extends true ? Route : never;
+}[keyof typeof PUBLISHED_ROUTES];
 
 const PARAMETER_SEGMENT = /^\{[A-Za-z]+\}$/;
 const DOT_SEGMENTS = new Set([".", ".."]);
@@ -53,9 +72,9 @@ interface CompiledTemplate<Template extends string> {
   template: Template;
 }
 
-export const PUBLISHED_ROUTE_TEMPLATES = Object.keys(
-  PUBLISHED_ROUTES,
-) as readonly (keyof paths)[];
+export const FORWARDED_ROUTE_TEMPLATES = Object.entries(PUBLISHED_ROUTES)
+  .filter(([, forwarded]) => forwarded)
+  .map(([template]) => template) as readonly ForwardedRoute[];
 
 function compileTemplate<Template extends string>(
   template: Template,
@@ -103,4 +122,4 @@ export function createRouteMatcher<Template extends string>(
       ?.template;
 }
 
-export const findPublishedRoute = createRouteMatcher(PUBLISHED_ROUTE_TEMPLATES);
+export const findForwardedRoute = createRouteMatcher(FORWARDED_ROUTE_TEMPLATES);
