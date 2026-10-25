@@ -146,6 +146,7 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "auth.signup_succeeded": ["auth_method", "role", "user_id"],
   "auth.verification_completed": ["verification_type"],
   "auth.verification_sent": ["verification_type"],
+  "campus.connection_check_completed": ["failed_step", "result"],
   "campus.presence_tab_conflict_shown": ["surface"],
   "campus.presence_tab_moved": ["surface"],
   "campus_world.camera_zoomed": ["level"],
@@ -447,6 +448,18 @@ describe("Data privacy eval (threshold: every case holds)", () => {
         }
       },
     );
+
+    it.each([
+      ["a LiveKit check name", { result: "failed", failed_step: "websocket" }],
+      ["the check token", { result: "failed", failed_step: TOKEN }],
+      ["a result outside the list", { result: TOKEN, failed_step: null }],
+    ])("keeps %s out of the connection check event", (_, properties) => {
+      expect(
+        analyticsEventSchemas["campus.connection_check_completed"].safeParse(
+          properties,
+        ).success,
+      ).toBe(false);
+    });
   });
 
   describe("the analytics identity and cohort carry only declared properties", () => {
@@ -708,7 +721,11 @@ describe("Data privacy eval (threshold: every case holds)", () => {
         const loadProbe = vi.fn();
 
         await checkConnection(
-          { requestAccess: async () => access, loadProbe },
+          {
+            requestAccess: async () => access,
+            loadProbe,
+            captureEvent: () => {},
+          },
           { microphone: fakeTrack("audio"), camera: fakeTrack("video") },
           { onStep: () => {} },
         );

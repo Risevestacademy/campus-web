@@ -75,6 +75,10 @@ through `/api`, with `credentials: "include"` and no body. The spec is
   `expiresAt` are dropped because nothing reads them.
 - **One token per run.** A token lasts two minutes and serves one check. Ask
   again for every run; never cache `ready`.
+- **Retry-After must be exposed.** The call is cross-origin, so the page reads
+  `Retry-After` only because world sends `Access-Control-Expose-Headers:
+retry-after`. Without it the browser hides the header and the wait reads 60.
+  Node tests cannot see this; the e2e spec can.
 - **No answer reads as `failed`.** The browser reports a CORS refusal and
   being offline as the same error, so neither can be named more precisely.
 - **The token is a credential.** It never reaches a log, an analytics
@@ -96,16 +100,47 @@ preview and Join on the Join Gate. It renders nothing when the build has no
 - A 401 reads "couldn't run the test", never a sign-in redirect: `CohortGate`
   already proved the session, so the cookie is not reaching world.
 
+## Analytics
+
+| Event                               | Properties              | When                   |
+| ----------------------------------- | ----------------------- | ---------------------- |
+| `campus.connection_check_completed` | `result`, `failed_step` | every run that settled |
+
+- `result`: `passed`, `failed` (a step failed), `unavailable`,
+  `rate_limited`, `signed_out`, `misconfigured`, or `error` (no token, or the
+  run threw).
+- `failed_step`: `network`, `microphone` or `camera` when `result` is
+  `failed`, otherwise `null`. Never a LiveKit check name.
+- An abandoned run (the gate unmounted) sends nothing. Properties are pinned
+  in `eval:privacy`. The share of `signed_out` shows a session cookie that
+  does not reach world.
+
+## End to end
+
+`tests/e2e/connection-check.spec.ts` mocks world's route per status and
+refuses every socket to the media host, so it never reaches LiveKit. It runs
+only on a build with `NEXT_PUBLIC_MEDIA_URL`; CI's e2e job sets the reserved
+`wss://media.e2e.invalid`. Locally:
+
+```bash
+NEXT_PUBLIC_MEDIA_URL=wss://media.e2e.invalid pnpm test:e2e
+```
+
+A real LiveKit run is a manual check against local world, whose
+`.env.example` points at the LiveKit container: camera and microphone on,
+then the camera off (its light stays off), then the microphone off.
+
 ## Modules
 
-| Module                        | Owns                                                       |
-| ----------------------------- | ---------------------------------------------------------- |
-| `connection-check.service.ts` | the request and the mapping of world's answer              |
-| `media-origin.ts`             | `readMediaOrigin` and `pinMediaUrl`, the media host's pin  |
-| `run-connection-check.ts`     | step order, skipping, stopping, abort between steps (pure) |
-| `livekit-probe.ts`            | the only module that loads `livekit-client`, by `import()` |
-| `check-connection.ts`         | token first; the SDK loads only for `ready`                |
-| `browser-connection-check.ts` | browser bindings: `publicEnvironment`, `fetch`, the SDK    |
+| Module                          | Owns                                                                   |
+| ------------------------------- | ---------------------------------------------------------------------- |
+| `connection-check.service.ts`   | the request and the mapping of world's answer                          |
+| `media-origin.ts`               | `readMediaOrigin` and `pinMediaUrl`, the media host's pin              |
+| `run-connection-check.ts`       | step order, skipping, stopping, abort between steps (pure)             |
+| `livekit-probe.ts`              | the only module that loads `livekit-client`, by `import()`             |
+| `check-connection.ts`           | token first; the SDK loads only for `ready`; one event per settled run |
+| `connection-check-analytics.ts` | the event properties for each result (pure)                            |
+| `browser-connection-check.ts`   | browser bindings: `publicEnvironment`, `fetch`, the SDK, PostHog       |
 
 `livekit-client` is about 150 KB gzipped. Lint rejects any value import of it
 (`config/livekit-imports.json`); type imports and `import()` are allowed, so it

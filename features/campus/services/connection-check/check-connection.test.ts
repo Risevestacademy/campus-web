@@ -26,6 +26,7 @@ function dependencies(access: ConnectionCheckAccess) {
     loadProbe: vi.fn<CheckConnectionDependencies["loadProbe"]>(
       async () => probe,
     ),
+    captureEvent: vi.fn<CheckConnectionDependencies["captureEvent"]>(),
   };
 }
 
@@ -70,5 +71,68 @@ describe("checkConnection", () => {
     ).resolves.toEqual(access);
     expect(deps.loadProbe).not.toHaveBeenCalled();
     expect(onStep).not.toHaveBeenCalled();
+  });
+
+  it("reports one completed event for a run that finished", async () => {
+    const deps = dependencies(ready);
+    deps.loadProbe.mockResolvedValueOnce({
+      network: async () => false,
+      publish: async () => true,
+    });
+
+    await checkConnection(
+      deps,
+      { microphone, camera: null },
+      { onStep: () => {} },
+    );
+
+    expect(deps.captureEvent.mock.calls).toEqual([
+      [{ result: "failed", failed_step: "network" }],
+    ]);
+  });
+
+  it("reports one completed event for a refusal", async () => {
+    const deps = dependencies({ kind: "signed-out" });
+
+    await checkConnection(
+      deps,
+      { microphone, camera: null },
+      { onStep: () => {} },
+    );
+
+    expect(deps.captureEvent.mock.calls).toEqual([
+      [{ result: "signed_out", failed_step: null }],
+    ]);
+  });
+
+  it("reports an error, then rethrows, when the run crashes", async () => {
+    const deps = dependencies(ready);
+    const crash = new Error("Failed to fetch dynamically imported module");
+    deps.loadProbe.mockRejectedValueOnce(crash);
+
+    await expect(
+      checkConnection(deps, { microphone, camera: null }, { onStep: () => {} }),
+    ).rejects.toBe(crash);
+    expect(deps.captureEvent.mock.calls).toEqual([
+      [{ result: "error", failed_step: null }],
+    ]);
+  });
+
+  it("reports nothing for a run the Join Gate abandoned", async () => {
+    const deps = dependencies(ready);
+    const controller = new AbortController();
+    deps.loadProbe.mockImplementationOnce(async () => {
+      controller.abort();
+      return { network: async () => true, publish: async () => true };
+    });
+
+    await expect(
+      checkConnection(
+        deps,
+        { microphone, camera: null },
+        { onStep: () => {}, signal: controller.signal },
+      ),
+    ).rejects.toThrow(expect.objectContaining({ name: "AbortError" }));
+    expect(deps.captureEvent).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,6 @@
 import { publicEnvironment } from "@/config/environment/public";
+import { captureBrowserAnalyticsEvent } from "@/core/analytics/client";
+import { ANALYTICS_EVENTS } from "@/core/analytics/events";
 import { readWorldOrigin } from "@/core/realtime/configuration";
 
 import {
@@ -29,6 +31,11 @@ export function checkBrowserConnection(
           signal,
         ),
       loadProbe: (grant) => loadLivekitProbe(grant),
+      captureEvent: (properties) =>
+        captureBrowserAnalyticsEvent(
+          ANALYTICS_EVENTS.CAMPUS_CONNECTION_CHECK_COMPLETED,
+          properties,
+        ),
     },
     tracks,
     options,

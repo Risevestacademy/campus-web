@@ -96,6 +96,10 @@ jobs:
     name: e2e
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      # A reserved .invalid host that never resolves: it builds the connection
+      # test in, and tests/e2e/connection-check.spec.ts mocks world and media.
+      NEXT_PUBLIC_MEDIA_URL: wss://media.e2e.invalid
 
     steps:
       - uses: actions/checkout@v7

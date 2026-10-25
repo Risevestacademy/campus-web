@@ -17,6 +17,7 @@ export const ANALYTICS_EVENTS = {
   AUTH_SIGNUP_SUCCEEDED: "auth.signup_succeeded",
   AUTH_VERIFICATION_COMPLETED: "auth.verification_completed",
   AUTH_VERIFICATION_SENT: "auth.verification_sent",
+  CAMPUS_CONNECTION_CHECK_COMPLETED: "campus.connection_check_completed",
   CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN: "campus.presence_tab_conflict_shown",
   CAMPUS_PRESENCE_TAB_MOVED: "campus.presence_tab_moved",
   CAMPUS_WORLD_CAMERA_ZOOMED: "campus_world.camera_zoomed",
@@ -61,6 +62,16 @@ const campusWorldMapErrorKindSchema = z.enum([
   "network",
   "render",
 ]);
+const connectionCheckResultSchema = z.enum([
+  "error",
+  "failed",
+  "misconfigured",
+  "passed",
+  "rate_limited",
+  "signed_out",
+  "unavailable",
+]);
+const connectionCheckStepSchema = z.enum(["camera", "microphone", "network"]);
 const realtimeCloseReasonSchema = z.enum([...CLOSE_REASONS, "unknown"]);
 const realtimeCloseActionSchema = z.enum(CLOSE_ACTIONS);
 const loginErrorCodeSchema = z.enum([
@@ -84,6 +95,11 @@ const placementSchema = z.object({
   cohort_id: opaqueIdSchema.optional(),
   role: roleSchema,
   track_id: opaqueIdSchema.optional(),
+});
+
+const connectionCheckCompletedSchema = z.object({
+  failed_step: connectionCheckStepSchema.nullable(),
+  result: connectionCheckResultSchema,
 });
 
 const campusWorldMapLoadedSchema = z.object({
@@ -145,6 +161,8 @@ export const analyticsEventSchemas = {
   [ANALYTICS_EVENTS.AUTH_LOGOUT]: z.object({
     logout_source: z.enum(["admin_action", "session_expired", "user_action"]),
   }),
+  [ANALYTICS_EVENTS.CAMPUS_CONNECTION_CHECK_COMPLETED]:
+    connectionCheckCompletedSchema,
   [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN]: z.object({
     surface: presenceTabSurfaceSchema,
   }),
@@ -208,6 +226,9 @@ export type AnalyticsCohort = Readonly<z.input<typeof analyticsCohortSchema>>;
 export type AuthMethod = z.output<typeof authMethodSchema>;
 export type AnalyticsPlatform = z.output<typeof platformSchema>;
 export type PresenceTabSurface = z.output<typeof presenceTabSurfaceSchema>;
+export type ConnectionCheckCompletedProperties = z.output<
+  typeof connectionCheckCompletedSchema
+>;
 export type CampusWorldMapErrorKind = z.output<
   typeof campusWorldMapErrorKindSchema
 >;
