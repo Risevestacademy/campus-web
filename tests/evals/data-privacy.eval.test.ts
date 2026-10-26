@@ -23,6 +23,14 @@ import {
 } from "@/features/admin/feedback/schemas/feedback.schema";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
+import { checkConnection } from "@/features/campus/services/connection-check/check-connection";
+import {
+  type ConnectionCheckAccess,
+  requestConnectionCheck,
+} from "@/features/campus/services/connection-check/connection-check.service";
+import { loadLivekitProbe } from "@/features/campus/services/connection-check/livekit-probe";
+import { runConnectionCheck } from "@/features/campus/services/connection-check/run-connection-check";
+import { fakeLivekit, fakeTrack } from "@/features/campus/testing/fake-livekit";
 import { parseFeedbackReceipt } from "@/features/feedback/schemas/feedback.schema";
 import {
   parseInvitePreview,
@@ -138,6 +146,7 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "auth.signup_succeeded": ["auth_method", "role", "user_id"],
   "auth.verification_completed": ["verification_type"],
   "auth.verification_sent": ["verification_type"],
+  "campus.connection_check_completed": ["failed_step", "result"],
   "campus.presence_tab_conflict_shown": ["surface"],
   "campus.presence_tab_moved": ["surface"],
   "campus_world.camera_zoomed": ["level"],
@@ -457,6 +466,18 @@ describe("Data privacy eval (threshold: every case holds)", () => {
         }
       },
     );
+
+    it.each([
+      ["a LiveKit check name", { result: "failed", failed_step: "websocket" }],
+      ["the check token", { result: "failed", failed_step: TOKEN }],
+      ["a result outside the list", { result: TOKEN, failed_step: null }],
+    ])("keeps %s out of the connection check event", (_, properties) => {
+      expect(
+        analyticsEventSchemas["campus.connection_check_completed"].safeParse(
+          properties,
+        ).success,
+      ).toBe(false);
+    });
   });
 
   describe("the analytics identity and cohort carry only declared properties", () => {
@@ -600,6 +621,133 @@ describe("Data privacy eval (threshold: every case holds)", () => {
     });
   });
 
+  describe("the connection check only connects to the pinned media host", () => {
+    const MEDIA_ORIGIN = "wss://media.campus.example";
+    const grant = {
+      url: MEDIA_ORIGIN,
+      room: "connection-check-0b9e",
+      token: TOKEN,
+      expiresAt: "2026-10-24T12:02:00.000Z",
+    };
+
+    function accessFor(reply: Response): Promise<ConnectionCheckAccess> {
+      return requestConnectionCheck({
+        fetch: async () => reply,
+        worldOrigin: "https://ws.campus.example",
+        mediaOrigin: MEDIA_ORIGIN,
+      });
+    }
+
+    it.each([
+      "wss://evil.example",
+      "wss://media.campus.example@evil.example",
+      "ws://media.campus.example",
+      "wss://media.campus.example.evil.example",
+      "wss://media.campus.example:8443",
+    ])("never hands the token to the unpinned host %s", async (url) => {
+      const access = await accessFor(Response.json({ ...grant, url }));
+
+      expect(access).toEqual({ kind: "failed" });
+      expect(JSON.stringify(access)).not.toContain(TOKEN);
+    });
+
+    it("keeps only the URL and token from world's answer", async () => {
+      const access = await accessFor(
+        Response.json(withUnexpectedFields(grant)),
+      );
+
+      expect(keyPaths(access)).toEqual(["kind", "token", "url"]);
+    });
+
+    it("never carries or logs the token on a refusal", async () => {
+      const consoleCalls = (
+        ["debug", "error", "info", "log", "warn"] as const
+      ).map((method) => vi.spyOn(console, method).mockImplementation(() => {}));
+      const refusals = await Promise.all(
+        [401, 403, 429, 500, 503].map((status) =>
+          accessFor(
+            Response.json(
+              { error: { code: TOKEN, message: TOKEN }, ...grant },
+              { status, headers: { "retry-after": TOKEN } },
+            ),
+          ),
+        ),
+      );
+
+      expect(refusals.map(({ kind }) => kind)).toEqual([
+        "signed-out",
+        "failed",
+        "rate-limited",
+        "failed",
+        "failed",
+      ]);
+      expect(JSON.stringify(refusals)).not.toContain(TOKEN);
+      expect(consoleCalls.flatMap((spy) => spy.mock.calls)).toEqual([]);
+    });
+  });
+
+  describe("the connection check only uses the devices the member turned on", () => {
+    const GRANT = { url: "wss://media.campus.example", token: TOKEN };
+
+    it("never opens or publishes a source the member turned off", async () => {
+      const livekit = fakeLivekit();
+      const probe = await loadLivekitProbe(GRANT, async () => livekit.module);
+      const onStep = vi.fn();
+
+      await expect(
+        runConnectionCheck(probe, () => null, { onStep }),
+      ).resolves.toEqual({ kind: "passed" });
+      expect(livekit.published).toEqual([]);
+      expect(onStep).toHaveBeenCalledWith("microphone", "skipped");
+      expect(onStep).toHaveBeenCalledWith("camera", "skipped");
+    });
+
+    it.each([
+      ["a track that sends", {}],
+      ["a track that sends nothing", { packetsSent: 0 }],
+      ["a track that cannot be published", { publishFails: true }],
+    ])("never stops the member's own track: %s", async (_, options) => {
+      vi.useFakeTimers();
+      try {
+        const livekit = fakeLivekit(options);
+        const probe = await loadLivekitProbe(GRANT, async () => livekit.module);
+        const microphone = fakeTrack("audio");
+        const published = probe.publish(microphone);
+        await vi.runAllTimersAsync();
+        await published;
+
+        expect(microphone.stop).not.toHaveBeenCalled();
+        expect(microphone.copy.stop).toHaveBeenCalledOnce();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it.each<ConnectionCheckAccess>([
+      { kind: "unavailable" },
+      { kind: "rate-limited", retryAfterSeconds: 60 },
+      { kind: "signed-out" },
+      { kind: "failed" },
+    ])(
+      "never downloads the media SDK when world answers $kind",
+      async (access) => {
+        const loadProbe = vi.fn();
+
+        await checkConnection(
+          {
+            requestAccess: async () => access,
+            loadProbe,
+            captureEvent: () => {},
+          },
+          (step) => fakeTrack(step === "microphone" ? "audio" : "video"),
+          { onStep: () => {} },
+        );
+
+        expect(loadProbe).not.toHaveBeenCalled();
+      },
+    );
+  });
+
   describe("a protected build only sends traffic to the hosts it names", () => {
     const protectedBuild = {
       CI: "true",
@@ -630,6 +778,24 @@ describe("Data privacy eval (threshold: every case holds)", () => {
             NEXT_PUBLIC_WORLD_URL: worldUrl,
           }),
         ).toThrow("NEXT_PUBLIC_WORLD_URL");
+      },
+    );
+
+    it.each([
+      "ws://media.campus.example",
+      "ws://localhost:7880",
+      "wss://media.railway.internal",
+      "wss://user:secret@media.campus.example",
+      "wss://media.campus.example/rtc",
+    ])(
+      "rejects the media URL %s before a connection check token is sent to it",
+      (mediaUrl) => {
+        expect(() =>
+          validateBuildEnvironment({
+            ...protectedBuild,
+            NEXT_PUBLIC_MEDIA_URL: mediaUrl,
+          }),
+        ).toThrow("NEXT_PUBLIC_MEDIA_URL");
       },
     );
 

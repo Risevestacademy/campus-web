@@ -1,6 +1,7 @@
 import { CohortGate, normalizeCohortReturnTo } from "@/features/auth";
 import {
   CampusJoinButton,
+  ConnectionCheck,
   PreJoinPresenceTab,
   VisualsDisplay,
 } from "@/features/campus";
@@ -31,8 +32,10 @@ export default async function JoinPage({
     <CohortGate cohortId={id}>
       <PreJoinPresenceTab destination={destination}>
         <CampusMapPreparationGate>
-          <main className="grid h-dvh content-center gap-6">
+          <main className="grid min-h-dvh content-center gap-6 py-6">
             <VisualsDisplay />
+
+            <ConnectionCheck />
 
             <CampusJoinButton destination={destination} />
           </main>

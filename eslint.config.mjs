@@ -9,6 +9,7 @@ import unicornPlugin from "eslint-plugin-unicorn";
 import unusedImportsPlugin from "eslint-plugin-unused-imports";
 
 import architectureBoundaries from "./config/architecture-boundaries.json" with { type: "json" };
+import livekitImportRestrictions from "./config/livekit-imports.json" with { type: "json" };
 import phosphorImportRestrictions from "./config/phosphor-imports.json" with { type: "json" };
 import reactImportRestrictions from "./config/react-imports.json" with { type: "json" };
 import zodRestrictions from "./config/zod-restrictions.json" with { type: "json" };
@@ -34,8 +35,12 @@ const eslintConfig = defineConfig([
           paths: [
             ...reactImportRestrictions.paths,
             ...phosphorImportRestrictions.paths,
+            ...livekitImportRestrictions.paths,
           ],
-          patterns: phosphorImportRestrictions.patterns,
+          patterns: [
+            ...phosphorImportRestrictions.patterns,
+            ...livekitImportRestrictions.patterns,
+          ],
         },
       ],
       "unicorn/no-array-callback-reference": "off",

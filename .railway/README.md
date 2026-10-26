@@ -111,6 +111,7 @@ IaC for every environment instead of maintaining it only in the dashboard.
 
 `campus-web` preserves its Railway-managed public values:
 
+- `NEXT_PUBLIC_MEDIA_URL` (optional; equal to world's `LIVEKIT_URL`)
 - `NEXT_PUBLIC_POSTHOG_HOST`
 - `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`
 - `NEXT_PUBLIC_SANITY_DATASET`

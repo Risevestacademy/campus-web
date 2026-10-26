@@ -5,6 +5,7 @@ export { CampusShell } from "./components/campus-shell/campus-shell";
 export { SidebarCollapseButton } from "./components/campus-shell/sidebar-collapse-button";
 export { CohortCard } from "./components/cohort-card";
 export { CohortChooser } from "./components/cohort-chooser";
+export { ConnectionCheck } from "./components/connection-check";
 export { PreJoinPresenceTab } from "./components/pre-join-presence-tab";
 export { PresenceDock } from "./components/presence-dock";
 export { PresenceSession } from "./components/presence-session";

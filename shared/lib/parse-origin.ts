@@ -20,8 +20,12 @@ export function parseBareOrigin(value: string): URL | undefined {
   return isBareOrigin ? url : undefined;
 }
 
+export function isLoopbackHost(url: URL): boolean {
+  return LOOPBACK_HOSTNAMES.includes(url.hostname);
+}
+
 export function isLoopbackHttp(url: URL): boolean {
-  return url.protocol === "http:" && LOOPBACK_HOSTNAMES.includes(url.hostname);
+  return url.protocol === "http:" && isLoopbackHost(url);
 }
 
 // URL keeps a trailing dot, and "host.railway.internal." resolves the same.

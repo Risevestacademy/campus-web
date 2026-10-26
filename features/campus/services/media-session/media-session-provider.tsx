@@ -26,7 +26,7 @@ export function MediaSessionProvider({
   );
 }
 
-function useMediaSessionStore() {
+export function useMediaSessionStore() {
   const store = useContext(MediaSessionContext);
 
   if (!store) {

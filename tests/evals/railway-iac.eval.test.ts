@@ -38,6 +38,7 @@ const campusWebBaseVariables = {
     type: "literal",
     value: "http://${{campus-api.RAILWAY_PRIVATE_DOMAIN}}:${{campus-api.PORT}}",
   },
+  NEXT_PUBLIC_MEDIA_URL: { type: "preserve" },
   NEXT_PUBLIC_POSTHOG_HOST: { type: "preserve" },
   NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: { type: "preserve" },
   NEXT_PUBLIC_SANITY_DATASET: { type: "preserve" },
