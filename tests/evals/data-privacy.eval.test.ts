@@ -739,7 +739,7 @@ describe("Data privacy eval (threshold: every case holds)", () => {
             loadProbe,
             captureEvent: () => {},
           },
-          { microphone: fakeTrack("audio"), camera: fakeTrack("video") },
+          (step) => fakeTrack(step === "microphone" ? "audio" : "video"),
           { onStep: () => {} },
         );
 
