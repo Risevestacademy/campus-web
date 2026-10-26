@@ -54,7 +54,7 @@ export function RefreshSession({ returnTo }: RefreshSessionProps) {
         <h1 className="font-display text-3xl font-bold">
           We couldn&apos;t restore your session
         </h1>
-        <p className="mt-4 max-w-96">
+        <p className="mx-auto mt-4 max-w-96 text-pretty">
           Campus could not reach the sign-in service. You are still signed in if
           your session is valid; try again in a moment.
         </p>

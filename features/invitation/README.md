@@ -93,7 +93,7 @@ runs in the browser through `/api`, because only the proxy sets auth cookies.
 ## Tests
 
 ```bash
-pnpm vitest run --project unit features/invitation "app/(auth)/invitation"
+pnpm vitest run --project unit features/invitation "app/(auth)/(side)/invitation"
 pnpm eval:invitation
 pnpm eval:privacy
 pnpm build && pnpm playwright test tests/e2e/invitation.spec.ts
