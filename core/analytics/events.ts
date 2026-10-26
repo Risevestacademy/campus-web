@@ -66,7 +66,6 @@ const campusWorldMapErrorKindSchema = z.enum([
 const connectionCheckResultSchema = z.enum([
   "error",
   "failed",
-  "misconfigured",
   "passed",
   "rate_limited",
   "signed_out",

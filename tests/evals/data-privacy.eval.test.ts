@@ -676,7 +676,7 @@ describe("Data privacy eval (threshold: every case holds)", () => {
 
       expect(refusals.map(({ kind }) => kind)).toEqual([
         "signed-out",
-        "misconfigured",
+        "failed",
         "rate-limited",
         "failed",
         "failed",
@@ -695,11 +695,7 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       const onStep = vi.fn();
 
       await expect(
-        runConnectionCheck(
-          probe,
-          { microphone: null, camera: null },
-          { onStep },
-        ),
+        runConnectionCheck(probe, () => null, { onStep }),
       ).resolves.toEqual({ kind: "passed" });
       expect(livekit.published).toEqual([]);
       expect(onStep).toHaveBeenCalledWith("microphone", "skipped");
@@ -731,7 +727,6 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       { kind: "unavailable" },
       { kind: "rate-limited", retryAfterSeconds: 60 },
       { kind: "signed-out" },
-      { kind: "misconfigured" },
       { kind: "failed" },
     ])(
       "never downloads the media SDK when world answers $kind",

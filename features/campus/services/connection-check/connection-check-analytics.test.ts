@@ -24,7 +24,6 @@ describe("connectionCheckEventProperties", () => {
       { result: "rate_limited", failed_step: null },
     ],
     [{ kind: "signed-out" }, { result: "signed_out", failed_step: null }],
-    [{ kind: "misconfigured" }, { result: "misconfigured", failed_step: null }],
     [{ kind: "failed" }, { result: "error", failed_step: null }],
     ["crashed", { result: "error", failed_step: null }],
   ])("reports %o as %o", (outcome, expected) => {

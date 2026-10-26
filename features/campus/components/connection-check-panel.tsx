@@ -113,8 +113,12 @@ export function ConnectionCheckPanel({
       className="mx-auto grid w-full max-w-160 justify-items-center gap-3"
     >
       {isUnavailable ? null : (
+        // A natively disabled button drops keyboard focus to the top of the
+        // page, so it stays focusable; :disabled styles then never match.
         <Button
+          className="data-disabled:cursor-not-allowed data-disabled:opacity-50"
           disabled={isRunning}
+          focusableWhenDisabled
           onClick={onStart}
           size="sm"
           type="button"

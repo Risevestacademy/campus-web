@@ -6,7 +6,7 @@ import {
   type ConnectionCheckProbe,
   type ConnectionCheckRun,
   type ConnectionCheckRunOptions,
-  type LiveTracks,
+  type ReadTrack,
   runConnectionCheck,
 } from "./run-connection-check";
 
@@ -27,7 +27,7 @@ export interface CheckConnectionDependencies {
 // downloads it.
 async function requestAndRun(
   { requestAccess, loadProbe }: CheckConnectionDependencies,
-  tracks: LiveTracks,
+  readTrack: ReadTrack,
   options: ConnectionCheckRunOptions,
 ): Promise<ConnectionCheckResult> {
   const access = await requestAccess(options.signal);
@@ -38,17 +38,17 @@ async function requestAndRun(
 
   const probe = await loadProbe({ url: access.url, token: access.token });
 
-  return runConnectionCheck(probe, tracks, options);
+  return runConnectionCheck(probe, readTrack, options);
 }
 
 // One completed event per run that settled; an abandoned run reports nothing.
 export async function checkConnection(
   dependencies: CheckConnectionDependencies,
-  tracks: LiveTracks,
+  readTrack: ReadTrack,
   options: ConnectionCheckRunOptions,
 ): Promise<ConnectionCheckResult> {
   try {
-    const result = await requestAndRun(dependencies, tracks, options);
+    const result = await requestAndRun(dependencies, readTrack, options);
     dependencies.captureEvent(connectionCheckEventProperties(result));
     return result;
   } catch (error) {

@@ -1,26 +1,35 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { StoreApi } from "zustand";
 
 import type { ConnectionCheckResult } from "../services/connection-check/check-connection";
-import type {
-  ConnectionCheckRunOptions,
-  LiveTracks,
+import {
+  type ConnectionCheckRunOptions,
+  type ReadTrack,
+  runConnectionCheck,
 } from "../services/connection-check/run-connection-check";
 import { MediaSessionProvider } from "../services/media-session/media-session-provider";
-import { createMediaSessionStore } from "../services/media-session/media-session-store";
-import { createTestMediaTrack } from "../testing/media-session-test-utils";
+import {
+  createMediaSessionStore,
+  type MediaSessionState,
+} from "../services/media-session/media-session-store";
+import {
+  createTestMediaDevice,
+  createTestMediaTrack,
+  installTestMediaDevices,
+} from "../testing/media-session-test-utils";
 import { useConnectionCheck } from "./use-connection-check";
 
-type CheckCall = { tracks: LiveTracks; options: ConnectionCheckRunOptions };
+type CheckCall = { readTrack: ReadTrack; options: ConnectionCheckRunOptions };
 
 function deferredCheck() {
   const calls: CheckCall[] = [];
   let finish: (result: ConnectionCheckResult) => void = () => {};
   const check = vi.fn(
-    (tracks: LiveTracks, options: ConnectionCheckRunOptions) => {
-      calls.push({ tracks, options });
+    (readTrack: ReadTrack, options: ConnectionCheckRunOptions) => {
+      calls.push({ readTrack, options });
       return new Promise<ConnectionCheckResult>((resolve) => {
         finish = resolve;
       });
@@ -33,14 +42,10 @@ function deferredCheck() {
   };
 }
 
-function renderConnectionCheck(
+function renderWithStore(
   check: Parameters<typeof useConnectionCheck>[0],
-  microphone: MediaStreamTrack | null = null,
+  store: StoreApi<MediaSessionState>,
 ) {
-  const store = createMediaSessionStore({ mediaDevices: null });
-  store.setState({
-    microphone: { ...store.getState().microphone, track: microphone },
-  });
   const queryClient = new QueryClient();
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
@@ -50,6 +55,31 @@ function renderConnectionCheck(
 
   return renderHook(() => useConnectionCheck(check), { wrapper });
 }
+
+function renderConnectionCheck(
+  check: Parameters<typeof useConnectionCheck>[0],
+  microphone: MediaStreamTrack | null = null,
+) {
+  const store = createMediaSessionStore({ mediaDevices: null });
+  store.setState({
+    microphone: { ...store.getState().microphone, track: microphone },
+  });
+  return renderWithStore(check, store);
+}
+
+async function storeWithCameraOn() {
+  installTestMediaDevices([
+    createTestMediaDevice("camera-1", "videoinput", "Studio Camera"),
+  ]);
+  const store = createMediaSessionStore();
+  await store.getState().start();
+  await store.getState().toggleSource("camera");
+  return store;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("useConnectionCheck", () => {
   it("checks the member's live tracks and reports each step, then the result", async () => {
@@ -65,7 +95,8 @@ describe("useConnectionCheck", () => {
 
     act(() => result.current.start());
     await waitFor(() => expect(calls).toHaveLength(1));
-    expect(calls[0]?.tracks).toEqual({ microphone, camera: null });
+    expect(calls[0]?.readTrack("microphone")).toBe(microphone);
+    expect(calls[0]?.readTrack("camera")).toBeNull();
     expect(result.current.isRunning).toBe(true);
 
     act(() => calls[0]?.options.onStep("network", "passed"));
@@ -129,5 +160,29 @@ describe("useConnectionCheck", () => {
     await waitFor(() =>
       expect(result.current.result).toEqual({ kind: "failed" }),
     );
+  });
+
+  it("skips a camera the member turns off while the check runs", async () => {
+    const store = await storeWithCameraOn();
+    expect(store.getState().camera.track).not.toBeNull();
+    const probe = {
+      network: vi.fn(async () => {
+        await store.getState().toggleSource("camera");
+        return true;
+      }),
+      publish: vi.fn(async () => true),
+    };
+    const { result } = renderWithStore(
+      (readTrack, options) => runConnectionCheck(probe, readTrack, options),
+      store,
+    );
+
+    act(() => result.current.start());
+
+    await waitFor(() =>
+      expect(result.current.result).toEqual({ kind: "passed" }),
+    );
+    expect(result.current.steps.camera).toBe("skipped");
+    expect(probe.publish).not.toHaveBeenCalled();
   });
 });

@@ -11,7 +11,6 @@ export type ConnectionCheckAccess =
   | { kind: "unavailable" }
   | { kind: "rate-limited"; retryAfterSeconds: number }
   | { kind: "signed-out" }
-  | { kind: "misconfigured" }
   | { kind: "failed" };
 
 export interface ConnectionCheckDependencies {
@@ -55,8 +54,6 @@ async function readRefusal(
   switch (response.status) {
     case 401:
       return { kind: "signed-out" };
-    case 403:
-      return { kind: "misconfigured" };
     case 429:
       return {
         kind: "rate-limited",

@@ -50,7 +50,10 @@ describe("ConnectionCheckPanel", () => {
       steps: { network: "passed", microphone: "running", camera: "skipped" },
     });
 
-    expect(screen.getByRole("button", { name: "Testing…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Testing…" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     expect(screen.getByRole("status")).toHaveTextContent(
       "Testing your connection…",
     );
@@ -64,6 +67,33 @@ describe("ConnectionCheckPanel", () => {
       "MicrophoneChecking…",
       "CameraOff, not tested",
     ]);
+  });
+
+  it("keeps focus on the button and ignores presses while the test runs", () => {
+    const onStart = vi.fn();
+    const { rerender } = render(
+      <ConnectionCheckPanel
+        isRunning={false}
+        onStart={onStart}
+        result={undefined}
+        steps={PENDING}
+      />,
+    );
+    const button = screen.getByRole("button", { name: "Test connection" });
+    button.focus();
+
+    rerender(
+      <ConnectionCheckPanel
+        isRunning
+        onStart={onStart}
+        result={undefined}
+        steps={PENDING}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Testing…" }));
+
+    expect(screen.getByRole("button", { name: "Testing…" })).toHaveFocus();
+    expect(onStart).not.toHaveBeenCalled();
   });
 
   it("announces a failed step with what the member can do", () => {

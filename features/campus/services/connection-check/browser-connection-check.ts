@@ -12,11 +12,11 @@ import { loadLivekitProbe } from "./livekit-probe";
 import { readMediaOrigin } from "./media-origin";
 import type {
   ConnectionCheckRunOptions,
-  LiveTracks,
+  ReadTrack,
 } from "./run-connection-check";
 
 export function checkBrowserConnection(
-  tracks: LiveTracks,
+  readTrack: ReadTrack,
   options: ConnectionCheckRunOptions,
 ): Promise<ConnectionCheckResult> {
   return checkConnection(
@@ -37,7 +37,7 @@ export function checkBrowserConnection(
           properties,
         ),
     },
-    tracks,
+    readTrack,
     options,
   );
 }

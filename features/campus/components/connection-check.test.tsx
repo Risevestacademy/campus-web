@@ -42,7 +42,7 @@ describe("ConnectionCheck", () => {
 
   it("runs the check on a press and announces the result", async () => {
     browserCheck.checkBrowserConnection.mockImplementationOnce(
-      async (_tracks, { onStep }) => {
+      async (_readTrack, { onStep }) => {
         onStep("network", "failed");
         return { kind: "step-failed", step: "network" };
       },
@@ -58,7 +58,7 @@ describe("ConnectionCheck", () => {
       await screen.findByText("Your network is blocking calls."),
     ).toBeInTheDocument();
     expect(browserCheck.checkBrowserConnection).toHaveBeenCalledWith(
-      { microphone: null, camera: null },
+      expect.any(Function),
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });

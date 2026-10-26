@@ -8,13 +8,13 @@ import type { ConnectionCheckResult } from "../services/connection-check/check-c
 import type {
   ConnectionCheckRunOptions,
   ConnectionCheckStep,
-  LiveTracks,
+  ReadTrack,
   StepStatus,
 } from "../services/connection-check/run-connection-check";
-import { useMediaSession } from "../services/media-session/media-session-provider";
+import { useMediaSessionStore } from "../services/media-session/media-session-provider";
 
 type CheckConnection = (
-  tracks: LiveTracks,
+  readTrack: ReadTrack,
   options: ConnectionCheckRunOptions,
 ) => Promise<ConnectionCheckResult>;
 
@@ -33,22 +33,15 @@ const CRASHED: ConnectionCheckResult = { kind: "failed" };
 export function useConnectionCheck(
   check: CheckConnection = checkBrowserConnection,
 ) {
-  const microphone = useMediaSession((state) => state.microphone.track);
-  const camera = useMediaSession((state) => state.camera.track);
+  const mediaSession = useMediaSessionStore();
   const [steps, setSteps] = useState(PENDING_STEPS);
   const run = useRef<AbortController | null>(null);
 
   useMountEffect(() => () => run.current?.abort());
 
   const mutation = useMutation({
-    mutationFn: ({
-      tracks,
-      signal,
-    }: {
-      tracks: LiveTracks;
-      signal: AbortSignal;
-    }) =>
-      check(tracks, {
+    mutationFn: (signal: AbortSignal) =>
+      check((step) => mediaSession.getState()[step].track, {
         signal,
         onStep: (step, status) =>
           setSteps((current) => ({ ...current, [step]: status })),
@@ -64,10 +57,7 @@ export function useConnectionCheck(
     if (run.current) return;
     run.current = new AbortController();
     setSteps(PENDING_STEPS);
-    mutation.mutate({
-      tracks: { microphone, camera },
-      signal: run.current.signal,
-    });
+    mutation.mutate(run.current.signal);
   }
 
   return {

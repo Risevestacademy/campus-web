@@ -91,9 +91,9 @@ describe("requestConnectionCheck", () => {
   it.each([
     ["signed out", worldError(401, "UNAUTHORIZED"), { kind: "signed-out" }],
     [
-      "an origin world refuses",
+      "an origin world refuses, which a browser never shows",
       worldError(403, "FORBIDDEN"),
-      { kind: "misconfigured" },
+      { kind: "failed" },
     ],
     [
       "a deployment without media",

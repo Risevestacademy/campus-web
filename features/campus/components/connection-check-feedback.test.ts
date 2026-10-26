@@ -50,8 +50,14 @@ describe("describeConnectionCheck", () => {
       { kind: "unavailable" },
       { title: "Calls aren't available on this campus yet." },
     ],
-    ["a refused session", { kind: "signed-out" }, COULD_NOT_RUN],
-    ["a refused origin", { kind: "misconfigured" }, COULD_NOT_RUN],
+    [
+      "a refused session, without inviting a retry that fails the same way",
+      { kind: "signed-out" },
+      {
+        title: "We couldn't confirm you're signed in.",
+        hint: "Reload the page, then test again.",
+      },
+    ],
     ["a failed request", { kind: "failed" }, COULD_NOT_RUN],
   ])("describes %s", (_, result, expected) => {
     expect(describeConnectionCheck(result)).toEqual(expected);

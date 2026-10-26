@@ -25,6 +25,12 @@ const COULD_NOT_RUN: ConnectionCheckFeedback = {
   title: "We couldn't run the test. Try again in a moment.",
 };
 
+// Waiting doesn't fix a refused session: reloading renews it or signs in.
+const SIGNED_OUT: ConnectionCheckFeedback = {
+  title: "We couldn't confirm you're signed in.",
+  hint: "Reload the page, then test again.",
+};
+
 function seconds(count: number) {
   return count === 1 ? "1 second" : `${count} seconds`;
 }
@@ -44,7 +50,7 @@ export function describeConnectionCheck(
     case "unavailable":
       return { title: "Calls aren't available on this campus yet." };
     case "signed-out":
-    case "misconfigured":
+      return SIGNED_OUT;
     case "failed":
       return COULD_NOT_RUN;
   }

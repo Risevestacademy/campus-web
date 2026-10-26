@@ -8,7 +8,6 @@ const accessResults = {
   unavailable: "unavailable",
   "rate-limited": "rate_limited",
   "signed-out": "signed_out",
-  misconfigured: "misconfigured",
   failed: "error",
 } as const satisfies Record<
   Exclude<ConnectionCheckResult["kind"], "passed" | "step-failed">,

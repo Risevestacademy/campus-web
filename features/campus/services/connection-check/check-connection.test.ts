@@ -5,9 +5,12 @@ import {
   type CheckConnectionDependencies,
 } from "./check-connection";
 import type { ConnectionCheckAccess } from "./connection-check.service";
-import type { ConnectionCheckProbe } from "./run-connection-check";
+import type { ConnectionCheckProbe, ReadTrack } from "./run-connection-check";
 
-const microphone = { kind: "audio" } as MediaStreamTrack;
+const microphone = { kind: "audio", readyState: "live" } as MediaStreamTrack;
+const readMicrophone: ReadTrack = (step) =>
+  step === "microphone" ? microphone : null;
+const readNoTrack: ReadTrack = () => null;
 const ready: ConnectionCheckAccess = {
   kind: "ready",
   url: "wss://media.example.test",
@@ -35,7 +38,7 @@ describe("checkConnection", () => {
     const deps = dependencies(ready);
 
     await expect(
-      checkConnection(deps, { microphone, camera: null }, { onStep: () => {} }),
+      checkConnection(deps, readMicrophone, { onStep: () => {} }),
     ).resolves.toEqual({ kind: "passed" });
     expect(deps.loadProbe).toHaveBeenCalledWith({
       url: "wss://media.example.test",
@@ -47,11 +50,7 @@ describe("checkConnection", () => {
     const deps = dependencies(ready);
     const { signal } = new AbortController();
 
-    await checkConnection(
-      deps,
-      { microphone: null, camera: null },
-      { onStep: () => {}, signal },
-    );
+    await checkConnection(deps, readNoTrack, { onStep: () => {}, signal });
 
     expect(deps.requestAccess).toHaveBeenCalledWith(signal);
   });
@@ -60,14 +59,13 @@ describe("checkConnection", () => {
     { kind: "unavailable" },
     { kind: "rate-limited", retryAfterSeconds: 30 },
     { kind: "signed-out" },
-    { kind: "misconfigured" },
     { kind: "failed" },
   ])("answers $kind without loading the media SDK", async (access) => {
     const deps = dependencies(access);
     const onStep = vi.fn();
 
     await expect(
-      checkConnection(deps, { microphone, camera: null }, { onStep }),
+      checkConnection(deps, readMicrophone, { onStep }),
     ).resolves.toEqual(access);
     expect(deps.loadProbe).not.toHaveBeenCalled();
     expect(onStep).not.toHaveBeenCalled();
@@ -80,11 +78,7 @@ describe("checkConnection", () => {
       publish: async () => true,
     });
 
-    await checkConnection(
-      deps,
-      { microphone, camera: null },
-      { onStep: () => {} },
-    );
+    await checkConnection(deps, readMicrophone, { onStep: () => {} });
 
     expect(deps.captureEvent.mock.calls).toEqual([
       [{ result: "failed", failed_step: "network" }],
@@ -94,11 +88,7 @@ describe("checkConnection", () => {
   it("reports one completed event for a refusal", async () => {
     const deps = dependencies({ kind: "signed-out" });
 
-    await checkConnection(
-      deps,
-      { microphone, camera: null },
-      { onStep: () => {} },
-    );
+    await checkConnection(deps, readMicrophone, { onStep: () => {} });
 
     expect(deps.captureEvent.mock.calls).toEqual([
       [{ result: "signed_out", failed_step: null }],
@@ -111,7 +101,7 @@ describe("checkConnection", () => {
     deps.loadProbe.mockRejectedValueOnce(crash);
 
     await expect(
-      checkConnection(deps, { microphone, camera: null }, { onStep: () => {} }),
+      checkConnection(deps, readMicrophone, { onStep: () => {} }),
     ).rejects.toBe(crash);
     expect(deps.captureEvent.mock.calls).toEqual([
       [{ result: "error", failed_step: null }],
@@ -127,11 +117,10 @@ describe("checkConnection", () => {
     });
 
     await expect(
-      checkConnection(
-        deps,
-        { microphone, camera: null },
-        { onStep: () => {}, signal: controller.signal },
-      ),
+      checkConnection(deps, readMicrophone, {
+        onStep: () => {},
+        signal: controller.signal,
+      }),
     ).rejects.toThrow(expect.objectContaining({ name: "AbortError" }));
     expect(deps.captureEvent).not.toHaveBeenCalled();
   });

@@ -16,8 +16,11 @@ const { start, isRunning, steps, result } = useConnectionCheck();
 // result: ConnectionCheckResult | undefined, set once a run settles
 ```
 
-- `start()` reads the member's live tracks at the click; a second start while
-  one runs is ignored. Every run asks world for a new token.
+- `start()` begins a run; a second start while one runs is ignored. Every run
+  asks world for a new token.
+- Each publish step reads the member's track from the media session as the
+  step starts, not at the click. A source turned off, or a track that ended,
+  by then is `skipped`; one turned on mid-run is tested.
 - Steps run network → microphone → camera and stop at the first failure.
   `result` is `passed`, `step-failed` with the step, or the refusal from world
   below. A run that throws (the SDK chunk failed to load) reads `failed`.
@@ -34,7 +37,8 @@ const { start, isRunning, steps, result } = useConnectionCheck();
   live track, waits 3 s and needs `packetsSent > 0`. The SDK's own
   `checkPublishAudio/Video` are not used: they open the default device, open
   the camera even when the member turned it off, and open a second handle on
-  devices the preview holds. A source that is off is `skipped`, never opened.
+  devices the preview holds. A source that is off, or whose track is no
+  longer `live`, is `skipped`, never opened.
   The copy is stopped; the member's track never is.
 
 ### The token request
@@ -60,7 +64,7 @@ through `/api`, with `credentials: "include"` and no body. The spec is
 | 200 with a token for the pinned URL | `ready` with `url` and `token`      |
 | 200 otherwise                       | `failed`                            |
 | 401                                 | `signed-out`                        |
-| 403                                 | `misconfigured`                     |
+| 403 (origin not in `CORS_ORIGINS`)  | `failed` (see below)                |
 | 429                                 | `rate-limited`, `retryAfterSeconds` |
 | 503 `MEDIA_NOT_CONFIGURED`          | `unavailable`                       |
 | any other status, or no answer      | `failed`                            |
@@ -97,8 +101,12 @@ preview and Join on the Join Gate. It renders nothing when the build has no
   hint. The copy never names a LiveKit check.
 - A 503 hides the button and says calls are unavailable. A rate limit shows
   the seconds to wait with no countdown; an early press gets a fresh 429.
-- A 401 reads "couldn't run the test", never a sign-in redirect: `CohortGate`
-  already proved the session, so the cookie is not reaching world.
+- A 401 reads "couldn't confirm you're signed in, reload the page", never a
+  sign-in redirect or "try again": `CohortGate` already proved the session,
+  so it either expired since (a reload renews it) or the cookie is not
+  reaching world. Waiting fixes neither.
+- world sends its 403 without CORS headers, so the browser hides it and
+  `fetch` throws: a refused origin reads `failed`, the same as offline.
 
 ## Analytics
 
@@ -107,8 +115,8 @@ preview and Join on the Join Gate. It renders nothing when the build has no
 | `campus.connection_check_completed` | `result`, `failed_step` | every run that settled |
 
 - `result`: `passed`, `failed` (a step failed), `unavailable`,
-  `rate_limited`, `signed_out`, `misconfigured`, or `error` (no token, or the
-  run threw).
+  `rate_limited`, `signed_out`, or `error` (no token, a refused origin, or
+  the run threw).
 - `failed_step`: `network`, `microphone` or `camera` when `result` is
   `failed`, otherwise `null`. Never a LiveKit check name.
 - An abandoned run (the gate unmounted) sends nothing. Properties are pinned
