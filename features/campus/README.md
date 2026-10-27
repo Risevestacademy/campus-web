@@ -20,6 +20,7 @@ and the Active Campus media UI inside it. Admin catalogues and pages belong to
   initialSidebarMode="admin" // Cohort Administration only
 >
   <ActiveCampus
+    cohortId={id}
     viewModel={activeCampusViewModel}
     zoomControls={<CampusZoomControls />} // from campus-world
   >
@@ -43,9 +44,13 @@ Every joined route group renders `PresenceSessionGate`; every one except the
 map renders `PresenceDock`. `tests/evals/presence-session-routes.eval.test.ts`
 enforces both.
 
-The active-campus route supplies `ActiveCampusViewModel`. Its current value is
-an explicit placeholder until meeting and Presence reads exist; leaf media UI
-must not create substitute domain state. Meeting layout and sidebar-opening
+The active-campus route supplies the cohort id and `ActiveCampusViewModel`, whose
+`viewer` is still an explicit placeholder; leaf media UI must not create
+substitute domain state. The meeting view reads world: `MeetingOverlay` asks
+`useProximityMeeting(cohortId)` for you plus whoever presence's `nearby` names
+(known participants only, in the order they came near), and shows nothing when
+nobody is. A grid remembers the `encounter` it opened for, so the next
+encounter starts on the map (`visibleMeetingLayout`). Meeting layout and sidebar-opening
 transitions belong to `CampusViewProvider`, whose intent actions preserve the
 rule that an expanded meeting and open sidebar cannot coexist.
 
@@ -64,6 +69,7 @@ not import those features.
 | `components/` (media UI)                                                                                                            | `ActiveCampus`, control bar, media toggles and settings, meeting header, tiles, view switch                                                   | `useMediaSession`, `CampusViewProvider` |
 | `services/presence-session/`, `components/presence-session*`, `components/*presence-tab*`                                           | per-cohort admission, Presence Tab, session composition, gate ([README](services/presence-session/README.md))                                 | `useAdmission`, `usePresenceTab`        |
 | `components/presence-dock.tsx`, `remote-audio-output.tsx`                                                                           | compact controls on non-map pages; one audio mix per session                                                                                  | `useMediaSession`                       |
+| `services/proximity-meeting/`, `hooks/use-proximity-meeting.ts`, `components/meeting-overlay.tsx`                                   | the meeting view's people from presence `nearby`: order, names, initials, tones, caps, and which layout shows                                 | `useProximityMeeting`                   |
 | `services/media-session/`                                                                                                           | capture, devices, publications ([README](services/media-session/README.md))                                                                   | `MeetingMediaTransport`                 |
 | `services/world-session/`, `components/world-connection-status.tsx`                                                                 | the cohort's world socket feeding the map; its quiet status and Reconnect ([README](services/world-session/README.md))                        | `useWorldSession`                       |
 | `services/connection-check/`, `schemas/connection-check.schema.ts`, `hooks/use-connection-check.ts`, `components/connection-check*` | the Join Gate's pre-join connection check: world's token, the media host pin, the LiveKit run ([README](services/connection-check/README.md)) | `useConnectionCheck`                    |
@@ -107,6 +113,11 @@ browser media or `localStorage`.
 - A new joined page goes in a route group whose layout renders
   `PresenceSessionGate` and, unless it shows the map, `PresenceDock`.
 - Remote audio plays only from `RemoteAudioOutput`; tiles render video only.
+- The meeting view shows only whom world's `nearby` names. Never measure
+  distance on the client to decide who is near.
+- Meeting motion animates opacity and transform strings only
+  (`components/meeting-motion.ts`), and transforms settle on `none`: a
+  transformed ancestor would re-anchor the fixed expanded grid.
 - Use `GLOSSARY.md` terms (Active Campus, Campus Shell, Join Gate, Presence
   Session, Presence Tab, Presence Dock).
 - Comment only a non-obvious why.
@@ -118,6 +129,7 @@ pnpm vitest run --project=unit features/campus
 pnpm vitest run --project=unit \
   tests/evals/meeting-header.eval.test.tsx \
   tests/evals/meeting-view-switch.eval.test.tsx \
+  tests/evals/proximity-view.eval.test.tsx \
   tests/evals/campus-control-bar.eval.test.tsx \
   tests/evals/media-controls.eval.test.tsx \
   tests/evals/join-gate.eval.test.tsx \

@@ -2,9 +2,16 @@
 
 import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 import { SquaresFourIcon } from "@phosphor-icons/react/dist/ssr/SquaresFour";
+import { motion, useIsPresent, useReducedMotion } from "motion/react";
 
-import type { MeetingParticipant } from "../types/active-campus.types";
+import { visibleMeetingLayout } from "../services/proximity-meeting/proximity-meeting";
+import type {
+  MeetingParticipant,
+  MeetingTileLayout,
+  ProximityMeeting,
+} from "../types/active-campus.types";
 import { useCampusView } from "./campus-view-provider";
+import { meetingGroupVariants, meetingPresenceProps } from "./meeting-motion";
 import { type MeetingTileMotionConfig, MeetingTiles } from "./meeting-tiles";
 import styles from "./meeting-view-switch.module.css";
 
@@ -15,10 +22,11 @@ interface MeetingViewSwitchControlProps {
   onActiveViewChange: (view: MeetingView, shouldAnimate: boolean) => void;
 }
 
+const COMPACT_LAYOUT: MeetingTileLayout = { mode: "compact" };
+
 interface MeetingViewControlsProps {
-  localParticipantId: MeetingParticipant["id"];
+  meeting: ProximityMeeting;
   motionConfig?: MeetingTileMotionConfig;
-  participants: readonly MeetingParticipant[];
 }
 
 function MeetingViewIconPair() {
@@ -34,11 +42,18 @@ function MeetingViewSwitchControl({
   activeView,
   onActiveViewChange,
 }: MeetingViewSwitchControlProps) {
+  const reduceMotion = Boolean(useReducedMotion());
   const switchViewTitle =
     activeView === "map" ? "Switch to grid view" : "Switch to map view";
 
   return (
-    <div className={styles.switchRoot} data-active-view={activeView}>
+    <motion.div
+      custom={reduceMotion}
+      variants={meetingGroupVariants}
+      {...meetingPresenceProps}
+      className={styles.switchRoot}
+      data-active-view={activeView}
+    >
       <span aria-hidden="true" className={styles.iconLayer}>
         <MeetingViewIconPair />
       </span>
@@ -64,24 +79,30 @@ function MeetingViewSwitchControl({
           )
         }
       />
-    </div>
+    </motion.div>
   );
 }
 
 export function MeetingViewControls({
-  localParticipantId,
+  meeting,
   motionConfig,
-  participants,
 }: MeetingViewControlsProps) {
   const { focusParticipant, meetingLayout, shouldAnimate, showGrid, showMap } =
     useCampusView();
-  const activeView = meetingLayout.mode === "compact" ? "map" : "grid";
+  const isPresent = useIsPresent();
+  // Leaving means nobody is near: collapse to the map rather than fade the
+  // grid out at full size.
+  const layout = isPresent
+    ? visibleMeetingLayout(meetingLayout, meeting)
+    : COMPACT_LAYOUT;
+  const activeView = layout.mode === "compact" ? "map" : "grid";
+  const { encounter } = meeting;
 
   function updateActiveView(nextView: MeetingView, animateViewChange: boolean) {
     if (nextView === "map") {
       showMap(animateViewChange);
     } else {
-      showGrid(animateViewChange);
+      showGrid({ encounter, shouldAnimate: animateViewChange });
     }
   }
 
@@ -89,17 +110,24 @@ export function MeetingViewControls({
     participantId: MeetingParticipant["id"],
     animateViewChange: boolean,
   ) {
-    focusParticipant(participantId, animateViewChange);
+    focusParticipant({
+      participantId,
+      encounter,
+      shouldAnimate: animateViewChange,
+    });
   }
 
   return (
     <>
       <MeetingTiles
-        layout={meetingLayout}
-        localParticipantId={localParticipantId}
+        layout={layout}
+        localParticipantId={meeting.localParticipantId}
         motionConfig={motionConfig}
+        onShowAll={(animateViewChange) =>
+          updateActiveView("grid", animateViewChange)
+        }
         onTileActivate={activateParticipantTile}
-        participants={participants}
+        participants={meeting.participants}
         shouldAnimate={shouldAnimate}
       />
       <MeetingViewSwitchControl

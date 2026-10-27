@@ -3,6 +3,10 @@ import { expect, userEvent, within } from "storybook/test";
 
 import { MediaSessionProvider } from "../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../services/media-session/media-session-store";
+import type {
+  MeetingParticipant,
+  ProximityMeeting,
+} from "../types/active-campus.types";
 import { CampusViewProvider } from "./campus-view-provider";
 import {
   DEFAULT_MEETING_TILE_MOTION,
@@ -14,34 +18,51 @@ const previewMediaSessionStore = createMediaSessionStore({
   mediaDevices: null,
 });
 
-const meetingParticipants = [
-  { id: "participant-a", initials: "A", name: "Ada Lovelace" },
-  { id: "participant-j", initials: "J", name: "James Baldwin" },
-] as const;
+const everyoneNearby: readonly MeetingParticipant[] = [
+  { id: "participant-a", initials: "AL", name: "Ada Lovelace", tone: "cobalt" },
+  { id: "participant-j", initials: "JB", name: "James Baldwin", tone: "lemon" },
+  {
+    id: "participant-g",
+    initials: "GH",
+    name: "Grace Hopper",
+    tone: "turquoise",
+  },
+  { id: "participant-l", initials: "LW", name: "Lin Wei", tone: "lemon" },
+  { id: "participant-m", initials: "MA", name: "Maya Angelou", tone: "cobalt" },
+  {
+    id: "participant-t",
+    initials: "TM",
+    name: "Toni Morrison",
+    tone: "turquoise",
+  },
+];
 
 interface MeetingViewMotionLabProps {
   durationMs: number;
   bounce: number;
+  nearbyCount: number;
 }
 
 function MeetingViewMotionLab({
   durationMs,
   bounce,
+  nearbyCount,
 }: MeetingViewMotionLabProps) {
   const motionConfig: MeetingTileMotionConfig = {
     durationMs,
     bounce,
+  };
+  const meeting: ProximityMeeting = {
+    encounter: 1,
+    localParticipantId: "participant-a",
+    participants: everyoneNearby.slice(0, nearbyCount + 1),
   };
 
   return (
     <div className="bg-background relative h-dvh overflow-hidden">
       <div className="relative z-1 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-1.5 p-2.5">
         <span aria-hidden="true" />
-        <MeetingViewControls
-          localParticipantId="participant-a"
-          motionConfig={motionConfig}
-          participants={meetingParticipants}
-        />
+        <MeetingViewControls meeting={meeting} motionConfig={motionConfig} />
       </div>
 
       <div className="bg-cobalt-500/10 absolute inset-1.5 grid place-items-center rounded-xl">
@@ -69,8 +90,17 @@ const meta = {
   args: {
     durationMs: DEFAULT_MEETING_TILE_MOTION.durationMs,
     bounce: DEFAULT_MEETING_TILE_MOTION.bounce,
+    nearbyCount: 1,
   },
   argTypes: {
+    nearbyCount: {
+      control: {
+        type: "range",
+        min: 1,
+        max: everyoneNearby.length - 1,
+        step: 1,
+      },
+    },
     durationMs: {
       control: {
         type: "range",
@@ -145,5 +175,23 @@ export const Expanded: Story = {
 export const Focused: Story = {
   play: async ({ canvasElement }) => {
     await verifyFocusedTileLayout(canvasElement);
+  },
+};
+
+export const Crowd: Story = {
+  args: { nearbyCount: 5 },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Show all 6 participants" }),
+    );
+
+    await expect(
+      canvas.getByRole("switch", { name: "Use grid view" }),
+    ).toHaveAttribute("aria-checked", "true");
+    await expect(
+      canvas.getByRole("button", { name: "Focus Toni Morrison" }),
+    ).toBeInTheDocument();
   },
 };

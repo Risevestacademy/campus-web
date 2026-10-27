@@ -2,6 +2,7 @@ import { MapPinIcon } from "@phosphor-icons/react/dist/ssr/MapPin";
 import Link from "next/link";
 
 import { campusHref } from "@/core/navigation";
+import { initialsOf } from "@/shared/lib/initials";
 import { Separator } from "@/shared/ui/separator";
 
 import { BackToCampusesControl } from "./back-to-campuses-control";
@@ -12,19 +13,6 @@ type PresenceDockProps = Readonly<{
   cohortId: string;
   userName?: string | null;
 }>;
-
-const UNKNOWN_INITIALS = "?";
-
-function initialsOf(userName: string | null | undefined): string {
-  const initials = (userName ?? "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase())
-    .join("");
-
-  return initials || UNKNOWN_INITIALS;
-}
 
 export function PresenceDock({ cohortId, userName }: PresenceDockProps) {
   return (

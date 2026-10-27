@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import {
+  clearPresence,
+  GRACE,
+  seedPresence,
+} from "@/tests/fixtures/nearby-presence";
 
 import { MediaSessionProvider } from "../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../services/media-session/media-session-store";
@@ -13,15 +19,6 @@ import { ActiveCampus } from "./active-campus";
 import { CampusShell } from "./campus-shell/campus-shell";
 
 const activeCampusViewModel = {
-  meeting: {
-    localParticipantId: "participant-a",
-    participants: [
-      { id: "participant-a", initials: "A", name: "Ada Lovelace" },
-      { id: "participant-j", initials: "J", name: "James Baldwin" },
-    ],
-    remainingParticipantCount: 0,
-    title: "Design review",
-  },
   viewer: { initials: "AL", presenceStatus: "active" },
 } as const;
 
@@ -52,6 +49,7 @@ function renderActiveCampus(
       <MediaSessionProvider store={store}>
         <WorldSessionProvider world={world}>
           <ActiveCampus
+            cohortId="c-1"
             viewModel={activeCampusViewModel}
             zoomControls={<div role="group" aria-label="Zoom controls" />}
           >
@@ -67,9 +65,14 @@ function campusRail() {
   return screen.getByRole("navigation", { name: "Campus" });
 }
 
+beforeEach(() => {
+  seedPresence("c-1", GRACE);
+});
+
 afterEach(() => {
   window.localStorage.clear();
   Reflect.deleteProperty(document.documentElement.dataset, "sidebarOpen");
+  clearPresence("c-1");
 });
 
 describe("ActiveCampus", () => {
