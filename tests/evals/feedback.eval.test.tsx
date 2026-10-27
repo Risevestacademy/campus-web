@@ -397,9 +397,9 @@ describe("Feedback eval (threshold: every case holds; 0 requests for a refused s
           },
         ]);
         expect(feedbackPosts()).toHaveLength(1);
-        expect(
-          screen.getByRole("region", { name: "Feedback history" }),
-        ).toHaveTextContent(String(body.title));
+        expect(screen.getByText(/is with the Rise team/)).toHaveTextContent(
+          String(body.title),
+        );
       },
     );
 

@@ -7,7 +7,7 @@ import { PlusIcon } from "@phosphor-icons/react/dist/ssr/Plus";
 import { Button } from "@/shared/ui/button";
 
 import { feedbackKindDetails } from "./feedback-kinds";
-import type { FeedbackItem } from "./types";
+import type { SentFeedback } from "./types";
 
 const NEXT_STEPS: readonly {
   Icon: Icon;
@@ -28,16 +28,16 @@ const NEXT_STEPS: readonly {
 
 export function FeedbackSent({
   firstName,
-  item,
+  sent,
   onSendAnother,
   onBack,
 }: {
   firstName?: string;
-  item: FeedbackItem;
+  sent: SentFeedback;
   onSendAnother: () => void;
   onBack: () => void;
 }) {
-  const { noun } = feedbackKindDetails(item.kind);
+  const { noun } = feedbackKindDetails(sent.kind);
 
   return (
     <div
@@ -53,8 +53,7 @@ export function FeedbackSent({
       </h2>
 
       <p className="text-foreground-secondary text-lg">
-        Your {noun} “{item.title}” is with the Rise team. You can find it in
-        Feedback history.
+        Your {noun} “{sent.title}” is with the Rise team.
       </p>
 
       <section
