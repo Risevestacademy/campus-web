@@ -11,7 +11,6 @@ import {
 export const TITLE_MAX_LENGTH = 100;
 export const DETAILS_MAX_LENGTH = 2000;
 export const LOCATION_MAX_LENGTH = 100;
-export const REPORTED_MAX_LENGTH = 80;
 export const SCREENSHOT_MAX_BYTES = 5 * 1024 * 1024;
 const SCREENSHOT_FORMATS = {
   "image/png": "PNG",
@@ -55,18 +54,21 @@ export const feedbackSchema = z
         LOCATION_MAX_LENGTH,
         `Keep this under ${LOCATION_MAX_LENGTH} characters.`,
       ),
-    reported: z
-      .string()
-      .trim()
-      .max(
-        REPORTED_MAX_LENGTH,
-        `Keep this under ${REPORTED_MAX_LENGTH} characters.`,
-      ),
+    // The picked person's name, kept for the history; only the id is sent.
+    reported: z.string().trim(),
+    reportedUserId: z.union([
+      z.literal(""),
+      z.uuid("Choose who you are reporting again."),
+    ]),
+    // "yes" while the picker is shown, which is only when the people could be
+    // listed. Without it the reporter says who in the details.
+    personRequired: z.string(),
   })
-  .refine(({ kind, reported }) => kind !== "report" || reported !== "", {
-    path: ["reported"],
-    error: "Tell us who you are reporting.",
-  });
+  .refine(
+    ({ kind, personRequired, reportedUserId }) =>
+      kind !== "report" || personRequired !== "yes" || reportedUserId !== "",
+    { path: ["reportedUserId"], error: "Choose who you are reporting." },
+  );
 
 const screenshotSchema = z
   .file()

@@ -1,10 +1,10 @@
 import type { Icon } from "@phosphor-icons/react";
 import { ClockIcon } from "@phosphor-icons/react/dist/ssr/Clock";
 import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
+import { UserIcon } from "@phosphor-icons/react/dist/ssr/User";
 import { cn } from "cn";
 import type { ReactNode } from "react";
 
-import { splitReportAbout } from "@/shared/lib/report-about";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 
 import {
@@ -19,15 +19,6 @@ import { FeedbackStatusControl } from "./feedback-status-control";
 import { FeedbackStatusLabel } from "./feedback-status-label";
 import { FeedbackTypeBadge } from "./feedback-type-badge";
 import { LocalDateTime } from "./local-date-time";
-
-function describeWhere(feedback: FeedbackRecord): string {
-  const about =
-    feedback.type === "report"
-      ? splitReportAbout(feedback.about).where
-      : (feedback.about ?? undefined);
-
-  return about ?? feedback.context?.path ?? "Not given";
-}
 
 function Fact({
   Icon,
@@ -61,8 +52,7 @@ export function FeedbackDetail({
   className?: string;
 }) {
   const { submittedBy, resolvedBy } = feedback;
-  const reportedName =
-    feedback.type === "report" ? reportedNameOf(feedback) : undefined;
+  const isReport = feedback.type === "report";
 
   return (
     <article
@@ -108,20 +98,23 @@ export function FeedbackDetail({
         </div>
       </div>
 
-      {reportedName ? (
-        <p className="text-foreground-secondary text-sm">
-          Reported:{" "}
-          <span className="text-foreground font-medium">{reportedName}</span>
-        </p>
-      ) : null}
-
       <p className="text-lg leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap">
         {feedback.details}
       </p>
 
-      <dl className="grid gap-3 sm:grid-cols-2">
+      <dl
+        className={cn(
+          "grid gap-3",
+          isReport ? "sm:grid-cols-3" : "sm:grid-cols-2",
+        )}
+      >
+        {isReport ? (
+          <Fact Icon={UserIcon} label="Reported">
+            {reportedNameOf(feedback) ?? "Not named"}
+          </Fact>
+        ) : null}
         <Fact Icon={MapTrifoldIcon} label="Where">
-          {describeWhere(feedback)}
+          {feedback.about ?? "Not given"}
         </Fact>
         <Fact Icon={ClockIcon} label="When">
           <LocalDateTime iso={feedback.createdAt} />

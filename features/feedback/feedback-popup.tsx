@@ -24,11 +24,14 @@ export interface FeedbackPopupProps {
   onClose: () => void;
   container?: RefObject<HTMLElement | null>;
   cohortId?: string;
+  userId?: string;
   userName?: string | null;
 }
 
 const SEND_PROBLEM_MESSAGES: Record<FeedbackSendProblem, string | undefined> = {
   invalid: "We couldn't send that. Check the fields and try again.",
+  "unknown-person":
+    "We couldn't find that person. Pick who you are reporting again.",
   "signed-out": undefined,
   forbidden: "You don't have permission to send feedback right now.",
   "rate-limited":
@@ -46,6 +49,7 @@ export function FeedbackPopup({
   onClose,
   container,
   cohortId,
+  userId,
   userName,
 }: FeedbackPopupProps) {
   const [history, setHistory] = useState<readonly FeedbackItem[]>([]);
@@ -150,6 +154,8 @@ export function FeedbackPopup({
               ) : (
                 <FeedbackForm
                   key={formKey}
+                  cohortId={cohortId}
+                  userId={userId}
                   isSending={sending.isPending}
                   sendError={
                     sending.problem

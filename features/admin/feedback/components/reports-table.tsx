@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { splitReportAbout } from "@/shared/lib/report-about";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { buttonVariants } from "@/shared/ui/button";
 
@@ -71,7 +70,6 @@ export function ReportsTable({
         </thead>
         <tbody>
           {page.items.map((report) => {
-            const { where } = splitReportAbout(report.about);
             const reportedName = reportedNameOf(report);
 
             return (
@@ -100,7 +98,7 @@ export function ReportsTable({
                   )}
                 </td>
                 <td className="border-border text-foreground-secondary border-b px-4 py-4 [overflow-wrap:anywhere] group-last/row:border-b-0 dark:border-[#2B3B5F]">
-                  {where ?? "—"}
+                  {report.about ?? "—"}
                 </td>
                 <td className="border-border border-b px-4 py-4 group-last/row:border-b-0 dark:border-[#2B3B5F]">
                   <FeedbackStatusLabel status={report.status} />

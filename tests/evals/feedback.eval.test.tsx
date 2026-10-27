@@ -6,7 +6,15 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { FeedbackPopup } from "@/features/feedback";
 import { TEST_ORIGIN } from "@/tests/fixtures/mock-api";
@@ -26,6 +34,7 @@ vi.mock("@/shared/lib/document-navigation", () => ({
 }));
 
 const FEEDBACK_URL = `${TEST_ORIGIN}/api/v1/feedback`;
+const PEOPLE_URL = `${TEST_ORIGIN}/api/v1/cohorts/cohort-1/profiles`;
 const FORMAT_MESSAGE = "Use a PNG, JPEG, WebP or GIF image.";
 const SIZE_MESSAGE = "Keep the image under 5 MB.";
 const FIVE_MB = 5 * 1024 * 1024;
@@ -67,12 +76,15 @@ interface Entry {
   kind?: string;
   title?: string;
   details?: string;
-  who?: string;
   where?: string;
 }
 
-function fillIn({ kind, title, details, who, where }: Entry) {
+async function fillIn({ kind, title, details, where }: Entry) {
   if (kind) fireEvent.click(screen.getByRole("button", { name: kind }));
+  // The people lookup fails in these tests, so a report has no picker.
+  if (kind === "Report") {
+    await screen.findByText(/can.t list the people in this cohort/);
+  }
   if (title !== undefined) {
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: title },
@@ -81,11 +93,6 @@ function fillIn({ kind, title, details, who, where }: Entry) {
   if (details !== undefined) {
     fireEvent.change(screen.getByLabelText("Details"), {
       target: { value: details },
-    });
-  }
-  if (who !== undefined) {
-    fireEvent.change(screen.getByLabelText("Who are you reporting?"), {
-      target: { value: who },
     });
   }
   if (where !== undefined) {
@@ -263,21 +270,6 @@ const REFUSALS: readonly Refusal[] = [
     entry: { ...GOOD, where: "w".repeat(101) },
     messages: ["Keep this under 100 characters."],
   },
-  {
-    name: "a report with no name",
-    entry: { ...GOOD, kind: "Report" },
-    messages: ["Tell us who you are reporting."],
-  },
-  {
-    name: "a report with a blank name",
-    entry: { ...GOOD, kind: "Report", who: "   " },
-    messages: ["Tell us who you are reporting."],
-  },
-  {
-    name: "a report with an 81-character name",
-    entry: { ...GOOD, kind: "Report", who: "n".repeat(81) },
-    messages: ["Keep this under 80 characters."],
-  },
 ];
 
 interface Acceptance {
@@ -303,34 +295,19 @@ const ACCEPTANCES: readonly Acceptance[] = [
     body: { type: "idea", title: "Dark mode", details: "Please." },
   },
   {
-    name: "a report with a name and a place",
-    entry: { ...GOOD, kind: "Report", who: "Ana Okafor", where: "Classroom A" },
+    name: "a report when the cohort cannot be listed, with a place",
+    entry: { ...GOOD, kind: "Report", where: "Classroom A" },
     body: {
       type: "report",
       title: "Mic cuts out",
       details: "It drops.",
-      about: "Ana Okafor | Classroom A",
+      about: "Classroom A",
     },
   },
   {
-    name: "a report with a name and no place",
-    entry: { ...GOOD, kind: "Report", who: "Ana Okafor" },
-    body: {
-      type: "report",
-      title: "Mic cuts out",
-      details: "It drops.",
-      about: "Ana Okafor |",
-    },
-  },
-  {
-    name: "a report whose name contains a bar",
-    entry: { ...GOOD, kind: "Report", who: "Ana|Maria", where: "Hall" },
-    body: {
-      type: "report",
-      title: "Mic cuts out",
-      details: "It drops.",
-      about: "Ana/Maria | Hall",
-    },
+    name: "a report when the cohort cannot be listed, with no place",
+    entry: { ...GOOD, kind: "Report" },
+    body: { type: "report", title: "Mic cuts out", details: "It drops." },
   },
   {
     name: "a title of exactly 100 characters",
@@ -360,6 +337,13 @@ const FAILURES: readonly { status: number; message: string }[] = [
   },
 ];
 
+beforeEach(() => {
+  // A report names its person by typing unless the cohort can be listed.
+  mockApi.server.use(
+    http.get(PEOPLE_URL, () => new Response(null, { status: 500 })),
+  );
+});
+
 afterEach(() => {
   cleanup();
   mockApi.reset();
@@ -372,10 +356,10 @@ describe("Feedback eval (threshold: every case holds; 0 requests for a refused s
   describe("a refused submit", () => {
     it.each(REFUSALS)(
       "$name shows its message and sends nothing",
-      ({ entry, messages }) => {
+      async ({ entry, messages }) => {
         renderPopup();
 
-        fillIn(entry);
+        await fillIn(entry);
         send();
 
         for (const message of messages) {
@@ -397,7 +381,7 @@ describe("Feedback eval (threshold: every case holds; 0 requests for a refused s
         accept(sent);
         renderPopup();
 
-        fillIn(entry);
+        await fillIn(entry);
         send();
 
         expect(
@@ -423,7 +407,7 @@ describe("Feedback eval (threshold: every case holds; 0 requests for a refused s
       accept([]);
       renderPopup();
 
-      fillIn(GOOD);
+      await fillIn(GOOD);
       send();
       send();
       send();
@@ -442,7 +426,7 @@ describe("Feedback eval (threshold: every case holds; 0 requests for a refused s
         );
         renderPopup();
 
-        fillIn(GOOD);
+        await fillIn(GOOD);
         send();
 
         expect(await screen.findByText(message)).toBeVisible();
@@ -466,7 +450,7 @@ describe("Feedback eval (threshold: every case holds; 0 requests for a refused s
         );
         renderPopup();
 
-        fillIn(GOOD);
+        await fillIn(GOOD);
         send();
 
         expect(
@@ -486,7 +470,7 @@ describe("Feedback eval (threshold: every case holds; 0 requests for a refused s
       mockApi.server.use(http.post(FEEDBACK_URL, () => HttpResponse.error()));
       renderPopup();
 
-      fillIn(GOOD);
+      await fillIn(GOOD);
       send();
 
       expect(
@@ -503,10 +487,104 @@ describe("Feedback eval (threshold: every case holds; 0 requests for a refused s
       );
       renderPopup();
 
-      fillIn(GOOD);
+      await fillIn(GOOD);
       send();
 
       await waitFor(() => expect(navigations).toEqual(["/sign-in"]));
+    });
+  });
+
+  describe("reporting a person from the cohort", () => {
+    const ADA = "11111111-1111-4111-8111-111111111111";
+
+    function listCohort(body: Parameters<typeof HttpResponse.json>[0]) {
+      mockApi.server.use(http.get(PEOPLE_URL, () => HttpResponse.json(body)));
+    }
+
+    it("sends the picked account and no name, in one request", async () => {
+      const sent: Sent[] = [];
+      accept(sent);
+      listCohort([{ id: ADA, displayName: "Ada L.", spriteKey: null }]);
+      renderPopup();
+
+      fireEvent.click(screen.getByRole("button", { name: "Report" }));
+      await screen.findByRole("radiogroup");
+      fireEvent.change(screen.getByLabelText("Title"), {
+        target: { value: "Unwanted waves" },
+      });
+      fireEvent.change(screen.getByLabelText("Details"), {
+        target: { value: "It happens often." },
+      });
+      fireEvent.click(screen.getByRole("radio", { name: "Ada L." }));
+      send();
+
+      await screen.findByRole("button", { name: "Send another" });
+      expect(feedbackPosts()).toHaveLength(1);
+      expect(sent[0]).toMatchObject({ type: "report", reportedUserId: ADA });
+      expect(JSON.stringify(sent[0])).not.toContain("Ada L.");
+    });
+
+    it("shows a hostile name as text only", async () => {
+      listCohort([{ id: ADA, displayName: "<img src=x onerror=alert(1)>" }]);
+      renderPopup();
+
+      fireEvent.click(screen.getByRole("button", { name: "Report" }));
+
+      expect(
+        await screen.findByRole("radio", {
+          name: "<img src=x onerror=alert(1)>",
+        }),
+      ).toBeVisible();
+      expect(document.querySelector("img")).toBeNull();
+    });
+
+    it("treats a list holding an id that is not an id as unavailable", async () => {
+      listCohort([
+        { id: "11111111-1111-4111-8111-111111111111", displayName: "Ada" },
+        { id: "../../etc", displayName: "Mallory" },
+      ]);
+      renderPopup();
+
+      fireEvent.click(screen.getByRole("button", { name: "Report" }));
+
+      expect(
+        await screen.findByText(/can.t list the people in this cohort/),
+      ).toBeVisible();
+      expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    });
+
+    it.each([null, "text", {}, [{ id: 1 }]])(
+      "reports without naming anyone when the list is %j",
+      async (body) => {
+        listCohort(body);
+        renderPopup();
+
+        fireEvent.click(screen.getByRole("button", { name: "Report" }));
+
+        expect(
+          await screen.findByText(/can.t list the people in this cohort/),
+        ).toBeVisible();
+        expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+      },
+    );
+
+    it("asks for a pick when the picker is shown and sends nothing", async () => {
+      accept([]);
+      listCohort([{ id: ADA, displayName: "Ada L." }]);
+      renderPopup();
+
+      fireEvent.click(screen.getByRole("button", { name: "Report" }));
+      await screen.findByRole("radiogroup");
+      fireEvent.change(screen.getByLabelText("Title"), {
+        target: { value: "Unwanted waves" },
+      });
+      fireEvent.change(screen.getByLabelText("Details"), {
+        target: { value: "It happens often." },
+      });
+      send();
+
+      expect(screen.getByText("Choose who you are reporting.")).toBeVisible();
+      expect(feedbackPosts()).toHaveLength(0);
     });
   });
 
@@ -557,7 +635,7 @@ describe("Feedback eval (threshold: every case holds; 0 requests for a refused s
         target: { files: [image("private-screenshot.png", "image/png")] },
       });
       await screen.findByAltText("Screenshot preview");
-      fillIn(GOOD);
+      await fillIn(GOOD);
       send();
       await screen.findByRole("button", { name: "Send another" });
 
@@ -581,7 +659,7 @@ describe("Feedback eval (threshold: every case holds; 0 requests for a refused s
         target: { files: [image("pod.png", "image/png")] },
       });
       await screen.findByAltText("Screenshot preview");
-      fillIn(GOOD);
+      await fillIn(GOOD);
       send();
       await screen.findByRole("button", { name: "Send another" });
 

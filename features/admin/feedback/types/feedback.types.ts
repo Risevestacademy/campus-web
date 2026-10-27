@@ -8,10 +8,6 @@ export type FeedbackStatus = Schemas["FeedbackStatus"];
 export type FeedbackPerson = Simplify<
   Pick<Schemas["FeedbackPersonDto"], "id" | "email" | "displayName">
 >;
-// The page reads where a member said they were, nothing else of the context.
-export type FeedbackContext = Simplify<
-  Pick<Schemas["FeedbackContextDto"], "path">
->;
 export type FeedbackSummary = Simplify<
   Pick<
     Schemas["FeedbackListItemDto"],
@@ -35,7 +31,6 @@ export type FeedbackRecord = Simplify<
   > & {
     submittedBy: FeedbackPerson;
     reportedUser: FeedbackPerson | null;
-    context: FeedbackContext | null;
     resolvedBy: FeedbackPerson | null;
   }
 >;

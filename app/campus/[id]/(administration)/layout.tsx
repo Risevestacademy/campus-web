@@ -45,6 +45,7 @@ export default async function AdministrationLayout({
         OverviewPanel={CampusOverviewPanel}
         cohortId={id}
         initialSidebarMode="admin"
+        userId={access.session.user.id}
         userName={userName}
       >
         <div className="min-w-0 flex-1 overflow-y-auto rounded-xl border bg-[#F7F7F7] dark:border-[#2B3B5F] dark:bg-[#1F2940]">

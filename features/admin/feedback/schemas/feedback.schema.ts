@@ -7,7 +7,6 @@ import {
 } from "@/core/api/schemas";
 
 import type {
-  FeedbackContext,
   FeedbackPage,
   FeedbackPerson,
   FeedbackRecord,
@@ -37,15 +36,10 @@ export const feedbackSummarySchema = z.toZod<FeedbackSummary>()(
   z.object(summaryShape),
 );
 
-const feedbackContextSchema = z.toZod<FeedbackContext>()(
-  z.object({ path: z.string().optional() }),
-);
-
 export const feedbackRecordSchema = z.toZod<FeedbackRecord>()(
   z.object({
     ...summaryShape,
     details: z.string(),
-    context: feedbackContextSchema.nullable(),
     resolvedBy: feedbackPersonSchema.nullable(),
     resolvedAt: z.string().nullable(),
   }),

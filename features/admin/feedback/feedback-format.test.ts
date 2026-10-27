@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { describeAge, personName } from "./feedback-format";
+import { describeAge, personName, reportedNameOf } from "./feedback-format";
 import { feedbackAdministrationHref } from "./feedback-href";
 
 const NOW = Date.parse("2026-10-16T12:00:00.000Z");
@@ -13,6 +13,36 @@ describe("describeAge", () => {
     ["2026-10-13T12:00:00.000Z", "3 d ago"],
   ])("%s is %s", (createdAt, expected) => {
     expect(describeAge(createdAt, NOW)).toBe(expected);
+  });
+});
+
+describe("reportedNameOf", () => {
+  it("names the linked account", () => {
+    expect(
+      reportedNameOf({
+        reportedUser: {
+          id: "u-2",
+          email: "bola@campus.local",
+          displayName: "Bola",
+        },
+      }),
+    ).toBe("Bola");
+  });
+
+  it("falls back to the email when the account has no display name", () => {
+    expect(
+      reportedNameOf({
+        reportedUser: {
+          id: "u-2",
+          email: "bola@campus.local",
+          displayName: null,
+        },
+      }),
+    ).toBe("bola@campus.local");
+  });
+
+  it("finds nothing in a report that names nobody", () => {
+    expect(reportedNameOf({ reportedUser: null })).toBeUndefined();
   });
 });
 

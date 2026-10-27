@@ -23,6 +23,7 @@ type CampusShellProps = Readonly<{
   children: ReactNode;
   cohortId: string;
   initialSidebarMode?: SidebarMode;
+  userId?: string;
   userName?: string | null;
 }>;
 
@@ -61,6 +62,7 @@ export function CampusShell({
   children,
   cohortId,
   initialSidebarMode,
+  userId,
   userName,
 }: CampusShellProps) {
   const avatar = <RailAvatar />;
@@ -89,6 +91,7 @@ export function CampusShell({
           <FeedbackLayer
             FeedbackPopup={FeedbackPopup}
             cohortId={cohortId}
+            userId={userId}
             userName={userName}
           >
             {children}
