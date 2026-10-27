@@ -127,6 +127,32 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
+function nextFrame() {
+  return new Promise((resolve) => requestAnimationFrame(resolve));
+}
+
+const SETTLE_DEADLINE_MS = 2_000;
+
+// The a11y check runs as soon as play returns, and text measured mid-fade
+// fails contrast. Motion runs opacity as Web Animations, so wait until none
+// is left running; layout transforms run in JS and never change colour.
+async function settleMotion(canvasElement: HTMLElement) {
+  const deadline = performance.now() + SETTLE_DEADLINE_MS;
+  for (;;) {
+    await nextFrame();
+    if (performance.now() > deadline) {
+      throw new Error("Motion did not settle before the a11y check.");
+    }
+    const running = canvasElement
+      .getAnimations({ subtree: true })
+      .filter(({ playState }) => playState === "running");
+    if (running.length === 0) return;
+    await Promise.all(
+      running.map((animation) => animation.finished.catch(() => undefined)),
+    );
+  }
+}
+
 async function verifyTileExpansion(canvasElement: HTMLElement) {
   const canvas = within(canvasElement);
   const participantTile = canvas.getByRole("button", {
@@ -169,12 +195,14 @@ async function verifyFocusedTileLayout(canvasElement: HTMLElement) {
 export const Expanded: Story = {
   play: async ({ canvasElement }) => {
     await verifyTileExpansion(canvasElement);
+    await settleMotion(canvasElement);
   },
 };
 
 export const Focused: Story = {
   play: async ({ canvasElement }) => {
     await verifyFocusedTileLayout(canvasElement);
+    await settleMotion(canvasElement);
   },
 };
 
@@ -193,5 +221,6 @@ export const Crowd: Story = {
     await expect(
       canvas.getByRole("button", { name: "Focus Toni Morrison" }),
     ).toBeInTheDocument();
+    await settleMotion(canvasElement);
   },
 };
