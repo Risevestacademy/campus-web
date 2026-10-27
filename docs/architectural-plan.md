@@ -415,13 +415,17 @@ the roster all read it, and features may not import each other.
 - `participants`: `Map<UserId, { userId, displayName, spriteKey }>`.
 - `positions`: `Map<UserId, { x, y, facing }>`, in tiles, clamped into the
   map's bounds.
+- `nearby`: the user ids world says are close enough to hear you, from
+  `nearby`, in the order they came near.
+- `encounter`: how many times somebody came near after nobody was, so a view
+  opened for one encounter does not reopen by itself for the next.
 
 Two participant maps, so React subscribes to who is here without rendering
 on every `moved`. Tile positions are world's answer, not frame state: KAPLAY
 reads them each frame and keeps pixels and walking itself. A `snapshot`
-replaces the map and both maps, so a reconnect never shows anyone twice.
-Every recoverable close clears the remote participants (you and the map
-stay), so a drop never leaves frozen stand-ins. `presenceFor(cohortId)`
+replaces the map, both maps and `nearby`, so a reconnect never shows anyone
+twice. Every recoverable close clears the remote participants and `nearby`
+(you and the map stay), so a drop never leaves frozen stand-ins. `presenceFor(cohortId)`
 outlives the map's mount, so the map is populated again on the way back from
 another page.
 
@@ -439,14 +443,14 @@ Communication
 
 Proximity should not directly manage calls.
 
-It should expose information such as:
+World decides who is near, not the client: in a proximity space it sends
+`nearby` with the user ids within the space's subscribe radius, with
+hysteresis, and an empty list on leaving the space. The client keeps that
+list in `core/presence` (`nearby`, in arrival order) and computes no
+distances. The only client-side distance is the voice fade across
+`audibleRadius`, which belongs to the audio subscription.
 
-type NearbyParticipant \= {  
-userId: string;  
-distance: number;  
-};
-
-Other features can respond to proximity events.
+Other features read `nearby` from presence and respond to it.
 
 # Audio and Video
 

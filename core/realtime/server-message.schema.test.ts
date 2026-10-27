@@ -43,7 +43,7 @@ const framesAsRead = {
   statusChanged: { type: "statusChanged" },
   spaceChanged: { type: "spaceChanged" },
   call: { type: "call" },
-  nearby: { type: "nearby" },
+  nearby: serverFrames.nearby,
   lockChanged: { type: "lockChanged" },
   lockableSpaces: { type: "lockableSpaces" },
 } satisfies {
@@ -179,6 +179,20 @@ describe("parseServerMessage", () => {
       ok: false,
       reason: "invalid",
       type: "moveResult",
+    });
+  });
+
+  it.each([
+    ["no list", undefined],
+    ["one id instead of a list", "grace"],
+    ["a numeric id", [5]],
+  ])("refuses a nearby with %s", (_case, userIds) => {
+    const frame = { ...serverFrames.nearby, userIds };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: false,
+      reason: "invalid",
+      type: "nearby",
     });
   });
 

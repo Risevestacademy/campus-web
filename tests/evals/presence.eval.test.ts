@@ -50,7 +50,9 @@ function randomHistory(random: () => number, length: number): ServerMessage[] {
 
   return Array.from({ length }, (): ServerMessage => {
     const userId = pick(ids);
-    switch (pick(["joined", "left", "moved", "appearance"] as const)) {
+    switch (
+      pick(["joined", "left", "moved", "appearance", "nearby"] as const)
+    ) {
       case "joined":
         return {
           type: "joined",
@@ -76,6 +78,11 @@ function randomHistory(random: () => number, length: number): ServerMessage[] {
           userId,
           displayName: `renamed ${userId}`,
           spriteKey: null,
+        };
+      case "nearby":
+        return {
+          type: "nearby",
+          userIds: ids.filter(() => random() < 0.3).sort(),
         };
     }
   });
@@ -107,6 +114,25 @@ describe("presence eval", () => {
 
       expect([...replayed.participants]).toEqual([...fresh.participants]);
       expect([...replayed.positions]).toEqual([...fresh.positions]);
+      expect(replayed.nearby).toEqual(fresh.nearby);
+    },
+  );
+
+  it.each(Array.from({ length: 50 }, (_, seed) => seed))(
+    "holds exactly the people world last said are near, once each (seed %i)",
+    (seed) => {
+      const history = randomHistory(seededRandom(seed + 101), 200);
+      const lastNearby = history
+        .filter(
+          (message): message is Extract<ServerMessage, { type: "nearby" }> =>
+            message.type === "nearby",
+        )
+        .at(-1);
+
+      const presence = applyAll([snapshot(avatar("ada")), ...history]);
+
+      expect([...presence.nearby].sort()).toEqual(lastNearby?.userIds ?? []);
+      expect(new Set(presence.nearby).size).toBe(presence.nearby.length);
     },
   );
 

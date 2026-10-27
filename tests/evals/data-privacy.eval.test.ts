@@ -190,7 +190,7 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   lockableSpaces: ["type"],
   moveResult: ["outcome", ...under("player", PLAYER_PATHS), "seq", "type"],
   moved: [...under("players[]", PLAYER_PATHS), "type"],
-  nearby: ["type"],
+  nearby: ["type", "userIds[]"],
   pong: ["type"],
   replaced: ["type"],
   spaceChanged: ["type"],

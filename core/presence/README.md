@@ -29,6 +29,12 @@ presence.getState().clear(); // when the Presence Session ends
 - `participants`: who is here, `Map<userId, { userId, displayName, spriteKey }>`.
 - `positions`: where they stand, `Map<userId, { x, y, facing }>` in tiles,
   clamped into the map's bounds.
+- `nearby`: the `userId`s world says are close enough to hear you, in the
+  order they came near. World sends its list sorted; keeping arrival order
+  means a newcomer never reshuffles whoever was already there.
+- `encounter`: how many times somebody came near after nobody was. A view
+  opened during one encounter (the meeting grid) checks it, so it does not
+  reopen by itself when the next one starts.
 
 They are separate maps so React can subscribe to who is here without
 rendering on every `moved` tick. KAPLAY reads `positions` each frame and
@@ -44,13 +50,19 @@ keeps anything finer (pixels, walking) itself.
 | `moved`      |                          | updated for known ids      |
 | `moveResult` |                          | yours, from world's answer |
 
+`nearby` changes only `nearby` (and `encounter` when it goes from empty to
+not). It can name somebody not in `participants` yet; readers skip them
+until `joined` arrives.
+
 - A `snapshot` replaces every field above rather than patching them. After a
   reconnect, patching would keep whoever left while the socket was down.
 - Positions outside the map are clamped, not rejected: world is trusted, and
   a stale tile index should draw at the edge, not break the frame.
+- `encounter` is the one field a `snapshot` keeps, so it never repeats in a
+  session. World sends a fresh `nearby` after a reconnect.
 - `clearRemoteParticipants()` keeps you (`selfId`) and the map, and drops
-  everyone else. Every recoverable close calls it, so a drop never leaves
-  frozen stand-ins mid-pose; `clear()` removes everything.
+  everyone else, `nearby` included. Every recoverable close calls it, so a
+  drop never leaves frozen stand-ins mid-pose; `clear()` removes everything.
 - One entry per id by construction, so a reconnect never draws anyone twice.
 - `Map`, not `Record`: an id such as `constructor` must not reach
   `Object.prototype`.

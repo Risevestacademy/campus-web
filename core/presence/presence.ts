@@ -14,6 +14,10 @@ export interface Presence {
   map: WorldMap | null;
   participants: ReadonlyMap<string, Participant>;
   positions: ReadonlyMap<string, Position>;
+  nearby: readonly string[];
+  // Counts each time somebody comes near after nobody was. A view opened for
+  // one encounter must not reopen by itself for the next.
+  encounter: number;
 }
 
 export const EMPTY_PRESENCE: Presence = {
@@ -21,6 +25,8 @@ export const EMPTY_PRESENCE: Presence = {
   map: null,
   participants: new Map(),
   positions: new Map(),
+  nearby: [],
+  encounter: 0,
 };
 
 function participantOf({
@@ -82,8 +88,32 @@ function moveKnown(presence: Presence, players: readonly Player[]): Presence {
   return { ...presence, positions };
 }
 
-// A snapshot replaces both maps: after a reconnect, patching the old roster
-// would keep whoever left while the socket was down.
+function inArrivalOrder(
+  current: readonly string[],
+  next: readonly string[],
+): readonly string[] {
+  const stillNear = current.filter((userId) => next.includes(userId));
+  const arrived = next.filter((userId) => !current.includes(userId));
+  return [...stillNear, ...arrived];
+}
+
+function sameIds(left: readonly string[], right: readonly string[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((userId, index) => userId === right[index])
+  );
+}
+
+function withNearby(presence: Presence, userIds: readonly string[]): Presence {
+  const nearby = inArrivalOrder(presence.nearby, userIds);
+  if (sameIds(nearby, presence.nearby)) return presence;
+  const encounter =
+    presence.nearby.length === 0 ? presence.encounter + 1 : presence.encounter;
+  return { ...presence, nearby, encounter };
+}
+
+// A snapshot replaces who is here, where, and who is near: after a reconnect,
+// patching the old roster would keep whoever left while the socket was down.
 export function applyServerMessage(
   presence: Presence,
   message: ServerMessage,
@@ -96,6 +126,7 @@ export function applyServerMessage(
         ...presence,
         map: message.map,
         ...rebuild(message.players, message.map),
+        nearby: [],
       };
     case "joined":
       if (!presence.map) return presence;
@@ -135,6 +166,8 @@ export function applyServerMessage(
       return message.player.userId === presence.selfId
         ? moveKnown(presence, [message.player])
         : presence;
+    case "nearby":
+      return withNearby(presence, message.userIds);
     default:
       return presence;
   }
@@ -142,13 +175,13 @@ export function applyServerMessage(
 
 export function withoutRemoteParticipants(presence: Presence): Presence {
   const selfId = presence.selfId;
-  if (!selfId)
-    return { ...presence, participants: new Map(), positions: new Map() };
-  const participant = presence.participants.get(selfId);
-  const position = presence.positions.get(selfId);
+  const participant = selfId ? presence.participants.get(selfId) : undefined;
+  const position = selfId ? presence.positions.get(selfId) : undefined;
   return {
     ...presence,
-    participants: participant ? new Map([[selfId, participant]]) : new Map(),
-    positions: position ? new Map([[selfId, position]]) : new Map(),
+    participants:
+      selfId && participant ? new Map([[selfId, participant]]) : new Map(),
+    positions: selfId && position ? new Map([[selfId, position]]) : new Map(),
+    nearby: [],
   };
 }
