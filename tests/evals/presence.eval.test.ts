@@ -79,11 +79,11 @@ function randomHistory(random: () => number, length: number): ServerMessage[] {
           displayName: `renamed ${userId}`,
           spriteKey: null,
         };
-      case "nearby":
-        return {
-          type: "nearby",
-          userIds: ids.filter(() => random() < 0.3).sort(),
-        };
+      case "nearby": {
+        const near = ids.filter(() => random() < 0.3);
+        const repeated = random() < 0.2 ? near.slice(0, 1) : [];
+        return { type: "nearby", userIds: [...near, ...repeated].sort() };
+      }
     }
   });
 }
@@ -131,7 +131,9 @@ describe("presence eval", () => {
 
       const presence = applyAll([snapshot(avatar("ada")), ...history]);
 
-      expect([...presence.nearby].sort()).toEqual(lastNearby?.userIds ?? []);
+      expect([...presence.nearby].sort()).toEqual(
+        [...new Set(lastNearby?.userIds ?? [])].sort(),
+      );
       expect(new Set(presence.nearby).size).toBe(presence.nearby.length);
     },
   );

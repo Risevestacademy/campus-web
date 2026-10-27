@@ -29,8 +29,8 @@ presence.getState().clear(); // when the Presence Session ends
 - `participants`: who is here, `Map<userId, { userId, displayName, spriteKey }>`.
 - `positions`: where they stand, `Map<userId, { x, y, facing }>` in tiles,
   clamped into the map's bounds.
-- `nearby`: the `userId`s world says are close enough to hear you, in the
-  order they came near. World sends its list sorted; keeping arrival order
+- `nearby`: the `userId`s world says are close enough to hear you, once each,
+  in the order they came near. World sends its list sorted; keeping arrival order
   means a newcomer never reshuffles whoever was already there.
 - `encounter`: how many times somebody came near after nobody was. A view
   opened during one encounter (the meeting grid) checks it, so it does not

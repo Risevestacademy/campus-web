@@ -230,6 +230,18 @@ describe("nearby", () => {
     expect(presence.nearby).toEqual(["ada"]);
   });
 
+  it("holds somebody a frame names twice only once", () => {
+    const presence = afterNearby(
+      afterNearby(snapshotOf(ADA, GRACE), "grace"),
+      "ada",
+      "ada",
+      "grace",
+      "grace",
+    );
+
+    expect(presence.nearby).toEqual(["grace", "ada"]);
+  });
+
   it("returns the same presence when world resends the same people in another order", () => {
     const before = afterNearby(snapshotOf(ADA, GRACE), "ada", "grace");
 

@@ -92,8 +92,9 @@ function inArrivalOrder(
   current: readonly string[],
   next: readonly string[],
 ): readonly string[] {
-  const stillNear = current.filter((userId) => next.includes(userId));
-  const arrived = next.filter((userId) => !current.includes(userId));
+  const nextIds = new Set(next);
+  const stillNear = current.filter((userId) => nextIds.has(userId));
+  const arrived = [...nextIds].filter((userId) => !current.includes(userId));
   return [...stillNear, ...arrived];
 }
 
