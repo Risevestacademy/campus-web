@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/shared/ui/button";
+import { LogoLoader } from "@/shared/ui/logo-loader";
 
 import { useCountdown } from "../hooks/use-countdown";
 import { useSessionRefresh } from "../hooks/use-session-refresh";
@@ -42,9 +43,12 @@ export function RefreshSession({ returnTo }: RefreshSessionProps) {
 
   if (state.status === "pending") {
     return (
-      <p role="status" className="text-center">
-        Restoring your session…
-      </p>
+      <>
+        <LogoLoader className="mx-auto" />
+        <p role="status" className="sr-only">
+          Restoring your session…
+        </p>
+      </>
     );
   }
 
@@ -54,7 +58,7 @@ export function RefreshSession({ returnTo }: RefreshSessionProps) {
         <h1 className="font-display text-3xl font-bold">
           We couldn&apos;t restore your session
         </h1>
-        <p className="mt-4 max-w-96">
+        <p className="mx-auto mt-4 max-w-96 text-pretty">
           Campus could not reach the sign-in service. You are still signed in if
           your session is valid; try again in a moment.
         </p>

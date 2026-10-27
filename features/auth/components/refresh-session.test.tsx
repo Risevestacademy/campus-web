@@ -96,6 +96,16 @@ describe("RefreshSession: automatic refresh", () => {
     );
   });
 
+  it("shows the Campus mark as decoration, leaving the status as the only announcement", () => {
+    refreshReplies(refreshed);
+    const { container } = renderRefresh();
+
+    expect(container.querySelector("svg")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+  });
+
   it("sends exactly one refresh request, even when React mounts twice", async () => {
     refreshReplies(refreshed);
     renderRefresh();
