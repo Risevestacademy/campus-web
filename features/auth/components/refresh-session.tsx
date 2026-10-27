@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/shared/ui/button";
+import { LogoLoader } from "@/shared/ui/logo-loader";
 
 import { useCountdown } from "../hooks/use-countdown";
 import { useSessionRefresh } from "../hooks/use-session-refresh";
@@ -42,9 +43,12 @@ export function RefreshSession({ returnTo }: RefreshSessionProps) {
 
   if (state.status === "pending") {
     return (
-      <p role="status" className="text-center">
-        Restoring your session…
-      </p>
+      <>
+        <LogoLoader className="mx-auto" />
+        <p role="status" className="sr-only">
+          Restoring your session…
+        </p>
+      </>
     );
   }
 
