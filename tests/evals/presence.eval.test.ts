@@ -88,6 +88,29 @@ function randomHistory(random: () => number, length: number): ServerMessage[] {
   });
 }
 
+type NearbyMessage = Extract<ServerMessage, { type: "nearby" }>;
+
+// Ranks each id by where its current streak began: the frame, then its place
+// in that frame. Sorting by rank gives arrival order without replaying the
+// reducer's keep-then-append steps.
+function arrivalOrder(history: ServerMessage[]): string[] {
+  const streakStart = new Map<string, readonly [number, number]>();
+  history.forEach((message, frame) => {
+    if (message.type !== "nearby") return;
+    for (const userId of streakStart.keys()) {
+      if (!message.userIds.includes(userId)) streakStart.delete(userId);
+    }
+    message.userIds.forEach((userId, place) => {
+      if (!streakStart.has(userId)) streakStart.set(userId, [frame, place]);
+    });
+  });
+  return [...streakStart]
+    .sort(([, [frameA, placeA]], [, [frameB, placeB]]) =>
+      frameA === frameB ? placeA - placeB : frameA - frameB,
+    )
+    .map(([userId]) => userId);
+}
+
 describe("presence eval", () => {
   it("after a reconnect, shows exactly who the new snapshot lists", () => {
     const beforeDrop = applyAll([
@@ -124,8 +147,7 @@ describe("presence eval", () => {
       const history = randomHistory(seededRandom(seed + 101), 200);
       const lastNearby = history
         .filter(
-          (message): message is Extract<ServerMessage, { type: "nearby" }> =>
-            message.type === "nearby",
+          (message): message is NearbyMessage => message.type === "nearby",
         )
         .at(-1);
 
@@ -135,6 +157,17 @@ describe("presence eval", () => {
         [...new Set(lastNearby?.userIds ?? [])].sort(),
       );
       expect(new Set(presence.nearby).size).toBe(presence.nearby.length);
+    },
+  );
+
+  it.each(Array.from({ length: 50 }, (_, seed) => seed))(
+    "lists the people near in the order they came near, not world's sorted order (seed %i)",
+    (seed) => {
+      const history = randomHistory(seededRandom(seed + 201), 200);
+
+      const presence = applyAll([snapshot(avatar("ada")), ...history]);
+
+      expect(presence.nearby).toEqual(arrivalOrder(history));
     },
   );
 
