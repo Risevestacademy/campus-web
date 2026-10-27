@@ -10,6 +10,7 @@ import { Textarea } from "@/shared/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 
 import { feedbackKinds } from "./feedback-kinds";
+import { FIELD_CLASS, FieldError } from "./form-field";
 import { ReportPersonField } from "./report-person-field";
 import {
   DETAILS_MAX_LENGTH,
@@ -44,14 +45,14 @@ function isTextIntoField(event: ClipboardEvent<HTMLFormElement>): boolean {
 
 export function FeedbackForm({
   cohortId,
-  selfId,
+  userId,
   isSending,
   sendError,
   onCancel,
   onSubmit,
 }: {
   cohortId: string | undefined;
-  selfId: string | undefined;
+  userId: string | undefined;
   isSending: boolean;
   sendError: string | undefined;
   onCancel: () => void;
@@ -102,11 +103,7 @@ export function FeedbackForm({
       onPaste={pasteScreenshot}
       className="grid content-start gap-5"
     >
-      {(formError ?? sendError) ? (
-        <p role="alert" className="text-destructive text-sm">
-          {formError ?? sendError}
-        </p>
-      ) : null}
+      <FieldError message={formError ?? sendError} />
       <fieldset className="grid gap-2">
         <legend className="mb-2 text-sm font-medium">
           What kind of feedback?
@@ -133,11 +130,7 @@ export function FeedbackForm({
           ))}
         </ToggleGroup>
         <input type="hidden" name="kind" value={kind ?? ""} />
-        {errors.kind ? (
-          <p role="alert" className="text-destructive text-sm">
-            {errors.kind}
-          </p>
-        ) : null}
+        <FieldError message={errors.kind} />
       </fieldset>
 
       <div className="grid gap-2">
@@ -147,13 +140,9 @@ export function FeedbackForm({
           name="title"
           maxLength={TITLE_MAX_LENGTH + 20}
           aria-invalid={errors.title ? true : undefined}
-          className="h-11 rounded-xl px-4 text-base focus-visible:border-[#3155D6] dark:border-[#2B3B5F] dark:focus-visible:border-[#3155D6]"
+          className={FIELD_CLASS}
         />
-        {errors.title ? (
-          <p role="alert" className="text-destructive text-sm">
-            {errors.title}
-          </p>
-        ) : null}
+        <FieldError message={errors.title} />
       </div>
 
       <div className="grid gap-2">
@@ -165,17 +154,13 @@ export function FeedbackForm({
           aria-invalid={errors.details ? true : undefined}
           className="min-h-32 rounded-xl px-4 py-3 focus-visible:border-[#3155D6] dark:border-[#2B3B5F] dark:focus-visible:border-[#3155D6]"
         />
-        {errors.details ? (
-          <p role="alert" className="text-destructive text-sm">
-            {errors.details}
-          </p>
-        ) : null}
+        <FieldError message={errors.details} />
       </div>
 
       {kind === "report" ? (
         <ReportPersonField
           cohortId={cohortId}
-          selfId={selfId}
+          userId={userId}
           error={errors.reportedUserId}
         />
       ) : null}
@@ -192,13 +177,9 @@ export function FeedbackForm({
           name="location"
           maxLength={LOCATION_MAX_LENGTH + 20}
           aria-invalid={errors.location ? true : undefined}
-          className="h-11 rounded-xl px-4 text-base focus-visible:border-[#3155D6] dark:border-[#2B3B5F] dark:focus-visible:border-[#3155D6]"
+          className={FIELD_CLASS}
         />
-        {errors.location ? (
-          <p role="alert" className="text-destructive text-sm">
-            {errors.location}
-          </p>
-        ) : null}
+        <FieldError message={errors.location} />
       </div>
 
       <div className="grid gap-2">

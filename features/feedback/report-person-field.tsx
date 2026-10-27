@@ -6,12 +6,11 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/shared/ui/radio-group";
 
+import { FIELD_CLASS, FieldError } from "./form-field";
 import { useCohortPeople } from "./hooks/use-cohort-people";
 import type { CohortPerson } from "./schemas/people.schema";
 
 const MAX_SHOWN = 50;
-const FIELD_CLASS =
-  "h-11 rounded-xl px-4 text-base focus-visible:border-[#3155D6] dark:border-[#2B3B5F] dark:focus-visible:border-[#3155D6]";
 
 function nameOf(person: CohortPerson): string {
   return person.displayName?.trim() || "Unnamed member";
@@ -21,23 +20,17 @@ function nameKey(person: CohortPerson): string {
   return nameOf(person).toLowerCase();
 }
 
+// People with no name can't be told apart by it, so they are not marked.
 function namesShared(people: readonly CohortPerson[]): ReadonlySet<string> {
   const seen = new Set<string>();
   const shared = new Set<string>();
   for (const person of people) {
+    if (!person.displayName?.trim()) continue;
     const key = nameKey(person);
     if (seen.has(key)) shared.add(key);
     seen.add(key);
   }
   return shared;
-}
-
-function FieldError({ message }: { message: string | undefined }) {
-  return message ? (
-    <p role="alert" className="text-destructive text-sm">
-      {message}
-    </p>
-  ) : null;
 }
 
 function PersonPicker({
@@ -50,12 +43,15 @@ function PersonPicker({
   error: string | undefined;
 }) {
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<CohortPerson>();
+  const [selectedId, setSelectedId] = useState("");
+  // Looked up each time, so a person who has left the list is no longer picked.
+  const selected = people.find((person) => person.id === selectedId);
   const needle = search.trim().toLowerCase();
   const sharedNames = namesShared(people);
-  const matches = people
-    .filter((person) => nameOf(person).toLowerCase().includes(needle))
-    .slice(0, MAX_SHOWN);
+  const found = people.filter((person) =>
+    nameOf(person).toLowerCase().includes(needle),
+  );
+  const matches = found.slice(0, MAX_SHOWN);
 
   return (
     <div className="grid gap-2">
@@ -74,9 +70,7 @@ function PersonPicker({
       <RadioGroup
         aria-labelledby={`${id}-label`}
         value={selected?.id ?? ""}
-        onValueChange={(value) =>
-          setSelected(people.find((person) => person.id === value))
-        }
+        onValueChange={(value) => setSelectedId(String(value))}
         className="border-input max-h-48 gap-0 overflow-y-auto rounded-xl border p-1 dark:border-[#2B3B5F]"
       >
         {matches.map((person) => (
@@ -99,6 +93,12 @@ function PersonPicker({
           </p>
         ) : null}
       </RadioGroup>
+      {found.length > matches.length ? (
+        <p className="text-foreground-secondary text-sm">
+          Showing the first {MAX_SHOWN} of {found.length} people. Type a name to
+          narrow the list.
+        </p>
+      ) : null}
       {selected ? (
         <p className="text-foreground-secondary text-sm">
           Reporting {nameOf(selected)}
@@ -107,6 +107,7 @@ function PersonPicker({
             : null}
         </p>
       ) : null}
+      <input type="hidden" name="personRequired" value="yes" />
       <input type="hidden" name="reportedUserId" value={selected?.id ?? ""} />
       <input
         type="hidden"
@@ -123,15 +124,15 @@ function PersonPicker({
 // details, so a failed lookup never blocks one.
 export function ReportPersonField({
   cohortId,
-  selfId,
+  userId,
   error,
 }: {
   cohortId: string | undefined;
-  selfId: string | undefined;
+  userId: string | undefined;
   error: string | undefined;
 }) {
   const id = useId();
-  const read = useCohortPeople({ cohortId, enabled: true });
+  const read = useCohortPeople(cohortId);
 
   if (cohortId !== undefined && read === undefined) {
     return (
@@ -139,7 +140,7 @@ export function ReportPersonField({
         <p role="status" className="text-foreground-secondary text-sm">
           Loading people…
         </p>
-        <input type="hidden" name="reportedUserId" value="" />
+        <input type="hidden" name="personRequired" value="yes" />
         <FieldError message={error} />
       </div>
     );
@@ -147,7 +148,7 @@ export function ReportPersonField({
 
   const people =
     read?.kind === "loaded"
-      ? read.people.filter((person) => person.id !== selfId)
+      ? read.people.filter((person) => person.id !== userId)
       : [];
 
   if (people.length > 0) {

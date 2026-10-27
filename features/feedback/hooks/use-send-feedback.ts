@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 
 import { browserApi } from "@/core/api/client/browser";
@@ -9,6 +9,7 @@ import {
   type FeedbackSendInput,
   sendFeedback,
 } from "../services/feedback-api.adapter";
+import { COHORT_PEOPLE_KEY } from "./use-cohort-people";
 
 export function useSendFeedback({
   onSent,
@@ -16,6 +17,7 @@ export function useSendFeedback({
   onSent: (receiptId: string, input: FeedbackSendInput) => void;
 }) {
   const inFlight = useRef(false);
+  const queryClient = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: (input: FeedbackSendInput) => sendFeedback(browserApi, input),
@@ -26,6 +28,9 @@ export function useSendFeedback({
         onSent(outcome.receipt.id, input);
       } else if (outcome.problem === "signed-out") {
         replaceDocument(SIGN_IN_PATH);
+      } else if (outcome.problem === "unknown-person") {
+        // The person may have left; read the list again so they are gone.
+        void queryClient.invalidateQueries({ queryKey: COHORT_PEOPLE_KEY });
       }
     },
     onSettled: () => {

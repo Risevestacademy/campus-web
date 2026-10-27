@@ -9,12 +9,12 @@ export type CohortPerson = Simplify<
 
 const cohortPersonSchema = z.toZod<CohortPerson>()(
   z.object({
-    id: z.string().min(1),
+    id: z.uuid(),
     displayName: z.string().nullable(),
   }),
 );
 
-// The sidebar's profile list also carries sprites; the picker reads a name.
+// Each profile also carries a sprite; the picker reads only the name.
 export function parseCohortPeople(body: unknown): CohortPerson[] | undefined {
   return z.array(cohortPersonSchema).safeParse(body).data;
 }

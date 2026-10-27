@@ -30,6 +30,8 @@ export interface FeedbackPopupProps {
 
 const SEND_PROBLEM_MESSAGES: Record<FeedbackSendProblem, string | undefined> = {
   invalid: "We couldn't send that. Check the fields and try again.",
+  "unknown-person":
+    "We couldn't find that person. Pick who you are reporting again.",
   "signed-out": undefined,
   forbidden: "You don't have permission to send feedback right now.",
   "rate-limited":
@@ -153,7 +155,7 @@ export function FeedbackPopup({
                 <FeedbackForm
                   key={formKey}
                   cohortId={cohortId}
-                  selfId={userId}
+                  userId={userId}
                   isSending={sending.isPending}
                   sendError={
                     sending.problem

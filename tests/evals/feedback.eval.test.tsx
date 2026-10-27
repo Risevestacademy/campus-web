@@ -538,26 +538,19 @@ describe("Feedback eval (threshold: every case holds; 0 requests for a refused s
       expect(document.querySelector("img")).toBeNull();
     });
 
-    it("refuses a picked id that is not an id and sends nothing", async () => {
-      accept([]);
-      listCohort([{ id: "../../etc", displayName: "Ada" }]);
+    it("treats a list holding an id that is not an id as unavailable", async () => {
+      listCohort([
+        { id: "11111111-1111-4111-8111-111111111111", displayName: "Ada" },
+        { id: "../../etc", displayName: "Mallory" },
+      ]);
       renderPopup();
 
       fireEvent.click(screen.getByRole("button", { name: "Report" }));
-      await screen.findByRole("radiogroup");
-      fireEvent.change(screen.getByLabelText("Title"), {
-        target: { value: "Unwanted waves" },
-      });
-      fireEvent.change(screen.getByLabelText("Details"), {
-        target: { value: "It happens often." },
-      });
-      fireEvent.click(screen.getByRole("radio", { name: "Ada" }));
-      send();
 
       expect(
-        await screen.findByText("Choose who you are reporting again."),
+        await screen.findByText(/can.t list the people in this cohort/),
       ).toBeVisible();
-      expect(feedbackPosts()).toHaveLength(0);
+      expect(screen.queryByRole("radio")).not.toBeInTheDocument();
     });
 
     it.each([null, "text", {}, [{ id: 1 }]])(

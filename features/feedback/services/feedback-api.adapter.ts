@@ -4,7 +4,12 @@ import { parseFeedbackReceipt } from "../schemas/feedback.schema";
 import type { NewFeedback } from "../types";
 
 export type FeedbackSendProblem =
-  "invalid" | "signed-out" | "forbidden" | "rate-limited" | "unavailable";
+  | "invalid"
+  | "unknown-person"
+  | "signed-out"
+  | "forbidden"
+  | "rate-limited"
+  | "unavailable";
 
 export type FeedbackSend =
   | { kind: "sent"; receipt: { id: string } }
@@ -49,9 +54,16 @@ export async function sendFeedback(
         : { kind: "problem", problem: "unavailable" };
     }
 
+    // The fields were checked here, so a 400 on a report that names a person
+    // is the server not finding that account.
+    const namedPerson =
+      feedback.kind === "report" && feedback.reportedUserId !== "";
     return {
       kind: "problem",
-      problem: sendProblems[response.status] ?? "unavailable",
+      problem:
+        response.status === 400 && namedPerson
+          ? "unknown-person"
+          : (sendProblems[response.status] ?? "unavailable"),
     };
   } catch {
     return { kind: "problem", problem: "unavailable" };

@@ -28,38 +28,47 @@ export const feedbackKindSchema = z.enum(
   "Choose what kind of feedback this is.",
 );
 
-export const feedbackSchema = z.object({
-  kind: feedbackKindSchema,
-  title: z
-    .string()
-    .trim()
-    .min(1, "Give your feedback a short title.")
-    .max(
-      TITLE_MAX_LENGTH,
-      `Keep the title under ${TITLE_MAX_LENGTH} characters.`,
-    ),
-  details: z
-    .string()
-    .trim()
-    .min(1, "Tell us a little more so we can look into it.")
-    .max(
-      DETAILS_MAX_LENGTH,
-      `Keep the details under ${DETAILS_MAX_LENGTH} characters.`,
-    ),
-  location: z
-    .string()
-    .trim()
-    .max(
-      LOCATION_MAX_LENGTH,
-      `Keep this under ${LOCATION_MAX_LENGTH} characters.`,
-    ),
-  // The picked person's name, kept for the history; only the id is sent.
-  reported: z.string().trim(),
-  reportedUserId: z.union([
-    z.literal(""),
-    z.uuid("Choose who you are reporting again."),
-  ]),
-});
+export const feedbackSchema = z
+  .object({
+    kind: feedbackKindSchema,
+    title: z
+      .string()
+      .trim()
+      .min(1, "Give your feedback a short title.")
+      .max(
+        TITLE_MAX_LENGTH,
+        `Keep the title under ${TITLE_MAX_LENGTH} characters.`,
+      ),
+    details: z
+      .string()
+      .trim()
+      .min(1, "Tell us a little more so we can look into it.")
+      .max(
+        DETAILS_MAX_LENGTH,
+        `Keep the details under ${DETAILS_MAX_LENGTH} characters.`,
+      ),
+    location: z
+      .string()
+      .trim()
+      .max(
+        LOCATION_MAX_LENGTH,
+        `Keep this under ${LOCATION_MAX_LENGTH} characters.`,
+      ),
+    // The picked person's name, kept for the history; only the id is sent.
+    reported: z.string().trim(),
+    reportedUserId: z.union([
+      z.literal(""),
+      z.uuid("Choose who you are reporting again."),
+    ]),
+    // "yes" while the picker is shown, which is only when the people could be
+    // listed. Without it the reporter says who in the details.
+    personRequired: z.string(),
+  })
+  .refine(
+    ({ kind, personRequired, reportedUserId }) =>
+      kind !== "report" || personRequired !== "yes" || reportedUserId !== "",
+    { path: ["reportedUserId"], error: "Choose who you are reporting." },
+  );
 
 const screenshotSchema = z
   .file()
@@ -73,29 +82,9 @@ export type FeedbackFieldErrors = FormErrors<Feedback>;
 export type FeedbackRead =
   { kind: "valid"; feedback: Feedback } | FormInvalid<Feedback>;
 
-// The picker puts a `reportedUserId` field in the form. Without one, because
-// the people could not be listed, the reporter says who in the details.
 export function parseFeedback(form: FormData): FeedbackRead {
   const read = parseForm(feedbackSchema, form);
-  const personMissing =
-    form.get("kind") === "report" &&
-    form.has("reportedUserId") &&
-    !form.get("reportedUserId");
-
-  if (!personMissing) {
-    return read.kind === "valid"
-      ? { kind: "valid", feedback: read.data }
-      : read;
-  }
-
-  const errors = read.kind === "invalid" ? read.errors : {};
-  return {
-    kind: "invalid",
-    errors: {
-      ...errors,
-      reportedUserId: errors.reportedUserId ?? "Choose who you are reporting.",
-    },
-  };
+  return read.kind === "valid" ? { kind: "valid", feedback: read.data } : read;
 }
 
 // macOS lists a TIFF before the PNG of the same copy, so prefer a type we

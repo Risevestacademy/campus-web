@@ -19,15 +19,15 @@ Feedback.
 
 ## Modules
 
-| Module                                                        | Owns                                                           | Seam                                    |
-| ------------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------- |
-| `feedback-popup.tsx`                                          | the modal, history state, form and confirmation switching      | none                                    |
-| `feedback-form.tsx`, `screenshot-field.tsx`                   | the form, its validation display, the screenshot picker        | none                                    |
-| `feedback-list.tsx`, `feedback-detail.tsx`                    | the feedback history and the selected item's details           | none                                    |
-| `feedback-sent.tsx`                                           | the confirmation screen                                        | none                                    |
-| `schemas/feedback.schema.ts`, `feedback-kinds.ts`, `types.ts` | validation, kind labels and icons, types                       | none                                    |
-| `report-person-field.tsx`, `schemas/people.schema.ts`         | the report's person picker, and its unavailable notice         | `services/cohort-people-api.adapter.ts` |
-| `services/`, `hooks/`                                         | sending to `POST /v1/feedback` and its pending and error state | `services/feedback-api.adapter.ts`      |
+| Module                                                                              | Owns                                                                                                           | Seam                                    |
+| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `feedback-popup.tsx`                                                                | the modal, history state, form and confirmation switching                                                      | none                                    |
+| `feedback-form.tsx`, `form-field.tsx`, `screenshot-field.tsx`                       | the form, its validation display, the shared field styling, the screenshot picker                              | none                                    |
+| `feedback-list.tsx`, `feedback-detail.tsx`                                          | the feedback history and the selected item's details                                                           | none                                    |
+| `feedback-sent.tsx`                                                                 | the confirmation screen                                                                                        | none                                    |
+| `schemas/feedback.schema.ts`, `feedback-kinds.ts`, `types.ts`                       | validation, kind labels and icons, types                                                                       | none                                    |
+| `report-person-field.tsx`, `schemas/people.schema.ts`, `hooks/use-cohort-people.ts` | the report's person picker, its list of people, and its unavailable notice                                     | `services/cohort-people-api.adapter.ts` |
+| `services/`, `hooks/`                                                               | sending to `POST /v1/feedback` and its pending and error state, and reading the cohort's people for the picker | `services/feedback-api.adapter.ts`      |
 
 Sending calls `POST /v1/feedback` through the browser proxy. A report asks who
 is being reported: the member picks a person from

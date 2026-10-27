@@ -297,6 +297,89 @@ describe("FeedbackPopup", () => {
       ).toHaveLength(0);
     });
 
+    it("tells the reporter to pick again when the person is not found", async () => {
+      mockApi.server.use(
+        http.post(FEEDBACK_URL, () => new Response(null, { status: 400 })),
+      );
+      renderPopup({ userId: SELF });
+
+      fireEvent.click(screen.getByRole("button", { name: "Report" }));
+      await screen.findByRole("radiogroup");
+      fillIn("Report", "Unwanted waves");
+      fireEvent.click(screen.getByRole("radio", { name: "Bola Ade" }));
+      send();
+
+      expect(
+        await screen.findByText(
+          "We couldn't find that person. Pick who you are reporting again.",
+        ),
+      ).toBeVisible();
+      expect(screen.getByLabelText("Title")).toHaveValue("Unwanted waves");
+    });
+
+    it("reads the list again after a person is not found, and drops them", async () => {
+      mockApi.server.use(
+        http.post(FEEDBACK_URL, () => new Response(null, { status: 400 })),
+      );
+      renderPopup({ userId: SELF });
+
+      fireEvent.click(screen.getByRole("button", { name: "Report" }));
+      await screen.findByRole("radiogroup");
+      fillIn("Report", "Unwanted waves");
+      fireEvent.click(screen.getByRole("radio", { name: "Bola Ade" }));
+      expect(screen.getByText("Reporting Bola Ade")).toBeVisible();
+
+      cohortPeople([{ id: ADA, displayName: "Ada L." }]);
+      send();
+
+      await waitFor(() =>
+        expect(screen.queryByRole("radio", { name: "Bola Ade" })).toBeNull(),
+      );
+      expect(screen.queryByText(/Reporting Bola Ade/)).toBeNull();
+      expect(screen.getByRole("radio", { name: "Ada L." })).toBeVisible();
+      expect(
+        mockApi.requests.filter((request) => request.url === PEOPLE_URL),
+      ).toHaveLength(2);
+    });
+
+    it("does not mark unnamed members as sharing a name", async () => {
+      cohortPeople([
+        { id: ADA, displayName: null },
+        { id: BOLA, displayName: null },
+        { id: SELF, displayName: "Joseph Okoro" },
+      ]);
+      renderPopup({ userId: SELF });
+
+      fireEvent.click(screen.getByRole("button", { name: "Report" }));
+      await screen.findByRole("radiogroup");
+
+      expect(screen.getAllByRole("radio")).toHaveLength(2);
+      expect(screen.queryByText("Same name as someone else")).toBeNull();
+    });
+
+    it("says when the list is cut short", async () => {
+      cohortPeople(
+        Array.from({ length: 60 }, (_, index) => ({
+          id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+          displayName: `Person ${String(index).padStart(2, "0")}`,
+        })),
+      );
+      renderPopup({ userId: SELF });
+
+      fireEvent.click(screen.getByRole("button", { name: "Report" }));
+      await screen.findByRole("radiogroup");
+
+      expect(screen.getAllByRole("radio")).toHaveLength(50);
+      expect(
+        screen.getByText(/Showing the first 50 of 60 people/),
+      ).toBeVisible();
+
+      fireEvent.change(screen.getByRole("searchbox"), {
+        target: { value: "person 5" },
+      });
+      expect(screen.queryByText(/Showing the first/)).toBeNull();
+    });
+
     it("says when two people share a name", async () => {
       cohortPeople([
         { id: ADA, displayName: "Ada L." },

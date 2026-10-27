@@ -18,6 +18,7 @@ function feedbackForm(fields: Record<string, string>) {
     location: "Map view",
     reported: "",
     reportedUserId: "",
+    personRequired: "",
     ...fields,
   };
   for (const [field, value] of Object.entries(filled)) form.set(field, value);
@@ -35,6 +36,7 @@ describe("parseFeedback", () => {
         location: "Map view",
         reported: "",
         reportedUserId: "",
+        personRequired: "",
       },
     });
   });
@@ -53,34 +55,34 @@ describe("parseFeedback", () => {
   });
 
   it("asks for a person on a report when the picker was shown", () => {
-    expect(parseFeedback(feedbackForm({ kind: "report" }))).toEqual({
+    expect(
+      parseFeedback(feedbackForm({ kind: "report", personRequired: "yes" })),
+    ).toEqual({
       kind: "invalid",
       errors: { reportedUserId: "Choose who you are reporting." },
     });
-    expect(parseFeedback(feedbackForm({ kind: "bug" })).kind).toBe("valid");
+    expect(
+      parseFeedback(feedbackForm({ kind: "bug", personRequired: "yes" })).kind,
+    ).toBe("valid");
   });
 
   it("does not ask for a person when the people could not be listed", () => {
-    const form = feedbackForm({ kind: "report" });
-    form.delete("reportedUserId");
-    form.delete("reported");
-
-    expect(parseFeedback(form)).toMatchObject({
+    expect(parseFeedback(feedbackForm({ kind: "report" }))).toMatchObject({
       kind: "valid",
       feedback: { kind: "report", reportedUserId: "" },
     });
   });
 
-  it("reports a missing person beside the other problems", () => {
-    expect(parseFeedback(feedbackForm({ kind: "report", title: " " }))).toEqual(
-      {
-        kind: "invalid",
-        errors: {
-          title: "Give your feedback a short title.",
-          reportedUserId: "Choose who you are reporting.",
-        },
-      },
-    );
+  it("accepts a report once a person is picked", () => {
+    expect(
+      parseFeedback(
+        feedbackForm({
+          kind: "report",
+          personRequired: "yes",
+          reportedUserId: "22222222-2222-4222-8222-222222222222",
+        }),
+      ).kind,
+    ).toBe("valid");
   });
 
   it("keeps the id of the person picked", () => {
