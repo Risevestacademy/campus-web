@@ -41,10 +41,13 @@ vi.mock("next/navigation", () => ({
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
 const ROOT_LAYOUT = path.join(PROJECT_ROOT, "app/layout.tsx");
 const COHORT_LAYOUT = path.join(PROJECT_ROOT, "app/campus/[id]/layout.tsx");
-const SIGN_IN_PAGE = path.join(PROJECT_ROOT, "app/(auth)/sign-in/page.tsx");
+const SIGN_IN_PAGE = path.join(
+  PROJECT_ROOT,
+  "app/(auth)/(side)/sign-in/page.tsx",
+);
 const INVITATION_PAGE = path.join(
   PROJECT_ROOT,
-  "app/(auth)/invitation/page.tsx",
+  "app/(auth)/(side)/invitation/page.tsx",
 );
 const POSTHOG_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 

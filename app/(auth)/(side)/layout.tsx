@@ -1,6 +1,6 @@
 import { DecorativeCirclesSVG } from "@/assets/svgs/decorative-circles";
 
-export default function AuthLayout({
+export default function AuthSideLayout({
   children,
 }: {
   children: React.ReactNode;

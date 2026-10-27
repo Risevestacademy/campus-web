@@ -2,7 +2,7 @@ import { getServerApi } from "@/core/api/client/server";
 import { InvitationGate } from "@/features/auth";
 import { InviteConfirmation } from "@/features/invitation";
 
-import { Providers } from "../../providers";
+import { Providers } from "../../../providers";
 
 export default async function ProfilePreviewPage() {
   return (
