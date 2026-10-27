@@ -86,7 +86,6 @@ const FEEDBACK_SUMMARY_ALLOW_LIST = [
 ].sort();
 const FEEDBACK_RECORD_ALLOW_LIST = [
   ...FEEDBACK_SUMMARY_ALLOW_LIST,
-  "context.path",
   "details",
   "resolvedAt",
   "resolvedBy",
@@ -342,7 +341,7 @@ describe("Data privacy eval (threshold: every case holds)", () => {
     it("keeps only the id and name of each person the report picker lists", () => {
       const people = parseCohortPeople([
         {
-          id: "p-1",
+          id: "11111111-1111-4111-8111-111111111111",
           displayName: "Ada L.",
           spriteKey: "placeholder-1",
           ...UNEXPECTED,

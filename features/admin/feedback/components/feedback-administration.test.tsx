@@ -217,6 +217,60 @@ describe("FeedbackAdministration", () => {
     expect(within(row).queryByText("Not named")).not.toBeInTheDocument();
   });
 
+  it("shows who a report is about in its own tile, beside where it happened", async () => {
+    useFeedbackApi({
+      reports: [summary(R1, "report")],
+      detail: record(R1, "report", {
+        about: "By the east door",
+        reportedUser: {
+          id: "u-9",
+          email: "bola@campus.local",
+          displayName: "Bola Ade",
+        },
+      }),
+    });
+
+    await renderPage({ tab: "reports", item: R1 });
+
+    const detail = screen.getByRole("article");
+    const reported = within(detail).getByText("Reported").closest("div")!;
+    const where = within(detail).getByText("Where").closest("div")!;
+
+    expect(within(reported).getByText("Bola Ade")).toBeVisible();
+    expect(within(where).getByText("By the east door")).toBeVisible();
+    expect(within(detail).queryByText("Page")).not.toBeInTheDocument();
+  });
+
+  it("says a report names nobody when it has no linked account", async () => {
+    useFeedbackApi({
+      reports: [summary(R1, "report")],
+      detail: record(R1, "report", { about: null }),
+    });
+
+    await renderPage({ tab: "reports", item: R1 });
+
+    const detail = screen.getByRole("article");
+    const reported = within(detail).getByText("Reported").closest("div")!;
+    const where = within(detail).getByText("Where").closest("div")!;
+
+    expect(within(reported).getByText("Not named")).toBeVisible();
+    expect(within(where).getByText("Not given")).toBeVisible();
+  });
+
+  it("has no Reported tile on a bug", async () => {
+    useFeedbackApi({
+      bugs: [summary("b1", "bug")],
+      detail: record("b1", "bug"),
+    });
+
+    await renderPage();
+
+    const detail = screen.getByRole("article");
+
+    expect(within(detail).queryByText("Reported")).not.toBeInTheDocument();
+    expect(within(detail).queryByText("Page")).not.toBeInTheDocument();
+  });
+
   it("lists reports with who was reported and links to review them", async () => {
     useFeedbackApi({
       reports: [
