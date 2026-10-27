@@ -17,6 +17,7 @@ function feedbackForm(fields: Record<string, string>) {
     details: "  It happens often.  ",
     location: "Map view",
     reported: "",
+    reportedUserId: "",
     ...fields,
   };
   for (const [field, value] of Object.entries(filled)) form.set(field, value);
@@ -33,6 +34,7 @@ describe("parseFeedback", () => {
         details: "It happens often.",
         location: "Map view",
         reported: "",
+        reportedUserId: "",
       },
     });
   });
@@ -50,28 +52,63 @@ describe("parseFeedback", () => {
     });
   });
 
-  it("requires who is reported on a report only", () => {
+  it("asks for a person on a report when the picker was shown", () => {
     expect(parseFeedback(feedbackForm({ kind: "report" }))).toEqual({
       kind: "invalid",
-      errors: { reported: "Tell us who you are reporting." },
-    });
-    expect(
-      parseFeedback(feedbackForm({ kind: "report", reported: "  Ramnan  " })),
-    ).toMatchObject({
-      kind: "valid",
-      feedback: { kind: "report", reported: "Ramnan" },
+      errors: { reportedUserId: "Choose who you are reporting." },
     });
     expect(parseFeedback(feedbackForm({ kind: "bug" })).kind).toBe("valid");
   });
 
-  it("keeps who is reported short", () => {
-    expect(
-      parseFeedback(feedbackForm({ kind: "report", reported: "x".repeat(81) })),
-    ).toEqual({
-      kind: "invalid",
-      errors: { reported: "Keep this under 80 characters." },
+  it("does not ask for a person when the people could not be listed", () => {
+    const form = feedbackForm({ kind: "report" });
+    form.delete("reportedUserId");
+    form.delete("reported");
+
+    expect(parseFeedback(form)).toMatchObject({
+      kind: "valid",
+      feedback: { kind: "report", reportedUserId: "" },
     });
   });
+
+  it("reports a missing person beside the other problems", () => {
+    expect(parseFeedback(feedbackForm({ kind: "report", title: " " }))).toEqual(
+      {
+        kind: "invalid",
+        errors: {
+          title: "Give your feedback a short title.",
+          reportedUserId: "Choose who you are reporting.",
+        },
+      },
+    );
+  });
+
+  it("keeps the id of the person picked", () => {
+    const id = "22222222-2222-4222-8222-222222222222";
+
+    expect(
+      parseFeedback(
+        feedbackForm({ kind: "report", reported: "Bola", reportedUserId: id }),
+      ),
+    ).toMatchObject({
+      kind: "valid",
+      feedback: { kind: "report", reported: "Bola", reportedUserId: id },
+    });
+  });
+
+  it.each(["not-an-id", "22222222", "../etc", "x".repeat(200)])(
+    "rejects the picked id %j when it is not an id",
+    (reportedUserId) => {
+      const read = parseFeedback(
+        feedbackForm({ kind: "report", reported: "Bola", reportedUserId }),
+      );
+
+      expect(read.kind).toBe("invalid");
+      expect(
+        read.kind === "invalid" && read.errors.reportedUserId,
+      ).toBeTruthy();
+    },
+  );
 
   it("rejects an unknown kind", () => {
     expect(parseFeedback(feedbackForm({ kind: "praise" }))).toEqual({

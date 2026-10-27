@@ -20,17 +20,20 @@ export type FeedbackPopupComponent = ComponentType<{
   onClose: () => void;
   container: RefObject<HTMLElement | null>;
   cohortId: string;
+  userId?: string;
   userName?: string | null;
 }>;
 
 export function FeedbackLayer({
   FeedbackPopup,
   cohortId,
+  userId,
   userName,
   children,
 }: {
   FeedbackPopup?: FeedbackPopupComponent;
   cohortId: string;
+  userId?: string;
   userName?: string | null;
   children: ReactNode;
 }) {
@@ -50,6 +53,7 @@ export function FeedbackLayer({
           onClose={closeFeedbackPanel}
           container={containerRef}
           cohortId={cohortId}
+          userId={userId}
           userName={userName}
         />
       ) : null}

@@ -24,6 +24,7 @@ export interface FeedbackPopupProps {
   onClose: () => void;
   container?: RefObject<HTMLElement | null>;
   cohortId?: string;
+  userId?: string;
   userName?: string | null;
 }
 
@@ -46,6 +47,7 @@ export function FeedbackPopup({
   onClose,
   container,
   cohortId,
+  userId,
   userName,
 }: FeedbackPopupProps) {
   const [history, setHistory] = useState<readonly FeedbackItem[]>([]);
@@ -150,6 +152,8 @@ export function FeedbackPopup({
               ) : (
                 <FeedbackForm
                   key={formKey}
+                  cohortId={cohortId}
+                  selfId={userId}
                   isSending={sending.isPending}
                   sendError={
                     sending.problem

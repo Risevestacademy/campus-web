@@ -32,6 +32,7 @@ import { loadLivekitProbe } from "@/features/campus/services/connection-check/li
 import { runConnectionCheck } from "@/features/campus/services/connection-check/run-connection-check";
 import { fakeLivekit, fakeTrack } from "@/features/campus/testing/fake-livekit";
 import { parseFeedbackReceipt } from "@/features/feedback/schemas/feedback.schema";
+import { parseCohortPeople } from "@/features/feedback/schemas/people.schema";
 import {
   parseInvitePreview,
   parsePendingInvite,
@@ -336,6 +337,19 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       });
 
       expect(keyPaths(record)).toEqual(FEEDBACK_RECORD_ALLOW_LIST);
+    });
+
+    it("keeps only the id and name of each person the report picker lists", () => {
+      const people = parseCohortPeople([
+        {
+          id: "p-1",
+          displayName: "Ada L.",
+          spriteKey: "placeholder-1",
+          ...UNEXPECTED,
+        },
+      ]);
+
+      expect(keyPaths(people)).toEqual(["[].displayName", "[].id"]);
     });
 
     it("keeps only the id of a sent feedback receipt", () => {

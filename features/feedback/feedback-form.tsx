@@ -10,6 +10,7 @@ import { Textarea } from "@/shared/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 
 import { feedbackKinds } from "./feedback-kinds";
+import { ReportPersonField } from "./report-person-field";
 import {
   DETAILS_MAX_LENGTH,
   type FeedbackFieldErrors,
@@ -17,7 +18,6 @@ import {
   LOCATION_MAX_LENGTH,
   parseFeedback,
   pickScreenshot,
-  REPORTED_MAX_LENGTH,
   screenshotProblem,
   TITLE_MAX_LENGTH,
 } from "./schemas/feedback.schema";
@@ -43,11 +43,15 @@ function isTextIntoField(event: ClipboardEvent<HTMLFormElement>): boolean {
 }
 
 export function FeedbackForm({
+  cohortId,
+  selfId,
   isSending,
   sendError,
   onCancel,
   onSubmit,
 }: {
+  cohortId: string | undefined;
+  selfId: string | undefined;
   isSending: boolean;
   sendError: string | undefined;
   onCancel: () => void;
@@ -169,21 +173,11 @@ export function FeedbackForm({
       </div>
 
       {kind === "report" ? (
-        <div className="grid gap-2">
-          <Label htmlFor={`${id}-reported`}>Who are you reporting?</Label>
-          <Input
-            id={`${id}-reported`}
-            name="reported"
-            maxLength={REPORTED_MAX_LENGTH + 20}
-            aria-invalid={errors.reported ? true : undefined}
-            className="h-11 rounded-xl px-4 text-base focus-visible:border-[#3155D6] dark:border-[#2B3B5F] dark:focus-visible:border-[#3155D6]"
-          />
-          {errors.reported ? (
-            <p role="alert" className="text-destructive text-sm">
-              {errors.reported}
-            </p>
-          ) : null}
-        </div>
+        <ReportPersonField
+          cohortId={cohortId}
+          selfId={selfId}
+          error={errors.reportedUserId}
+        />
       ) : null}
 
       <div className="grid gap-2">

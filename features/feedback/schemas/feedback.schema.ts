@@ -11,7 +11,6 @@ import {
 export const TITLE_MAX_LENGTH = 100;
 export const DETAILS_MAX_LENGTH = 2000;
 export const LOCATION_MAX_LENGTH = 100;
-export const REPORTED_MAX_LENGTH = 80;
 export const SCREENSHOT_MAX_BYTES = 5 * 1024 * 1024;
 const SCREENSHOT_FORMATS = {
   "image/png": "PNG",
@@ -29,44 +28,38 @@ export const feedbackKindSchema = z.enum(
   "Choose what kind of feedback this is.",
 );
 
-export const feedbackSchema = z
-  .object({
-    kind: feedbackKindSchema,
-    title: z
-      .string()
-      .trim()
-      .min(1, "Give your feedback a short title.")
-      .max(
-        TITLE_MAX_LENGTH,
-        `Keep the title under ${TITLE_MAX_LENGTH} characters.`,
-      ),
-    details: z
-      .string()
-      .trim()
-      .min(1, "Tell us a little more so we can look into it.")
-      .max(
-        DETAILS_MAX_LENGTH,
-        `Keep the details under ${DETAILS_MAX_LENGTH} characters.`,
-      ),
-    location: z
-      .string()
-      .trim()
-      .max(
-        LOCATION_MAX_LENGTH,
-        `Keep this under ${LOCATION_MAX_LENGTH} characters.`,
-      ),
-    reported: z
-      .string()
-      .trim()
-      .max(
-        REPORTED_MAX_LENGTH,
-        `Keep this under ${REPORTED_MAX_LENGTH} characters.`,
-      ),
-  })
-  .refine(({ kind, reported }) => kind !== "report" || reported !== "", {
-    path: ["reported"],
-    error: "Tell us who you are reporting.",
-  });
+export const feedbackSchema = z.object({
+  kind: feedbackKindSchema,
+  title: z
+    .string()
+    .trim()
+    .min(1, "Give your feedback a short title.")
+    .max(
+      TITLE_MAX_LENGTH,
+      `Keep the title under ${TITLE_MAX_LENGTH} characters.`,
+    ),
+  details: z
+    .string()
+    .trim()
+    .min(1, "Tell us a little more so we can look into it.")
+    .max(
+      DETAILS_MAX_LENGTH,
+      `Keep the details under ${DETAILS_MAX_LENGTH} characters.`,
+    ),
+  location: z
+    .string()
+    .trim()
+    .max(
+      LOCATION_MAX_LENGTH,
+      `Keep this under ${LOCATION_MAX_LENGTH} characters.`,
+    ),
+  // The picked person's name, kept for the history; only the id is sent.
+  reported: z.string().trim(),
+  reportedUserId: z.union([
+    z.literal(""),
+    z.uuid("Choose who you are reporting again."),
+  ]),
+});
 
 const screenshotSchema = z
   .file()
@@ -80,9 +73,29 @@ export type FeedbackFieldErrors = FormErrors<Feedback>;
 export type FeedbackRead =
   { kind: "valid"; feedback: Feedback } | FormInvalid<Feedback>;
 
+// The picker puts a `reportedUserId` field in the form. Without one, because
+// the people could not be listed, the reporter says who in the details.
 export function parseFeedback(form: FormData): FeedbackRead {
   const read = parseForm(feedbackSchema, form);
-  return read.kind === "valid" ? { kind: "valid", feedback: read.data } : read;
+  const personMissing =
+    form.get("kind") === "report" &&
+    form.has("reportedUserId") &&
+    !form.get("reportedUserId");
+
+  if (!personMissing) {
+    return read.kind === "valid"
+      ? { kind: "valid", feedback: read.data }
+      : read;
+  }
+
+  const errors = read.kind === "invalid" ? read.errors : {};
+  return {
+    kind: "invalid",
+    errors: {
+      ...errors,
+      reportedUserId: errors.reportedUserId ?? "Choose who you are reporting.",
+    },
+  };
 }
 
 // macOS lists a TIFF before the PNG of the same copy, so prefer a type we

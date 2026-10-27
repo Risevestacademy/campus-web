@@ -69,6 +69,7 @@ export default async function ActiveCampusLayout({
         FeedbackPopup={FeedbackPopup}
         OverviewPanel={CampusOverviewPanel}
         cohortId={id}
+        userId={access.session.user.id}
         userName={access.session.user.displayName}
       >
         <ActiveCampus

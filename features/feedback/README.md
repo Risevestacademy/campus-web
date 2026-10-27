@@ -13,26 +13,30 @@ import { FeedbackPopup } from "@/features/feedback";
 ```
 
 `FeedbackPopup` receives `isOpen`, `onClose`, a `container` ref to portal into
-(the Campus Shell's content area), and the member's `userName` for the
-confirmation greeting. The route passes it in because Campus may not import
+(the Campus Shell's content area), the cohort's id, the member's `userId` (so
+the picker leaves them out) and `userName` for the confirmation greeting. The route passes it in because Campus may not import
 Feedback.
 
 ## Modules
 
-| Module                                                        | Owns                                                           | Seam                               |
-| ------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------- |
-| `feedback-popup.tsx`                                          | the modal, history state, form and confirmation switching      | none                               |
-| `feedback-form.tsx`, `screenshot-field.tsx`                   | the form, its validation display, the screenshot picker        | none                               |
-| `feedback-list.tsx`, `feedback-detail.tsx`                    | the feedback history and the selected item's details           | none                               |
-| `feedback-sent.tsx`                                           | the confirmation screen                                        | none                               |
-| `schemas/feedback.schema.ts`, `feedback-kinds.ts`, `types.ts` | validation, kind labels and icons, types                       | none                               |
-| `services/`, `hooks/`                                         | sending to `POST /v1/feedback` and its pending and error state | `services/feedback-api.adapter.ts` |
+| Module                                                        | Owns                                                           | Seam                                    |
+| ------------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------- |
+| `feedback-popup.tsx`                                          | the modal, history state, form and confirmation switching      | none                                    |
+| `feedback-form.tsx`, `screenshot-field.tsx`                   | the form, its validation display, the screenshot picker        | none                                    |
+| `feedback-list.tsx`, `feedback-detail.tsx`                    | the feedback history and the selected item's details           | none                                    |
+| `feedback-sent.tsx`                                           | the confirmation screen                                        | none                                    |
+| `schemas/feedback.schema.ts`, `feedback-kinds.ts`, `types.ts` | validation, kind labels and icons, types                       | none                                    |
+| `report-person-field.tsx`, `schemas/people.schema.ts`         | the report's person picker, and its unavailable notice         | `services/cohort-people-api.adapter.ts` |
+| `services/`, `hooks/`                                         | sending to `POST /v1/feedback` and its pending and error state | `services/feedback-api.adapter.ts`      |
 
 Sending calls `POST /v1/feedback` through the browser proxy. A report asks who
-is being reported as well as where, but campus-api has one free-text `about`
-field, so `services/feedback-api.adapter.ts` packs a report's `about` as
-`Who | Where`, and `admin` splits it on the first `|` (both through `shared/lib/report-about.ts`). Replace this when the
-backend gains separate fields. Members cannot
+is being reported: the member picks a person from
+`GET /v1/cohorts/{id}/profiles` (read once a report is chosen, without the
+sender) and the report sends their `reportedUserId`. `about` holds only the
+place. Two people who share a name are marked, because the list carries
+nothing else to tell them apart. When the cohort can't be listed, or lists
+nobody else, the form says so and the report goes without a person, with who
+it is about left to the details, so a failed lookup never blocks one. Members cannot
 read feedback back, so the history lists only what this session sent and
 resets on reload. Admins read it in `admin`. Screenshots are not sent: the
 backend has nowhere to store them yet, so the picker only previews.

@@ -1,5 +1,4 @@
 import type { ApiClient } from "@/core/api/client";
-import { packReportAbout } from "@/shared/lib/report-about";
 
 import { parseFeedbackReceipt } from "../schemas/feedback.schema";
 import type { NewFeedback } from "../types";
@@ -24,28 +23,20 @@ const sendProblems: Record<number, FeedbackSendProblem> = {
   429: "rate-limited",
 };
 
-function aboutOf(feedback: NewFeedback): string | undefined {
-  return feedback.kind === "report"
-    ? packReportAbout({
-        reported: feedback.reported,
-        where: feedback.location,
-      })
-    : feedback.location || undefined;
-}
-
 export async function sendFeedback(
   api: ApiClient,
   { feedback, cohortId, path }: FeedbackSendInput,
 ): Promise<FeedbackSend> {
-  const about = aboutOf(feedback);
-
   try {
     const { data, response } = await api.POST("/v1/feedback", {
       body: {
         type: feedback.kind,
         title: feedback.title,
         details: feedback.details,
-        ...(about ? { about } : {}),
+        ...(feedback.location ? { about: feedback.location } : {}),
+        ...(feedback.kind === "report" && feedback.reportedUserId
+          ? { reportedUserId: feedback.reportedUserId }
+          : {}),
         ...(cohortId ? { cohortId } : {}),
         ...(path ? { context: { path } } : {}),
       },
