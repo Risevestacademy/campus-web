@@ -44,7 +44,8 @@ const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
 const COHORT_ROUTES = "app/campus/[id]/";
 const COHORT_LAYOUT = `${COHORT_ROUTES}layout.tsx`;
 // Campus exports that read the media session and so need its provider above.
-const MEDIA_UI = /\b(?:VisualsDisplay|ActiveCampus|PresenceDock)\b/;
+const MEDIA_UI =
+  /\b(?:VisualsDisplay|ActiveCampus|PresenceDock|ConnectionCheck)\b/;
 const PRESENCE_SESSION = /<PresenceSession\b/;
 
 const params = Promise.resolve({ id: "c-1" });

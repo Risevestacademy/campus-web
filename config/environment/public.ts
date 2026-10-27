@@ -5,6 +5,9 @@ function normalizeEnvironmentValue(
 }
 
 export const publicEnvironment = Object.freeze({
+  NEXT_PUBLIC_MEDIA_URL: normalizeEnvironmentValue(
+    process.env.NEXT_PUBLIC_MEDIA_URL,
+  ),
   NEXT_PUBLIC_POSTHOG_HOST: normalizeEnvironmentValue(
     process.env.NEXT_PUBLIC_POSTHOG_HOST,
   ),

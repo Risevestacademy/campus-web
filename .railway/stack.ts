@@ -102,6 +102,7 @@ export function createFrontendProject(environment: RailwayEnvironment) {
     env: {
       API_BASE_URL:
         "http://${{campus-api.RAILWAY_PRIVATE_DOMAIN}}:${{campus-api.PORT}}",
+      NEXT_PUBLIC_MEDIA_URL: preserve(),
       NEXT_PUBLIC_POSTHOG_HOST: preserve(),
       NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: preserve(),
       NEXT_PUBLIC_SANITY_DATASET: preserve(),
