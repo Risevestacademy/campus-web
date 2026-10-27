@@ -32,10 +32,23 @@ describe("createPresenceStore", () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
+  it("tells nobody when world resends the same people nearby", () => {
+    const store = createPresenceStore();
+    store.getState().apply(serverFrames.snapshot);
+    store.getState().apply(serverFrames.nearby);
+    const listener = vi.fn();
+    store.subscribe(listener);
+
+    store.getState().apply(serverFrames.nearby);
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
   it("forgets everyone on clear", () => {
     const store = createPresenceStore();
     store.getState().apply(serverFrames.welcome);
     store.getState().apply(serverFrames.snapshot);
+    store.getState().apply(serverFrames.nearby);
 
     store.getState().clear();
 
@@ -43,6 +56,8 @@ describe("createPresenceStore", () => {
       selfId: null,
       participants: new Map(),
       positions: new Map(),
+      nearby: [],
+      encounter: 0,
     });
   });
 });

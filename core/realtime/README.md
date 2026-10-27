@@ -117,7 +117,7 @@ result.
   union, so a message added, removed or renamed upstream fails
   `pnpm typecheck` until it has a schema.
 - Messages no feature reads yet (`statusChanged`, `spaceChanged`, `call`,
-  `nearby`, `lockChanged`, `lockableSpaces`) parse to `{ type }` alone. They
+  `lockChanged`, `lockableSpaces`) parse to `{ type }` alone. They
   are known, so they are not logged as skipped, and nothing unread travels on:
   a `call` carries a media token. The feature that reads one gives it a real
   schema.

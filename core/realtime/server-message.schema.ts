@@ -13,6 +13,7 @@ import type {
   MovedMessage,
   MoveOutcome as PublishedMoveOutcome,
   MoveResultMessage as PublishedMoveResultMessage,
+  NearbyMessage,
   Player,
   PongMessage,
   ReplacedMessage,
@@ -62,12 +63,7 @@ export type JoinedMessage = Simplify<
 // stripped to their type, so nothing unread (a call's token) travels on.
 type UnreadType = Extract<
   PublishedServerMessage["type"],
-  | "statusChanged"
-  | "spaceChanged"
-  | "call"
-  | "nearby"
-  | "lockChanged"
-  | "lockableSpaces"
+  "statusChanged" | "spaceChanged" | "call" | "lockChanged" | "lockableSpaces"
 >;
 type UnreadMessage = { [Type in UnreadType]: { type: Type } }[UnreadType];
 
@@ -82,6 +78,7 @@ export type ServerMessage =
   | MovedMessage
   | MoveResultMessage
   | ErrorMessage
+  | NearbyMessage
   | UnreadMessage;
 
 function orUnknown<const Values extends readonly [string, ...string[]]>(
@@ -193,6 +190,10 @@ const errorMessageSchema = z.toZod<ErrorMessage>()(
   }),
 );
 
+const nearbyMessageSchema = z.toZod<NearbyMessage>()(
+  z.object({ type: z.literal("nearby"), userIds: z.array(z.string()) }),
+);
+
 function unreadMessageSchema<const Type extends UnreadType>(type: Type) {
   return z.object({ type: z.literal(type) });
 }
@@ -209,10 +210,10 @@ const serverMessageSchema = z.toZod<ServerMessage>()(
     movedMessageSchema,
     moveResultMessageSchema,
     errorMessageSchema,
+    nearbyMessageSchema,
     unreadMessageSchema("statusChanged"),
     unreadMessageSchema("spaceChanged"),
     unreadMessageSchema("call"),
-    unreadMessageSchema("nearby"),
     unreadMessageSchema("lockChanged"),
     unreadMessageSchema("lockableSpaces"),
   ]),

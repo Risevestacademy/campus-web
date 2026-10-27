@@ -4,7 +4,12 @@ import { describe, expect, it } from "vitest";
 
 import type { Avatar, ServerMessage } from "@/core/realtime";
 
-import { applyServerMessage, EMPTY_PRESENCE } from "./presence";
+import {
+  applyServerMessage,
+  EMPTY_PRESENCE,
+  type Presence,
+  withoutRemoteParticipants,
+} from "./presence";
 
 const ADA: Avatar = {
   userId: "ada",
@@ -23,12 +28,18 @@ const GRACE: Avatar = {
   spriteKey: null,
 };
 
+const MAP = { id: "campus", version: "v1", width: 60, height: 40 };
+
 function snapshotOf(...players: Avatar[]) {
   return applyServerMessage(EMPTY_PRESENCE, {
     type: "snapshot",
-    map: { id: "campus", version: "v1", width: 60, height: 40 },
+    map: MAP,
     players,
   });
+}
+
+function afterNearby(presence: Presence, ...userIds: string[]) {
+  return applyServerMessage(presence, { type: "nearby", userIds });
 }
 
 describe("applyServerMessage", () => {
@@ -188,6 +199,7 @@ describe("applyServerMessage", () => {
       outcome: "moved",
       player: { userId: "ada", x: 5, y: 7, facing: "right" },
     },
+    { type: "nearby", userIds: [] },
   ])(
     "returns the same presence for $type that changes nobody it knows",
     (message) => {
@@ -196,4 +208,85 @@ describe("applyServerMessage", () => {
       expect(applyServerMessage(before, message)).toBe(before);
     },
   );
+});
+
+describe("nearby", () => {
+  it("keeps whoever came near in arrival order, not world's sorted order", () => {
+    const presence = afterNearby(
+      afterNearby(snapshotOf(ADA, GRACE), "grace"),
+      "ada",
+      "grace",
+    );
+
+    expect(presence.nearby).toEqual(["grace", "ada"]);
+  });
+
+  it("drops whoever walked away and keeps the rest in place", () => {
+    const presence = afterNearby(
+      afterNearby(afterNearby(snapshotOf(ADA, GRACE), "grace"), "ada", "grace"),
+      "ada",
+    );
+
+    expect(presence.nearby).toEqual(["ada"]);
+  });
+
+  it("holds somebody a frame names twice only once", () => {
+    const presence = afterNearby(
+      afterNearby(snapshotOf(ADA, GRACE), "grace"),
+      "ada",
+      "ada",
+      "grace",
+      "grace",
+    );
+
+    expect(presence.nearby).toEqual(["grace", "ada"]);
+  });
+
+  it("returns the same presence when world resends the same people in another order", () => {
+    const before = afterNearby(snapshotOf(ADA, GRACE), "ada", "grace");
+
+    expect(afterNearby(before, "grace", "ada")).toBe(before);
+  });
+
+  it("counts an encounter only when somebody comes near after nobody was", () => {
+    const firstEncounter = afterNearby(
+      afterNearby(snapshotOf(ADA, GRACE), "grace"),
+      "ada",
+      "grace",
+    );
+    const aloneAgain = afterNearby(firstEncounter);
+    const secondEncounter = afterNearby(aloneAgain, "ada");
+
+    expect(
+      [firstEncounter, aloneAgain, secondEncounter].map(
+        ({ encounter }) => encounter,
+      ),
+    ).toEqual([1, 1, 2]);
+  });
+
+  it("forgets who is near on a snapshot or a closed socket, keeping the encounter count", () => {
+    const near = afterNearby(
+      applyServerMessage(snapshotOf(ADA, GRACE), {
+        type: "welcome",
+        userId: "ada",
+        connectionId: "connection-1",
+        heartbeatSeconds: 30,
+        stepMs: 100,
+        tickMs: 50,
+        displayName: "Ada",
+        spriteKey: null,
+      }),
+      "grace",
+    );
+
+    const reconnected = applyServerMessage(near, {
+      type: "snapshot",
+      map: MAP,
+      players: [ADA, GRACE],
+    });
+    const closed = withoutRemoteParticipants(near);
+
+    expect([reconnected.nearby, reconnected.encounter]).toEqual([[], 1]);
+    expect([closed.nearby, closed.encounter]).toEqual([[], 1]);
+  });
 });
