@@ -139,10 +139,7 @@ describe("PresenceSessionGate", () => {
       admitted: true,
       pendingDestination: null,
     });
-    expect(connect).toHaveBeenCalledExactlyOnceWith(
-      "c-1",
-      expect.any(Function),
-    );
+    expect(connect).toHaveBeenCalledOnce();
   });
 
   it("rejects a mismatched destination without consuming it", () => {
@@ -214,10 +211,7 @@ describe("PresenceSessionGate", () => {
         admitted: true,
         pendingDestination: null,
       });
-      expect(gate.connect).toHaveBeenCalledExactlyOnceWith(
-        "c-1",
-        expect.any(Function),
-      );
+      expect(gate.connect).toHaveBeenCalledOnce();
     });
 
     it("never connects before the session has moved", () => {
@@ -281,10 +275,7 @@ describe("PresenceSessionGate", () => {
       expect(gate.presenceTab.takeOver).toHaveBeenCalledOnce();
       expect(gate.world.reconnects()).toBe(1);
       expect(gate.admissionStore.getState().admitted).toBe(true);
-      expect(gate.connect).toHaveBeenCalledExactlyOnceWith(
-        "c-1",
-        expect.any(Function),
-      );
+      expect(gate.connect).toHaveBeenCalledOnce();
     });
 
     it("never reconnects world when another cohort page mounts", () => {

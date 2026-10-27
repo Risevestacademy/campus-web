@@ -196,6 +196,8 @@ _Avoid_: Camera replacement
 
 **Transport seam**:
 The `MeetingMediaTransport` interface where publication events are translated
-by a signaling or SFU adapter. It connects only after Admission and
-disconnects when the Presence Session ends.
+by a signaling or SFU adapter. The adapter picks its own rooms and reports
+remote publications, per-participant audio gains and a call status; no room
+grant crosses it. It connects only after Admission and disconnects when the
+Presence Session ends.
 _Avoid_: Browser capture ownership, server media state

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   LocalPublicationChange,
   MeetingMediaTransport,
+  MeetingMediaTransportCallbacks,
   RemotePublicationChange,
 } from "./contracts";
 import { createMediaSessionStore } from "./media-session-store";
@@ -113,15 +114,15 @@ function storeMediaControlPreferences(
 
 function createTransport() {
   const changes: LocalPublicationChange[] = [];
-  const connectedRooms: string[] = [];
+  const connections: MeetingMediaTransportCallbacks[] = [];
   const disconnect = vi.fn(() => {
     remoteListener = undefined;
   });
   let remoteListener: ((change: RemotePublicationChange) => void) | undefined;
   const transport: MeetingMediaTransport = {
-    connect(roomId, listener) {
-      connectedRooms.push(roomId);
-      remoteListener = listener;
+    connect(callbacks) {
+      connections.push(callbacks);
+      remoteListener = callbacks.onRemotePublicationChange;
       return disconnect;
     },
     handleLocalPublicationChange: (change) => changes.push(change),
@@ -129,7 +130,7 @@ function createTransport() {
 
   return {
     changes,
-    connectedRooms,
+    connections,
     disconnect,
     emitRemote: (change: RemotePublicationChange) => remoteListener?.(change),
     transport,
@@ -232,7 +233,7 @@ describe("media session store", () => {
       transport,
     });
     await store.getState().start();
-    store.getState().connect("c-1");
+    store.getState().connect();
 
     await store.getState().toggleSource("camera");
     await store.getState().toggleSource("camera");
@@ -316,7 +317,7 @@ describe("media session store", () => {
       transport,
     });
     await store.getState().start();
-    store.getState().connect("c-1");
+    store.getState().connect();
     await store.getState().toggleSource("microphone");
 
     await store.getState().toggleSource("microphone");
@@ -514,7 +515,7 @@ describe("media session store", () => {
       transport,
     });
     await store.getState().start();
-    store.getState().connect("c-1");
+    store.getState().connect();
     await store.getState().toggleSource("camera");
 
     await store.getState().selectInputDevice("camera", "camera-2");
@@ -800,7 +801,7 @@ describe("media session store", () => {
       transport,
     });
     await store.getState().start();
-    store.getState().connect("c-1");
+    store.getState().connect();
 
     emitRemote({
       publication: {
@@ -838,7 +839,7 @@ describe("media session store", () => {
   it("publishes nothing to the transport before the session connects", async () => {
     const camera = createTrack("video", "camera-1");
     const mediaDevices = createMediaDevices(async () => createStream([camera]));
-    const { changes, connectedRooms, transport } = createTransport();
+    const { changes, connections, transport } = createTransport();
     const store = createMediaSessionStore({
       createMediaStream: () => createStream(),
       mediaDevices,
@@ -849,14 +850,39 @@ describe("media session store", () => {
     await store.getState().toggleSource("camera");
 
     expect(store.getState().localPublications.camera?.track).toBe(camera);
-    expect(connectedRooms).toEqual([]);
+    expect(connections).toEqual([]);
     expect(changes).toEqual([]);
+  });
+
+  it("exposes call status and remote gains from the transport until stop", async () => {
+    const { connections, transport } = createTransport();
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices: createMediaDevices(async () => createStream()),
+      transport,
+    });
+    await store.getState().start();
+    store.getState().connect();
+
+    connections[0]?.onStatusChange("connecting");
+    connections[0]?.onRemoteAudioGainsChange({ "participant-2": 0.5 });
+    const connected = store.getState();
+    store.getState().stop();
+
+    expect(connected).toMatchObject({
+      callAudioStatus: "connecting",
+      remoteAudioGains: { "participant-2": 0.5 },
+    });
+    expect(store.getState()).toMatchObject({
+      callAudioStatus: "idle",
+      remoteAudioGains: {},
+    });
   });
 
   it("connects once and replays the publications chosen before Join", async () => {
     const camera = createTrack("video", "camera-1");
     const mediaDevices = createMediaDevices(async () => createStream([camera]));
-    const { changes, connectedRooms, transport } = createTransport();
+    const { changes, connections, transport } = createTransport();
     const store = createMediaSessionStore({
       createMediaStream: () => createStream(),
       mediaDevices,
@@ -865,10 +891,10 @@ describe("media session store", () => {
     await store.getState().start();
     await store.getState().toggleSource("camera");
 
-    store.getState().connect("c-1");
-    store.getState().connect("c-1");
+    store.getState().connect();
+    store.getState().connect();
 
-    expect(connectedRooms).toEqual(["c-1"]);
+    expect(connections).toHaveLength(1);
     expect(changes).toEqual([
       {
         publication: expect.objectContaining({
@@ -891,7 +917,7 @@ describe("media session store", () => {
       transport,
     });
     await store.getState().start();
-    store.getState().connect("c-1");
+    store.getState().connect();
     await store.getState().toggleSource("camera");
     emitRemote({
       publication: {

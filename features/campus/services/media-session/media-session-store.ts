@@ -2,6 +2,7 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 
 import type {
   AudioOutputState,
+  CallAudioStatus,
   CaptureSource,
   CaptureSourceState,
   DeviceCatalogSnapshot,
@@ -13,6 +14,7 @@ import type {
   MediaSessionErrorCode,
   MeetingMediaTransport,
   PublicationSource,
+  RemoteAudioGains,
   RemotePublicationChange,
   RemotePublicationRegistry,
 } from "./contracts";
@@ -45,8 +47,9 @@ type DeviceRequest = Readonly<{
 
 export type MediaSessionState = Readonly<{
   camera: CaptureSourceState;
+  callAudioStatus: CallAudioStatus;
   chooseAudioOutput: () => MediaActionFailure;
-  connect: (roomId: string) => void;
+  connect: () => void;
   deviceDiscoveryStatus: DeviceDiscoveryStatus;
   localPublications: Readonly<
     Partial<Record<PublicationSource, LocalMediaPublication>>
@@ -54,6 +57,7 @@ export type MediaSessionState = Readonly<{
   microphone: CaptureSourceState;
   output: AudioOutputState;
   refreshDevices: () => Promise<void>;
+  remoteAudioGains: RemoteAudioGains;
   remotePublications: RemotePublicationRegistry;
   selectInputDevice: (
     source: CaptureSource,
@@ -541,6 +545,7 @@ export function createMediaSessionStore(
 
     return {
       camera: createInitialCaptureState(false),
+      callAudioStatus: "idle",
       async chooseAudioOutput() {
         const selectableMediaDevices = mediaDevices as
           SelectableAudioOutputMediaDevices | undefined;
@@ -581,13 +586,15 @@ export function createMediaSessionStore(
           return errorCode;
         }
       },
-      connect(roomId) {
+      connect() {
         if (disconnectTransport) return;
 
-        disconnectTransport = transport.connect(
-          roomId,
-          applyRemotePublicationChange,
-        );
+        disconnectTransport = transport.connect({
+          onRemoteAudioGainsChange: (remoteAudioGains) =>
+            set({ remoteAudioGains }),
+          onRemotePublicationChange: applyRemotePublicationChange,
+          onStatusChange: (callAudioStatus) => set({ callAudioStatus }),
+        });
         for (const publication of Object.values(get().localPublications)) {
           if (publication) forwardLocalChange({ publication, type: "added" });
         }
@@ -605,6 +612,7 @@ export function createMediaSessionStore(
         supportsSelection: supportsAudioOutputSelection(mediaDevices),
       },
       refreshDevices,
+      remoteAudioGains: {},
       remotePublications: {},
       async selectInputDevice(source, deviceId) {
         const sourceState = get()[source];
@@ -688,6 +696,8 @@ export function createMediaSessionStore(
             false,
             devicePreferences.microphoneDeviceId,
           ),
+          callAudioStatus: "idle",
+          remoteAudioGains: {},
           remotePublications: {},
         });
       },

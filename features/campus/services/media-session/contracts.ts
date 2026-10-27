@@ -107,6 +107,11 @@ export type RemotePublicationRegistry = Readonly<
   Record<string, ParticipantPublications>
 >;
 
+export type CallAudioStatus =
+  "idle" | "connecting" | "connected" | "unavailable";
+
+export type RemoteAudioGains = Readonly<Record<string, number>>;
+
 export type MediaPublication = LocalMediaPublication | RemoteMediaPublication;
 
 export type LocalPublicationChange =
@@ -138,13 +143,16 @@ export type RemotePublicationChange =
       type: "removed";
     }>;
 
+export type MeetingMediaTransportCallbacks = Readonly<{
+  onRemoteAudioGainsChange: (gains: RemoteAudioGains) => void;
+  onRemotePublicationChange: (change: RemotePublicationChange) => void;
+  onStatusChange: (status: CallAudioStatus) => void;
+}>;
+
 export interface MeetingMediaTransport {
   // Called once per Presence Session, after Admission. The returned function
   // disconnects and must release peer connections; never rely on page unload.
-  connect(
-    roomId: string,
-    onRemotePublicationChange: (change: RemotePublicationChange) => void,
-  ): () => void;
+  connect(callbacks: MeetingMediaTransportCallbacks): () => void;
   // Called only while connected.
   handleLocalPublicationChange(change: LocalPublicationChange): void;
 }

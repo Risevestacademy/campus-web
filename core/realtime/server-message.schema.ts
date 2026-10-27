@@ -6,6 +6,8 @@ import { parseJson } from "@/shared/lib/parse-json";
 import type {
   AppearanceMessage,
   Avatar as PublishedAvatar,
+  Call as PublishedCall,
+  CallMessage as PublishedCallMessage,
   Direction,
   ErrorMessage as PublishedErrorMessage,
   JoinedMessage as PublishedJoinedMessage,
@@ -58,12 +60,19 @@ export type SnapshotMessage = Simplify<
 export type JoinedMessage = Simplify<
   Pick<PublishedJoinedMessage, "type"> & { player: Avatar }
 >;
+type Hearing = OrUnknown<PublishedCall["hearing"]>;
+export type Call = Simplify<
+  Pick<PublishedCall, "url" | "token" | "audibleRadius"> & { hearing: Hearing }
+>;
+export type CallMessage = Simplify<
+  Pick<PublishedCallMessage, "type"> & { call: Call | null }
+>;
 
 // Frames no feature reads yet. Known, so they are not logged as skipped;
-// stripped to their type, so nothing unread (a call's token) travels on.
+// stripped to their type, so nothing unread travels on.
 type UnreadType = Extract<
   PublishedServerMessage["type"],
-  "statusChanged" | "spaceChanged" | "call" | "lockChanged" | "lockableSpaces"
+  "statusChanged" | "spaceChanged" | "lockChanged" | "lockableSpaces"
 >;
 type UnreadMessage = { [Type in UnreadType]: { type: Type } }[UnreadType];
 
@@ -79,6 +88,7 @@ export type ServerMessage =
   | MoveResultMessage
   | ErrorMessage
   | NearbyMessage
+  | CallMessage
   | UnreadMessage;
 
 function orUnknown<const Values extends readonly [string, ...string[]]>(
@@ -194,6 +204,19 @@ const nearbyMessageSchema = z.toZod<NearbyMessage>()(
   z.object({ type: z.literal("nearby"), userIds: z.array(z.string()) }),
 );
 
+const callSchema = z.toZod<Call>()(
+  z.object({
+    url: z.string(),
+    token: z.string(),
+    hearing: orUnknown(["room", "proximity"]),
+    audibleRadius: z.number().nonnegative(),
+  }),
+);
+
+const callMessageSchema = z.toZod<CallMessage>()(
+  z.object({ type: z.literal("call"), call: callSchema.nullable() }),
+);
+
 function unreadMessageSchema<const Type extends UnreadType>(type: Type) {
   return z.object({ type: z.literal(type) });
 }
@@ -211,9 +234,9 @@ const serverMessageSchema = z.toZod<ServerMessage>()(
     moveResultMessageSchema,
     errorMessageSchema,
     nearbyMessageSchema,
+    callMessageSchema,
     unreadMessageSchema("statusChanged"),
     unreadMessageSchema("spaceChanged"),
-    unreadMessageSchema("call"),
     unreadMessageSchema("lockChanged"),
     unreadMessageSchema("lockableSpaces"),
   ]),

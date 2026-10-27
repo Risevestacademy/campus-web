@@ -122,7 +122,7 @@ function createBrowser(releaseLag: number) {
         },
         async join() {
           if (!(await tab.claim())) return;
-          media.store.getState().connect(cohortId);
+          media.store.getState().connect();
           world.connect();
         },
         async leave() {
@@ -134,7 +134,7 @@ function createBrowser(releaseLag: number) {
         async open() {},
         async useHere() {
           if (!(await tab.takeOver())) return;
-          media.store.getState().connect(cohortId);
+          media.store.getState().connect();
           world.connect();
         },
       } satisfies Record<Action, () => Promise<void>>,
