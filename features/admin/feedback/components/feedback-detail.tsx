@@ -4,7 +4,6 @@ import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 import { cn } from "cn";
 import type { ReactNode } from "react";
 
-import { splitReportAbout } from "@/shared/lib/report-about";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 
 import {
@@ -21,12 +20,7 @@ import { FeedbackTypeBadge } from "./feedback-type-badge";
 import { LocalDateTime } from "./local-date-time";
 
 function describeWhere(feedback: FeedbackRecord): string {
-  const about =
-    feedback.type === "report"
-      ? splitReportAbout(feedback.about).where
-      : (feedback.about ?? undefined);
-
-  return about ?? feedback.context?.path ?? "Not given";
+  return feedback.about ?? feedback.context?.path ?? "Not given";
 }
 
 function Fact({

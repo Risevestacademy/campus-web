@@ -193,10 +193,41 @@ describe("FeedbackAdministration", () => {
     expect(screen.getByText(/Resolved by sodiq@campus.local/)).toBeVisible();
   });
 
+  it("lists a report that picked a person by the account and keeps the place", async () => {
+    useFeedbackApi({
+      reports: [
+        summary("r1", "report", {
+          about: "Main hallway",
+          reportedUser: {
+            id: "u-9",
+            email: "bola@campus.local",
+            displayName: "Bola Ade",
+          },
+        }),
+      ],
+    });
+
+    await renderPage({ tab: "reports" });
+
+    const row = within(
+      screen.getByRole("table", { name: "Reports" }),
+    ).getAllByRole("row")[1]!;
+    expect(within(row).getByText("Bola Ade")).toBeVisible();
+    expect(within(row).getByText("Main hallway")).toBeVisible();
+    expect(within(row).queryByText("Not named")).not.toBeInTheDocument();
+  });
+
   it("lists reports with who was reported and links to review them", async () => {
     useFeedbackApi({
       reports: [
-        summary("r1", "report", { about: "Sodiq Semiu | Main hallway" }),
+        summary("r1", "report", {
+          about: "Main hallway",
+          reportedUser: {
+            id: "u-9",
+            email: "sodiq@campus.local",
+            displayName: "Sodiq Semiu",
+          },
+        }),
         summary("r2", "report"),
       ],
     });
@@ -221,7 +252,14 @@ describe("FeedbackAdministration", () => {
   it("shows the selected report's detail below the table without a Report pill", async () => {
     useFeedbackApi({
       reports: [summary(R1, "report")],
-      detail: record(R1, "report", { about: "Sodiq Semiu | Main hallway" }),
+      detail: record(R1, "report", {
+        about: "Main hallway",
+        reportedUser: {
+          id: "u-9",
+          email: "sodiq@campus.local",
+          displayName: "Sodiq Semiu",
+        },
+      }),
     });
 
     await renderPage({ tab: "reports", item: R1 });

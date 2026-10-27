@@ -1,5 +1,3 @@
-import { splitReportAbout } from "@/shared/lib/report-about";
-
 import type { FeedbackPerson } from "./types/feedback.types";
 
 const MINUTE = 60_000;
@@ -18,16 +16,10 @@ export function personName(person: FeedbackPerson): string {
   return person.displayName?.trim() || person.email;
 }
 
-// A report names who it is about in `about`; fall back on the account the
-// backend linked when the member typed nothing.
 export function reportedNameOf(item: {
-  about: string | null;
   reportedUser: FeedbackPerson | null;
 }): string | undefined {
-  return (
-    splitReportAbout(item.about).reported ??
-    (item.reportedUser ? personName(item.reportedUser) : undefined)
-  );
+  return item.reportedUser ? personName(item.reportedUser) : undefined;
 }
 
 export function personInitial(person: FeedbackPerson): string {
