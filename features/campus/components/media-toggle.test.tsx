@@ -43,4 +43,22 @@ describe("MediaToggle", () => {
 
     expect(levelFill(view.container)).not.toBeInTheDocument();
   });
+
+  it("draws the microphone outline over its level fill", () => {
+    const view = render(
+      microphoneToggle({
+        isEnabled: true,
+        levelTrack: createTestMediaTrack("audio", "mic-1"),
+      }),
+    );
+    const fill = levelFill(view.container);
+    const outline = view.container.querySelector(
+      "[data-slot=microphone-enabled-icon]",
+    );
+    if (!fill || !outline) throw new Error("Both microphone layers render.");
+
+    expect(
+      fill.compareDocumentPosition(outline) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 });

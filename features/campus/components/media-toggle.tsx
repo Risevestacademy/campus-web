@@ -134,17 +134,6 @@ export function MediaToggle(props: MediaToggleProps) {
         aria-hidden
         className="group/mic-level relative block size-5.5 shrink-0"
       >
-        <EnabledIcon
-          data-slot={`${kind}-enabled-icon`}
-          focusable="false"
-          weight="regular"
-          className={cn(
-            "absolute inset-0 size-full",
-            swapTransitionClassName,
-            getSwapState(isEnabled),
-            meteredTrack && speakingColorClassName,
-          )}
-        />
         {meteredTrack ? (
           <svg
             data-slot="microphone-level"
@@ -156,6 +145,17 @@ export function MediaToggle(props: MediaToggleProps) {
             <path d={MICROPHONE_CAPSULE_PATH} />
           </svg>
         ) : null}
+        <EnabledIcon
+          data-slot={`${kind}-enabled-icon`}
+          focusable="false"
+          weight="regular"
+          className={cn(
+            "absolute inset-0 size-full",
+            swapTransitionClassName,
+            getSwapState(isEnabled),
+            meteredTrack && speakingColorClassName,
+          )}
+        />
         <DisabledIcon
           data-slot={`${kind}-disabled-icon`}
           focusable="false"
