@@ -14,7 +14,7 @@ import { COHORT_PEOPLE_KEY } from "./use-cohort-people";
 export function useSendFeedback({
   onSent,
 }: {
-  onSent: (receiptId: string, input: FeedbackSendInput) => void;
+  onSent: (input: FeedbackSendInput) => void;
 }) {
   const inFlight = useRef(false);
   const queryClient = useQueryClient();
@@ -25,7 +25,7 @@ export function useSendFeedback({
     retry: false,
     onSuccess: (outcome, input) => {
       if (outcome.kind === "sent") {
-        onSent(outcome.receipt.id, input);
+        onSent(input);
       } else if (outcome.problem === "signed-out") {
         replaceDocument(SIGN_IN_PATH);
       } else if (outcome.problem === "unknown-person") {

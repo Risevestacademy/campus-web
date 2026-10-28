@@ -113,16 +113,17 @@ describe("FeedbackPopup", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("shows the form beside an empty feedback history", () => {
+  it("shows the form with no feedback history", () => {
     renderPopup();
 
     const dialog = screen.getByRole("dialog", { name: "Feedback" });
-    const history = within(dialog).getByRole("region", {
-      name: "Feedback history",
-    });
 
-    expect(within(history).queryAllByRole("listitem")).toHaveLength(0);
-    expect(within(history).getByText(/Nothing sent yet/)).toBeVisible();
+    expect(
+      within(dialog).queryByRole("region", { name: "Feedback history" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: "New feedback" }),
+    ).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText(/Where in Campus/)).toHaveValue("");
     expect(within(dialog).getAllByText("Optional")).toHaveLength(2);
     expect(
@@ -244,8 +245,7 @@ describe("FeedbackPopup", () => {
         },
       ]);
 
-      fireEvent.click(screen.getByRole("button", { name: /Unwanted waves/ }));
-      expect(screen.getByText("Bola Ade")).toBeVisible();
+      expect(screen.getByText(/Your report “Unwanted waves”/)).toBeVisible();
     });
 
     it("sends no about when a person is picked and no place is given", async () => {
@@ -460,7 +460,7 @@ describe("FeedbackPopup", () => {
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
   });
 
-  it("confirms by first name and adds the feedback to the history", async () => {
+  it("confirms by first name with what was sent", async () => {
     mockApi.server.use(replyReceipt());
     renderPopup();
 
@@ -473,38 +473,8 @@ describe("FeedbackPopup", () => {
     expect(
       screen.getByText(/Your idea “Show who's in a pod before knocking”/),
     ).toBeVisible();
-
-    const history = screen.getByRole("region", { name: "Feedback history" });
-    const items = within(history).getAllByRole("listitem");
-
-    expect(items).toHaveLength(1);
-    expect(items[0]).toHaveTextContent("Show who's in a pod before knocking");
-    expect(items[0]).toHaveTextContent("just now");
-    expect(within(items[0]!).getByRole("button")).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-  });
-
-  it("shows a history item's details in place of the form and highlights it", async () => {
-    mockApi.server.use(replyReceipt());
-    renderPopup();
-
-    fillIn("Bug", "Mic cuts out", "It drops after a minute.");
-    send();
-    await screen.findByRole("button", { name: "Send another" });
-
-    fireEvent.click(screen.getByRole("button", { name: /Mic cuts out/ }));
-
-    expect(
-      screen.getByRole("heading", { level: 2, name: "Mic cuts out" }),
-    ).toBeVisible();
-    expect(screen.getByText("It drops after a minute.")).toBeVisible();
+    expect(screen.queryByText(/Feedback history/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "New feedback" }));
-
-    expect(screen.getByLabelText("Title")).toHaveValue("");
   });
 
   it("returns to an empty form from Send another", async () => {
@@ -579,10 +549,9 @@ describe("FeedbackPopup", () => {
         ),
       ).toBeVisible();
       expect(screen.getByLabelText("Title")).toHaveValue("Mic cuts out");
-
-      const history = screen.getByRole("region", { name: "Feedback history" });
-      expect(within(history).queryAllByRole("listitem")).toHaveLength(0);
-      expect(within(history).getByText(/Nothing sent yet/)).toBeVisible();
+      expect(
+        screen.queryByRole("heading", { name: /We got it/ }),
+      ).not.toBeInTheDocument();
     },
   );
 

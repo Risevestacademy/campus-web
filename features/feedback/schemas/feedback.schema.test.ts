@@ -16,7 +16,6 @@ function feedbackForm(fields: Record<string, string>) {
     title: "  Show who's in a pod  ",
     details: "  It happens often.  ",
     location: "Map view",
-    reported: "",
     reportedUserId: "",
     personRequired: "",
     ...fields,
@@ -34,7 +33,6 @@ describe("parseFeedback", () => {
         title: "Show who's in a pod",
         details: "It happens often.",
         location: "Map view",
-        reported: "",
         reportedUserId: "",
         personRequired: "",
       },
@@ -89,12 +87,10 @@ describe("parseFeedback", () => {
     const id = "22222222-2222-4222-8222-222222222222";
 
     expect(
-      parseFeedback(
-        feedbackForm({ kind: "report", reported: "Bola", reportedUserId: id }),
-      ),
+      parseFeedback(feedbackForm({ kind: "report", reportedUserId: id })),
     ).toMatchObject({
       kind: "valid",
-      feedback: { kind: "report", reported: "Bola", reportedUserId: id },
+      feedback: { kind: "report", reportedUserId: id },
     });
   });
 
@@ -102,7 +98,7 @@ describe("parseFeedback", () => {
     "rejects the picked id %j when it is not an id",
     (reportedUserId) => {
       const read = parseFeedback(
-        feedbackForm({ kind: "report", reported: "Bola", reportedUserId }),
+        feedbackForm({ kind: "report", reportedUserId }),
       );
 
       expect(read.kind).toBe("invalid");
