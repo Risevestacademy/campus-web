@@ -8,34 +8,34 @@ import {
   setSidebarMode,
   setSidebarOpen,
 } from "../store/sidebar-store";
-import type { MeetingParticipant } from "../types/active-campus.types";
-import type { MeetingTileLayout } from "./meeting-tiles";
+import type {
+  MeetingParticipant,
+  OpenedMeetingLayout,
+} from "../types/active-campus.types";
 
 type CampusViewState = Readonly<{
-  meetingLayout: MeetingTileLayout;
+  meetingLayout: OpenedMeetingLayout;
   shouldAnimate: boolean;
 }>;
 
+type GridRequest = Readonly<{ encounter: number; shouldAnimate: boolean }>;
+
+type FocusRequest = GridRequest &
+  Readonly<{ participantId: MeetingParticipant["id"] }>;
+
 type CampusViewEvent =
   | Readonly<{ type: "show-map"; shouldAnimate: boolean }>
-  | Readonly<{ type: "show-grid"; shouldAnimate: boolean }>
-  | Readonly<{
-      type: "focus-participant";
-      participantId: MeetingParticipant["id"];
-      shouldAnimate: boolean;
-    }>;
+  | (Readonly<{ type: "show-grid" }> & GridRequest)
+  | (Readonly<{ type: "focus-participant" }> & FocusRequest);
 
 type CampusViewContextValue = CampusViewState &
   Readonly<{
     closeSidebar: () => void;
-    focusParticipant: (
-      participantId: MeetingParticipant["id"],
-      shouldAnimate: boolean,
-    ) => void;
+    focusParticipant: (focus: FocusRequest) => void;
     openAdministration: () => void;
     openPanel: (panelId: SidebarPanelId) => void;
     openSidebar: () => void;
-    showGrid: (shouldAnimate: boolean) => void;
+    showGrid: (grid: GridRequest) => void;
     showMap: (shouldAnimate: boolean) => void;
   }>;
 
@@ -45,6 +45,18 @@ const INITIAL_CAMPUS_VIEW_STATE: CampusViewState = {
 };
 
 const CampusViewContext = createContext<CampusViewContextValue | null>(null);
+
+// A grid from an earlier encounter counts as closed, so a tile pressed on the
+// map opens a fresh one instead of toggling a focus nobody can see.
+function nextFocus(
+  layout: OpenedMeetingLayout,
+  { encounter, participantId }: FocusRequest,
+): MeetingParticipant["id"] | null {
+  const gridIsOpen =
+    layout.mode === "expanded" && layout.encounter === encounter;
+  if (!gridIsOpen) return null;
+  return layout.focusedTileId === participantId ? null : participantId;
+}
 
 function reduceCampusView(
   state: CampusViewState,
@@ -58,21 +70,20 @@ function reduceCampusView(
       };
     case "show-grid":
       return {
-        meetingLayout: { mode: "expanded", focusedTileId: null },
+        meetingLayout: {
+          mode: "expanded",
+          focusedTileId: null,
+          encounter: event.encounter,
+        },
         shouldAnimate: event.shouldAnimate,
       };
     case "focus-participant":
       return {
-        meetingLayout:
-          state.meetingLayout.mode === "compact"
-            ? { mode: "expanded", focusedTileId: null }
-            : {
-                mode: "expanded",
-                focusedTileId:
-                  state.meetingLayout.focusedTileId === event.participantId
-                    ? null
-                    : event.participantId,
-              },
+        meetingLayout: {
+          mode: "expanded",
+          focusedTileId: nextFocus(state.meetingLayout, event),
+          encounter: event.encounter,
+        },
         shouldAnimate: event.shouldAnimate,
       };
   }
@@ -91,12 +102,8 @@ export function CampusViewProvider({ children }: { children: ReactNode }) {
   const value: CampusViewContextValue = {
     ...state,
     closeSidebar: () => setSidebarOpen(false),
-    focusParticipant: (participantId, shouldAnimate) => {
-      dispatch({
-        type: "focus-participant",
-        participantId,
-        shouldAnimate,
-      });
+    focusParticipant: (focus) => {
+      dispatch({ type: "focus-participant", ...focus });
       setSidebarOpen(false);
     },
     openAdministration: () => {
@@ -111,8 +118,8 @@ export function CampusViewProvider({ children }: { children: ReactNode }) {
       returnToMap();
       setSidebarOpen(true);
     },
-    showGrid: (shouldAnimate) => {
-      dispatch({ type: "show-grid", shouldAnimate });
+    showGrid: (grid) => {
+      dispatch({ type: "show-grid", ...grid });
       setSidebarOpen(false);
     },
     showMap: (shouldAnimate) => {
