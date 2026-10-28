@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { PresenceSessionProvider } from "../services/presence-session/presence-session-provider";
+import { CallAudioFeedback } from "./call-audio-feedback";
 import { RemoteAudioOutput } from "./remote-audio-output";
 
 export function PresenceSession({
@@ -13,6 +14,7 @@ export function PresenceSession({
     <PresenceSessionProvider cohortId={cohortId}>
       {children}
       <RemoteAudioOutput />
+      <CallAudioFeedback />
     </PresenceSessionProvider>
   );
 }

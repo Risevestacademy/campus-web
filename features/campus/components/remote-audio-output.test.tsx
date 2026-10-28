@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
   MeetingMediaTransport,
+  MeetingMediaTransportCallbacks,
   RemoteMediaPublication,
   RemotePublicationChange,
 } from "../services/media-session/contracts";
@@ -20,23 +21,45 @@ const originalSetSinkIdDescriptor = Object.getOwnPropertyDescriptor(
 );
 
 function connectedSession() {
-  let emit: (change: RemotePublicationChange) => void = () => undefined;
+  let session: MeetingMediaTransportCallbacks | undefined;
   const transport: MeetingMediaTransport = {
     connect(callbacks) {
-      emit = callbacks.onRemotePublicationChange;
+      session = callbacks;
       return () => undefined;
     },
     handleLocalPublicationChange() {},
+    retry() {},
   };
   const store = createMediaSessionStore({ mediaDevices: null, transport });
   store.getState().connect();
+  const callbacks = () => {
+    if (!session) throw new Error("The transport was never connected.");
+    return session;
+  };
 
   return {
     publish: (publication: RemoteMediaPublication) =>
-      emit({ publication, type: "upserted" }),
-    remove: (change: RemotePublicationChange) => emit(change),
+      callbacks().onRemotePublicationChange({ publication, type: "upserted" }),
+    remove: (change: RemotePublicationChange) =>
+      callbacks().onRemotePublicationChange(change),
+    setGains: (gains: Readonly<Record<string, number>>) =>
+      callbacks().onRemoteAudioGainsChange(gains),
     store,
   };
+}
+
+function recordSourceChanges(element: HTMLElement) {
+  const sources: unknown[] = [];
+  let current: unknown = (element as HTMLMediaElement).srcObject;
+  Object.defineProperty(element, "srcObject", {
+    configurable: true,
+    get: () => current,
+    set: (source: unknown) => {
+      current = source;
+      sources.push(source);
+    },
+  });
+  return sources;
 }
 
 function remoteMicrophone(participantId: string): RemoteMediaPublication {
@@ -130,5 +153,76 @@ describe("RemoteAudioOutput", () => {
     expect(
       screen.queryByLabelText("participant-2 audio"),
     ).not.toBeInTheDocument();
+  });
+
+  it("plays each microphone at its distance gain, and anyone without one silent", () => {
+    const { publish, setGains, store } = connectedSession();
+    render(
+      <MediaSessionProvider store={store}>
+        <RemoteAudioOutput />
+      </MediaSessionProvider>,
+    );
+
+    act(() => {
+      setGains({ "participant-2": 0.4 });
+      publish(remoteMicrophone("participant-2"));
+      publish(remoteMicrophone("participant-3"));
+    });
+
+    expect(screen.getByLabelText("participant-2 audio")).toHaveProperty(
+      "volume",
+      0.4,
+    );
+    expect(screen.getByLabelText("participant-3 audio")).toHaveProperty(
+      "volume",
+      0,
+    );
+  });
+
+  it("follows a gain change without detaching the audio", () => {
+    const { publish, setGains, store } = connectedSession();
+    render(
+      <MediaSessionProvider store={store}>
+        <RemoteAudioOutput />
+      </MediaSessionProvider>,
+    );
+    act(() => {
+      setGains({ "participant-2": 1 });
+      publish(remoteMicrophone("participant-2"));
+    });
+    const audio = screen.getByLabelText("participant-2 audio");
+    const sourceChanges = recordSourceChanges(audio);
+
+    act(() => setGains({ "participant-2": 0.25 }));
+
+    expect(screen.getByLabelText("participant-2 audio")).toBe(audio);
+    expect(audio).toHaveProperty("volume", 0.25);
+    expect(sourceChanges).toEqual([]);
+  });
+
+  it("stops following the gain once the audio is removed", () => {
+    const { publish, remove, setGains, store } = connectedSession();
+    render(
+      <MediaSessionProvider store={store}>
+        <RemoteAudioOutput />
+      </MediaSessionProvider>,
+    );
+    act(() => {
+      setGains({ "participant-2": 0.5 });
+      publish(remoteMicrophone("participant-2"));
+    });
+    const audio = screen.getByLabelText("participant-2 audio");
+    act(() =>
+      remove({
+        participantId: "participant-2",
+        publicationId: "participant-2-microphone",
+        source: "microphone",
+        type: "removed",
+      }),
+    );
+
+    act(() => setGains({ "participant-2": 1 }));
+
+    expect(audio).toHaveProperty("volume", 0.5);
   });
 });

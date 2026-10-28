@@ -38,7 +38,7 @@ function presenceGate(
   );
   const mediaStore = createMediaSessionStore({
     mediaDevices: null,
-    transport: { connect, handleLocalPublicationChange() {} },
+    transport: { connect, handleLocalPublicationChange() {}, retry() {} },
   });
   const presenceTab = createTestPresenceTab(status);
   const world = createTestWorldSession();

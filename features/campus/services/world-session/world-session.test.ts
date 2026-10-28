@@ -14,6 +14,7 @@ import {
   WELCOME,
   WORLD_SOCKET_URL,
 } from "@/tests/fixtures/mock-world";
+import { serverFrames } from "@/tests/fixtures/world-frames";
 
 import { createWorldSession, type WorldSessionOptions } from "./world-session";
 
@@ -108,6 +109,26 @@ describe("createWorldSession", () => {
     expect(world.connections).toHaveLength(1);
   });
 
+  it("rejoins a live session on a fresh socket, keeping the member on the map", async () => {
+    const world = serveWorld(admit);
+    const onRemoteParticipantsCleared =
+      vi.fn<NonNullable<WorldSessionOptions["onRemoteParticipantsCleared"]>>();
+    const { movement, presence, session } = startSession({
+      onRemoteParticipantsCleared,
+    });
+    session.connect();
+    await vi.waitFor(() => expect(movement.readStepMs()).not.toBeNull());
+
+    expect(session.rejoin()).toBe(true);
+    expect(presence.getState().selfId).toBe(WELCOME.userId);
+    expect(onRemoteParticipantsCleared).toHaveBeenCalledOnce();
+    expect(movement.readStepMs()).toBeNull();
+    await vi.waitFor(() => {
+      expect(world.connections).toHaveLength(2);
+      expect(movement.readStepMs()).not.toBeNull();
+    });
+  });
+
   it("draws everyone the snapshot names and reports the connect", async () => {
     serveWorld(admit);
     const { captureEvent, presence, session } = startSession();
@@ -124,6 +145,27 @@ describe("createWorldSession", () => {
       "realtime.connected",
       { reconnect: false },
     ]);
+  });
+
+  it("hands each frame on with the presence it produced", async () => {
+    serveWorld(admit);
+    const seen: { type: string; participants: string[] }[] = [];
+    const { session } = startSession({
+      onMessage: (message, presence) =>
+        seen.push({
+          type: message.type,
+          participants: [...presence.participants.keys()],
+        }),
+    });
+
+    session.connect();
+
+    await vi.waitFor(() =>
+      expect(seen.map(({ type }) => type)).toContain("snapshot"),
+    );
+    expect(seen.find(({ type }) => type === "snapshot")?.participants).toEqual(
+      SNAPSHOT.players.map(({ userId }) => userId),
+    );
   });
 
   it("hands a terminal close to its caller once and empties the map", async () => {
@@ -155,6 +197,31 @@ describe("createWorldSession", () => {
 
     expect(session.getStatus()).toEqual({ phase: "reconnecting", attempt: 1 });
     expect([...presence.getState().participants.keys()]).toEqual([
+      presence.getState().selfId,
+    ]);
+  });
+
+  it("hands on the emptied presence when a close clears the remote participants", async () => {
+    vi.useFakeTimers();
+    serveWorld((connection) => {
+      admit(connection);
+      connection.client.send(JSON.stringify(serverFrames.joined));
+      connection.client.send(JSON.stringify(serverFrames.nearby));
+      setTimeout(() => connection.client.close(1011, "internal_error"), 10);
+    });
+    const onRemoteParticipantsCleared =
+      vi.fn<NonNullable<WorldSessionOptions["onRemoteParticipantsCleared"]>>();
+    const { presence, session } = startSession({ onRemoteParticipantsCleared });
+
+    session.connect();
+    await settle();
+    await vi.advanceTimersByTimeAsync(10);
+    await settle();
+
+    expect(onRemoteParticipantsCleared).toHaveBeenCalledOnce();
+    const handedOn = onRemoteParticipantsCleared.mock.calls[0]?.[0];
+    expect(handedOn?.nearby).toEqual([]);
+    expect([...(handedOn?.participants.keys() ?? [])]).toEqual([
       presence.getState().selfId,
     ]);
   });
@@ -233,6 +300,17 @@ describe("createWorldSession", () => {
 
       session.connect();
 
+      expect(session.getStatus()).toEqual({
+        phase: "closed",
+        outcome: "entered-elsewhere",
+      });
+      expect(world.connections).toHaveLength(1);
+    });
+
+    it("never rejoins it for proximity audio", async () => {
+      const { session, world } = await enteredElsewhere();
+
+      expect(session.rejoin()).toBe(false);
       expect(session.getStatus()).toEqual({
         phase: "closed",
         outcome: "entered-elsewhere",

@@ -40,6 +40,10 @@ Tests inject a store through `MediaSessionProvider`.
 
 ## Contributing
 
+`MeetingMediaTransport.retry()` (the store's `retryCallAudio()`) tries the
+call again after it became `unavailable`; it reaches the transport only while
+connected.
+
 ### Adding the backend transport
 
 Add an adapter that satisfies `MeetingMediaTransport` and pass it to

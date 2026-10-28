@@ -12,7 +12,11 @@ import { readWorldSocketUrl } from "@/core/realtime/configuration";
 import type { RefreshSession } from "@/core/session";
 
 import type { AnalyticsCapture } from "./realtime-analytics";
-import { createWorldSession, type WorldSession } from "./world-session";
+import {
+  createWorldSession,
+  type WorldSession,
+  type WorldSessionOptions,
+} from "./world-session";
 
 function captureRealtimeEvent([name, properties]: AnalyticsCapture) {
   captureBrowserAnalyticsEvent(name, properties);
@@ -23,6 +27,8 @@ export function createBrowserWorldSession(
   ports: {
     refreshSession: RefreshSession;
     onOutcome: (outcome: RealtimeOutcome) => void;
+    onMessage: WorldSessionOptions["onMessage"];
+    onRemoteParticipantsCleared: WorldSessionOptions["onRemoteParticipantsCleared"];
   },
 ): WorldSession {
   return createWorldSession({
@@ -32,6 +38,8 @@ export function createBrowserWorldSession(
     refreshSession: ports.refreshSession,
     captureEvent: captureRealtimeEvent,
     onOutcome: ports.onOutcome,
+    onMessage: ports.onMessage,
+    onRemoteParticipantsCleared: ports.onRemoteParticipantsCleared,
     createSocket: (url) => new WebSocket(url),
     logger: createConsoleLogger(),
     isOnline: browserIsOnline,

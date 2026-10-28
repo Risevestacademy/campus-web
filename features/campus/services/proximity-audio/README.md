@@ -16,17 +16,50 @@ const session = createProximityAudioSession({
 });
 
 session.applyWorldMessage(message, presence); // every parsed World frame
+session.applyPresence(presence); // presence that changed without a frame
 ```
+
+The Presence Session uses `createBrowserProximityAudioSession()`, which binds
+`pinMediaUrl` to `NEXT_PUBLIC_MEDIA_URL`, `now` to `performance.now`, first
+audio to PostHog, and the LiveKit adapter as `roomTransport`.
 
 - `connect(callbacks)` / `handleLocalPublicationChange(change)`: the media
   session's transport seam. Only the microphone reaches the room.
 - `applyWorldMessage(message, presence)`: a proximity `call` swaps rooms;
   `call: null` or a room-hearing call leaves. `snapshot`, `joined`, `left`,
   `moved`, `moveResult` and `nearby` reapply subscriptions and gains in the
-  same task.
+  same task. `applyPresence` does the same for presence a World close
+  emptied, so nobody stays audible while World cannot say who is near.
 - `MeetingRoomTransport` (`contracts.ts`): joins one room with
   `{ url, token }` and returns a `MeetingRoomConnection` that subscribes by
   participant id, publishes local changes, and disconnects.
+
+## Modules
+
+| Module                               | Owns                                                      |
+| ------------------------------------ | --------------------------------------------------------- |
+| `proximity-audio-session.ts`         | call lifecycle, subscription policy, gain, status, timing |
+| `livekit-meeting-room-transport.ts`  | one LiveKit `Room` as a `MeetingRoomConnection`           |
+| `browser-proximity-audio-session.ts` | production composition: media host pin, clock, analytics  |
+
+## LiveKit adapter
+
+- The `Room` is built after the session pins the host, and joins with
+  `autoSubscribe: false` and `maxRetries: 3` (three join attempts). Listeners
+  register before `connect`.
+- Identity is `<userId>:<anything>`; anything else is never subscribed.
+- Only microphone publications of the asked-for ids subscribe. Camera, screen
+  and unknown sources stay unsubscribed. The first subscribed microphone
+  reports first audio, once per room.
+- It publishes copies of the member's microphone, never the store's track:
+  LiveKit can stop a track it fails to publish. A device switch swaps the copy
+  in place; turning off unpublishes it. Changes run in order.
+- `removed` follows an unsubscribe or unpublish. A leave and a full reconnect
+  unpublish every track first, so they need nothing more.
+- `connect` rejects once `signal` aborts and leaves the half-joined room.
+  `disconnect` always settles, stops every copy, and reports no drop.
+  Microphone changes still queued then never clone.
+- `livekit-client` loads only through `services/livekit/livekit-client.ts`.
 
 ## Rules
 
@@ -52,8 +85,34 @@ session.applyWorldMessage(message, presence); // every parsed World frame
 
 Room-hearing spaces and remote video are not supported yet.
 
+`RemoteAudioOutput` follows each participant's gain outside React, so a gain
+change never detaches the audio. A participant with no gain plays silent.
+While the status is `unavailable`, `CallAudioFeedback` (once per Presence
+Session) shows a warning toast, "Audio couldn't connect", with Try again.
+`retry()` rejoins the latest call in place; if LiveKit refuses that grant
+(`RoomAccessDeniedError`, usually an expired token) it calls `refreshCall`
+(`world.rejoin()`), and World answers with a fresh call. If World is not
+connected, `refreshCall` returns false and the status goes back to
+`unavailable`. Only the member's
+retry refreshes, never a failure on its own. It
+closes when audio recovers or the session ends. The media controls never grow
+to explain it.
+
+## Analytics
+
+| Event                          | Properties       | When                                       |
+| ------------------------------ | ---------------- | ------------------------------------------ |
+| `campus.proximity_audio_ready` | `first_audio_ms` | first nearby microphone of a measured call |
+
 ## Tests
 
 ```bash
 pnpm vitest run --project=unit features/campus/services/proximity-audio
+pnpm eval:proximity-audio
+pnpm eval:privacy
 ```
+
+The eval drives real frames through presence, this session and the adapter
+over `testing/fake-livekit.ts`. Threshold: 5/5 scenarios, every `nearby`
+change applied in the same task, and no subscription outside the latest
+`nearby`.

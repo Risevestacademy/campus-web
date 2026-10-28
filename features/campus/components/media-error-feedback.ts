@@ -1,6 +1,7 @@
 import { toast } from "@/shared/ui/toast";
 
 import type {
+  CallAudioStatus,
   CaptureSource,
   MediaSessionErrorCode,
 } from "../services/media-session/contracts";
@@ -9,6 +10,7 @@ type MediaFeedback = Readonly<{ description: string; title: string }>;
 
 const FEEDBACK_TIMEOUT_MS = 7000;
 const SPEAKER_TOAST_ID = "media-output";
+const CALL_AUDIO_TOAST_ID = "call-audio";
 
 const sourceNames = {
   camera: { lower: "camera", title: "Camera" },
@@ -118,5 +120,31 @@ export function reportSpeakerResult(error: MediaSessionErrorCode | null) {
   showFailure(SPEAKER_TOAST_ID, {
     description: "Audio keeps playing through your current speaker.",
     title: "Couldn't choose a speaker",
+  });
+}
+
+export function closeCallAudioFeedback() {
+  toast.close(CALL_AUDIO_TOAST_ID);
+}
+
+// Stays until the member tries again or audio recovers. A warning, not an
+// error: the member keeps the map and everything but hearing.
+export function reportCallAudioStatus(
+  status: CallAudioStatus,
+  tryAgain: () => void,
+) {
+  if (status !== "unavailable") {
+    closeCallAudioFeedback();
+    return;
+  }
+
+  toast.add({
+    actionProps: { children: "Try again", onClick: tryAgain },
+    description: "You can still move around. Try again to hear people nearby.",
+    id: CALL_AUDIO_TOAST_ID,
+    priority: "high",
+    timeout: 0,
+    title: "Audio couldn't connect",
+    type: "warning",
   });
 }

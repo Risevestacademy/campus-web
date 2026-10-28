@@ -7,17 +7,21 @@ import type {
   MeetingMediaTransportCallbacks,
   RemotePublicationChange,
 } from "../media-session/contracts";
-import type {
-  MeetingRoomConnection,
-  MeetingRoomEvents,
-  MeetingRoomTransport,
-  ProximityAudioSession,
+import {
+  type MeetingRoomConnection,
+  type MeetingRoomEvents,
+  type MeetingRoomTransport,
+  type ProximityAudioSession,
+  RoomAccessDeniedError,
 } from "./contracts";
 
 type ProximityAudioSessionOptions = Readonly<{
   now: () => number;
   pinMediaUrl: (url: string) => string | undefined;
   recordFirstAudioMilliseconds: (milliseconds: number) => void;
+  // Asks World to send the call again with a fresh token; false when World
+  // cannot be asked right now.
+  refreshCall: () => boolean;
   roomTransport: MeetingRoomTransport;
 }>;
 
@@ -76,7 +80,10 @@ export function createProximityAudioSession(
   // finishes leaving before the next one joins.
   let transition = Promise.resolve();
 
-  function enqueue(step: () => Promise<void>, onError: () => void) {
+  function enqueue(
+    step: () => Promise<void>,
+    onError: (error: unknown) => void,
+  ) {
     transition = transition.then(step).catch(onError);
   }
 
@@ -227,7 +234,12 @@ export function createProximityAudioSession(
     callbacks?.onStatusChange("idle");
   }
 
-  function joinLatestCall() {
+  function joinLatestCall(
+    onFailure: (error: unknown, stepGeneration: number) => void = (
+      _error,
+      stepGeneration,
+    ) => fail(stepGeneration),
+  ) {
     if (!latestCall || !latestPresence) return;
     const call = latestCall;
     closeRoom();
@@ -236,8 +248,25 @@ export function createProximityAudioSession(
       nearbyParticipantIds(latestPresence).size > 0 ? options.now() : undefined;
     enqueue(
       () => join(call, stepGeneration, receivedAt),
-      () => fail(stepGeneration),
+      (error) => onFailure(error, stepGeneration),
     );
+  }
+
+  // Only the member's own retry refreshes: a refused grant on World's fresh
+  // call would otherwise cycle World's socket forever.
+  function refreshOrFail(error: unknown, stepGeneration: number) {
+    if (
+      !(error instanceof RoomAccessDeniedError) ||
+      !currentCallbacks(stepGeneration)
+    ) {
+      fail(stepGeneration);
+      return;
+    }
+    if (!options.refreshCall()) fail(stepGeneration);
+  }
+
+  function retry() {
+    joinLatestCall(refreshOrFail);
   }
 
   function applyWorldMessage(message: ServerMessage, presence: Presence) {
@@ -256,6 +285,11 @@ export function createProximityAudioSession(
     joinLatestCall();
   }
 
+  function applyPresence(presence: Presence) {
+    latestPresence = presence;
+    applyPolicy();
+  }
+
   function handleLocalPublicationChange(change: LocalPublicationChange) {
     const source =
       change.type === "removed" ? change.source : change.publication.source;
@@ -267,6 +301,7 @@ export function createProximityAudioSession(
   }
 
   return {
+    applyPresence,
     applyWorldMessage,
     connect(nextCallbacks) {
       if (callbacks) return () => undefined;
@@ -282,5 +317,6 @@ export function createProximityAudioSession(
       };
     },
     handleLocalPublicationChange,
+    retry,
   };
 }

@@ -18,6 +18,12 @@ import {
   seedPresence,
 } from "@/tests/fixtures/nearby-presence";
 
+const captureBrowserAnalyticsEvent = vi.hoisted(() => vi.fn());
+
+vi.mock("@/core/analytics/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/core/analytics/client")>()),
+  captureBrowserAnalyticsEvent,
+}));
 vi.mock("@/features/auth", () => import("@/tests/fixtures/route-access-stub"));
 vi.mock("server-only", () => ({}));
 
@@ -49,13 +55,20 @@ function gridSwitch() {
   return screen.getByRole("switch", { name: "Use grid view" });
 }
 
+function viewsShown() {
+  return captureBrowserAnalyticsEvent.mock.calls.filter(
+    ([name]) => name === "campus.proximity_view_shown",
+  );
+}
+
 afterEach(() => {
+  captureBrowserAnalyticsEvent.mockClear();
   window.localStorage.clear();
   Reflect.deleteProperty(document.documentElement.dataset, "sidebarOpen");
   clearPresence(COHORT_ID);
 });
 
-describe("proximity view eval (required threshold: 5/5)", () => {
+describe("proximity view eval (required threshold: 6/6)", () => {
   it("shows no meeting while nobody is near", async () => {
     seedPresence(COHORT_ID);
     await renderActiveCampusLayout();
@@ -132,5 +145,20 @@ describe("proximity view eval (required threshold: 5/5)", () => {
 
     expect(nearbyHeading()).toBeInTheDocument();
     expect(tileFor("Toni Morrison")).toBeInTheDocument();
+  });
+
+  it("counts the meeting view once per encounter, not once per frame", async () => {
+    seedPresence(COHORT_ID);
+    await renderActiveCampusLayout();
+
+    act(() => applyFrame(COHORT_ID, nearbyFrame(GRACE)));
+    act(() => applyFrame(COHORT_ID, nearbyFrame(GRACE)));
+
+    expect(viewsShown()).toEqual([["campus.proximity_view_shown", {}]]);
+
+    act(() => applyFrame(COHORT_ID, nearbyFrame()));
+    act(() => applyFrame(COHORT_ID, nearbyFrame(GRACE)));
+
+    expect(viewsShown()).toHaveLength(2);
   });
 });

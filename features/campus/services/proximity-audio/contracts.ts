@@ -7,6 +7,12 @@ import type {
   RemotePublicationChange,
 } from "../media-session/contracts";
 
+// The room refused the grant, most often because its token expired: only a
+// fresh call from World can join it.
+export class RoomAccessDeniedError extends Error {
+  override name = "RoomAccessDeniedError";
+}
+
 export type MeetingRoomEvents = Readonly<{
   onDisconnected: () => void;
   onFirstRemoteAudio: () => void;
@@ -34,4 +40,6 @@ export interface MeetingRoomTransport {
 
 export interface ProximityAudioSession extends MeetingMediaTransport {
   applyWorldMessage(message: ServerMessage, presence: Presence): void;
+  // Presence that changed without a frame, like a World close clearing it.
+  applyPresence(presence: Presence): void;
 }

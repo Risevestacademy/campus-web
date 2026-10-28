@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import { Button } from "./button";
 import { Dialog, DialogContent, DialogTitle } from "./dialog";
@@ -67,6 +67,52 @@ export const ErrorFeedback: Story = {
     await waitFor(() =>
       expect(document.querySelector("[data-slot=toast]")).toBeNull(),
     );
+  },
+};
+
+const tryAgain = fn();
+
+export const WithAction: Story = {
+  render: (toasterProps) => (
+    <Toaster {...toasterProps}>
+      <Button
+        variant="outline"
+        onClick={() =>
+          storyToastManager.add({
+            actionProps: { children: "Try again", onClick: tryAgain },
+            description:
+              "You can still move around. Try again to hear people nearby.",
+            id: "story-call-audio",
+            timeout: 0,
+            title: "Audio couldn't connect",
+            type: "warning",
+          })
+        }
+      >
+        Join the call
+      </Button>
+    </Toaster>
+  ),
+  play: async ({ canvasElement }) => {
+    const document = canvasElement.ownerDocument;
+    const page = within(document.body);
+
+    await userEvent.click(
+      await page.findByRole("button", { name: "Join the call" }),
+    );
+
+    const description = await page.findByText(
+      "You can still move around. Try again to hear people nearby.",
+    );
+    const action = await page.findByRole("button", { name: "Try again" });
+    await waitFor(() => expect(action).toBeVisible());
+    // The action sits under the text instead of squeezing it into a column.
+    await expect(action.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      description.getBoundingClientRect().bottom,
+    );
+
+    await userEvent.click(action);
+    await expect(tryAgain).toHaveBeenCalledOnce();
   },
 };
 
