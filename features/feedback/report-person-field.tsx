@@ -109,11 +109,6 @@ function PersonPicker({
       ) : null}
       <input type="hidden" name="personRequired" value="yes" />
       <input type="hidden" name="reportedUserId" value={selected?.id ?? ""} />
-      <input
-        type="hidden"
-        name="reported"
-        value={selected ? nameOf(selected) : ""}
-      />
       <FieldError message={error} />
     </div>
   );

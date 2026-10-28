@@ -225,6 +225,75 @@ describe("Feedback popup", () => {
     ).not.toBeInTheDocument();
   });
 
+  describe("closing the feedback popup from the rest of the shell", () => {
+    function renderWithPopup() {
+      render(
+        <CampusShell
+          FeedbackPopup={FeedbackPopupStub}
+          OverviewPanel={OverviewPanelStub}
+          cohortId="c-1"
+          userName="Joseph Okoro"
+        >
+          <p>Route content</p>
+        </CampusShell>,
+      );
+      fireEvent.click(
+        within(campusRail()).getByRole("button", { name: "Report an issue" }),
+      );
+      expect(
+        screen.getByRole("region", { name: "Feedback popup" }),
+      ).toBeInTheDocument();
+    }
+
+    it("closes when another rail button is used", () => {
+      renderWithPopup();
+
+      fireEvent.click(
+        within(campusRail()).getByRole("button", { name: "Search" }),
+      );
+
+      expect(
+        screen.queryByRole("region", { name: "Feedback popup" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("closes when something in the sidebar is used", () => {
+      renderWithPopup();
+
+      fireEvent.click(
+        within(
+          screen.getByRole("region", { name: "Overview panel" }),
+        ).getByRole("button"),
+      );
+
+      expect(
+        screen.queryByRole("region", { name: "Feedback popup" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("stays open when Report an issue is pressed again", () => {
+      renderWithPopup();
+
+      fireEvent.click(
+        within(campusRail()).getByRole("button", { name: "Report an issue" }),
+      );
+
+      expect(
+        screen.getByRole("region", { name: "Feedback popup" }),
+      ).toBeInTheDocument();
+    });
+
+    it("stays open when the popup itself is used", () => {
+      renderWithPopup();
+
+      fireEvent.click(screen.getByText("Joseph Okoro"));
+
+      expect(
+        screen.getByRole("region", { name: "Feedback popup" }),
+      ).toBeInTheDocument();
+    });
+  });
+
   it("tells the member when the campus map has lost world", () => {
     renderActiveCampus(
       undefined,

@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from "react";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
+import { closeFeedbackPanel } from "../../store/feedback-panel-store";
 import type {
   SidebarMode,
   SidebarPanelId,
@@ -74,20 +75,27 @@ export function CampusShell({
           data-surface-role="background"
           className="bg-background text-foreground flex h-dvh gap-1.5 p-1.5"
         >
-          <CampusRail
-            account={AccountMenu ? <AccountMenu>{avatar}</AccountMenu> : avatar}
-            cohortId={cohortId}
-            hasAdministration={administrationPanel !== undefined}
-            initialSidebarMode={initialSidebarMode}
-          />
-          <CampusSidebar
-            administrationPanel={administrationPanel}
-            initialMode={initialSidebarMode}
-            panels={{
-              ...comingSoonPanels,
-              map: <OverviewPanel collapseButton={collapseButton} />,
-            }}
-          />
+          {/* The feedback popup covers only the content area, so using the
+              rail or the sidebar closes it, as a click on its backdrop does.
+              The capture phase runs first, so "Report an issue" still opens. */}
+          <div className="contents" onClickCapture={closeFeedbackPanel}>
+            <CampusRail
+              account={
+                AccountMenu ? <AccountMenu>{avatar}</AccountMenu> : avatar
+              }
+              cohortId={cohortId}
+              hasAdministration={administrationPanel !== undefined}
+              initialSidebarMode={initialSidebarMode}
+            />
+            <CampusSidebar
+              administrationPanel={administrationPanel}
+              initialMode={initialSidebarMode}
+              panels={{
+                ...comingSoonPanels,
+                map: <OverviewPanel collapseButton={collapseButton} />,
+              }}
+            />
+          </div>
           <FeedbackLayer
             FeedbackPopup={FeedbackPopup}
             cohortId={cohortId}

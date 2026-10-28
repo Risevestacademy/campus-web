@@ -6,18 +6,11 @@ import { type RefObject, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 
-import { FeedbackDetail } from "./feedback-detail";
 import { FeedbackForm } from "./feedback-form";
-import { FeedbackList } from "./feedback-list";
 import { FeedbackSent } from "./feedback-sent";
 import { useSendFeedback } from "./hooks/use-send-feedback";
 import type { FeedbackSendProblem } from "./services/feedback-api.adapter";
-import type { FeedbackItem, NewFeedback } from "./types";
-
-type FeedbackView =
-  | { kind: "form" }
-  | { kind: "sent"; itemId: string }
-  | { kind: "detail"; itemId: string };
+import type { NewFeedback, SentFeedback } from "./types";
 
 export interface FeedbackPopupProps {
   isOpen: boolean;
@@ -52,34 +45,17 @@ export function FeedbackPopup({
   userId,
   userName,
 }: FeedbackPopupProps) {
-  const [history, setHistory] = useState<readonly FeedbackItem[]>([]);
-  const [view, setView] = useState<FeedbackView>({ kind: "form" });
+  const [sent, setSent] = useState<SentFeedback>();
   const [formKey, setFormKey] = useState(0);
-  const activeItem =
-    view.kind === "form"
-      ? undefined
-      : history.find((item) => item.id === view.itemId);
 
   const sending = useSendFeedback({
-    onSent: (receiptId, { feedback }) => {
-      const item: FeedbackItem = {
-        id: receiptId,
-        kind: feedback.kind,
-        title: feedback.title,
-        details: feedback.details,
-        location: feedback.location,
-        reported: feedback.reported,
-        submittedLabel: "just now",
-      };
-
-      setHistory((current) => [item, ...current]);
-      setView({ kind: "sent", itemId: item.id });
-    },
+    onSent: ({ feedback }) =>
+      setSent({ kind: feedback.kind, title: feedback.title }),
   });
 
   function showNewForm() {
     sending.reset();
-    setView({ kind: "form" });
+    setSent(undefined);
     setFormKey((key) => key + 1);
   }
 
@@ -108,7 +84,7 @@ export function FeedbackPopup({
           onClick={onClose}
           className="absolute inset-0 z-40 rounded-xl bg-neutral-950/40 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0"
         />
-        <Dialog.Popup className="bg-background text-foreground absolute inset-2 z-50 flex flex-col overflow-hidden rounded-3xl border border-[#D6E3EC] shadow-2xl transition-[opacity,scale] duration-200 outline-none data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0 motion-reduce:transition-opacity md:inset-x-6 md:top-6 md:bottom-20 md:mx-auto md:max-w-5xl dark:border-[#2B3B5F] dark:bg-[#1F2940]">
+        <Dialog.Popup className="bg-background text-foreground absolute inset-2 z-50 flex flex-col overflow-hidden rounded-3xl border border-[#D6E3EC] shadow-2xl transition-[opacity,scale] duration-200 outline-none data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0 motion-reduce:transition-opacity md:inset-x-6 md:top-6 md:bottom-20 md:mx-auto md:max-w-3xl dark:border-[#2B3B5F] dark:bg-[#1F2940]">
           <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#D6E3EC] px-6 py-5 dark:border-[#2B3B5F]">
             <div className="grid gap-1">
               <Dialog.Title className="font-display text-3xl font-semibold">
@@ -132,25 +108,15 @@ export function FeedbackPopup({
             </Dialog.Close>
           </header>
 
-          <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-[20rem_1fr] md:overflow-hidden">
-            <div className="border-b border-[#D6E3EC] p-4 md:overflow-y-auto md:border-r md:border-b-0 dark:border-[#2B3B5F]">
-              <FeedbackList
-                items={history}
-                activeId={activeItem?.id}
-                onSelect={(itemId) => setView({ kind: "detail", itemId })}
-                onNew={showNewForm}
-              />
-            </div>
-            <div className="p-6 md:overflow-y-auto">
-              {activeItem && view.kind === "sent" ? (
+          <div className="min-h-0 flex-1 overflow-y-auto p-6">
+            <div className="mx-auto w-full max-w-2xl">
+              {sent ? (
                 <FeedbackSent
                   firstName={firstNameOf(userName)}
-                  item={activeItem}
+                  sent={sent}
                   onSendAnother={showNewForm}
                   onBack={onClose}
                 />
-              ) : activeItem ? (
-                <FeedbackDetail item={activeItem} />
               ) : (
                 <FeedbackForm
                   key={formKey}

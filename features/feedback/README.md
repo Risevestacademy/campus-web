@@ -1,8 +1,7 @@
 # Feedback
 
 Owns the Feedback popup a member opens from the Campus Shell's "Report an
-issue" rail button: the form, the member's feedback history with each item's details, and the
-confirmation after sending. Opening and placing the popup belongs to `campus`.
+issue" rail button: the form and the confirmation after sending. Opening and placing the popup belongs to `campus`.
 
 ## Interface
 
@@ -21,9 +20,8 @@ Feedback.
 
 | Module                                                                              | Owns                                                                                                           | Seam                                    |
 | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `feedback-popup.tsx`                                                                | the modal, history state, form and confirmation switching                                                      | none                                    |
+| `feedback-popup.tsx`                                                                | the modal, form and confirmation switching                                                                     | none                                    |
 | `feedback-form.tsx`, `form-field.tsx`, `screenshot-field.tsx`                       | the form, its validation display, the shared field styling, the screenshot picker                              | none                                    |
-| `feedback-list.tsx`, `feedback-detail.tsx`                                          | the feedback history and the selected item's details                                                           | none                                    |
 | `feedback-sent.tsx`                                                                 | the confirmation screen                                                                                        | none                                    |
 | `schemas/feedback.schema.ts`, `feedback-kinds.ts`, `types.ts`                       | validation, kind labels and icons, types                                                                       | none                                    |
 | `report-person-field.tsx`, `schemas/people.schema.ts`, `hooks/use-cohort-people.ts` | the report's person picker, its list of people, and its unavailable notice                                     | `services/cohort-people-api.adapter.ts` |
@@ -37,8 +35,8 @@ place. Two people who share a name are marked, because the list carries
 nothing else to tell them apart. When the cohort can't be listed, or lists
 nobody else, the form says so and the report goes without a person, with who
 it is about left to the details, so a failed lookup never blocks one. Members cannot
-read feedback back, so the history lists only what this session sent and
-resets on reload. Admins read it in `admin`. Screenshots are not sent: the
+read feedback back, so nothing sent is listed again: the confirmation is all
+they see. Admins read it in `admin`. Screenshots are not sent: the
 backend has nowhere to store them yet, so the picker only previews.
 
 ## Contributing

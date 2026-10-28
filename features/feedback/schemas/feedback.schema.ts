@@ -54,8 +54,6 @@ export const feedbackSchema = z
         LOCATION_MAX_LENGTH,
         `Keep this under ${LOCATION_MAX_LENGTH} characters.`,
       ),
-    // The picked person's name, kept for the history; only the id is sent.
-    reported: z.string().trim(),
     reportedUserId: z.union([
       z.literal(""),
       z.uuid("Choose who you are reporting again."),
