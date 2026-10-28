@@ -229,7 +229,7 @@ describe("Feedback popup", () => {
           FeedbackPopup={FeedbackPopupStub}
           OverviewPanel={OverviewPanelStub}
           cohortId="c-1"
-          userName="Joseph Okoro"
+          viewer={{ id: "u-1", displayName: "Joseph Okoro" }}
         >
           <p>Route content</p>
         </CampusShell>,
