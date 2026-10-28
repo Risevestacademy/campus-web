@@ -8,6 +8,7 @@ import { cn } from "cn";
 
 import { Button } from "@/shared/ui/button";
 
+import { useMicrophoneLevelRef } from "../hooks/use-microphone-level-ref";
 import type {
   CaptureStatus,
   MediaSessionErrorCode,
@@ -36,12 +37,22 @@ type MediaToggleProps = Readonly<{
   error: MediaSessionErrorCode | null;
   isEnabled: boolean;
   kind: MediaKind;
+  // The live microphone whose level fills the glyph while it is on.
+  levelTrack?: MediaStreamTrack | null;
   onToggle: () => Promise<void>;
   status: CaptureStatus;
 }>;
 
 const swapTransitionClassName =
   "transition-opacity duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] group-focus-visible/media-toggle:transition-none";
+
+// Phosphor's microphone capsule spans x 80-176 and y 16-176 of its 256 box:
+// the fill rises inside the capsule only, so the stand never fills. Under
+// reduced motion the fill gives way to a colour change while speaking.
+const levelFillClassName =
+  "text-success-icon absolute inset-0 size-full [clip-path:inset(calc(68.75%_-_var(--mic-level,0)_*_62.5%)_31.25%_31.25%_31.25%)] motion-reduce:hidden";
+const speakingColorClassName =
+  "motion-reduce:group-data-[speaking=true]/mic-level:text-success-icon";
 
 function getSwapState(isVisible: boolean) {
   return isVisible ? "opacity-100" : "opacity-0";
@@ -84,12 +95,15 @@ export function MediaToggle({
   error,
   isEnabled,
   kind,
+  levelTrack = null,
   onToggle,
   status,
 }: MediaToggleProps) {
   const { DisabledIcon, disableTitle, EnabledIcon, enableTitle, label } =
     mediaControls[kind];
   const isInteractionDisabled = isToggleUnavailable(error, isEnabled);
+  const meteredTrack = isEnabled ? levelTrack : null;
+  const levelRef = useMicrophoneLevelRef(meteredTrack);
   const title =
     status === "requesting"
       ? `Starting ${label.toLowerCase()}`
@@ -112,7 +126,11 @@ export function MediaToggle({
       onClick={() => void onToggle()}
       className="group/media-toggle data-[media-state=off]:text-error-icon hover:bg-muted data-[media-state=off]:hover:bg-error/10 disabled:text-muted-foreground! transition-[background-color,color,scale,translate] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:transition-none active:scale-[0.97] disabled:opacity-100 motion-reduce:transition-none motion-reduce:active:scale-100"
     >
-      <span aria-hidden className="relative block size-5.5 shrink-0">
+      <span
+        ref={levelRef}
+        aria-hidden
+        className="group/mic-level relative block size-5.5 shrink-0"
+      >
         <EnabledIcon
           data-slot={`${kind}-enabled-icon`}
           focusable="false"
@@ -121,8 +139,17 @@ export function MediaToggle({
             "absolute inset-0 size-full",
             swapTransitionClassName,
             getSwapState(isEnabled),
+            meteredTrack && speakingColorClassName,
           )}
         />
+        {meteredTrack ? (
+          <EnabledIcon
+            data-slot={`${kind}-level`}
+            focusable="false"
+            weight="fill"
+            className={levelFillClassName}
+          />
+        ) : null}
         <DisabledIcon
           data-slot={`${kind}-disabled-icon`}
           focusable="false"
