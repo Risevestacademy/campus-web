@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Presence } from "@/core/presence";
 import type { CallMessage, ServerMessage } from "@/core/realtime";
@@ -381,6 +381,59 @@ describe("createProximityAudioSession", () => {
         ),
       );
       expect(refreshCall).toHaveBeenCalledOnce();
+    });
+
+    describe("while World sends a fresh call", () => {
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      async function refreshing() {
+        const room = await unavailableAfter(
+          new Error("server unreachable"),
+          new RoomAccessDeniedError("token expired"),
+        );
+        vi.useFakeTimers();
+        room.session.retry();
+        await vi.waitFor(() => expect(room.refreshCall).toHaveBeenCalledOnce());
+        return room;
+      }
+
+      it("gives up after 15 seconds without one", async () => {
+        const { callbacks } = await refreshing();
+
+        await vi.advanceTimersByTimeAsync(14_000);
+        expect(callbacks.onStatusChange).toHaveBeenLastCalledWith("connecting");
+        await vi.advanceTimersByTimeAsync(1_000);
+
+        expect(callbacks.onStatusChange).toHaveBeenLastCalledWith(
+          "unavailable",
+        );
+      });
+
+      it("keeps the fresh call that arrives in time", async () => {
+        const { callbacks, joined, session } = await refreshing();
+        session.applyWorldMessage(
+          callWith({ token: "fresh-token" }),
+          presenceWith([NEARBY_ID]),
+        );
+        await joined();
+
+        await vi.advanceTimersByTimeAsync(15_000);
+
+        expect(callbacks.onStatusChange).toHaveBeenLastCalledWith("connected");
+      });
+    });
+
+    it("never measures first audio for a retry", async () => {
+      const { joined, recordFirstAudioMilliseconds, session } =
+        await unavailableAfter(new Error("server unreachable"));
+
+      session.retry();
+      const room = await joined();
+      room.events.onFirstRemoteAudio();
+
+      expect(recordFirstAudioMilliseconds).not.toHaveBeenCalled();
     });
 
     it("stays unavailable when the retry fails for another reason", async () => {

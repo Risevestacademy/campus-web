@@ -53,7 +53,10 @@ export function createWorldSession({
   onRemoteParticipantsCleared,
   ...clientOptions
 }: WorldSessionOptions): WorldSession {
-  function clearRemoteParticipants() {
+  // Until the next welcome nobody can be moved or heard, so remote
+  // participants go and movement waits.
+  function pauseOnDisconnect() {
+    movement.disconnect();
     presence.getState().clearRemoteParticipants();
     onRemoteParticipantsCleared?.(presence.getState());
   }
@@ -67,10 +70,7 @@ export function createWorldSession({
       movement.apply(event.message);
       onMessage?.(event.message, presence.getState());
     }
-    if (event.type === "closed") {
-      movement.disconnect();
-      clearRemoteParticipants();
-    }
+    if (event.type === "closed") pauseOnDisconnect();
     if (event.type === "stopped") {
       if (!isManuallyRecoverable(event.outcome)) {
         presence.getState().clear();
@@ -107,8 +107,7 @@ export function createWorldSession({
     rejoin() {
       if (client.getStatus().phase !== "connected") return false;
       client.close();
-      movement.disconnect();
-      clearRemoteParticipants();
+      pauseOnDisconnect();
       client.connect();
       return true;
     },

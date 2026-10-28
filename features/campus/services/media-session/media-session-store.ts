@@ -58,8 +58,8 @@ export type MediaSessionState = Readonly<{
   output: AudioOutputState;
   refreshDevices: () => Promise<void>;
   remoteAudioGains: RemoteAudioGains;
-  retryCallAudio: () => void;
   remotePublications: RemotePublicationRegistry;
+  retryCallAudio: () => void;
   selectInputDevice: (
     source: CaptureSource,
     deviceId: string,

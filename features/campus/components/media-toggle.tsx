@@ -36,21 +36,24 @@ type MediaKind = keyof typeof mediaControls;
 type MediaToggleProps = Readonly<{
   error: MediaSessionErrorCode | null;
   isEnabled: boolean;
-  kind: MediaKind;
-  // The live microphone whose level fills the glyph while it is on.
-  levelTrack?: MediaStreamTrack | null;
   onToggle: () => Promise<void>;
   status: CaptureStatus;
-}>;
+}> &
+  (
+    | Readonly<{ kind: "microphone"; levelTrack?: MediaStreamTrack | null }>
+    | Readonly<{ kind: Exclude<MediaKind, "microphone"> }>
+  );
 
 const swapTransitionClassName =
   "transition-opacity duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] group-focus-visible/media-toggle:transition-none";
 
-// Phosphor's microphone capsule spans x 80-176 and y 16-176 of its 256 box:
-// the fill rises inside the capsule only, so the stand never fills. Under
-// reduced motion the fill gives way to a colour change while speaking.
+// The capsule of Phosphor's filled microphone (y 16-176 of its 256 box), so
+// the level fills the capsule and never the stand. Under reduced motion the
+// fill gives way to a colour change while speaking.
+const MICROPHONE_CAPSULE_PATH =
+  "M80,128V64a48,48,0,0,1,96,0v64a48,48,0,0,1-96,0Z";
 const levelFillClassName =
-  "text-success-icon absolute inset-0 size-full [clip-path:inset(calc(68.75%_-_var(--mic-level,0)_*_62.5%)_31.25%_31.25%_31.25%)] motion-reduce:hidden";
+  "text-success-icon absolute inset-0 size-full [clip-path:inset(calc(6.25%_+_(1_-_var(--mic-level,0))_*_62.5%)_0_0_0)] motion-reduce:hidden";
 const speakingColorClassName =
   "motion-reduce:group-data-[speaking=true]/mic-level:text-success-icon";
 
@@ -91,18 +94,18 @@ function getEnableTitle(
   }
 }
 
-export function MediaToggle({
-  error,
-  isEnabled,
-  kind,
-  levelTrack = null,
-  onToggle,
-  status,
-}: MediaToggleProps) {
+function meteredTrackOf(props: MediaToggleProps) {
+  return props.isEnabled && props.kind === "microphone"
+    ? (props.levelTrack ?? null)
+    : null;
+}
+
+export function MediaToggle(props: MediaToggleProps) {
+  const { error, isEnabled, kind, onToggle, status } = props;
   const { DisabledIcon, disableTitle, EnabledIcon, enableTitle, label } =
     mediaControls[kind];
   const isInteractionDisabled = isToggleUnavailable(error, isEnabled);
-  const meteredTrack = isEnabled ? levelTrack : null;
+  const meteredTrack = meteredTrackOf(props);
   const levelRef = useMicrophoneLevelRef(meteredTrack);
   const title =
     status === "requesting"
@@ -143,12 +146,15 @@ export function MediaToggle({
           )}
         />
         {meteredTrack ? (
-          <EnabledIcon
-            data-slot={`${kind}-level`}
+          <svg
+            data-slot="microphone-level"
+            viewBox="0 0 256 256"
+            fill="currentColor"
             focusable="false"
-            weight="fill"
             className={levelFillClassName}
-          />
+          >
+            <path d={MICROPHONE_CAPSULE_PATH} />
+          </svg>
         ) : null}
         <DisabledIcon
           data-slot={`${kind}-disabled-icon`}

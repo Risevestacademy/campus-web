@@ -106,7 +106,6 @@ export const WithAction: Story = {
     );
     const action = await page.findByRole("button", { name: "Try again" });
     await waitFor(() => expect(action).toBeVisible());
-    // The action sits under the text instead of squeezing it into a column.
     await expect(action.getBoundingClientRect().top).toBeGreaterThanOrEqual(
       description.getBoundingClientRect().bottom,
     );

@@ -113,6 +113,6 @@ pnpm eval:privacy
 ```
 
 The eval drives real frames through presence, this session and the adapter
-over `testing/fake-livekit.ts`. Threshold: 5/5 scenarios, every `nearby`
+over `testing/fake-livekit.ts`. Threshold: 6/6 scenarios, every `nearby`
 change applied in the same task, and no subscription outside the latest
 `nearby`.

@@ -16,15 +16,7 @@ function sharedAudioContext() {
 
 // Never connected to the destination: metering must not play the member's
 // own voice back to them.
-function createBrowserAnalyser(
-  track: MediaStreamTrack,
-): LevelAnalyser | undefined {
-  if (
-    typeof AudioContext === "undefined" ||
-    typeof MediaStream === "undefined"
-  ) {
-    return undefined;
-  }
+function connectAnalyser(track: MediaStreamTrack): LevelAnalyser {
   const context = sharedAudioContext();
   const source = context.createMediaStreamSource(new MediaStream([track]));
   const analyser = context.createAnalyser();
@@ -39,6 +31,18 @@ function createBrowserAnalyser(
     },
     size: analyser.fftSize,
   };
+}
+
+// No Web Audio, or a browser that refuses another context: the mic shows no
+// level rather than taking the media controls down with it.
+function createBrowserAnalyser(
+  track: MediaStreamTrack,
+): LevelAnalyser | undefined {
+  try {
+    return connectAnalyser(track);
+  } catch {
+    return undefined;
+  }
 }
 
 export const browserMicrophoneLevelMeter = createMicrophoneLevelMeter({

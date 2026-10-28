@@ -9,7 +9,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { VisualsDisplay } from "@/features/campus";
-import { CallAudioFeedback } from "@/features/campus/components/call-audio-feedback";
+import { CallAudioFeedback } from "@/features/campus/components/presence-session";
 import type {
   CallAudioStatus,
   MeetingMediaTransport,

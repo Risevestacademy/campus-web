@@ -34,6 +34,10 @@ type Position = Readonly<{ x: number; y: number }>;
 
 type PublicationRemoval = Extract<RemotePublicationChange, { type: "removed" }>;
 
+// How long to wait for World's fresh call before offering Try again again. A
+// call that arrives later still joins on World's own path.
+const CALL_REFRESH_TIMEOUT_MS = 15_000;
+
 const POLICY_FRAMES: ReadonlySet<ServerMessage["type"]> = new Set([
   "snapshot",
   "joined",
@@ -234,18 +238,22 @@ export function createProximityAudioSession(
     callbacks?.onStatusChange("idle");
   }
 
+  function measuredFromNow(presence: Presence) {
+    return nearbyParticipantIds(presence).size > 0 ? options.now() : undefined;
+  }
+
   function joinLatestCall(
     onFailure: (error: unknown, stepGeneration: number) => void = (
       _error,
       stepGeneration,
     ) => fail(stepGeneration),
+    measuredFrom: (presence: Presence) => number | undefined = measuredFromNow,
   ) {
     if (!latestCall || !latestPresence) return;
     const call = latestCall;
     closeRoom();
     const stepGeneration = roomGeneration;
-    const receivedAt =
-      nearbyParticipantIds(latestPresence).size > 0 ? options.now() : undefined;
+    const receivedAt = measuredFrom(latestPresence);
     enqueue(
       () => join(call, stepGeneration, receivedAt),
       (error) => onFailure(error, stepGeneration),
@@ -262,11 +270,17 @@ export function createProximityAudioSession(
       fail(stepGeneration);
       return;
     }
-    if (!options.refreshCall()) fail(stepGeneration);
+    if (!options.refreshCall()) {
+      fail(stepGeneration);
+      return;
+    }
+    // A fresh call starts a new room generation, which makes this a no-op.
+    setTimeout(() => fail(stepGeneration), CALL_REFRESH_TIMEOUT_MS);
   }
 
+  // First-audio time measures World's calls, so a retry is never measured.
   function retry() {
-    joinLatestCall(refreshOrFail);
+    joinLatestCall(refreshOrFail, () => undefined);
   }
 
   function applyWorldMessage(message: ServerMessage, presence: Presence) {

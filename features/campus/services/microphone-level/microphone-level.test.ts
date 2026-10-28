@@ -29,9 +29,22 @@ describe("nextDisplayedLevel", () => {
     expect(nextDisplayedLevel(0.1, 0.8)).toBe(0.8);
   });
 
-  it("falls back gradually once the voice stops", () => {
-    expect(nextDisplayedLevel(0.5, 0)).toBeCloseTo(0.44);
-  });
+  // At 60 frames a second: visible for a beat, empty within about 300 ms.
+  it.each([
+    { frames: 6, after: "100 ms", above: 0.4, below: 1 },
+    { frames: 18, after: "300 ms", above: 0, below: 0.15 },
+  ])(
+    "falls from full to between $above and $below $after after the voice stops",
+    ({ frames, above, below }) => {
+      let level = 1;
+      for (let frame = 0; frame < frames; frame += 1) {
+        level = nextDisplayedLevel(level, 0);
+      }
+
+      expect(level).toBeGreaterThan(above);
+      expect(level).toBeLessThan(below);
+    },
+  );
 });
 
 describe("isSpeaking", () => {
