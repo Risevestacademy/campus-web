@@ -27,7 +27,7 @@ afterEach(() => {
   clearPresence("c-1");
 });
 
-describe("meeting header UI (required threshold: 2/2)", () => {
+describe("meeting header UI (required threshold: 3/3)", () => {
   it("renders meeting information without an unavailable lock control", async () => {
     await renderActiveCampusLayout();
 
@@ -42,6 +42,16 @@ describe("meeting header UI (required threshold: 2/2)", () => {
     expect(
       screen.queryByRole("button", { name: "Meeting lock" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows the header settled when the page opens mid-encounter", async () => {
+    await renderActiveCampusLayout();
+
+    const nearbyGroup = screen.getByRole("heading", {
+      name: "Nearby",
+    }).parentElement;
+
+    expect(nearbyGroup).not.toHaveStyle({ opacity: "0" });
   });
 
   it("opens the campus sidebar from the header", async () => {

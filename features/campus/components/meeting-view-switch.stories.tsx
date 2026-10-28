@@ -1,5 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { AnimatePresence } from "motion/react";
+import { useState } from "react";
+import { expect, userEvent, waitFor, within } from "storybook/test";
+
+import { Button } from "@/shared/ui/button";
 
 import { MediaSessionProvider } from "../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../services/media-session/media-session-store";
@@ -48,22 +52,52 @@ function MeetingViewMotionLab({
   bounce,
   nearbyCount,
 }: MeetingViewMotionLabProps) {
+  const [{ isNear, encounter }, setNearness] = useState({
+    isNear: true,
+    encounter: 1,
+  });
   const motionConfig: MeetingTileMotionConfig = {
     durationMs,
     bounce,
   };
   const meeting: ProximityMeeting = {
-    encounter: 1,
+    encounter,
     localParticipantId: "participant-a",
     participants: everyoneNearby.slice(0, nearbyCount + 1),
   };
+
+  // Mirrors presence: coming back near after nobody was starts a new encounter.
+  function toggleNearness() {
+    setNearness((current) => ({
+      isNear: !current.isNear,
+      encounter: current.isNear ? current.encounter : current.encounter + 1,
+    }));
+  }
 
   return (
     <div className="bg-background relative h-dvh overflow-hidden">
       <div className="relative z-1 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-1.5 p-2.5">
         <span aria-hidden="true" />
-        <MeetingViewControls meeting={meeting} motionConfig={motionConfig} />
+        <AnimatePresence>
+          {isNear ? (
+            <MeetingViewControls
+              key="meeting-view"
+              meeting={meeting}
+              motionConfig={motionConfig}
+            />
+          ) : null}
+        </AnimatePresence>
       </div>
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={toggleNearness}
+        className="absolute right-4 bottom-4 z-30"
+      >
+        {isNear ? "Walk away" : "Come back"}
+      </Button>
 
       <div className="bg-cobalt-500/10 absolute inset-1.5 grid place-items-center rounded-xl">
         <p className="text-foreground-secondary text-sm">
@@ -203,6 +237,27 @@ export const Focused: Story = {
   play: async ({ canvasElement }) => {
     await verifyFocusedTileLayout(canvasElement);
     await settleMotion(canvasElement);
+  },
+};
+
+// Nobody near while the grid is open: the grid collapses toward the strip as
+// it fades, instead of fading out at full size.
+export const LeavesWhileExpanded: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await verifyTileExpansion(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Walk away" }));
+    await settleMotion(canvasElement);
+
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("switch", { name: "Use grid view" }),
+      ).not.toBeInTheDocument(),
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Come back" }),
+    ).toBeInTheDocument();
   },
 };
 

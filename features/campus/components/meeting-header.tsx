@@ -114,7 +114,7 @@ export function MeetingHeader({
         <SidebarSimpleIcon aria-hidden />
       </Button>
 
-      <AnimatePresence custom={reduceMotion}>
+      <AnimatePresence initial={false} custom={reduceMotion}>
         {meeting ? (
           <motion.div
             key="nearby-meeting"

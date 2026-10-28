@@ -23,7 +23,7 @@ export const meetingStripVariants: Variants = {
   }),
   shown: (reduceMotion: boolean) => ({
     opacity: 1,
-    transform: "translateY(0px) scale(1)",
+    transform: reduceMotion ? "none" : "translateY(0px) scale(1)",
     transition: enterTransition(reduceMotion),
     transitionEnd: { transform: "none" },
   }),
@@ -53,9 +53,13 @@ export const meetingScaleVariants: Variants = {
     transform: reduceMotion ? "none" : "scale(0.95)",
   }),
   shown: (reduceMotion: boolean) => ({
-    transform: "scale(1)",
+    transform: reduceMotion ? "none" : "scale(1)",
     transition: enterTransition(reduceMotion),
     transitionEnd: { transform: "none" },
+  }),
+  leaving: (reduceMotion: boolean) => ({
+    transform: reduceMotion ? "none" : "scale(0.95)",
+    transition: EXIT,
   }),
 };
 
