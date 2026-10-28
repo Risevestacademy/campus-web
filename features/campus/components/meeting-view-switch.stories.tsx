@@ -165,7 +165,7 @@ function nextFrame() {
   return new Promise((resolve) => requestAnimationFrame(resolve));
 }
 
-const SETTLE_DEADLINE_MS = 2_000;
+const SETTLE_DEADLINE_MS = 4_000;
 
 // The a11y check runs as soon as play returns, and text measured mid-fade
 // fails contrast. Motion runs opacity as Web Animations, so wait until none
@@ -185,6 +185,35 @@ async function settleMotion(canvasElement: HTMLElement) {
       running.map((animation) => animation.finished.catch(() => undefined)),
     );
   }
+}
+
+const STABLE_FRAMES = 3;
+
+function sameRect(left: DOMRect, right: DOMRect) {
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
+  );
+}
+
+// Layout animations run in JS, so settleMotion cannot see them: wait until
+// the element stops moving.
+async function settledRect(element: Element): Promise<DOMRect> {
+  const deadline = performance.now() + SETTLE_DEADLINE_MS;
+  let previous = element.getBoundingClientRect();
+  let stableFrames = 0;
+  while (stableFrames < STABLE_FRAMES) {
+    await nextFrame();
+    if (performance.now() > deadline) {
+      throw new Error("Layout did not settle.");
+    }
+    const current = element.getBoundingClientRect();
+    stableFrames = sameRect(current, previous) ? stableFrames + 1 : 0;
+    previous = current;
+  }
+  return previous;
 }
 
 async function verifyTileExpansion(canvasElement: HTMLElement) {
@@ -243,11 +272,26 @@ export const Focused: Story = {
 // Nobody near while the grid is open: the grid collapses toward the strip as
 // it fades, instead of fading out at full size.
 export const LeavesWhileExpanded: Story = {
+  // The spring runs on time and the check samples frames: under parallel test
+  // load one frame can outlast the default spring and read as a snap.
+  args: { durationMs: 1_600 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-
+    const tiles = canvas.getByRole("region", {
+      name: "Meeting participant tiles",
+    });
+    const compact = await settledRect(tiles);
     await verifyTileExpansion(canvasElement);
+    await settledRect(tiles);
+
     await userEvent.click(canvas.getByRole("button", { name: "Walk away" }));
+    await nextFrame();
+    await nextFrame();
+    const leaving = tiles.getBoundingClientRect();
+
+    // A snap lands on the compact rect at once; a collapse is still wider.
+    await expect(leaving.width).toBeGreaterThan(compact.width + 1);
+
     await settleMotion(canvasElement);
 
     await waitFor(() =>
