@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
 
+import type { components } from "@/core/api/client";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
@@ -16,12 +17,23 @@ import { railPanelItems } from "./rail-items";
 import { SidebarCollapseButton } from "./sidebar-collapse-button";
 import { SidebarComingSoonPanel } from "./sidebar-coming-soon-panel";
 
+// The member's place in this cohort, as the overview panel labels it.
+type OverviewCohort = {
+  name: string;
+  role?: components["schemas"]["CohortRole"];
+};
+
 type CampusShellProps = Readonly<{
   AccountMenu?: ComponentType<{ children: ReactNode }>;
   administrationPanel?: ReactNode;
   FeedbackPopup?: FeedbackPopupComponent;
-  OverviewPanel: ComponentType<{ collapseButton: ReactNode }>;
+  OverviewPanel: ComponentType<{
+    cohort?: OverviewCohort;
+    cohortId: string;
+    collapseButton: ReactNode;
+  }>;
   children: ReactNode;
+  cohort?: OverviewCohort;
   cohortId: string;
   initialSidebarMode?: SidebarMode;
   userId?: string;
@@ -61,6 +73,7 @@ export function CampusShell({
   FeedbackPopup,
   OverviewPanel,
   children,
+  cohort,
   cohortId,
   initialSidebarMode,
   userId,
@@ -92,7 +105,13 @@ export function CampusShell({
               initialMode={initialSidebarMode}
               panels={{
                 ...comingSoonPanels,
-                map: <OverviewPanel collapseButton={collapseButton} />,
+                map: (
+                  <OverviewPanel
+                    cohort={cohort}
+                    cohortId={cohortId}
+                    collapseButton={collapseButton}
+                  />
+                ),
               }}
             />
           </div>

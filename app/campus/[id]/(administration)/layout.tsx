@@ -13,6 +13,7 @@ import {
 import { FeedbackPopup } from "@/features/feedback";
 import { CampusOverviewPanel } from "@/features/roster";
 
+import { cohortContextOf } from "../cohort-context";
 import { requireCohortId } from "../require-cohort-id";
 
 export default async function AdministrationLayout({
@@ -43,6 +44,7 @@ export default async function AdministrationLayout({
         }
         FeedbackPopup={FeedbackPopup}
         OverviewPanel={CampusOverviewPanel}
+        cohort={cohortContextOf(access.session, id)}
         cohortId={id}
         initialSidebarMode="admin"
         userId={access.session.user.id}

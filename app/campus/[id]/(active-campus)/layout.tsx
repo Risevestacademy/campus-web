@@ -17,6 +17,7 @@ import { CampusZoomControls } from "@/features/campus-world";
 import { FeedbackPopup } from "@/features/feedback";
 import { CampusOverviewPanel } from "@/features/roster";
 
+import { cohortContextOf } from "../cohort-context";
 import { requireCohortId } from "../require-cohort-id";
 
 const PLACEHOLDER_ACTIVE_CAMPUS_VIEW_MODEL = {
@@ -59,6 +60,7 @@ export default async function ActiveCampusLayout({
         }
         FeedbackPopup={FeedbackPopup}
         OverviewPanel={CampusOverviewPanel}
+        cohort={cohortContextOf(access.session, id)}
         cohortId={id}
         userId={access.session.user.id}
         userName={access.session.user.displayName}

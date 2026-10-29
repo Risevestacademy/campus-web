@@ -15,7 +15,8 @@ and the Active Campus media UI inside it. Admin catalogues and pages belong to
 <CampusShell
   AccountMenu={AccountMenu}
   administrationPanel={adminSidebar}
-  OverviewPanel={CampusOverviewPanel}
+  OverviewPanel={CampusOverviewPanel} // gets cohort, cohortId and collapseButton
+  cohort={{ name: "Product Design 2026", role: "student" }} // the member's place; undefined for an administrator with none
   cohortId={id}
   initialSidebarMode="admin" // Cohort Administration only
 >
