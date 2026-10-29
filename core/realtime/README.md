@@ -116,11 +116,17 @@ result.
 - `contract.typecheck.ts` pins `ServerMessage`'s types to the generated
   union, so a message added, removed or renamed upstream fails
   `pnpm typecheck` until it has a schema.
-- Messages no feature reads yet (`statusChanged`, `spaceChanged`, `call`,
+- Messages no feature reads yet (`statusChanged`, `spaceChanged`,
   `lockChanged`, `lockableSpaces`) parse to `{ type }` alone. They
-  are known, so they are not logged as skipped, and nothing unread travels on:
-  a `call` carries a media token. The feature that reads one gives it a real
-  schema.
+  are known, so they are not logged as skipped, and nothing unread travels on.
+  The feature that reads one gives it a real schema.
+- `call` keeps `url` and `token` (both non-empty), `hearing` and
+  `audibleRadius` (non-negative);
+  `call: null` means no call. `room` and `subscribeRadius` are stripped: the
+  token already names the room. A `hearing` world added later reads as
+  `"unknown"`.
+  The token is a media secret: proximity audio holds it only for the join
+  that uses it.
 - Objects strip unknown fields rather than reject them. The schema's
   `additionalProperties: false` describes what world sends today, not a
   promise that it will never add a field.

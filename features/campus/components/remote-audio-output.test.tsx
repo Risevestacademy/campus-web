@@ -22,14 +22,14 @@ const originalSetSinkIdDescriptor = Object.getOwnPropertyDescriptor(
 function connectedSession() {
   let emit: (change: RemotePublicationChange) => void = () => undefined;
   const transport: MeetingMediaTransport = {
-    connect(_roomId, listener) {
-      emit = listener;
+    connect(callbacks) {
+      emit = callbacks.onRemotePublicationChange;
       return () => undefined;
     },
     handleLocalPublicationChange() {},
   };
   const store = createMediaSessionStore({ mediaDevices: null, transport });
-  store.getState().connect("c-1");
+  store.getState().connect();
 
   return {
     publish: (publication: RemoteMediaPublication) =>

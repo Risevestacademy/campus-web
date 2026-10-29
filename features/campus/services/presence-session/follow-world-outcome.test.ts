@@ -12,7 +12,7 @@ async function joinedSession() {
   admission.getState().grantEntry("/campus/c-3");
   admission.getState().completeEntry("/campus/c-3");
   await media.store.getState().start();
-  media.store.getState().connect("c-3");
+  media.store.getState().connect();
   await media.store.getState().toggleSource("camera");
   const replaceDocument = vi.fn<(href: string) => void>();
   const tab = { releaseToAnotherDevice: vi.fn(async () => undefined) };

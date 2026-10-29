@@ -29,6 +29,11 @@ const {
   lockedSpaces: _lockedSpaces,
   ...snapshot
 } = serverFrames.snapshot;
+const {
+  room: _room,
+  subscribeRadius: _subscribeRadius,
+  ...call
+} = serverFrames.call.call!;
 
 // Each frame as the parser hands it on: unread fields dropped, and a frame no
 // feature reads yet cut down to its type.
@@ -42,7 +47,7 @@ const framesAsRead = {
   },
   statusChanged: { type: "statusChanged" },
   spaceChanged: { type: "spaceChanged" },
-  call: { type: "call" },
+  call: { type: "call", call },
   nearby: serverFrames.nearby,
   lockChanged: { type: "lockChanged" },
   lockableSpaces: { type: "lockableSpaces" },
@@ -160,6 +165,18 @@ describe("parseServerMessage", () => {
     });
   });
 
+  it("reads a hearing world added after the last world:types as unknown, so the proximity room leaves", () => {
+    const frame = {
+      ...serverFrames.call,
+      call: { ...serverFrames.call.call, hearing: "stage" },
+    };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: { type: "call", call: { ...call, hearing: "unknown" } },
+    });
+  });
+
   it("reads an error code world added after the last world:types as unknown", () => {
     const frame = { ...serverFrames.error, code: "RATE_LIMITED" };
 
@@ -193,6 +210,32 @@ describe("parseServerMessage", () => {
       ok: false,
       reason: "invalid",
       type: "nearby",
+    });
+  });
+
+  it("reads a null call so the active media room can leave", () => {
+    const frame = { type: "call", call: null } as const;
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: frame,
+    });
+  });
+
+  it.each([
+    ["a negative audible radius", { audibleRadius: -1 }],
+    ["an empty token", { token: "" }],
+    ["an empty media url", { url: "" }],
+  ])("refuses a call with %s", (_case, overrides) => {
+    const frame = {
+      ...serverFrames.call,
+      call: { ...serverFrames.call.call, ...overrides },
+    };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: false,
+      reason: "invalid",
+      type: "call",
     });
   });
 
