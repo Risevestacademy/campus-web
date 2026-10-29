@@ -12,13 +12,17 @@ import { useSendFeedback } from "./hooks/use-send-feedback";
 import type { FeedbackSendProblem } from "./services/feedback-api.adapter";
 import type { NewFeedback, SentFeedback } from "./types";
 
+export interface FeedbackViewer {
+  id: string;
+  displayName?: string | null;
+}
+
 export interface FeedbackPopupProps {
   isOpen: boolean;
   onClose: () => void;
   container?: RefObject<HTMLElement | null>;
   cohortId?: string;
-  userId?: string;
-  userName?: string | null;
+  viewer?: FeedbackViewer;
 }
 
 const SEND_PROBLEM_MESSAGES: Record<FeedbackSendProblem, string | undefined> = {
@@ -42,8 +46,7 @@ export function FeedbackPopup({
   onClose,
   container,
   cohortId,
-  userId,
-  userName,
+  viewer,
 }: FeedbackPopupProps) {
   const [sent, setSent] = useState<SentFeedback>();
   const [formKey, setFormKey] = useState(0);
@@ -112,7 +115,7 @@ export function FeedbackPopup({
             <div className="mx-auto w-full max-w-2xl">
               {sent ? (
                 <FeedbackSent
-                  firstName={firstNameOf(userName)}
+                  firstName={firstNameOf(viewer?.displayName)}
                   sent={sent}
                   onSendAnother={showNewForm}
                   onBack={onClose}
@@ -121,7 +124,7 @@ export function FeedbackPopup({
                 <FeedbackForm
                   key={formKey}
                   cohortId={cohortId}
-                  userId={userId}
+                  userId={viewer?.id}
                   isSending={sending.isPending}
                   sendError={
                     sending.problem

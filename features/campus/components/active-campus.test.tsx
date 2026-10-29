@@ -176,15 +176,15 @@ describe("ActiveCampus", () => {
 function FeedbackPopupStub({
   isOpen,
   onClose,
-  userName,
+  viewer,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  userName?: string | null;
+  viewer?: { id: string; displayName?: string | null };
 }) {
   return isOpen ? (
     <section aria-label="Feedback popup">
-      <p>{userName}</p>
+      <p>{viewer?.displayName}</p>
       <button type="button" onClick={onClose}>
         Close popup
       </button>
@@ -199,7 +199,7 @@ describe("Feedback popup", () => {
         FeedbackPopup={FeedbackPopupStub}
         OverviewPanel={OverviewPanelStub}
         cohortId="c-1"
-        userName="Joseph Okoro"
+        viewer={{ id: "u-1", displayName: "Joseph Okoro" }}
       >
         <p>Route content</p>
       </CampusShell>,
@@ -232,7 +232,7 @@ describe("Feedback popup", () => {
           FeedbackPopup={FeedbackPopupStub}
           OverviewPanel={OverviewPanelStub}
           cohortId="c-1"
-          userName="Joseph Okoro"
+          viewer={{ id: "u-1", displayName: "Joseph Okoro" }}
         >
           <p>Route content</p>
         </CampusShell>,
