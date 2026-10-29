@@ -80,7 +80,8 @@ describe("proximity view eval (required threshold: 5/5)", () => {
     expect(nearbyHeading()).toBeInTheDocument();
     expect(tileFor("Ada Lovelace")).toBeInTheDocument();
     expect(tileFor("Grace Hopper")).toBeInTheDocument();
-    expect(screen.getByText("You")).toBeInTheDocument();
+    // Once on your meeting tile, once on your own roster row.
+    expect(screen.getAllByText("You")).toHaveLength(2);
   });
 
   it("never shows anyone on the map who is not near", async () => {

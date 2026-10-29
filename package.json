@@ -44,7 +44,7 @@
     "eval:cohort-card": "vitest run --project=unit tests/evals/cohort-card.eval.test.tsx",
     "eval:theme": "vitest run --project=unit tests/evals/theme.eval.test.ts",
     "eval:session-renewal": "vitest run --project=unit tests/evals/session-renewal.eval.test.ts",
-    "eval:presence": "vitest run --project=unit tests/evals/presence.eval.test.ts",
+    "eval:presence": "vitest run --project=unit tests/evals/presence.eval.test.ts tests/evals/roster-presence.eval.test.ts",
     "eval:presence-tab": "vitest run --project=unit tests/evals/presence-tab.eval.test.ts",
     "eval:proximity": "vitest run --project=unit tests/evals/proximity-view.eval.test.tsx",
     "eval:railway": "vitest run --project=unit tests/evals/railway-iac.eval.test.ts",

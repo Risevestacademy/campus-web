@@ -8,8 +8,8 @@ export const participantFilters: ReadonlyArray<{
 }> = [
   { id: "all", label: "All" },
   { id: "available", label: "Available" },
-  { id: "in-room", label: "In a room" },
   { id: "busy", label: "Busy" },
+  { id: "away", label: "Away" },
 ];
 
 export function matchesParticipantFilter(

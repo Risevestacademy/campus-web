@@ -3,8 +3,9 @@
 import { CaretDownIcon } from "@phosphor-icons/react/dist/ssr/CaretDown";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/ssr/MagnifyingGlass";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
+import { useMountEffect } from "@/shared/lib/use-mount-effect";
 import {
   Collapsible,
   CollapsibleContent,
@@ -27,10 +28,29 @@ import type { Participant, ParticipantAction } from "./types";
 const CARET_ICON_CLASSNAME =
   "-rotate-90 transition-transform group-data-panel-open/section:rotate-0";
 
+const isFindShortcut = (event: KeyboardEvent) =>
+  event.ctrlKey &&
+  !event.metaKey &&
+  !event.altKey &&
+  !event.shiftKey &&
+  event.key.toLowerCase() === "f";
+
+// Behind a modal or faded out with a collapsed sidebar, the search cannot take
+// focus, and swallowing the shortcut would only cost the browser's own find.
+function canTakeFocus(search: HTMLInputElement) {
+  return (
+    !search.closest('[aria-hidden="true"], [inert]') &&
+    search.checkVisibility?.({
+      opacityProperty: true,
+      visibilityProperty: true,
+    }) !== false
+  );
+}
+
 export type CampusOverviewProps = Readonly<{
   collapseButton: ReactNode;
   contextLabel: string;
-  offlineParticipantCount: number;
+  offlineParticipants?: readonly Participant[];
   onParticipantAction?: (
     action: ParticipantAction,
     participant: Participant,
@@ -42,18 +62,41 @@ export type CampusOverviewProps = Readonly<{
 export function CampusOverview({
   collapseButton,
   contextLabel,
-  offlineParticipantCount,
+  offlineParticipants,
   onParticipantAction,
   onQuickTransport,
   participants,
 }: CampusOverviewProps) {
   const [searchText, setSearchText] = useState("");
   const [activeFilter, setActiveFilter] = useState<ParticipantFilterId>("all");
+  const searchRef = useRef<HTMLInputElement>(null);
 
+  // On the window in the capture phase, so the browser's find never sees it.
+  useMountEffect(() => {
+    function focusSearch(event: KeyboardEvent) {
+      const search = searchRef.current;
+      if (!search || !isFindShortcut(event) || !canTakeFocus(search)) return;
+      event.preventDefault();
+      search.focus();
+      search.select();
+    }
+
+    window.addEventListener("keydown", focusSearch, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", focusSearch, { capture: true });
+  });
+
+  const matchesSearch = (participant: Participant) =>
+    participant.name.toLowerCase().includes(searchText.toLowerCase());
   const visibleParticipants = participants.filter(
     (participant) =>
       matchesParticipantFilter(participant, activeFilter) &&
-      participant.name.toLowerCase().includes(searchText.toLowerCase()),
+      matchesSearch(participant),
+  );
+  const visibleOfflineParticipants = offlineParticipants?.filter(
+    (participant) =>
+      matchesParticipantFilter(participant, activeFilter) &&
+      matchesSearch(participant),
   );
 
   return (
@@ -78,6 +121,7 @@ export function CampusOverview({
             className="text-icon-muted pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2"
           />
           <Input
+            ref={searchRef}
             type="search"
             placeholder="Search participants"
             value={searchText}
@@ -133,24 +177,31 @@ export function CampusOverview({
           </CollapsibleContent>
         </Collapsible>
 
-        <Collapsible>
-          <CollapsibleTrigger className="group/section text-foreground-secondary hover:text-foreground flex w-full items-center gap-2 rounded-xl px-2 py-2 text-sm">
-            <CaretDownIcon
-              aria-hidden
-              size={14}
-              className={CARET_ICON_CLASSNAME}
-            />
-            Offline{" "}
-            <span className="text-foreground-muted">
-              {offlineParticipantCount}
-            </span>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <p className="text-foreground-muted px-2 py-2 text-sm">
-              Offline participants will show up here.
-            </p>
-          </CollapsibleContent>
-        </Collapsible>
+        {offlineParticipants && (
+          <Collapsible>
+            <CollapsibleTrigger className="group/section text-foreground-secondary hover:text-foreground flex w-full items-center gap-2 rounded-xl px-2 py-2 text-sm">
+              <CaretDownIcon
+                aria-hidden
+                size={14}
+                className={CARET_ICON_CLASSNAME}
+              />
+              Offline{" "}
+              <span className="text-foreground-muted">
+                {offlineParticipants.length}
+              </span>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <ul>
+                {visibleOfflineParticipants?.map((participant) => (
+                  <ParticipantRow
+                    key={participant.id}
+                    participant={participant}
+                  />
+                ))}
+              </ul>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
 
         <div className="mt-6 border-t pt-4">
           <QuickTransportList onSelect={onQuickTransport} />
