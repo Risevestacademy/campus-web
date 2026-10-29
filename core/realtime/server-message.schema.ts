@@ -206,8 +206,8 @@ const nearbyMessageSchema = z.toZod<NearbyMessage>()(
 
 const callSchema = z.toZod<Call>()(
   z.object({
-    url: z.string(),
-    token: z.string(),
+    url: z.string().min(1),
+    token: z.string().min(1),
     hearing: orUnknown(["room", "proximity"]),
     audibleRadius: z.number().nonnegative(),
   }),

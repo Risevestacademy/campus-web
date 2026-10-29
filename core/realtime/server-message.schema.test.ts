@@ -222,10 +222,14 @@ describe("parseServerMessage", () => {
     });
   });
 
-  it("refuses a negative audible radius", () => {
+  it.each([
+    ["a negative audible radius", { audibleRadius: -1 }],
+    ["an empty token", { token: "" }],
+    ["an empty media url", { url: "" }],
+  ])("refuses a call with %s", (_case, overrides) => {
     const frame = {
       ...serverFrames.call,
-      call: { ...serverFrames.call.call, audibleRadius: -1 },
+      call: { ...serverFrames.call.call, ...overrides },
     };
 
     expect(parseServerMessage(frameText(frame))).toEqual({

@@ -222,6 +222,50 @@ describe("createProximityAudioSession", () => {
     );
   });
 
+  it("rejoins World's latest call when the media session connects again", async () => {
+    const { callbacks, joined, roomTransport, session } = setup({
+      connectLater: true,
+    });
+    session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+    const disconnect = session.connect(callbacks);
+    const first = await joined();
+    disconnect();
+    await vi.waitFor(() =>
+      expect(first.connection.disconnect).toHaveBeenCalledOnce(),
+    );
+
+    session.connect(callbacks);
+
+    await joined(2);
+    expect(roomTransport.connect).toHaveBeenLastCalledWith(
+      { url: CALL.call!.url, token: TOKEN },
+      expect.anything(),
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("releases remote audio when the media session disconnects", async () => {
+    const { callbacks, joined, session } = setup({ connectLater: true });
+    session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+    const disconnect = session.connect(callbacks);
+    const room = await joined();
+    const publication = remoteMicrophone();
+    room.events.onRemotePublicationChange({ publication, type: "upserted" });
+
+    disconnect();
+
+    expect(callbacks.onRemotePublicationChange).toHaveBeenLastCalledWith({
+      participantId: NEARBY_ID,
+      publicationId: publication.publicationId,
+      source: "microphone",
+      type: "removed",
+    });
+    expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith({});
+    await vi.waitFor(() =>
+      expect(room.connection.disconnect).toHaveBeenCalledOnce(),
+    );
+  });
+
   it.each([
     [
       "a room-hearing call",
@@ -244,7 +288,7 @@ describe("createProximityAudioSession", () => {
     },
   );
 
-  it("reports connecting then connected", async () => {
+  it("reports connecting, then connected before the first gains", async () => {
     const { callbacks, joined, session } = setup();
 
     session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
@@ -254,6 +298,12 @@ describe("createProximityAudioSession", () => {
       ["connecting"],
       ["connected"],
     ]);
+    const firstGains = callbacks.onRemoteAudioGainsChange.mock.calls.findIndex(
+      ([gains]) => NEARBY_ID in gains,
+    );
+    expect(callbacks.onStatusChange.mock.invocationCallOrder[1]).toBeLessThan(
+      callbacks.onRemoteAudioGainsChange.mock.invocationCallOrder[firstGains]!,
+    );
   });
 
   it("becomes unavailable and silent when the room fails to join", async () => {

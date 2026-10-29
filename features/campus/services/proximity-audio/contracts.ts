@@ -14,6 +14,8 @@ export type MeetingRoomEvents = Readonly<{
 }>;
 
 export interface MeetingRoomConnection {
+  // Safe to call more than once, including after onDisconnected: the session
+  // always calls it to release local tracks, even when the room already dropped.
   disconnect(): Promise<void>;
   handleLocalPublicationChange(change: LocalPublicationChange): Promise<void>;
   setSubscribedParticipantIds(participantIds: ReadonlySet<string>): void;

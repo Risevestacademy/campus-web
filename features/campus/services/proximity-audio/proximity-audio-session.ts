@@ -214,8 +214,8 @@ export function createProximityAudioSession(
 
     pendingJoin = undefined;
     active = { audibleRadius: call.audibleRadius, connection };
-    applyPolicy();
     current.onStatusChange("connected");
+    applyPolicy();
     if (localMicrophone) {
       forwardLocalChange({ publication: localMicrophone, type: "added" });
     }
@@ -276,9 +276,9 @@ export function createProximityAudioSession(
       joinLatestCall();
 
       return () => {
-        callbacks = undefined;
         localMicrophone = undefined;
         closeRoom();
+        callbacks = undefined;
       };
     },
     handleLocalPublicationChange,

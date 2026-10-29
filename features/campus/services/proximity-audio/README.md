@@ -37,10 +37,13 @@ session.applyWorldMessage(message, presence); // every parsed World frame
   position or a zero radius is silent.
 - The old room finishes disconnecting before the next one joins. A call that
   changes mid-join aborts it and disconnects whatever it returned.
+- `MeetingRoomConnection.disconnect` is idempotent. It is still called after
+  the room drops on its own, so local tracks are always released.
 - The token stays inside this session (the latest call and the join that
   uses it): never in callbacks, store state, logs or analytics. A call that
   arrives before `connect` joins once the media session connects.
-- `callAudioStatus`: `connecting`, then `connected`; `idle` after a leave;
+- `callAudioStatus`: `connecting`, then `connected` before the first gains;
+  `idle` after a leave;
   `unavailable` when the host is not pinned, the join fails, the room
   disconnects on its own, or a microphone change fails. Remote publications
   and gains clear in every case.

@@ -120,7 +120,8 @@ result.
   `lockChanged`, `lockableSpaces`) parse to `{ type }` alone. They
   are known, so they are not logged as skipped, and nothing unread travels on.
   The feature that reads one gives it a real schema.
-- `call` keeps `url`, `token`, `hearing` and `audibleRadius` (non-negative);
+- `call` keeps `url` and `token` (both non-empty), `hearing` and
+  `audibleRadius` (non-negative);
   `call: null` means no call. `room` and `subscribeRadius` are stripped: the
   token already names the room. A `hearing` world added later reads as
   `"unknown"`.
