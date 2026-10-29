@@ -7,6 +7,7 @@ import type { MediaPublication } from "../services/media-session/contracts";
 
 type MediaPublicationOutputProps = Readonly<{
   className?: string;
+  fallbackClassName?: string;
   fallbackInitials?: string;
   fallbackLabel: string;
   label: string;
@@ -15,6 +16,7 @@ type MediaPublicationOutputProps = Readonly<{
 
 export function MediaPublicationOutput({
   className,
+  fallbackClassName,
   fallbackInitials,
   fallbackLabel,
   label,
@@ -52,7 +54,10 @@ export function MediaPublicationOutput({
           {fallbackInitials ? (
             <span
               aria-hidden="true"
-              className="bg-muted text-foreground grid size-12 place-items-center rounded-full font-medium"
+              className={cn(
+                "bg-muted text-foreground grid size-12 place-items-center rounded-full font-medium",
+                fallbackClassName,
+              )}
             >
               {fallbackInitials}
             </span>

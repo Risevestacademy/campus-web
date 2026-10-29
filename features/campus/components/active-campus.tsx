@@ -2,20 +2,21 @@ import type { ReactNode } from "react";
 
 import type { ActiveCampusViewModel } from "../types/active-campus.types";
 import { CampusControlBar } from "./campus-control-bar";
-import { MeetingHeader } from "./meeting-header";
-import { MeetingViewControls } from "./meeting-view-switch";
+import { MeetingOverlay } from "./meeting-overlay";
 import { WorldConnectionStatus } from "./world-connection-status";
 
 export function ActiveCampus({
   children,
+  cohortId,
   viewModel,
   zoomControls,
 }: {
   children: ReactNode;
+  cohortId: string;
   viewModel: ActiveCampusViewModel;
   zoomControls: ReactNode;
 }) {
-  const { meeting, viewer } = viewModel;
+  const { viewer } = viewModel;
 
   return (
     <div className="flex min-w-0 flex-1">
@@ -25,17 +26,7 @@ export function ActiveCampus({
             id="top-actions"
             className="absolute inset-x-0 top-0 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-1.5 p-2.5"
           >
-            <div className="relative z-30">
-              <MeetingHeader
-                title={meeting.title}
-                participants={meeting.participants}
-                remainingParticipantCount={meeting.remainingParticipantCount}
-              />
-            </div>
-            <MeetingViewControls
-              localParticipantId={meeting.localParticipantId}
-              participants={meeting.participants}
-            />
+            <MeetingOverlay cohortId={cohortId} />
           </aside>
         </div>
 

@@ -20,15 +20,6 @@ import { CampusOverviewPanel } from "@/features/roster";
 import { requireCohortId } from "../require-cohort-id";
 
 const PLACEHOLDER_ACTIVE_CAMPUS_VIEW_MODEL = {
-  meeting: {
-    localParticipantId: "participant-a",
-    participants: [
-      { id: "participant-a", initials: "A", name: "Participant A" },
-      { id: "participant-j", initials: "J", name: "Participant J" },
-    ],
-    remainingParticipantCount: 2,
-    title: "Title for meeting",
-  },
   viewer: {
     initials: "AJ",
     presenceStatus: "active",
@@ -75,6 +66,7 @@ export default async function ActiveCampusLayout({
         }}
       >
         <ActiveCampus
+          cohortId={id}
           viewModel={PLACEHOLDER_ACTIVE_CAMPUS_VIEW_MODEL}
           zoomControls={<CampusZoomControls />}
         >

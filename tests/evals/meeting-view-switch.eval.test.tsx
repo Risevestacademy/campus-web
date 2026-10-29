@@ -1,7 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { activeCampusLayout } from "@/tests/fixtures/active-campus-layout";
+import {
+  clearPresence,
+  GRACE,
+  seedPresence,
+} from "@/tests/fixtures/nearby-presence";
 
 vi.mock("@/features/auth", () => import("@/tests/fixtures/route-access-stub"));
 vi.mock("server-only", () => ({}));
@@ -10,9 +15,14 @@ async function renderActiveCampusLayout() {
   return render(await activeCampusLayout());
 }
 
+beforeEach(() => {
+  seedPresence("c-1", GRACE);
+});
+
 afterEach(() => {
   window.localStorage.clear();
   Reflect.deleteProperty(document.documentElement.dataset, "sidebarOpen");
+  clearPresence("c-1");
 });
 
 describe("meeting view switch acceptance (required threshold: 4/4)", () => {
@@ -24,7 +34,7 @@ describe("meeting view switch acceptance (required threshold: 4/4)", () => {
     expect(viewSwitch).toHaveAttribute("aria-checked", "false");
     expect(
       screen.getByRole("button", {
-        name: "Show expanded meeting view for Participant J",
+        name: "Show expanded meeting view for Grace Hopper",
       }),
     ).toBeInTheDocument();
 
@@ -33,7 +43,7 @@ describe("meeting view switch acceptance (required threshold: 4/4)", () => {
     expect(viewSwitch).toHaveAttribute("aria-checked", "true");
     expect(screen.getByTestId("meeting-view-backdrop")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Focus Participant J" }),
+      screen.getByRole("button", { name: "Focus Grace Hopper" }),
     ).toBeInTheDocument();
   });
 
@@ -42,7 +52,7 @@ describe("meeting view switch acceptance (required threshold: 4/4)", () => {
 
     const viewSwitch = screen.getByRole("switch", { name: "Use grid view" });
     const participantTile = screen.getByRole("button", {
-      name: "Show expanded meeting view for Participant J",
+      name: "Show expanded meeting view for Grace Hopper",
     });
 
     fireEvent.click(participantTile, { detail: 1 });
@@ -50,7 +60,7 @@ describe("meeting view switch acceptance (required threshold: 4/4)", () => {
     expect(viewSwitch).toHaveAttribute("aria-checked", "true");
     expect(screen.getByTestId("meeting-view-backdrop")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Focus Participant J" }),
+      screen.getByRole("button", { name: "Focus Grace Hopper" }),
     ).toBeInTheDocument();
   });
 
@@ -62,10 +72,10 @@ describe("meeting view switch acceptance (required threshold: 4/4)", () => {
     });
 
     const participantA = screen.getByRole("button", {
-      name: "Focus Participant A",
+      name: "Focus Ada Lovelace",
     });
     const participantJ = screen.getByRole("button", {
-      name: "Focus Participant J",
+      name: "Focus Grace Hopper",
     });
 
     fireEvent.click(participantA, { detail: 1 });
@@ -83,7 +93,7 @@ describe("meeting view switch acceptance (required threshold: 4/4)", () => {
     fireEvent.click(participantJ, { detail: 1 });
 
     expect(participantJ).toHaveAttribute("aria-pressed", "false");
-    expect(participantJ).toHaveAccessibleName("Focus Participant J");
+    expect(participantJ).toHaveAccessibleName("Focus Grace Hopper");
   });
 
   it("collapses the sidebar for grid view and returns to the map when it reopens", async () => {
