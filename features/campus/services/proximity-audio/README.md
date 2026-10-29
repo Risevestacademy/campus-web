@@ -47,8 +47,8 @@ session.applyWorldMessage(message, presence); // every parsed World frame
   `unavailable` when the host is not pinned, the join fails, the room
   disconnects on its own, or a microphone change fails. Remote publications
   and gains clear in every case.
-- First-audio time is measured only for calls that arrive while somebody is
-  nearby, from `call` to the room's first remote microphone.
+- First-audio time is measured only for calls that arrive while a subscribed
+  peer is nearby, from `call` to the room's first remote microphone.
 
 Room-hearing spaces and remote video are not supported yet.
 

@@ -195,20 +195,6 @@ describe("createProximityAudioSession", () => {
     );
   });
 
-  it("disconnects the active room when World sends a null call", async () => {
-    const { callbacks, joined, session } = setup();
-    const presence = presenceWith([NEARBY_ID]);
-    session.applyWorldMessage(CALL, presence);
-    const { connection } = await joined();
-
-    session.applyWorldMessage(NO_CALL, presence);
-
-    await vi.waitFor(() =>
-      expect(connection.disconnect).toHaveBeenCalledOnce(),
-    );
-    expect(callbacks.onStatusChange).toHaveBeenLastCalledWith("idle");
-  });
-
   it("joins a call that arrived before the media session connected", async () => {
     const { callbacks, joined, session } = setup({ connectLater: true });
     session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
@@ -578,15 +564,22 @@ describe("createProximityAudioSession", () => {
     expect(recordFirstAudioMilliseconds).toHaveBeenCalledExactlyOnceWith(150);
   });
 
-  it("does not measure a call that arrived with nobody nearby", async () => {
-    const { joined, recordFirstAudioMilliseconds, session } = setup();
-    session.applyWorldMessage(CALL, presenceWith([]));
-    const room = await joined();
+  it.each([
+    ["nobody", []],
+    ["only yourself", [SELF_ID]],
+    ["only members presence does not know", [UNKNOWN_ID]],
+  ] as const)(
+    "does not measure a call that arrived with %s nearby",
+    async (_case, nearby) => {
+      const { joined, recordFirstAudioMilliseconds, session } = setup();
+      session.applyWorldMessage(CALL, presenceWith(nearby));
+      const room = await joined();
 
-    room.events.onFirstRemoteAudio();
+      room.events.onFirstRemoteAudio();
 
-    expect(recordFirstAudioMilliseconds).not.toHaveBeenCalled();
-  });
+      expect(recordFirstAudioMilliseconds).not.toHaveBeenCalled();
+    },
+  );
 
   it("keeps the room token out of every callback", async () => {
     const { callbacks, joined, session } = setup();

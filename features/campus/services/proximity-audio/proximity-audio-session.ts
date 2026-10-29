@@ -233,7 +233,7 @@ export function createProximityAudioSession(
     closeRoom();
     const stepGeneration = roomGeneration;
     const receivedAt =
-      latestPresence.nearby.length > 0 ? options.now() : undefined;
+      nearbyParticipantIds(latestPresence).size > 0 ? options.now() : undefined;
     enqueue(
       () => join(call, stepGeneration, receivedAt),
       () => fail(stepGeneration),

@@ -197,7 +197,22 @@ _Avoid_: Camera replacement
 **Transport seam**:
 The `MeetingMediaTransport` interface where publication events are translated
 by a signaling or SFU adapter. The adapter picks its own rooms and reports
-remote publications, per-participant audio gains and a call status; no room
+remote publications, per-participant audio gains and a Call status; no room
 grant crosses it. It connects only after Admission and disconnects when the
 Presence Session ends.
 _Avoid_: Browser capture ownership, server media state
+
+**Call**:
+The audio room World grants for the space a member is in, or none. Each new
+space brings a new Call while the Presence Session carries on.
+_Avoid_: Meeting, room grant, Presence Session
+
+**Hearing**:
+How a Call decides who hears whom: `proximity` (only nearby members, louder
+when closer) or `room` (everyone in the space).
+_Avoid_: Audio mode
+
+**Audible radius**:
+The distance in tiles at which a nearby member fades to silence under
+proximity Hearing.
+_Avoid_: Hearing range
