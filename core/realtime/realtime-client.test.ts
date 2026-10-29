@@ -21,9 +21,7 @@ const { awayAfterSeconds: _awayAfterSeconds, ...READ_WELCOME } = WELCOME;
 const READ_SNAPSHOT = {
   type: SNAPSHOT.type,
   map: SNAPSHOT.map,
-  players: SNAPSHOT.players.map(
-    ({ status: _status, spaceKey: _spaceKey, ...avatar }) => avatar,
-  ),
+  players: SNAPSHOT.players,
 };
 
 describe("createRealtimeClient", () => {

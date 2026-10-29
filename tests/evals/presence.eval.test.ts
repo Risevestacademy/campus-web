@@ -23,7 +23,16 @@ function avatar(
   x = 1,
   displayName: string | null = userId,
 ): Avatar {
-  return { userId, x, y: 1, facing: "down", displayName, spriteKey: null };
+  return {
+    userId,
+    x,
+    y: 1,
+    facing: "down",
+    displayName,
+    spriteKey: null,
+    status: "available",
+    spaceKey: "_default",
+  };
 }
 
 function applyAll(messages: ServerMessage[], from: Presence = EMPTY_PRESENCE) {

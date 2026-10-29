@@ -21,7 +21,16 @@ import {
 } from "./proximity-meeting";
 
 function avatar(userId: string, displayName: string | null): Avatar {
-  return { userId, x: 1, y: 1, facing: "down", displayName, spriteKey: null };
+  return {
+    userId,
+    x: 1,
+    y: 1,
+    facing: "down",
+    displayName,
+    spriteKey: null,
+    status: "available",
+    spaceKey: "_default",
+  };
 }
 
 const WELCOME: ServerMessage = {

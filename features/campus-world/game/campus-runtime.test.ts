@@ -77,6 +77,8 @@ describe("createCampusRuntime", () => {
           facing: "up",
           displayName: "Ada",
           spriteKey: null,
+          status: "available",
+          spaceKey: "_default",
         },
       ],
     });

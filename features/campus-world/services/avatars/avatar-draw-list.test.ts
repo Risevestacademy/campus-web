@@ -26,7 +26,16 @@ function avatar(
   y: number,
   displayName: string | null = null,
 ): Avatar {
-  return { userId, x, y, facing: "down", displayName, spriteKey: null };
+  return {
+    userId,
+    x,
+    y,
+    facing: "down",
+    displayName,
+    spriteKey: null,
+    status: "available",
+    spaceKey: "_default",
+  };
 }
 
 describe("buildAvatarDrawList", () => {

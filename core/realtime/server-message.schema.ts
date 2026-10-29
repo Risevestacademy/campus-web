@@ -19,6 +19,9 @@ import type {
   ReplacedMessage,
   ServerMessage as PublishedServerMessage,
   SnapshotMessage as PublishedSnapshotMessage,
+  SpaceChangedMessage,
+  Status as PublishedStatus,
+  StatusChangedMessage as PublishedStatusChangedMessage,
   WelcomeMessage as PublishedWelcomeMessage,
 } from "./generated/world-protocol";
 import { MOVE_OUTCOMES } from "./move-outcomes";
@@ -30,6 +33,7 @@ type OrUnknown<Value extends string> = Value | "unknown";
 export type MoveOutcome = OrUnknown<PublishedMoveOutcome>;
 export type MoveCorrection = Exclude<MoveOutcome, "moved">;
 export type ErrorCode = OrUnknown<PublishedErrorMessage["code"]>;
+export type PlayerStatus = OrUnknown<PublishedStatus>;
 export type MoveResultMessage = Simplify<
   Omit<PublishedMoveResultMessage, "outcome"> & { outcome: MoveOutcome }
 >;
@@ -37,7 +41,15 @@ export type ErrorMessage = Simplify<
   Omit<PublishedErrorMessage, "code"> & { code: ErrorCode }
 >;
 export type Avatar = Simplify<
-  Pick<PublishedAvatar, keyof Player | "displayName" | "spriteKey">
+  Pick<
+    PublishedAvatar,
+    keyof Player | "displayName" | "spriteKey" | "spaceKey"
+  > & { status: PlayerStatus }
+>;
+export type StatusChangedMessage = Simplify<
+  Pick<PublishedStatusChangedMessage, "type" | "userId"> & {
+    status: PlayerStatus;
+  }
 >;
 export type WelcomeMessage = Simplify<
   Pick<
@@ -63,7 +75,7 @@ export type JoinedMessage = Simplify<
 // stripped to their type, so nothing unread (a call's token) travels on.
 type UnreadType = Extract<
   PublishedServerMessage["type"],
-  "statusChanged" | "spaceChanged" | "call" | "lockChanged" | "lockableSpaces"
+  "call" | "lockChanged" | "lockableSpaces"
 >;
 type UnreadMessage = { [Type in UnreadType]: { type: Type } }[UnreadType];
 
@@ -79,6 +91,8 @@ export type ServerMessage =
   | MoveResultMessage
   | ErrorMessage
   | NearbyMessage
+  | StatusChangedMessage
+  | SpaceChangedMessage
   | UnreadMessage;
 
 function orUnknown<const Values extends readonly [string, ...string[]]>(
@@ -107,6 +121,10 @@ const errorCodeSchema = z.toZod<ErrorCode>()(
   orUnknown(["UNAUTHORIZED", "BAD_MESSAGE", "NOT_ALLOWED"]),
 );
 
+const playerStatusSchema = z.toZod<PlayerStatus>()(
+  orUnknown(["available", "busy", "away"]),
+);
+
 const playerSchema = z.toZod<Player>()(
   z.object({
     userId: z.string(),
@@ -117,7 +135,12 @@ const playerSchema = z.toZod<Player>()(
 );
 
 const avatarSchema = z.toZod<Avatar>()(
-  z.object({ ...playerSchema.shape, ...appearanceShape }),
+  z.object({
+    ...playerSchema.shape,
+    ...appearanceShape,
+    status: playerStatusSchema,
+    spaceKey: z.string(),
+  }),
 );
 
 const welcomeMessageSchema = z.toZod<WelcomeMessage>()(
@@ -194,6 +217,22 @@ const nearbyMessageSchema = z.toZod<NearbyMessage>()(
   z.object({ type: z.literal("nearby"), userIds: z.array(z.string()) }),
 );
 
+const statusChangedMessageSchema = z.toZod<StatusChangedMessage>()(
+  z.object({
+    type: z.literal("statusChanged"),
+    userId: z.string(),
+    status: playerStatusSchema,
+  }),
+);
+
+const spaceChangedMessageSchema = z.toZod<SpaceChangedMessage>()(
+  z.object({
+    type: z.literal("spaceChanged"),
+    userId: z.string(),
+    spaceKey: z.string(),
+  }),
+);
+
 function unreadMessageSchema<const Type extends UnreadType>(type: Type) {
   return z.object({ type: z.literal(type) });
 }
@@ -211,8 +250,8 @@ const serverMessageSchema = z.toZod<ServerMessage>()(
     moveResultMessageSchema,
     errorMessageSchema,
     nearbyMessageSchema,
-    unreadMessageSchema("statusChanged"),
-    unreadMessageSchema("spaceChanged"),
+    statusChangedMessageSchema,
+    spaceChangedMessageSchema,
     unreadMessageSchema("call"),
     unreadMessageSchema("lockChanged"),
     unreadMessageSchema("lockableSpaces"),

@@ -29,6 +29,8 @@ const TONI: Avatar = {
   facing: "left",
   displayName: "Toni Morrison",
   spriteKey: null,
+  status: "available",
+  spaceKey: "_default",
 };
 
 async function renderActiveCampusLayout() {

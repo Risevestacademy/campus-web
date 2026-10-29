@@ -5,7 +5,10 @@ import type {
   SnapshotMessage,
 } from "@/core/realtime";
 
-export type Participant = Pick<Avatar, "userId" | "displayName" | "spriteKey">;
+export type Participant = Pick<
+  Avatar,
+  "userId" | "displayName" | "spriteKey" | "status" | "spaceKey"
+>;
 export type Position = Pick<Player, "x" | "y" | "facing">;
 export type WorldMap = SnapshotMessage["map"];
 
@@ -33,8 +36,10 @@ function participantOf({
   userId,
   displayName,
   spriteKey,
+  status,
+  spaceKey,
 }: Participant): Participant {
-  return { userId, displayName, spriteKey };
+  return { userId, displayName, spriteKey, status, spaceKey };
 }
 
 function positionOf({ x, y, facing }: Player, map: WorldMap): Position {
@@ -73,6 +78,22 @@ function rebuild(
     positions: new Map(
       players.map((player) => [player.userId, positionOf(player, map)]),
     ),
+  };
+}
+
+function withParticipantChange(
+  presence: Presence,
+  userId: string,
+  change: Partial<Participant>,
+): Presence {
+  const participant = presence.participants.get(userId);
+  if (!participant) return presence;
+  return {
+    ...presence,
+    participants: withEntry(presence.participants, userId, {
+      ...participant,
+      ...change,
+    }),
   };
 }
 
@@ -145,15 +166,18 @@ export function applyServerMessage(
         ),
       };
     case "appearance":
-      if (!presence.participants.has(message.userId)) return presence;
-      return {
-        ...presence,
-        participants: withEntry(
-          presence.participants,
-          message.userId,
-          participantOf(message),
-        ),
-      };
+      return withParticipantChange(presence, message.userId, {
+        displayName: message.displayName,
+        spriteKey: message.spriteKey,
+      });
+    case "statusChanged":
+      return withParticipantChange(presence, message.userId, {
+        status: message.status,
+      });
+    case "spaceChanged":
+      return withParticipantChange(presence, message.userId, {
+        spaceKey: message.spaceKey,
+      });
     case "left":
       if (!presence.participants.has(message.userId)) return presence;
       return {

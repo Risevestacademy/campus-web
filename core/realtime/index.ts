@@ -21,6 +21,7 @@ export type {
   Player,
   PongMessage,
   ReplacedMessage,
+  SpaceChangedMessage,
   CloseCode as WorldCloseCode,
   CloseReason as WorldCloseReason,
 } from "./generated/world-protocol";
@@ -49,9 +50,11 @@ export {
   type MoveOutcome,
   type MoveResultMessage,
   parseServerMessage,
+  type PlayerStatus,
   type ServerMessage,
   type ServerMessageResult,
   type SnapshotMessage,
+  type StatusChangedMessage,
   type WelcomeMessage,
 } from "./server-message.schema";
 export { parseSocketClose } from "./socket-close.schema";

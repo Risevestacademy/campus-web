@@ -183,6 +183,8 @@ function hostilePresence() {
     displayName,
     facing: "down",
     spriteKey: index % 2 === 0 ? null : "no-such-sprite",
+    status: "available",
+    spaceKey: "_default",
     userId: `member-${index}`,
     x: 2 + index,
     y: 2 + (index % 3),

@@ -25,6 +25,8 @@ const ADA: Avatar = {
   facing: "down",
   displayName: "Ada",
   spriteKey: null,
+  status: "available",
+  spaceKey: "_default",
 };
 const GRACE: Avatar = {
   userId: "grace",
@@ -33,6 +35,8 @@ const GRACE: Avatar = {
   facing: "left",
   displayName: "Grace",
   spriteKey: "placeholder-2",
+  status: "available",
+  spaceKey: "_default",
 };
 
 // The camera lands at once unless a test asks for motion, so most tests read

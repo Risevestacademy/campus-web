@@ -174,7 +174,13 @@ const analyticsMemberSchemas = [
 ] as const;
 
 const PLAYER_PATHS = ["facing", "userId", "x", "y"];
-const AVATAR_PATHS = [...PLAYER_PATHS, "displayName", "spriteKey"].sort();
+const AVATAR_PATHS = [
+  ...PLAYER_PATHS,
+  "displayName",
+  "spaceKey",
+  "spriteKey",
+  "status",
+].sort();
 
 function under(prefix: string, paths: string[]): string[] {
   return paths.map((path) => `${prefix}.${path}`);
@@ -193,8 +199,8 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   nearby: ["type", "userIds[]"],
   pong: ["type"],
   replaced: ["type"],
-  spaceChanged: ["type"],
-  statusChanged: ["type"],
+  spaceChanged: ["spaceKey", "type", "userId"],
+  statusChanged: ["status", "type", "userId"],
   snapshot: [
     ...under("map", ["height", "id", "version", "width"]),
     ...under("players[]", AVATAR_PATHS),
