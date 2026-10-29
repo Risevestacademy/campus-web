@@ -335,6 +335,19 @@ describe("createLivekitMeetingRoomTransport", () => {
     expect(events.onDisconnected).toHaveBeenCalledOnce();
   });
 
+  it("still stops every copy when leaving, again and again, after a drop it reported", async () => {
+    const { connection, events, room } = await joinedRoom();
+    const microphone = localMicrophone("mic-1");
+    await addMicrophone(connection, microphone);
+    room.emit("disconnected");
+
+    await expect(connection.disconnect()).resolves.toBeUndefined();
+    await expect(connection.disconnect()).resolves.toBeUndefined();
+
+    expect(microphone.copy.stop).toHaveBeenCalledOnce();
+    expect(events.onDisconnected).toHaveBeenCalledOnce();
+  });
+
   it("stops joining once the call changes and leaves the half-joined room", async () => {
     const livekit = fakeLivekitRoom();
     livekit.control.connect = "hang";
