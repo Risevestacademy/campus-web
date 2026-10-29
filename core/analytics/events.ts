@@ -21,6 +21,8 @@ export const ANALYTICS_EVENTS = {
   CAMPUS_CONNECTION_CHECK_COMPLETED: "campus.connection_check_completed",
   CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN: "campus.presence_tab_conflict_shown",
   CAMPUS_PRESENCE_TAB_MOVED: "campus.presence_tab_moved",
+  CAMPUS_PROXIMITY_AUDIO_READY: "campus.proximity_audio_ready",
+  CAMPUS_PROXIMITY_VIEW_SHOWN: "campus.proximity_view_shown",
   CAMPUS_WORLD_CAMERA_ZOOMED: "campus_world.camera_zoomed",
   CAMPUS_WORLD_MAP_FAILED: "campus_world.map_failed",
   CAMPUS_WORLD_MAP_LOADED: "campus_world.map_loaded",
@@ -169,6 +171,10 @@ export const analyticsEventSchemas = {
   [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_MOVED]: z.object({
     surface: presenceTabSurfaceSchema,
   }),
+  [ANALYTICS_EVENTS.CAMPUS_PROXIMITY_AUDIO_READY]: z.object({
+    first_audio_ms: durationMsSchema,
+  }),
+  [ANALYTICS_EVENTS.CAMPUS_PROXIMITY_VIEW_SHOWN]: z.object({}),
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_LOADED]: campusWorldMapLoadedSchema,
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_FAILED]: campusWorldMapFailureSchema,
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_READY]: z.object({

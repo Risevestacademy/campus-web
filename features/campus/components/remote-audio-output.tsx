@@ -1,6 +1,7 @@
 "use client";
 
 import { useMediaElementRef } from "../hooks/use-media-element-ref";
+import { useRemoteAudioVolume } from "../hooks/use-remote-audio-volume";
 import type { RemoteMediaPublication } from "../services/media-session/contracts";
 import { useMediaSession } from "../services/media-session/media-session-provider";
 
@@ -8,7 +9,8 @@ function RemoteAudio({
   outputDeviceId,
   publication,
 }: Readonly<{ outputDeviceId: string; publication: RemoteMediaPublication }>) {
-  const audioRef = useMediaElementRef(publication, outputDeviceId);
+  const volume = useRemoteAudioVolume(publication.participantId);
+  const audioRef = useMediaElementRef(publication, outputDeviceId, volume);
 
   return (
     <audio

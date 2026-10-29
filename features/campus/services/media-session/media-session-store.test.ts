@@ -118,6 +118,7 @@ function createTransport() {
   const disconnect = vi.fn(() => {
     remoteListener = undefined;
   });
+  const retry = vi.fn();
   let remoteListener: ((change: RemotePublicationChange) => void) | undefined;
   const transport: MeetingMediaTransport = {
     connect(callbacks) {
@@ -126,12 +127,14 @@ function createTransport() {
       return disconnect;
     },
     handleLocalPublicationChange: (change) => changes.push(change),
+    retry,
   };
 
   return {
     changes,
     connections,
     disconnect,
+    retry,
     emitRemote: (change: RemotePublicationChange) => remoteListener?.(change),
     transport,
   };
@@ -877,6 +880,24 @@ describe("media session store", () => {
       callAudioStatus: "idle",
       remoteAudioGains: {},
     });
+  });
+
+  it("tries the call again only while connected", async () => {
+    const { retry, transport } = createTransport();
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices: createMediaDevices(async () => createStream()),
+      transport,
+    });
+    await store.getState().start();
+
+    store.getState().retryCallAudio();
+    store.getState().connect();
+    store.getState().retryCallAudio();
+    store.getState().stop();
+    store.getState().retryCallAudio();
+
+    expect(retry).toHaveBeenCalledOnce();
   });
 
   it("connects once and replays the publications chosen before Join", async () => {

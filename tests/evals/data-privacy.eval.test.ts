@@ -149,6 +149,8 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "campus.connection_check_completed": ["failed_step", "result"],
   "campus.presence_tab_conflict_shown": ["surface"],
   "campus.presence_tab_moved": ["surface"],
+  "campus.proximity_audio_ready": ["first_audio_ms"],
+  "campus.proximity_view_shown": [],
   "campus_world.camera_zoomed": ["level"],
   "campus_world.map_failed": ["error_kind", "map_id"],
   "campus_world.map_loaded": ["load_ms", "map_id", "tilesets", "version"],

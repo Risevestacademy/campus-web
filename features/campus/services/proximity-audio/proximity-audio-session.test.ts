@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Presence } from "@/core/presence";
 import type { CallMessage, ServerMessage } from "@/core/realtime";
@@ -12,10 +12,11 @@ import type {
   LocalPublicationChange,
   RemoteMediaPublication,
 } from "../media-session/contracts";
-import type {
-  MeetingRoomConnection,
-  MeetingRoomEvents,
-  MeetingRoomTransport,
+import {
+  type MeetingRoomConnection,
+  type MeetingRoomEvents,
+  type MeetingRoomTransport,
+  RoomAccessDeniedError,
 } from "./contracts";
 import { createProximityAudioSession } from "./proximity-audio-session";
 
@@ -117,10 +118,12 @@ function setup(
     onStatusChange: vi.fn(),
   };
   const recordFirstAudioMilliseconds = vi.fn();
+  const refreshCall = vi.fn(() => true);
   const session = createProximityAudioSession({
     now: options.now ?? (() => 0),
     pinMediaUrl: options.pinMediaUrl ?? ((url) => url),
     recordFirstAudioMilliseconds,
+    refreshCall,
     roomTransport,
   });
   if (!options.connectLater) session.connect(callbacks);
@@ -144,6 +147,7 @@ function setup(
     joined,
     joinSignals,
     recordFirstAudioMilliseconds,
+    refreshCall,
     roomAt,
     roomTransport,
     session,
@@ -193,6 +197,19 @@ describe("createProximityAudioSession", () => {
     expect(connection.setSubscribedParticipantIds).toHaveBeenCalledWith(
       new Set([NEARBY_ID]),
     );
+  });
+
+  it("unsubscribes everyone and silences them when presence loses them", async () => {
+    const { callbacks, joined, session } = setup();
+    session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+    const { connection } = await joined();
+
+    session.applyPresence(presenceWith([]));
+
+    expect(connection.setSubscribedParticipantIds).toHaveBeenLastCalledWith(
+      new Set(),
+    );
+    expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith({});
   });
 
   it("joins a call that arrived before the media session connected", async () => {
@@ -303,6 +320,146 @@ describe("createProximityAudioSession", () => {
       expect(callbacks.onStatusChange).toHaveBeenLastCalledWith("unavailable"),
     );
     expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith({});
+  });
+
+  describe("trying again", () => {
+    async function unavailableAfter(firstFailure: Error, retryFailure?: Error) {
+      const join = vi
+        .fn<() => Promise<void>>()
+        .mockRejectedValueOnce(firstFailure);
+      if (retryFailure) join.mockRejectedValueOnce(retryFailure);
+      const room = setup({ join });
+      room.session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+      await vi.waitFor(() =>
+        expect(room.callbacks.onStatusChange).toHaveBeenLastCalledWith(
+          "unavailable",
+        ),
+      );
+      return room;
+    }
+
+    it("rejoins the latest call in place", async () => {
+      const { joined, roomTransport, session } = await unavailableAfter(
+        new Error("server unreachable"),
+      );
+
+      session.retry();
+
+      await joined();
+      expect(roomTransport.connect).toHaveBeenLastCalledWith(
+        { url: CALL.call?.url, token: TOKEN },
+        expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    it("asks World for a fresh call when the retried grant was refused", async () => {
+      const { callbacks, refreshCall, session } = await unavailableAfter(
+        new Error("server unreachable"),
+        new RoomAccessDeniedError("token expired"),
+      );
+
+      session.retry();
+
+      await vi.waitFor(() => expect(refreshCall).toHaveBeenCalledOnce());
+      expect(callbacks.onStatusChange).toHaveBeenLastCalledWith("connecting");
+    });
+
+    it("becomes unavailable when World cannot refresh the call", async () => {
+      const { callbacks, refreshCall, session } = await unavailableAfter(
+        new Error("server unreachable"),
+        new RoomAccessDeniedError("token expired"),
+      );
+      refreshCall.mockReturnValue(false);
+      callbacks.onStatusChange.mockClear();
+
+      session.retry();
+
+      await vi.waitFor(() =>
+        expect(callbacks.onStatusChange).toHaveBeenLastCalledWith(
+          "unavailable",
+        ),
+      );
+      expect(refreshCall).toHaveBeenCalledOnce();
+    });
+
+    describe("while World sends a fresh call", () => {
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      async function refreshing() {
+        const room = await unavailableAfter(
+          new Error("server unreachable"),
+          new RoomAccessDeniedError("token expired"),
+        );
+        vi.useFakeTimers();
+        room.session.retry();
+        await vi.waitFor(() => expect(room.refreshCall).toHaveBeenCalledOnce());
+        return room;
+      }
+
+      it("gives up after 15 seconds without one", async () => {
+        const { callbacks } = await refreshing();
+
+        await vi.advanceTimersByTimeAsync(14_000);
+        expect(callbacks.onStatusChange).toHaveBeenLastCalledWith("connecting");
+        await vi.advanceTimersByTimeAsync(1_000);
+
+        expect(callbacks.onStatusChange).toHaveBeenLastCalledWith(
+          "unavailable",
+        );
+      });
+
+      it("keeps the fresh call that arrives in time", async () => {
+        const { callbacks, joined, session } = await refreshing();
+        session.applyWorldMessage(
+          callWith({ token: "fresh-token" }),
+          presenceWith([NEARBY_ID]),
+        );
+        await joined();
+
+        await vi.advanceTimersByTimeAsync(15_000);
+
+        expect(callbacks.onStatusChange).toHaveBeenLastCalledWith("connected");
+      });
+    });
+
+    it("never measures first audio for a retry", async () => {
+      const { joined, recordFirstAudioMilliseconds, session } =
+        await unavailableAfter(new Error("server unreachable"));
+
+      session.retry();
+      const room = await joined();
+      room.events.onFirstRemoteAudio();
+
+      expect(recordFirstAudioMilliseconds).not.toHaveBeenCalled();
+    });
+
+    it("stays unavailable when the retry fails for another reason", async () => {
+      const { callbacks, refreshCall, session } = await unavailableAfter(
+        new Error("server unreachable"),
+        new Error("still unreachable"),
+      );
+      callbacks.onStatusChange.mockClear();
+
+      session.retry();
+
+      await vi.waitFor(() =>
+        expect(callbacks.onStatusChange).toHaveBeenLastCalledWith(
+          "unavailable",
+        ),
+      );
+      expect(refreshCall).not.toHaveBeenCalled();
+    });
+
+    it("never asks World for a fresh call without the member trying again", async () => {
+      const { refreshCall } = await unavailableAfter(
+        new RoomAccessDeniedError("token expired"),
+      );
+
+      expect(refreshCall).not.toHaveBeenCalled();
+    });
   });
 
   it("emits linear gain from authoritative tile positions", async () => {

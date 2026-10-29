@@ -99,6 +99,7 @@ export function createCountingMediaSession() {
       };
     },
     handleLocalPublicationChange() {},
+    retry() {},
   };
 
   return {

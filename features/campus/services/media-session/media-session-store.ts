@@ -59,6 +59,7 @@ export type MediaSessionState = Readonly<{
   refreshDevices: () => Promise<void>;
   remoteAudioGains: RemoteAudioGains;
   remotePublications: RemotePublicationRegistry;
+  retryCallAudio: () => void;
   selectInputDevice: (
     source: CaptureSource,
     deviceId: string,
@@ -614,6 +615,9 @@ export function createMediaSessionStore(
       refreshDevices,
       remoteAudioGains: {},
       remotePublications: {},
+      retryCallAudio() {
+        if (disconnectTransport) transport.retry();
+      },
       async selectInputDevice(source, deviceId) {
         const sourceState = get()[source];
         if (!sourceState.desiredEnabled && !sourceState.track) {

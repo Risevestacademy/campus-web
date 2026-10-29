@@ -149,7 +149,7 @@ function ToastIcon({ type }: { type: string | undefined }) {
   }
 
   if (type === "warning") {
-    icon = <WarningIcon aria-hidden="true" />;
+    icon = <WarningIcon className="text-warning-icon" aria-hidden="true" />;
   }
 
   if (type === "error") {
@@ -181,11 +181,14 @@ function ToastList() {
     <Toast key={toastItem.id} toast={toastItem}>
       <ToastContent>
         <ToastIcon type={toastItem.type} />
+        {/* The action sits under the text, so the text keeps the full width. */}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <ToastTitle />
           <ToastDescription />
+          {toastItem.actionProps ? (
+            <ToastAction className="mt-2 self-start" />
+          ) : null}
         </div>
-        {toastItem.actionProps ? <ToastAction /> : null}
         <ToastClose />
       </ToastContent>
     </Toast>

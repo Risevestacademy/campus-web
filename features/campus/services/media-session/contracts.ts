@@ -155,4 +155,7 @@ export interface MeetingMediaTransport {
   connect(callbacks: MeetingMediaTransportCallbacks): () => void;
   // Called only while connected.
   handleLocalPublicationChange(change: LocalPublicationChange): void;
+  // The member asked to try the call again after it became unavailable.
+  // Called only while connected.
+  retry(): void;
 }

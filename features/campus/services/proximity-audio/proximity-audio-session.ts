@@ -7,17 +7,21 @@ import type {
   MeetingMediaTransportCallbacks,
   RemotePublicationChange,
 } from "../media-session/contracts";
-import type {
-  MeetingRoomConnection,
-  MeetingRoomEvents,
-  MeetingRoomTransport,
-  ProximityAudioSession,
+import {
+  type MeetingRoomConnection,
+  type MeetingRoomEvents,
+  type MeetingRoomTransport,
+  type ProximityAudioSession,
+  RoomAccessDeniedError,
 } from "./contracts";
 
 type ProximityAudioSessionOptions = Readonly<{
   now: () => number;
   pinMediaUrl: (url: string) => string | undefined;
   recordFirstAudioMilliseconds: (milliseconds: number) => void;
+  // Asks World to send the call again with a fresh token; false when World
+  // cannot be asked right now.
+  refreshCall: () => boolean;
   roomTransport: MeetingRoomTransport;
 }>;
 
@@ -29,6 +33,10 @@ type ActiveRoom = Readonly<{
 type Position = Readonly<{ x: number; y: number }>;
 
 type PublicationRemoval = Extract<RemotePublicationChange, { type: "removed" }>;
+
+// How long to wait for World's fresh call before offering Try again again. A
+// call that arrives later still joins on World's own path.
+const CALL_REFRESH_TIMEOUT_MS = 15_000;
 
 const POLICY_FRAMES: ReadonlySet<ServerMessage["type"]> = new Set([
   "snapshot",
@@ -76,7 +84,10 @@ export function createProximityAudioSession(
   // finishes leaving before the next one joins.
   let transition = Promise.resolve();
 
-  function enqueue(step: () => Promise<void>, onError: () => void) {
+  function enqueue(
+    step: () => Promise<void>,
+    onError: (error: unknown) => void,
+  ) {
     transition = transition.then(step).catch(onError);
   }
 
@@ -184,6 +195,23 @@ export function createProximityAudioSession(
     };
   }
 
+  async function connectAbortably(
+    access: Readonly<{ url: string; token: string }>,
+    events: MeetingRoomEvents,
+  ) {
+    const controller = new AbortController();
+    pendingJoin = controller;
+    try {
+      return await options.roomTransport.connect(
+        access,
+        events,
+        controller.signal,
+      );
+    } finally {
+      pendingJoin = undefined;
+    }
+  }
+
   async function join(
     call: Call,
     stepGeneration: number,
@@ -198,12 +226,9 @@ export function createProximityAudioSession(
     }
 
     starting.onStatusChange("connecting");
-    const controller = new AbortController();
-    pendingJoin = controller;
-    const connection = await options.roomTransport.connect(
+    const connection = await connectAbortably(
       { url, token: call.token },
       roomEvents(stepGeneration, receivedAt),
-      controller.signal,
     );
 
     const current = currentCallbacks(stepGeneration);
@@ -212,7 +237,6 @@ export function createProximityAudioSession(
       return;
     }
 
-    pendingJoin = undefined;
     active = { audibleRadius: call.audibleRadius, connection };
     current.onStatusChange("connected");
     applyPolicy();
@@ -227,17 +251,49 @@ export function createProximityAudioSession(
     callbacks?.onStatusChange("idle");
   }
 
-  function joinLatestCall() {
+  function measuredFromNow(presence: Presence) {
+    return nearbyParticipantIds(presence).size > 0 ? options.now() : undefined;
+  }
+
+  function joinLatestCall(
+    onFailure: (error: unknown, stepGeneration: number) => void = (
+      _error,
+      stepGeneration,
+    ) => fail(stepGeneration),
+    measuredFrom: (presence: Presence) => number | undefined = measuredFromNow,
+  ) {
     if (!latestCall || !latestPresence) return;
     const call = latestCall;
     closeRoom();
     const stepGeneration = roomGeneration;
-    const receivedAt =
-      nearbyParticipantIds(latestPresence).size > 0 ? options.now() : undefined;
+    const receivedAt = measuredFrom(latestPresence);
     enqueue(
       () => join(call, stepGeneration, receivedAt),
-      () => fail(stepGeneration),
+      (error) => onFailure(error, stepGeneration),
     );
+  }
+
+  // Only the member's own retry refreshes: a refused grant on World's fresh
+  // call would otherwise cycle World's socket forever.
+  function refreshOrFail(error: unknown, stepGeneration: number) {
+    if (
+      !(error instanceof RoomAccessDeniedError) ||
+      !currentCallbacks(stepGeneration)
+    ) {
+      fail(stepGeneration);
+      return;
+    }
+    if (!options.refreshCall()) {
+      fail(stepGeneration);
+      return;
+    }
+    // A fresh call starts a new room generation, which makes this a no-op.
+    setTimeout(() => fail(stepGeneration), CALL_REFRESH_TIMEOUT_MS);
+  }
+
+  // First-audio time measures World's calls, so a retry is never measured.
+  function retry() {
+    joinLatestCall(refreshOrFail, () => undefined);
   }
 
   function applyWorldMessage(message: ServerMessage, presence: Presence) {
@@ -256,6 +312,11 @@ export function createProximityAudioSession(
     joinLatestCall();
   }
 
+  function applyPresence(presence: Presence) {
+    latestPresence = presence;
+    applyPolicy();
+  }
+
   function handleLocalPublicationChange(change: LocalPublicationChange) {
     const source =
       change.type === "removed" ? change.source : change.publication.source;
@@ -267,6 +328,7 @@ export function createProximityAudioSession(
   }
 
   return {
+    applyPresence,
     applyWorldMessage,
     connect(nextCallbacks) {
       if (callbacks) return () => undefined;
@@ -282,5 +344,6 @@ export function createProximityAudioSession(
       };
     },
     handleLocalPublicationChange,
+    retry,
   };
 }

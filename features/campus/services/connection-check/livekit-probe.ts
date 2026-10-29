@@ -1,9 +1,13 @@
 import type * as Livekit from "livekit-client";
 
+import {
+  type LivekitClient,
+  loadLivekitClient,
+} from "../livekit/livekit-client";
 import type { ConnectionCheckProbe } from "./run-connection-check";
 
 export type LivekitModule = Pick<
-  typeof Livekit,
+  LivekitClient,
   "Checker" | "CheckStatus" | "ConnectionCheck"
 >;
 
@@ -59,7 +63,7 @@ function publishCheckFor(
 
 export async function loadLivekitProbe(
   { url, token }: MediaGrant,
-  load: () => Promise<LivekitModule> = () => import("livekit-client"),
+  load: () => Promise<LivekitModule> = loadLivekitClient,
 ): Promise<ConnectionCheckProbe> {
   const { Checker, CheckStatus, ConnectionCheck } = await load();
   const connectionCheck = new ConnectionCheck(url, token);
