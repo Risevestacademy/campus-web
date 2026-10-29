@@ -47,7 +47,7 @@ async function joinedSession(
   admission.getState().grantEntry("/campus/cohort-1");
   admission.getState().completeEntry("/campus/cohort-1");
   await media.store.getState().start();
-  media.store.getState().connect("cohort-1");
+  media.store.getState().connect();
   const replaceDocument = vi.fn<(href: string) => void>();
   const reloadDocument = vi.fn();
   const followOutcome = followWorldOutcome(

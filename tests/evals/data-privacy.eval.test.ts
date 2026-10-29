@@ -182,7 +182,13 @@ function under(prefix: string, paths: string[]): string[] {
 
 const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   appearance: ["displayName", "spriteKey", "type", "userId"],
-  call: ["type"],
+  call: [
+    "call.audibleRadius",
+    "call.hearing",
+    "call.token",
+    "call.url",
+    "type",
+  ],
   error: ["code", "message", "type"],
   joined: [...under("player", AVATAR_PATHS), "type"],
   left: ["type", "userId"],
@@ -395,16 +401,27 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       );
     });
 
-    it("drops a call's media token until a feature joins calls", () => {
+    it("keeps only the call grant fields proximity audio reads", () => {
       const call = parsedMessage(
         JSON.stringify({
           ...serverFrames.call,
-          call: { ...serverFrames.call.call, token: TOKEN },
+          call: {
+            ...serverFrames.call.call,
+            token: TOKEN,
+            participantMetadata: UNEXPECTED,
+          },
         }),
       );
 
-      expect(call).toEqual({ type: "call" });
-      expect(JSON.stringify(call)).not.toContain(TOKEN);
+      const {
+        room: _room,
+        subscribeRadius: _subscribeRadius,
+        ...expectedCall
+      } = serverFrames.call.call!;
+      expect(call).toEqual({
+        type: "call",
+        call: { ...expectedCall, token: TOKEN },
+      });
     });
 
     it("reads an outcome or error code it does not know as unknown, never as the text world sent", () => {
@@ -413,11 +430,20 @@ describe("Data privacy eval (threshold: every case holds)", () => {
           JSON.stringify({ ...serverFrames.moveResult, outcome: TOKEN }),
         ),
         parsedMessage(JSON.stringify({ ...serverFrames.error, code: TOKEN })),
+        parsedMessage(
+          JSON.stringify({
+            ...serverFrames.call,
+            call: { ...serverFrames.call.call, hearing: TOKEN },
+          }),
+        ),
       ];
 
       expect(parsed).toEqual([
         { ...serverFrames.moveResult, outcome: "unknown" },
         { ...serverFrames.error, code: "unknown" },
+        expect.objectContaining({
+          call: expect.objectContaining({ hearing: "unknown" }),
+        }),
       ]);
       expect(JSON.stringify(parsed)).not.toContain(TOKEN);
     });
