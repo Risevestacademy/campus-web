@@ -259,6 +259,34 @@ describe("createLivekitMeetingRoomTransport", () => {
     expect(second.track.stop).not.toHaveBeenCalled();
   });
 
+  it("stops its copy when the room refuses to publish the microphone", async () => {
+    const { connection, room } = await joinedRoom();
+    const microphone = localMicrophone("mic-1");
+    room.publishFails = true;
+
+    await expect(addMicrophone(connection, microphone)).rejects.toThrow();
+    expect(runningCopies(microphone)).toEqual([]);
+  });
+
+  it("keeps the old copy live and stops the new one when the swap fails", async () => {
+    const { connection, room } = await joinedRoom();
+    const first = localMicrophone("mic-1");
+    const second = localMicrophone("mic-2");
+    await addMicrophone(connection, first);
+    publishedAt(room, 0).replaceTrack.mockRejectedValueOnce(
+      new Error("swap failed"),
+    );
+
+    await expect(
+      connection.handleLocalPublicationChange({
+        previousTrack: first.track,
+        publication: second.publication,
+        type: "replaced",
+      }),
+    ).rejects.toThrow();
+    expect(runningCopies(first, second)).toEqual([first]);
+  });
+
   it("unpublishes and stops the copy when the microphone turns off", async () => {
     const { connection, room } = await joinedRoom();
     const microphone = localMicrophone("mic-1");

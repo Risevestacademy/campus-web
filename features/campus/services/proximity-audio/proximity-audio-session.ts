@@ -195,6 +195,23 @@ export function createProximityAudioSession(
     };
   }
 
+  async function connectAbortably(
+    access: Readonly<{ url: string; token: string }>,
+    events: MeetingRoomEvents,
+  ) {
+    const controller = new AbortController();
+    pendingJoin = controller;
+    try {
+      return await options.roomTransport.connect(
+        access,
+        events,
+        controller.signal,
+      );
+    } finally {
+      pendingJoin = undefined;
+    }
+  }
+
   async function join(
     call: Call,
     stepGeneration: number,
@@ -209,12 +226,9 @@ export function createProximityAudioSession(
     }
 
     starting.onStatusChange("connecting");
-    const controller = new AbortController();
-    pendingJoin = controller;
-    const connection = await options.roomTransport.connect(
+    const connection = await connectAbortably(
       { url, token: call.token },
       roomEvents(stepGeneration, receivedAt),
-      controller.signal,
     );
 
     const current = currentCallbacks(stepGeneration);
@@ -223,7 +237,6 @@ export function createProximityAudioSession(
       return;
     }
 
-    pendingJoin = undefined;
     active = { audibleRadius: call.audibleRadius, connection };
     current.onStatusChange("connected");
     applyPolicy();

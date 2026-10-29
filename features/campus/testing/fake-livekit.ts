@@ -249,12 +249,14 @@ export function fakeLivekitRoom() {
     readonly unpublished: { track: MediaStreamTrack; stop?: boolean }[] = [];
     readonly remoteParticipants = new Map<string, FakeRemoteParticipant>();
     disconnectFails = false;
+    publishFails = false;
     private readonly listeners = new Map<string, Listener[]>();
     private publishing = Promise.resolve();
 
     readonly localParticipant = {
       publishTrack: async (track: MediaStreamTrack, options?: unknown) => {
         await this.publishing;
+        if (this.publishFails) throw new Error("publish failed");
         const publication = { options, track, replaceTrack: vi.fn() };
         publication.replaceTrack.mockResolvedValue(publication);
         this.published.push(publication);

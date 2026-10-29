@@ -6,6 +6,7 @@ import type {
   Room,
 } from "livekit-client";
 
+import { parseParticipantId } from "../../schemas/livekit-participant.schema";
 import {
   type LivekitClient,
   loadLivekitClient,
@@ -27,13 +28,6 @@ export type LivekitRoomModule = Pick<
 >;
 
 const CONNECT_OPTIONS = { autoSubscribe: false, maxRetries: 3 };
-
-// World names each LiveKit participant `<userId>:<anything>`.
-const PARTICIPANT_IDENTITY = /^([^:]+):/;
-
-function participantIdOf({ identity }: RemoteParticipant) {
-  return PARTICIPANT_IDENTITY.exec(identity)?.[1];
-}
 
 function remoteMicrophone(
   participantId: string,
@@ -74,20 +68,38 @@ function microphonePublisher({ Track }: LivekitRoomModule, room: Room) {
     copies.delete(copy);
   }
 
-  async function publish(track: MediaStreamTrack) {
+  // A copy LiveKit never took would run until close().
+  async function withCopy(
+    track: MediaStreamTrack,
+    handOver: (copy: MediaStreamTrack) => Promise<void>,
+  ) {
     const copy = copyOf(track);
-    const publication = await room.localParticipant.publishTrack(copy, {
-      source: Track.Source.Microphone,
-    });
-    published = { copy, publication };
+    try {
+      await handOver(copy);
+    } catch (error) {
+      stopCopy(copy);
+      throw error;
+    }
   }
 
-  async function replace(track: MediaStreamTrack) {
-    if (!published?.publication.track) return publish(track);
-    const copy = copyOf(track);
-    await published.publication.track.replaceTrack(copy, true);
-    stopCopy(published.copy);
-    published = { ...published, copy };
+  function publish(track: MediaStreamTrack) {
+    return withCopy(track, async (copy) => {
+      const publication = await room.localParticipant.publishTrack(copy, {
+        source: Track.Source.Microphone,
+      });
+      published = { copy, publication };
+    });
+  }
+
+  function replace(track: MediaStreamTrack) {
+    const current = published;
+    const localTrack = current?.publication.track;
+    if (!current || !localTrack) return publish(track);
+    return withCopy(track, async (copy) => {
+      await localTrack.replaceTrack(copy, true);
+      stopCopy(current.copy);
+      published = { ...current, copy };
+    });
   }
 
   async function unpublish() {
@@ -134,7 +146,7 @@ function connectRoom(
     participant: RemoteParticipant,
   ) {
     return publication.source === Track.Source.Microphone
-      ? participantIdOf(participant)
+      ? parseParticipantId(participant.identity)
       : undefined;
   }
 
