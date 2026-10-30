@@ -8,14 +8,14 @@ import type {
   RemotePublicationChange,
 } from "../media-session/contracts";
 import {
-  type CallAudioSession,
+  type CallMediaSession,
   type MeetingRoomConnection,
   type MeetingRoomEvents,
   type MeetingRoomTransport,
   RoomAccessDeniedError,
 } from "./contracts";
 
-type CallAudioSessionOptions = Readonly<{
+type CallMediaSessionOptions = Readonly<{
   now: () => number;
   pinMediaUrl: (url: string) => string | undefined;
   recordFirstAudioMilliseconds: (
@@ -64,9 +64,9 @@ function remoteAudioGain(
   return Math.max(0, 1 - distance / audibleRadius);
 }
 
-export function createCallAudioSession(
-  options: CallAudioSessionOptions,
-): CallAudioSession {
+export function createCallMediaSession(
+  options: CallMediaSessionOptions,
+): CallMediaSession {
   let callbacks: MeetingMediaTransportCallbacks | undefined;
   let active: ActiveRoom | undefined;
   let pendingJoin: AbortController | undefined;

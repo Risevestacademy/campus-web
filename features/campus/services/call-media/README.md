@@ -1,4 +1,4 @@
-# Call audio
+# Call media
 
 Who you hear, from World. World decides the room (`call`) and its hearing;
 presence keeps who you meet (`meetingRoster`). This module joins that room,
@@ -9,7 +9,7 @@ session's `MeetingMediaTransport`, so capture stays in the media session.
 ## Interface
 
 ```ts
-const session = createCallAudioSession({
+const session = createCallMediaSession({
   now,
   pinMediaUrl,
   recordFirstAudioMilliseconds,
@@ -20,7 +20,7 @@ session.applyWorldMessage(message, presence); // every parsed World frame
 session.applyPresence(presence); // presence that changed without a frame
 ```
 
-The Presence Session uses `createBrowserCallAudioSession()`, which binds
+The Presence Session uses `createBrowserCallMediaSession()`, which binds
 `pinMediaUrl` to `NEXT_PUBLIC_MEDIA_URL`, `now` to `performance.now`, first
 audio to PostHog, and the LiveKit adapter as `roomTransport`.
 
@@ -40,9 +40,9 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 
 | Module                              | Owns                                                      |
 | ----------------------------------- | --------------------------------------------------------- |
-| `call-audio-session.ts`             | call lifecycle, subscription policy, gain, status, timing |
+| `call-media-session.ts`             | call lifecycle, subscription policy, gain, status, timing |
 | `livekit-meeting-room-transport.ts` | one LiveKit `Room` as a `MeetingRoomConnection`           |
-| `browser-call-audio-session.ts`     | production composition: media host pin, clock, analytics  |
+| `browser-call-media-session.ts`     | production composition: media host pin, clock, analytics  |
 
 ## LiveKit adapter
 
@@ -124,7 +124,7 @@ Compare room and proximity latency only with both in mind.
 ## Tests
 
 ```bash
-pnpm vitest run --project=unit features/campus/services/call-audio
+pnpm vitest run --project=unit features/campus/services/call-media
 pnpm eval:proximity-audio
 pnpm eval:privacy
 ```

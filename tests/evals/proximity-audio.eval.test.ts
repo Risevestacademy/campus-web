@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { createPresenceStore } from "@/core/presence";
 import type { Avatar } from "@/core/realtime";
 import { parseServerMessage } from "@/core/realtime";
-import { createCallAudioSession } from "@/features/campus/services/call-audio/call-audio-session";
-import { createLivekitMeetingRoomTransport } from "@/features/campus/services/call-audio/livekit-meeting-room-transport";
+import { createCallMediaSession } from "@/features/campus/services/call-media/call-media-session";
+import { createLivekitMeetingRoomTransport } from "@/features/campus/services/call-media/livekit-meeting-room-transport";
 import type { CallAudioStatus } from "@/features/campus/services/media-session/contracts";
 import {
   fakeLivekitRoom,
@@ -31,7 +31,7 @@ const MEDIA_URL = proximityCall().url;
 const identityOf = (userId: string) => `${userId}:tab-1`;
 
 // One member's Presence Session, end to end below World: frames go through the
-// real parser and presence store into the real call-audio session and
+// real parser and presence store into the real call-media session and
 // LiveKit adapter. Only livekit-client is faked.
 function joinedMember() {
   const livekit = fakeLivekitRoom();
@@ -43,7 +43,7 @@ function joinedMember() {
   ];
   const presence = createPresenceStore();
   let worldRefreshes = 0;
-  const session = createCallAudioSession({
+  const session = createCallMediaSession({
     now: () => 0,
     pinMediaUrl: (url) => (url === MEDIA_URL ? url : undefined),
     recordFirstAudioMilliseconds: () => undefined,

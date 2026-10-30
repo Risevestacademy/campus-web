@@ -13,7 +13,7 @@ import { type RefreshSession, useRefreshSession } from "@/core/session";
 import { replaceDocument } from "@/shared/lib/document-navigation";
 import { useMountEffect } from "@/shared/lib/use-mount-effect";
 
-import { createBrowserCallAudioSession } from "../call-audio/browser-call-audio-session";
+import { createBrowserCallMediaSession } from "../call-media/browser-call-media-session";
 import { MediaSessionProvider } from "../media-session/media-session-provider";
 import { createMediaSessionStore } from "../media-session/media-session-store";
 import { useMediaSessionLifecycle } from "../media-session/use-media-session-lifecycle";
@@ -67,10 +67,10 @@ function createPresenceSession(
   refreshSession: RefreshSession,
 ) {
   const admission = createAdmissionStore();
-  // Audio and world need each other: World feeds audio its frames, and a
+  // Call media and world need each other: World feeds call media its frames, and a
   // refused grant asks World for a fresh call. The arrow binds world late.
-  const audio = createBrowserCallAudioSession(() => world.rejoin());
-  const media = createMediaSessionStore({ transport: audio });
+  const callMedia = createBrowserCallMediaSession(() => world.rejoin());
+  const media = createMediaSessionStore({ transport: callMedia });
   const presenceTab = createBrowserPresenceTab(cohortId);
   const world = createBrowserWorldSession(cohortId, {
     refreshSession,
@@ -80,8 +80,8 @@ function createPresenceSession(
       presenceTab,
       browserNavigation,
     ),
-    onMessage: audio.applyWorldMessage,
-    onRemoteParticipantsCleared: audio.applyPresence,
+    onMessage: callMedia.applyWorldMessage,
+    onRemoteParticipantsCleared: callMedia.applyPresence,
   });
 
   return { admission, media, presenceTab, world };
