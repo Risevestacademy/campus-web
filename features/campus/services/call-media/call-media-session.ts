@@ -7,6 +7,7 @@ import type {
   LocalPublicationChange,
   MeetingMediaTransportCallbacks,
   RemotePublicationChange,
+  VideoDemand,
 } from "../media-session/contracts";
 import { localChangeSource } from "../media-session/publication-registry";
 import {
@@ -80,6 +81,7 @@ export function createCallMediaSession(
   let localPublications: LocalPublications = {};
   let latestPresence: Presence | undefined;
   let latestCall: HeardCall | undefined;
+  let latestDemand: VideoDemand = new Map();
   const pendingRemovals = new Map<string, PublicationRemoval>();
   // Bumped whenever the current room ends; async work from an older generation
   // is stale and must not touch state or callbacks.
@@ -99,13 +101,25 @@ export function createCallMediaSession(
     return stepGeneration === roomGeneration ? callbacks : undefined;
   }
 
-  function applyPolicy() {
+  function applyAudience() {
     if (!callbacks || !active || !latestPresence) return;
-    const { audibleRadius, connection, hearing } = active;
+    const participantIds = new Set(latestPresence.meetingRoster);
+    active.connection.applyAudience({
+      participantIds,
+      video: new Map(
+        [...latestDemand].filter(([participantId]) =>
+          participantIds.has(participantId),
+        ),
+      ),
+    });
+  }
+
+  function applyGains() {
+    if (!callbacks || !active || !latestPresence) return;
+    const { audibleRadius, hearing } = active;
     const { meetingRoster, positions, selfId } = latestPresence;
     const selfPosition = selfId ? positions.get(selfId) : undefined;
 
-    connection.applyAudience({ participantIds: new Set(meetingRoster) });
     callbacks.onRemoteAudioGainsChange(
       Object.fromEntries(
         meetingRoster.map((participantId) => [
@@ -120,6 +134,11 @@ export function createCallMediaSession(
         ]),
       ),
     );
+  }
+
+  function applyPolicy() {
+    applyAudience();
+    applyGains();
   }
 
   function forwardRemoteChange(change: RemotePublicationChange) {
@@ -366,5 +385,9 @@ export function createCallMediaSession(
     },
     handleLocalPublicationChange,
     retry,
+    setVideoDemand(demand) {
+      latestDemand = demand;
+      applyAudience();
+    },
   };
 }

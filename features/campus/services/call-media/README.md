@@ -1,6 +1,6 @@
 # Call media
 
-Who you hear, from World. World decides the room (`call`) and its hearing;
+Who you hear and see, from World. World decides the room (`call`) and its hearing;
 presence keeps who you meet (`meetingRoster`). This module joins that room,
 subscribes only the roster's microphones, and sets each one's gain: full
 under room hearing, from distance under proximity hearing. It is the media
@@ -27,6 +27,8 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 - `connect(callbacks)` / `handleLocalPublicationChange(change)`: the media
   session's transport seam. The microphone and camera reach the room, each
   replayed when a room joins (microphone first); screen never does.
+- `setVideoDemand(demand)`: the remote cameras on screen and their layer,
+  from the media session's tiles. Only the roster's are asked for.
 - `applyWorldMessage(message, presence)`: a `call` World can hear
   (`hearingOf`) swaps rooms; `call: null` or a hearing added later leaves.
   `snapshot`, `joined`, `left`, `moved`, `moveResult`, `nearby` and
@@ -35,7 +37,8 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
   emptied, so nobody stays audible while World cannot say who is near.
 - `MeetingRoomTransport` (`contracts.ts`): joins one room with
   `{ url, token }` and returns a `MeetingRoomConnection` that applies the
-  `MeetingAudience` (who you hear and who may receive your tracks),
+  `MeetingAudience` (who you hear, whose cameras you see, and who may
+  receive your tracks),
   publishes local changes, and disconnects.
 
 ## Modules
@@ -57,15 +60,19 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
   audience's ids (`setTrackSubscriptionPermissions`), so the SFU refuses
   your tracks to anyone else in the room. It regrants when someone joins the
   room and tells the SFU only when the grant changes.
-- Only microphone publications of the asked-for ids subscribe. Camera, screen
-  and unknown sources stay unsubscribed. The first subscribed microphone
-  reports first audio, once per room.
+- Microphones of the audience's ids subscribe, and cameras of its `video`
+  ids, each asked for at its layer (`setVideoQuality`, sent only when it
+  changes). Screen and unknown sources stay unsubscribed. The first
+  subscribed microphone reports first audio, once per room.
+- A subscribed track that mutes or unmutes is handed over again with
+  `enabled` flipped, so a tile never freezes on its last frame.
 - It publishes copies of the member's microphone and camera, each as its own
   source, never the store's track: LiveKit can stop a track it fails to
   publish. A device switch swaps the copy in place; turning off unpublishes
   it. Changes to one source run in order.
-- `removed` follows an unsubscribe or unpublish. A leave and a full reconnect
-  unpublish every track first, so they need nothing more.
+- `removed` follows an unsubscribe or unpublish of a track it handed over,
+  once. A leave and a full reconnect unpublish every track first, so they
+  need nothing more.
 - `connect` rejects once `signal` aborts and leaves the half-joined room.
   `disconnect` always settles, stops every copy, and reports no drop.
   Microphone changes still queued then never clone.
@@ -74,7 +81,9 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 ## Rules
 
 - Your camera publishes while it is on and a call is joined, like your
-  microphone. Remote cameras and screen never subscribe.
+  microphone. A remote camera subscribes only while its owner is in the
+  roster and their tile is on screen, so the compact strip pulls at most
+  three. Screen never subscribes.
 - The audience is presence's `meetingRoster`: room mates under room
   hearing, known `nearby` otherwise, never you. An empty roster grants
   nobody.
@@ -100,8 +109,6 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 - First-audio time is measured only for calls that arrive while the roster
   is not empty, from `call` to the room's first remote microphone, and is
   reported with the call's hearing.
-
-Remote video is not supported yet.
 
 `RemoteAudioOutput` follows each participant's gain outside React, so a gain
 change never detaches the audio. A participant with no gain plays silent.
@@ -136,6 +143,7 @@ Compare room and proximity latency only with both in mind.
 ```bash
 pnpm vitest run --project=unit features/campus/services/call-media
 pnpm eval:proximity-audio
+pnpm eval:meeting-video
 pnpm eval:privacy
 ```
 

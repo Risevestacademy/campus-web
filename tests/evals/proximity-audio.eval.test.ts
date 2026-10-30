@@ -1,15 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createPresenceStore } from "@/core/presence";
 import type { Avatar } from "@/core/realtime";
-import { parseServerMessage } from "@/core/realtime";
-import { createCallMediaSession } from "@/features/campus/services/call-media/call-media-session";
-import { createLivekitMeetingRoomTransport } from "@/features/campus/services/call-media/livekit-meeting-room-transport";
-import type { CallAudioStatus } from "@/features/campus/services/media-session/contracts";
 import {
-  fakeLivekitRoom,
-  type FakeRoom,
-} from "@/features/campus/testing/fake-livekit";
+  identityOf,
+  joinedMember,
+  proximityCall,
+} from "@/tests/fixtures/call-media-member";
 import {
   ADA,
   GRACE,
@@ -19,144 +15,6 @@ import {
   spaceChangedFrame,
 } from "@/tests/fixtures/nearby-presence";
 import { serverFrames } from "@/tests/fixtures/world-frames";
-
-function proximityCall() {
-  const { call } = serverFrames.call;
-  if (!call) throw new Error("The call fixture must grant a room.");
-  return call;
-}
-
-const MEDIA_URL = proximityCall().url;
-
-const identityOf = (userId: string) => `${userId}:tab-1`;
-
-// One member's Presence Session, end to end below World: frames go through the
-// real parser and presence store into the real call-media session and
-// LiveKit adapter. Only livekit-client is faked.
-function joinedMember() {
-  const livekit = fakeLivekitRoom();
-  livekit.control.alreadyInRoom = [
-    [identityOf(GRACE.userId), ["microphone", "camera", "screen_share"]],
-    [identityOf(LIN.userId), ["microphone"]],
-    [identityOf(MAYA.userId), ["microphone"]],
-    [GRACE.userId, ["microphone"]],
-  ];
-  const presence = createPresenceStore();
-  let worldRefreshes = 0;
-  const session = createCallMediaSession({
-    now: () => 0,
-    pinMediaUrl: (url) => (url === MEDIA_URL ? url : undefined),
-    recordFirstAudioMilliseconds: () => undefined,
-    // World answers a rejoin with the space's call and a freshly minted token,
-    // which LiveKit accepts.
-    refreshCall: () => {
-      worldRefreshes += 1;
-      livekit.control.connect = "resolve";
-      receive({
-        ...serverFrames.call,
-        call: { ...proximityCall(), token: "fresh-token" },
-      });
-      return true;
-    },
-    roomTransport: createLivekitMeetingRoomTransport(
-      async () => livekit.module,
-    ),
-  });
-  const statuses: CallAudioStatus[] = [];
-  const heard = new Set<string>();
-  session.connect({
-    onRemoteAudioGainsChange: () => undefined,
-    onRemotePublicationChange: (change) => {
-      if (change.type === "upserted") {
-        heard.add(change.publication.participantId);
-      } else {
-        heard.delete(change.participantId);
-      }
-    },
-    onStatusChange: (status) => statuses.push(status),
-  });
-  let counted = 0;
-  let unauthorizedSubscriptions = 0;
-  let countedGrants = 0;
-  let unauthorizedGrants = 0;
-
-  function isOutsideRoster(identity: string) {
-    const userId = identity.split(":")[0];
-    return !presence.getState().meetingRoster.includes(userId ?? "");
-  }
-
-  function countUnauthorizedSubscriptions() {
-    for (const record of livekit.subscriptions.slice(counted)) {
-      if (record.subscribed && isOutsideRoster(record.identity)) {
-        unauthorizedSubscriptions += 1;
-      }
-    }
-    counted = livekit.subscriptions.length;
-
-    for (const grant of livekit.grants.slice(countedGrants)) {
-      if (
-        grant.allParticipantsAllowed ||
-        grant.identities.some(isOutsideRoster)
-      ) {
-        unauthorizedGrants += 1;
-      }
-    }
-    countedGrants = livekit.grants.length;
-  }
-
-  function receive(frame: unknown) {
-    const parsed = parseServerMessage(JSON.stringify(frame));
-    if (!parsed.ok) throw new Error("The eval sent a frame world would not.");
-    presence.getState().apply(parsed.message);
-    session.applyWorldMessage(parsed.message, presence.getState());
-    countUnauthorizedSubscriptions();
-  }
-
-  // What the world session does on a recoverable close.
-  function worldCloses() {
-    presence.getState().clearRemoteParticipants();
-    session.applyPresence(presence.getState());
-    countUnauthorizedSubscriptions();
-  }
-
-  function subscribedIn(room: FakeRoom) {
-    return [...room.remoteParticipants.values()].flatMap((participant) =>
-      [...participant.trackPublications.values()]
-        .filter(({ isDesired }) => isDesired)
-        .map(({ source }) => `${participant.identity}/${source}`),
-    );
-  }
-
-  async function connected(roomCount = 1) {
-    await vi.waitFor(() => {
-      expect(livekit.rooms).toHaveLength(roomCount);
-      expect(statuses.at(-1)).toBe("connected");
-    });
-    countUnauthorizedSubscriptions();
-  }
-
-  receive(serverFrames.welcome);
-  receive({
-    type: "snapshot",
-    map: serverFrames.snapshot.map,
-    players: [ADA, GRACE, LIN, MAYA],
-    spaces: [],
-  });
-
-  return {
-    connected,
-    heard,
-    livekit,
-    receive,
-    statuses,
-    subscribedIn,
-    tryAgain: () => session.retry(),
-    worldCloses,
-    worldRefreshes: () => worldRefreshes,
-    unauthorizedGrants: () => unauthorizedGrants,
-    unauthorizedSubscriptions: () => unauthorizedSubscriptions,
-  };
-}
 
 describe("proximity audio eval (required threshold: 8/8, 100% same-task updates, 0 unauthorized subscriptions or grants)", () => {
   it("joins world's call and subscribes only the microphones of whoever is near", async () => {

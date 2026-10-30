@@ -1,10 +1,12 @@
 import type {
   LocalTrackPublication,
+  Participant,
   RemoteParticipant,
   RemoteTrack,
   RemoteTrackPublication,
   Room,
   Track,
+  TrackPublication,
 } from "livekit-client";
 
 import { parseParticipantId } from "../../schemas/livekit-participant.schema";
@@ -16,6 +18,7 @@ import type {
   CaptureSource,
   LocalPublicationChange,
   RemoteMediaPublication,
+  VideoLayer,
 } from "../media-session/contracts";
 import { localChangeSource } from "../media-session/publication-registry";
 import {
@@ -28,13 +31,20 @@ import {
 
 export type LivekitRoomModule = Pick<
   LivekitClient,
-  "ConnectionError" | "ConnectionErrorReason" | "Room" | "RoomEvent" | "Track"
+  | "ConnectionError"
+  | "ConnectionErrorReason"
+  | "Room"
+  | "RoomEvent"
+  | "Track"
+  | "VideoQuality"
 >;
 
 const CONNECT_OPTIONS = { autoSubscribe: false, maxRetries: 3 };
 
-function remoteMicrophone(
-  participantId: string,
+type TrackOwner = Readonly<{ participantId: string; source: CaptureSource }>;
+
+function remotePublicationOf(
+  { participantId, source }: TrackOwner,
   track: RemoteTrack,
   publication: RemoteTrackPublication,
 ): RemoteMediaPublication {
@@ -43,7 +53,7 @@ function remoteMicrophone(
     origin: "remote",
     participantId,
     publicationId: publication.trackSid,
-    source: "microphone",
+    source,
     stream: track.mediaStream ?? new MediaStream([track.mediaStreamTrack]),
     track: track.mediaStreamTrack,
   };
@@ -134,16 +144,56 @@ function localTrackPublisher(room: Room, source: Track.Source) {
   };
 }
 
+// LiveKit lets anyone in the room subscribe until told otherwise, and keeps
+// the last grant across its own reconnects.
+function audienceGrant(room: Room) {
+  let granted: string | undefined;
+
+  function identitiesOf(participantIds: ReadonlySet<string>) {
+    return [...room.remoteParticipants.values()]
+      .map(({ identity }) => identity)
+      .filter((identity) => {
+        const participantId = parseParticipantId(identity);
+        return participantId && participantIds.has(participantId);
+      })
+      .toSorted();
+  }
+
+  return function grant(participantIds: ReadonlySet<string>) {
+    const identities = identitiesOf(participantIds);
+    const key = identities.join("\n");
+    if (key === granted) return;
+    granted = key;
+    room.localParticipant.setTrackSubscriptionPermissions(
+      false,
+      identities.map((participantIdentity) => ({
+        participantIdentity,
+        allowAll: true,
+      })),
+    );
+  };
+}
+
 function connectRoom(
   livekit: LivekitRoomModule,
   room: Room,
   events: MeetingRoomEvents,
 ) {
-  const { RoomEvent, Track } = livekit;
-  let audience: MeetingAudience = { participantIds: new Set() };
-  let grantedIdentities: string | undefined;
+  const { RoomEvent, Track, VideoQuality } = livekit;
+  const VIDEO_QUALITY: Readonly<Record<VideoLayer, number>> = {
+    low: VideoQuality.LOW,
+    medium: VideoQuality.MEDIUM,
+    high: VideoQuality.HIGH,
+  };
+  let audience: MeetingAudience = {
+    participantIds: new Set(),
+    video: new Map(),
+  };
   let heardRemoteAudio = false;
   let leaving = false;
+  const grant = audienceGrant(room);
+  const requestedLayers = new Map<string, VideoLayer>();
+  const handedOver = new Set<string>();
   const publishers: Readonly<
     Record<CaptureSource, ReturnType<typeof localTrackPublisher>>
   > = {
@@ -156,57 +206,69 @@ function connectRoom(
     if (source !== "screen") await publishers[source].handle(change);
   }
 
-  function microphoneOwnerId(
-    publication: RemoteTrackPublication,
-    participant: RemoteParticipant,
-  ) {
-    return publication.source === Track.Source.Microphone
-      ? parseParticipantId(participant.identity)
-      : undefined;
+  function grantAudience() {
+    grant(audience.participantIds);
   }
 
-  function wantedParticipantId(
+  function captureSourceOf({ source }: RemoteTrackPublication) {
+    if (source === Track.Source.Microphone) return "microphone";
+    if (source === Track.Source.Camera) return "camera";
+    return undefined;
+  }
+
+  function ownerOf(
+    publication: RemoteTrackPublication,
+    participant: RemoteParticipant,
+  ): TrackOwner | undefined {
+    const source = captureSourceOf(publication);
+    const participantId = source && parseParticipantId(participant.identity);
+    return participantId && source ? { participantId, source } : undefined;
+  }
+
+  function isWanted({ participantId, source }: TrackOwner) {
+    return source === "microphone"
+      ? audience.participantIds.has(participantId)
+      : audience.video.has(participantId);
+  }
+
+  function wantedOwnerOf(
     publication: RemoteTrackPublication,
     participant: RemoteParticipant,
   ) {
-    const participantId = microphoneOwnerId(publication, participant);
-    return participantId && audience.participantIds.has(participantId)
-      ? participantId
-      : undefined;
+    const owner = ownerOf(publication, participant);
+    return owner && isWanted(owner) ? owner : undefined;
+  }
+
+  function requestLayer(
+    publication: RemoteTrackPublication,
+    layer: VideoLayer,
+  ) {
+    if (requestedLayers.get(publication.trackSid) === layer) return;
+    requestedLayers.set(publication.trackSid, layer);
+    publication.setVideoQuality(VIDEO_QUALITY[layer]);
   }
 
   function updateSubscription(
     publication: RemoteTrackPublication,
     participant: RemoteParticipant,
   ) {
-    const wanted = wantedParticipantId(publication, participant) !== undefined;
+    const owner = wantedOwnerOf(publication, participant);
+    const wanted = owner !== undefined;
     if (publication.isDesired !== wanted) publication.setSubscribed(wanted);
+    const layer = owner && audience.video.get(owner.participantId);
+    if (owner?.source === "camera" && layer) requestLayer(publication, layer);
   }
 
-  function audienceIdentities() {
-    return [...room.remoteParticipants.values()]
-      .map(({ identity }) => identity)
-      .filter((identity) => {
-        const participantId = parseParticipantId(identity);
-        return participantId && audience.participantIds.has(participantId);
-      })
-      .toSorted();
-  }
-
-  // LiveKit lets anyone in the room subscribe until told otherwise, and keeps
-  // the last grant across its own reconnects.
-  function grantAudience() {
-    const identities = audienceIdentities();
-    const key = identities.join("\n");
-    if (key === grantedIdentities) return;
-    grantedIdentities = key;
-    room.localParticipant.setTrackSubscriptionPermissions(
-      false,
-      identities.map((participantIdentity) => ({
-        participantIdentity,
-        allowAll: true,
-      })),
-    );
+  function upsert(
+    owner: TrackOwner,
+    track: RemoteTrack,
+    publication: RemoteTrackPublication,
+  ) {
+    handedOver.add(publication.trackSid);
+    events.onRemotePublicationChange({
+      publication: remotePublicationOf(owner, track, publication),
+      type: "upserted",
+    });
   }
 
   function forwardSubscribedTrack(
@@ -214,30 +276,41 @@ function connectRoom(
     publication: RemoteTrackPublication,
     participant: RemoteParticipant,
   ) {
-    const participantId = wantedParticipantId(publication, participant);
-    if (!participantId) return;
+    const owner = wantedOwnerOf(publication, participant);
+    if (!owner) return;
 
-    events.onRemotePublicationChange({
-      publication: remoteMicrophone(participantId, track, publication),
-      type: "upserted",
-    });
-    if (heardRemoteAudio) return;
+    upsert(owner, track, publication);
+    if (owner.source !== "microphone" || heardRemoteAudio) return;
     heardRemoteAudio = true;
     events.onFirstRemoteAudio();
   }
 
-  // Removal ignores the ask: dropping someone unsubscribes them first.
+  // Mute events carry the base publication types; the room holds the remote
+  // ones, and a member's own mutes are never in it.
+  function forwardMute(
+    { trackSid }: TrackPublication,
+    { identity }: Participant,
+  ) {
+    const participant = room.remoteParticipants.get(identity);
+    const publication = participant?.trackPublications.get(trackSid);
+    const owner =
+      participant && publication && wantedOwnerOf(publication, participant);
+    if (owner && publication?.track)
+      upsert(owner, publication.track, publication);
+  }
+
+  // Removal ignores the ask, since dropping someone unsubscribes them first,
+  // but only a track handed over is ever taken back.
   function forwardRemovedTrack(
     publication: RemoteTrackPublication,
     participant: RemoteParticipant,
   ) {
-    const participantId = microphoneOwnerId(publication, participant);
-    if (!participantId) return;
+    const owner = ownerOf(publication, participant);
+    if (!owner || !handedOver.delete(publication.trackSid)) return;
 
     events.onRemotePublicationChange({
-      participantId,
+      ...owner,
       publicationId: publication.trackSid,
-      source: "microphone",
       type: "removed",
     });
   }
@@ -250,6 +323,8 @@ function connectRoom(
       forwardRemovedTrack(publication, participant),
     )
     .on(RoomEvent.TrackUnpublished, forwardRemovedTrack)
+    .on(RoomEvent.TrackMuted, forwardMute)
+    .on(RoomEvent.TrackUnmuted, forwardMute)
     .on(RoomEvent.Disconnected, () => {
       if (!leaving) events.onDisconnected();
     });

@@ -519,6 +519,7 @@ describe("media controls acceptance", () => {
       },
       handleLocalPublicationChange() {},
       retry() {},
+      setVideoDemand() {},
     };
     const store = createMediaSessionStore({
       mediaDevices: null,
@@ -551,6 +552,7 @@ describe("media controls acceptance", () => {
       },
       handleLocalPublicationChange() {},
       retry,
+      setVideoDemand() {},
     };
     const store = createMediaSessionStore({ transport: call });
     render(

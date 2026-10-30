@@ -159,8 +159,10 @@ const RoomEvent = {
   Disconnected: "disconnected",
   ParticipantConnected: "participantConnected",
   ParticipantDisconnected: "participantDisconnected",
+  TrackMuted: "trackMuted",
   TrackPublished: "trackPublished",
   TrackSubscribed: "trackSubscribed",
+  TrackUnmuted: "trackUnmuted",
   TrackUnpublished: "trackUnpublished",
   TrackUnsubscribed: "trackUnsubscribed",
 } as const;
@@ -174,14 +176,23 @@ const Track = {
   },
 } as const;
 
+const VideoQuality = { LOW: 0, MEDIUM: 1, HIGH: 2 } as const;
+
 export type FakeTrackSource = (typeof Track.Source)[keyof typeof Track.Source];
+
+type FakeRemoteTrack = Readonly<{
+  mediaStream: MediaStream;
+  mediaStreamTrack: MediaStreamTrack;
+}>;
 
 export type FakeRemotePublication = {
   isDesired: boolean;
-  readonly isMuted: boolean;
+  isMuted: boolean;
   readonly source: FakeTrackSource;
+  track: FakeRemoteTrack | undefined;
   readonly trackSid: string;
   setSubscribed(subscribed: boolean): void;
+  setVideoQuality(quality: number): void;
 };
 
 export type FakeRemoteParticipant = Readonly<{
@@ -201,6 +212,11 @@ export type SubscriptionRecord = Readonly<{
   subscribed: boolean;
 }>;
 
+export type QualityRecord = Readonly<{
+  identity: string;
+  quality: keyof typeof VideoQuality;
+}>;
+
 // Who the member let subscribe to their tracks, as the SFU was told.
 export type GrantRecord = Readonly<{
   allParticipantsAllowed: boolean;
@@ -214,6 +230,7 @@ export function fakeLivekitRoom() {
   const rooms: FakeRoom[] = [];
   const subscriptions: SubscriptionRecord[] = [];
   const grants: GrantRecord[] = [];
+  const qualities: QualityRecord[] = [];
   const timeline: string[] = [];
   const control: {
     connect: FakeConnectOutcome;
@@ -228,10 +245,17 @@ export function fakeLivekitRoom() {
       isDesired: false,
       isMuted: false,
       source,
+      track: undefined,
       trackSid: `${identity}-${source}`,
       setSubscribed(subscribed) {
         this.isDesired = subscribed;
         subscriptions.push({ identity, source, subscribed });
+      },
+      setVideoQuality(quality) {
+        const name = Object.entries(VideoQuality).find(
+          ([, value]) => value === quality,
+        )?.[0] as QualityRecord["quality"];
+        qualities.push({ identity, quality: name });
       },
     };
   }
@@ -380,15 +404,30 @@ export function fakeLivekitRoom() {
     deliver(participant: FakeRemoteParticipant, source: FakeTrackSource) {
       const publication = publicationOf(participant, source);
       const mediaStreamTrack = createTestMediaTrack(
-        "audio",
+        source === Track.Source.Camera ? "video" : "audio",
         publication.trackSid,
       );
       const track = {
         mediaStream: createTestMediaStream([mediaStreamTrack]),
         mediaStreamTrack,
       };
+      publication.track = track;
       this.emit(RoomEvent.TrackSubscribed, track, publication, participant);
       return track;
+    }
+
+    mute(
+      participant: FakeRemoteParticipant,
+      source: FakeTrackSource,
+      muted: boolean,
+    ) {
+      const publication = publicationOf(participant, source);
+      publication.isMuted = muted;
+      this.emit(
+        muted ? RoomEvent.TrackMuted : RoomEvent.TrackUnmuted,
+        publication,
+        participant,
+      );
     }
 
     unsubscribe(participant: FakeRemoteParticipant, source: FakeTrackSource) {
@@ -428,7 +467,9 @@ export function fakeLivekitRoom() {
       Room: FakeRoom,
       RoomEvent,
       Track,
+      VideoQuality,
     } as unknown as LivekitRoomModule,
+    qualities,
     roomAt,
     rooms,
     subscriptions,

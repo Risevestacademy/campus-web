@@ -21,8 +21,13 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
   per-participant `remoteAudioGains` (0 to 1) and a safe `callAudioStatus`
   (`idle`, `connecting`, `connected`, `unavailable`); no room, URL or token
   reaches the store. `handleLocalPublicationChange` is called only while
-  connected, so pre-join never publishes. Production uses
-  `noopMeetingMediaTransport` until call audio is wired in.
+  connected, so pre-join never publishes. `setVideoDemand(demand)` names
+  the remote cameras on screen and their layer, connected or not. Production
+  uses the call-media session; `noopMeetingMediaTransport` is the default.
+- `demandVideo(participantId, layer)`: a tile showing a remote camera asks
+  for it and gets back the function that lets it go. Requests settle in a
+  microtask into one `VideoDemand` (the largest layer per participant), so a
+  tile changing size never drops its camera on the way.
 
 Tests inject a store through `MediaSessionProvider`.
 
@@ -36,6 +41,7 @@ Tests inject a store through `MediaSessionProvider`.
 | `device-discovery.ts`                                          | `createDeviceCatalog`: serialized, stale-safe enumeration | `enumerateDevices`       |
 | `media-device-preferences.ts`                                  | remembered device IDs                                     | `localStorage`           |
 | `publication-registry.ts`                                      | publications indexed by participant and source            | none                     |
+| `video-demand.ts`                                              | the remote cameras on screen, settled into one demand     | `setVideoDemand`         |
 | `meeting-media-transport.ts`                                   | the transport seam and its no-op adapter                  | `MeetingMediaTransport`  |
 
 ## Contributing

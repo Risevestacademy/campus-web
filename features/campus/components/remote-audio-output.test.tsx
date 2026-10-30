@@ -29,6 +29,7 @@ function connectedSession() {
     },
     handleLocalPublicationChange() {},
     retry() {},
+    setVideoDemand() {},
   };
   const store = createMediaSessionStore({ mediaDevices: null, transport });
   store.getState().connect();

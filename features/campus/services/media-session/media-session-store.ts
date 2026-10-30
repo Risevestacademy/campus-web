@@ -17,6 +17,7 @@ import type {
   RemoteAudioGains,
   RemotePublicationChange,
   RemotePublicationRegistry,
+  VideoLayer,
 } from "./contracts";
 import { createDeviceCatalog } from "./device-discovery";
 import {
@@ -29,6 +30,7 @@ import {
   removeRemotePublication,
   upsertRemotePublication,
 } from "./publication-registry";
+import { createVideoDemand } from "./video-demand";
 
 type SelectableAudioOutputMediaDevices = MediaDevices &
   Readonly<{
@@ -50,6 +52,8 @@ export type MediaSessionState = Readonly<{
   callAudioStatus: CallAudioStatus;
   chooseAudioOutput: () => MediaActionFailure;
   connect: () => void;
+  // A tile showing a remote camera; the returned function lets it go.
+  demandVideo: (participantId: string, layer: VideoLayer) => () => void;
   deviceDiscoveryStatus: DeviceDiscoveryStatus;
   localPublications: Readonly<
     Partial<Record<PublicationSource, LocalMediaPublication>>
@@ -600,6 +604,9 @@ export function createMediaSessionStore(
           if (publication) forwardLocalChange({ publication, type: "added" });
         }
       },
+      demandVideo: createVideoDemand((demand) =>
+        transport.setVideoDemand(demand),
+      ),
       deviceDiscoveryStatus: "idle",
       localPublications: {},
       microphone: createInitialCaptureState(false),

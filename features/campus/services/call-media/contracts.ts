@@ -5,6 +5,7 @@ import type {
   LocalPublicationChange,
   MeetingMediaTransport,
   RemotePublicationChange,
+  VideoDemand,
 } from "../media-session/contracts";
 
 // The room refused the grant, most often because its token expired: only a
@@ -20,8 +21,10 @@ export type MeetingRoomEvents = Readonly<{
 }>;
 
 // The members you meet: you hear them, and only they may receive your tracks.
+// `video` holds the ones whose cameras are on screen.
 export type MeetingAudience = Readonly<{
   participantIds: ReadonlySet<string>;
+  video: VideoDemand;
 }>;
 
 export interface MeetingRoomConnection {

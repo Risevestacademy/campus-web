@@ -22,6 +22,7 @@ import {
 
 const SELF_ID = "11111111-1111-4111-8111-111111111111";
 const NEARBY_ID = "22222222-2222-4222-8222-222222222222";
+const STRANGER_ID = "33333333-3333-4333-8333-333333333333";
 const TOKEN = "room-token";
 
 const NEARBY: Extract<ServerMessage, { type: "nearby" }> = {
@@ -223,9 +224,11 @@ describe("createCallMediaSession", () => {
       session.applyWorldMessage(callWith({ hearing }), presence);
 
       const { connection } = await joined();
-      expect(connection.applyAudience).toHaveBeenCalledWith({
-        participantIds: new Set([NEARBY_ID]),
-      });
+      expect(connection.applyAudience).toHaveBeenCalledWith(
+        expect.objectContaining({
+          participantIds: new Set([NEARBY_ID]),
+        }),
+      );
       expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith({
         [NEARBY_ID]: gain,
       });
@@ -245,9 +248,11 @@ describe("createCallMediaSession", () => {
       presenceWith([], "room"),
     );
 
-    expect(connection.applyAudience).toHaveBeenLastCalledWith({
-      participantIds: new Set(),
-    });
+    expect(connection.applyAudience).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        participantIds: new Set(),
+      }),
+    );
     expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith({});
   });
 
@@ -258,9 +263,11 @@ describe("createCallMediaSession", () => {
 
     session.applyPresence(presenceWith([]));
 
-    expect(connection.applyAudience).toHaveBeenLastCalledWith({
-      participantIds: new Set(),
-    });
+    expect(connection.applyAudience).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        participantIds: new Set(),
+      }),
+    );
     expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith({});
   });
 
@@ -272,9 +279,11 @@ describe("createCallMediaSession", () => {
     session.connect(callbacks);
 
     const { connection } = await joined();
-    expect(connection.applyAudience).toHaveBeenCalledWith({
-      participantIds: new Set([NEARBY_ID]),
-    });
+    expect(connection.applyAudience).toHaveBeenCalledWith(
+      expect.objectContaining({
+        participantIds: new Set([NEARBY_ID]),
+      }),
+    );
   });
 
   it("rejoins World's latest call when the media session connects again", async () => {
@@ -576,14 +585,67 @@ describe("createCallMediaSession", () => {
 
       session.applyWorldMessage(message, apply(presence));
 
-      expect(connection.applyAudience).toHaveBeenLastCalledWith({
-        participantIds,
-      });
+      expect(connection.applyAudience).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          participantIds,
+        }),
+      );
       expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith(
         gains,
       );
     },
   );
+
+  it("asks only for the cameras on screen of whoever the member meets", async () => {
+    const { joined, session } = setup();
+    session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+    const { connection } = await joined();
+
+    session.setVideoDemand(
+      new Map([
+        [NEARBY_ID, "high"],
+        [STRANGER_ID, "low"],
+      ]),
+    );
+
+    expect(connection.applyAudience).toHaveBeenLastCalledWith({
+      participantIds: new Set([NEARBY_ID]),
+      video: new Map([[NEARBY_ID, "high"]]),
+    });
+  });
+
+  it("asks for the cameras on screen as soon as a room joins", async () => {
+    const { joined, session } = setup();
+    session.setVideoDemand(new Map([[NEARBY_ID, "low"]]));
+
+    session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+
+    const { connection } = await joined();
+    expect(connection.applyAudience).toHaveBeenCalledWith({
+      participantIds: new Set([NEARBY_ID]),
+      video: new Map([[NEARBY_ID, "low"]]),
+    });
+  });
+
+  it("drops every camera in the same task as a crossing empties the roster", async () => {
+    const { joined, session } = setup();
+    session.setVideoDemand(new Map([[NEARBY_ID, "low"]]));
+    session.applyWorldMessage(
+      callWith({ hearing: "room" }),
+      presenceWith([NEARBY_ID], "room"),
+    );
+    const { connection } = await joined();
+
+    session.applyWorldMessage(
+      { type: "spaceChanged", userId: SELF_ID, spaceKey: "library" },
+      { ...presenceWith([]), hearing: "awaiting" },
+    );
+
+    expect(connection.applyAudience).toHaveBeenLastCalledWith({
+      participantIds: new Set(),
+      video: new Map(),
+    });
+  });
 
   it("leaves a room-hearing room before joining the next space's proximity room", async () => {
     const { joined, session, steps } = setup();

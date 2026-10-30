@@ -114,6 +114,13 @@ export type RemoteAudioGains = Readonly<Record<string, number>>;
 
 export type MediaPublication = LocalMediaPublication | RemoteMediaPublication;
 
+// How much of a remote camera a tile needs: a thumbnail, a grid cell, or the
+// focused tile.
+export type VideoLayer = "low" | "medium" | "high";
+
+// The remote cameras on screen, by participant id.
+export type VideoDemand = ReadonlyMap<string, VideoLayer>;
+
 export type LocalPublicationChange =
   | Readonly<{
       publication: LocalMediaPublication;
@@ -158,4 +165,7 @@ export interface MeetingMediaTransport {
   // The member asked to try the call again after it became unavailable.
   // Called only while connected.
   retry(): void;
+  // Called whenever the tiles on screen change, connected or not; the latest
+  // demand wins.
+  setVideoDemand(demand: VideoDemand): void;
 }

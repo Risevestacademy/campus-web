@@ -24,6 +24,10 @@ const meeting = useMeeting(cohortId); // Meeting | null
 - `visibleMeetingLayout(layout, meeting)`: the grid only for the encounter
   it was opened in, and no focus on somebody who walked away.
 - `splitAtCap(items, cap)`: the shown items and how many more.
+- `tileVideoLayer(layout, participantId)`: the camera layer a remote tile
+  needs: `low` in the strip and beside a focus, `medium` in an equal grid,
+  `high` for the focused tile. `useVideoDemandRef` asks for it while the
+  tile is mounted.
 
 All pure; `useMeeting` is the only React seam. It selects stable
 presence references with `useShallow` and derives with `useMemo`: a selector
