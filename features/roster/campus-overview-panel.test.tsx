@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   act,
   fireEvent,
@@ -349,7 +350,7 @@ describe("CampusOverviewPanel", () => {
       expect(row.querySelectorAll("p")).toHaveLength(1);
     });
 
-    it("moves everyone else to Offline when the socket closes", async () => {
+    it("hides the group when the socket closes, until a fresh snapshot arrives", async () => {
       const { apply, cohortId, store } = newCohort();
       everyoneIn(cohortId, [
         { id: "ada", displayName: "Ada", spriteKey: null },
@@ -367,10 +368,67 @@ describe("CampusOverviewPanel", () => {
         await screen.findByRole("button", { name: "Offline 0" }),
       ).toBeVisible();
 
+      // The map is kept so the scene stays drawn, but nobody is known to be
+      // online or offline while the socket is down.
       act(() => store.getState().clearRemoteParticipants());
 
       expect(screen.getByRole("button", { name: "Online 1" })).toBeVisible();
+      expect(
+        screen.queryByRole("button", { name: /Offline/ }),
+      ).not.toBeInTheDocument();
+
+      apply(snapshot(avatar("ada", { displayName: "Ada" })));
+
+      expect(
+        await screen.findByRole("button", { name: "Offline 1" }),
+      ).toBeVisible();
       expect(rows("Offline")).toEqual(["BBola"]);
+    });
+
+    it("hides the group while the directory is fetched again, then shows the new one", async () => {
+      const { apply, cohortId } = newCohort();
+      everyoneIn(cohortId, [
+        { id: "ada", displayName: "Ada", spriteKey: null },
+        { id: "bola", displayName: "Bola", spriteKey: null },
+      ]);
+      apply(welcome("ada"), snapshot(avatar("ada", { displayName: "Ada" })));
+      const client = new QueryClient();
+      render(
+        <QueryClientProvider client={client}>
+          <CampusOverviewPanel
+            cohort={{ name: "Product Design 2026", role: "student" }}
+            cohortId={cohortId}
+            collapseButton={null}
+          />
+        </QueryClientProvider>,
+      );
+      expect(
+        await screen.findByRole("button", { name: "Offline 1" }),
+      ).toBeVisible();
+
+      const reply = Promise.withResolvers<void>();
+      directory(cohortId, () =>
+        reply.promise.then(() =>
+          HttpResponse.json([
+            { id: "ada", displayName: "Ada", spriteKey: null },
+          ]),
+        ),
+      );
+      act(() => {
+        void client.invalidateQueries({ queryKey: ["roster", "directory"] });
+      });
+
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("button", { name: /Offline/ }),
+        ).not.toBeInTheDocument(),
+      );
+
+      reply.resolve();
+
+      expect(
+        await screen.findByRole("button", { name: "Offline 0" }),
+      ).toBeVisible();
     });
 
     it("does not offer the group while the directory loads", async () => {

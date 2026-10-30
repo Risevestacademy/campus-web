@@ -8,6 +8,8 @@ const FIVE_MINUTES = 5 * 60_000;
 
 // A loaded directory is fresh for five minutes, so the sidebar reopening does
 // not ask again; an unavailable read is not kept, so the next mount tries again.
+// The cached directory is not handed out while it is being refetched or after
+// a refetch failed: whoever left meanwhile would still be listed Offline.
 export function useCohortDirectory(cohortId: string) {
   const query = useQuery({
     queryKey: ["roster", "directory", cohortId],
@@ -17,5 +19,7 @@ export function useCohortDirectory(cohortId: string) {
     retry: false,
   });
 
-  return query.data;
+  return query.status === "success" && !query.isFetching
+    ? query.data
+    : undefined;
 }

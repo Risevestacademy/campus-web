@@ -26,6 +26,9 @@ presence.getState().clear(); // when the Presence Session ends
   height — from `snapshot`. The map renderer loads art for exactly this
   map, so everyone sees the same layout world enforced, not a default the
   bundle shipped.
+- `synced`: true from a `snapshot` until the socket closes. `map` outlives a
+  closed socket so the scene stays drawn, so read `synced`, not `map`, to
+  know whether who is online is current.
 - `participants`: who is here, `Map<userId, { userId, displayName, spriteKey,
 status, spaceKey }>`. `status` is `available`, `busy`, `away` (or `unknown`
   for a value world adds later) and `spaceKey` names the space they stand in,
