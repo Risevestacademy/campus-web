@@ -55,6 +55,8 @@ const ADA = "11111111-1111-4111-8111-111111111111";
 const BOLA = "22222222-2222-4222-8222-222222222222";
 const SELF = "33333333-3333-4333-8333-333333333333";
 
+const VIEWER = { id: SELF, displayName: "Joseph Okoro" };
+
 function cohortPeople(people: unknown[]) {
   mockApi.server.use(http.get(PEOPLE_URL, () => HttpResponse.json(people)));
 }
@@ -70,7 +72,7 @@ function renderPopup(
         isOpen
         onClose={onClose}
         cohortId="cohort-1"
-        userName="Joseph Okoro"
+        viewer={VIEWER}
         {...props}
       />,
     ),
@@ -212,7 +214,7 @@ describe("FeedbackPopup", () => {
     it("lists the cohort without the sender and sends the person picked", async () => {
       const sent: unknown[] = [];
       mockApi.server.use(replyReceipt(sent));
-      renderPopup({ userId: SELF });
+      renderPopup();
 
       fireEvent.click(screen.getByRole("button", { name: "Report" }));
       const group = await screen.findByRole("radiogroup", {
@@ -251,7 +253,7 @@ describe("FeedbackPopup", () => {
     it("sends no about when a person is picked and no place is given", async () => {
       const sent: Record<string, unknown>[] = [];
       mockApi.server.use(replyReceipt(sent));
-      renderPopup({ userId: SELF });
+      renderPopup();
 
       fireEvent.click(screen.getByRole("button", { name: "Report" }));
       await screen.findByRole("radiogroup");
@@ -265,7 +267,7 @@ describe("FeedbackPopup", () => {
     });
 
     it("narrows the list as a name is searched", async () => {
-      renderPopup({ userId: SELF });
+      renderPopup();
 
       fireEvent.click(screen.getByRole("button", { name: "Report" }));
       await screen.findByRole("radiogroup");
@@ -284,7 +286,7 @@ describe("FeedbackPopup", () => {
     });
 
     it("asks for a pick before sending", async () => {
-      renderPopup({ userId: SELF });
+      renderPopup();
 
       fireEvent.click(screen.getByRole("button", { name: "Report" }));
       await screen.findByRole("radiogroup");
@@ -301,7 +303,7 @@ describe("FeedbackPopup", () => {
       mockApi.server.use(
         http.post(FEEDBACK_URL, () => new Response(null, { status: 400 })),
       );
-      renderPopup({ userId: SELF });
+      renderPopup();
 
       fireEvent.click(screen.getByRole("button", { name: "Report" }));
       await screen.findByRole("radiogroup");
@@ -321,7 +323,7 @@ describe("FeedbackPopup", () => {
       mockApi.server.use(
         http.post(FEEDBACK_URL, () => new Response(null, { status: 400 })),
       );
-      renderPopup({ userId: SELF });
+      renderPopup();
 
       fireEvent.click(screen.getByRole("button", { name: "Report" }));
       await screen.findByRole("radiogroup");
@@ -348,7 +350,7 @@ describe("FeedbackPopup", () => {
         { id: BOLA, displayName: null },
         { id: SELF, displayName: "Joseph Okoro" },
       ]);
-      renderPopup({ userId: SELF });
+      renderPopup();
 
       fireEvent.click(screen.getByRole("button", { name: "Report" }));
       await screen.findByRole("radiogroup");
@@ -364,7 +366,7 @@ describe("FeedbackPopup", () => {
           displayName: `Person ${String(index).padStart(2, "0")}`,
         })),
       );
-      renderPopup({ userId: SELF });
+      renderPopup();
 
       fireEvent.click(screen.getByRole("button", { name: "Report" }));
       await screen.findByRole("radiogroup");
@@ -387,7 +389,7 @@ describe("FeedbackPopup", () => {
         { id: SELF, displayName: "Joseph Okoro" },
         { id: "55555555-5555-4555-8555-555555555555", displayName: "Chidi" },
       ]);
-      renderPopup({ userId: SELF });
+      renderPopup();
 
       fireEvent.click(screen.getByRole("button", { name: "Report" }));
       await screen.findByRole("radiogroup");
@@ -410,7 +412,7 @@ describe("FeedbackPopup", () => {
     ["the cohort is empty", () => cohortPeople([])],
   ])("reports without naming anyone when %s", async (_name, arrange) => {
     arrange();
-    renderPopup({ userId: SELF });
+    renderPopup();
 
     fireEvent.click(screen.getByRole("button", { name: "Report" }));
 

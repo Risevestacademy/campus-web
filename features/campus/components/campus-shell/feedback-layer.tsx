@@ -15,26 +15,29 @@ import {
   subscribeToFeedbackPanel,
 } from "../../store/feedback-panel-store";
 
+// Who is signed in, as far as the popup needs: their id and the name to greet.
+export interface CampusViewer {
+  id: string;
+  displayName?: string | null;
+}
+
 export type FeedbackPopupComponent = ComponentType<{
   isOpen: boolean;
   onClose: () => void;
   container: RefObject<HTMLElement | null>;
   cohortId: string;
-  userId?: string;
-  userName?: string | null;
+  viewer?: CampusViewer;
 }>;
 
 export function FeedbackLayer({
   FeedbackPopup,
   cohortId,
-  userId,
-  userName,
+  viewer,
   children,
 }: {
   FeedbackPopup?: FeedbackPopupComponent;
   cohortId: string;
-  userId?: string;
-  userName?: string | null;
+  viewer?: CampusViewer;
   children: ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -53,8 +56,7 @@ export function FeedbackLayer({
           onClose={closeFeedbackPanel}
           container={containerRef}
           cohortId={cohortId}
-          userId={userId}
-          userName={userName}
+          viewer={viewer}
         />
       ) : null}
     </div>

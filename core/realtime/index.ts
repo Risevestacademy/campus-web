@@ -43,6 +43,8 @@ export {
 } from "./realtime-client";
 export {
   type Avatar,
+  type Call,
+  type CallMessage,
   type ErrorCode,
   type ErrorMessage,
   type JoinedMessage,

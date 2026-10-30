@@ -12,7 +12,11 @@ import type {
 import { CampusViewProvider } from "../campus-view-provider";
 import { CampusRail } from "./campus-rail";
 import { CampusSidebar } from "./campus-sidebar";
-import { FeedbackLayer, type FeedbackPopupComponent } from "./feedback-layer";
+import {
+  type CampusViewer,
+  FeedbackLayer,
+  type FeedbackPopupComponent,
+} from "./feedback-layer";
 import { railPanelItems } from "./rail-items";
 import { SidebarCollapseButton } from "./sidebar-collapse-button";
 import { SidebarComingSoonPanel } from "./sidebar-coming-soon-panel";
@@ -36,8 +40,7 @@ type CampusShellProps = Readonly<{
   cohort?: OverviewCohort;
   cohortId: string;
   initialSidebarMode?: SidebarMode;
-  userId?: string;
-  userName?: string | null;
+  viewer?: CampusViewer;
 }>;
 
 const CURRENT_USER_INITIAL = "J";
@@ -76,8 +79,7 @@ export function CampusShell({
   cohort,
   cohortId,
   initialSidebarMode,
-  userId,
-  userName,
+  viewer,
 }: CampusShellProps) {
   const avatar = <RailAvatar />;
 
@@ -118,8 +120,7 @@ export function CampusShell({
           <FeedbackLayer
             FeedbackPopup={FeedbackPopup}
             cohortId={cohortId}
-            userId={userId}
-            userName={userName}
+            viewer={viewer}
           >
             {children}
           </FeedbackLayer>

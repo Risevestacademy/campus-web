@@ -8,4 +8,5 @@ export const noopMeetingMediaTransport: MeetingMediaTransport = {
     return () => undefined;
   },
   handleLocalPublicationChange(_change: LocalPublicationChange) {},
+  retry() {},
 };

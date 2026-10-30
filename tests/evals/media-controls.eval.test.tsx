@@ -9,6 +9,13 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { VisualsDisplay } from "@/features/campus";
+import { CallAudioFeedback } from "@/features/campus/components/presence-session";
+import type {
+  CallAudioStatus,
+  MeetingMediaTransport,
+} from "@/features/campus/services/media-session/contracts";
+import { MediaSessionProvider } from "@/features/campus/services/media-session/media-session-provider";
+import { createMediaSessionStore } from "@/features/campus/services/media-session/media-session-store";
 import { PresenceSessionProvider } from "@/features/campus/services/presence-session/presence-session-provider";
 import {
   createTestMediaDevice,
@@ -501,6 +508,93 @@ describe("media controls acceptance", () => {
       expect(within(cameraSettings).getByRole("status")).toHaveTextContent(
         "Cameras unavailable",
       );
+    });
+  });
+
+  it("takes the audio failure away when the Presence Session ends", async () => {
+    const call: MeetingMediaTransport = {
+      connect(callbacks) {
+        callbacks.onStatusChange("unavailable");
+        return () => undefined;
+      },
+      handleLocalPublicationChange() {},
+      retry() {},
+    };
+    const store = createMediaSessionStore({
+      mediaDevices: null,
+      transport: call,
+    });
+    render(<Toaster />);
+    const session = render(
+      <MediaSessionProvider store={store}>
+        <CallAudioFeedback />
+      </MediaSessionProvider>,
+    );
+    act(() => store.getState().connect());
+    await screen.findByRole("alert");
+
+    session.unmount();
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+  });
+
+  it("offers to try the call again in place, without taking the controls away", async () => {
+    installTestMediaDevices(availableDevices);
+    let reportStatus: (status: CallAudioStatus) => void = () => undefined;
+    const retry = vi.fn(() => reportStatus("connecting"));
+    const call: MeetingMediaTransport = {
+      connect(callbacks) {
+        reportStatus = callbacks.onStatusChange;
+        return () => undefined;
+      },
+      handleLocalPublicationChange() {},
+      retry,
+    };
+    const store = createMediaSessionStore({ transport: call });
+    render(
+      <>
+        <MediaSessionProvider store={store}>
+          <CallAudioFeedback />
+          <VisualsDisplay />
+        </MediaSessionProvider>
+        <Toaster />
+      </>,
+    );
+    act(() => store.getState().connect());
+
+    act(() => reportStatus("unavailable"));
+    act(() => reportStatus("unavailable"));
+
+    const notification = await screen.findByRole("alert");
+    expect(notification).toHaveTextContent("Audio couldn't connect");
+    expect(notification).toHaveTextContent(
+      "You can still move around. Try again to hear people nearby.",
+    );
+    // A high-priority toast stays aria-hidden until focused; the alert above
+    // is what assistive tech announces.
+    const tryAgainButtons = screen.getAllByRole("button", {
+      hidden: true,
+      name: "Try again",
+    });
+    expect(tryAgainButtons).toHaveLength(1);
+    const [tryAgain] = tryAgainButtons;
+    if (!tryAgain) throw new Error("The toast offers no Try again.");
+    expect(
+      within(
+        screen.getByRole("group", { name: "Microphone controls" }),
+      ).queryByText(/Try again to hear/),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Turn on microphone" }),
+    ).toBeEnabled();
+
+    fireEvent.click(tryAgain);
+
+    expect(retry).toHaveBeenCalledOnce();
+    await waitFor(() => {
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
   });
 });

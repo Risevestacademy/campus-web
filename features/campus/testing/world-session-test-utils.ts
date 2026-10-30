@@ -39,6 +39,7 @@ export function createTestWorldSession(
       setStatus({ phase: "connected" });
     },
     reconnects: () => reconnects,
+    rejoin: () => status.phase === "connected",
     setStatus,
     stop: (outcome) => setStatus({ phase: "closed", outcome }),
     subscribe(listener) {
