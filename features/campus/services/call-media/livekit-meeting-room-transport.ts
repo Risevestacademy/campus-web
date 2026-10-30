@@ -4,6 +4,7 @@ import type {
   RemoteTrack,
   RemoteTrackPublication,
   Room,
+  Track,
 } from "livekit-client";
 
 import { parseParticipantId } from "../../schemas/livekit-participant.schema";
@@ -12,9 +13,11 @@ import {
   loadLivekitClient,
 } from "../livekit/livekit-client";
 import type {
+  CaptureSource,
   LocalPublicationChange,
   RemoteMediaPublication,
 } from "../media-session/contracts";
+import { localChangeSource } from "../media-session/publication-registry";
 import {
   type MeetingAudience,
   type MeetingRoomConnection,
@@ -48,9 +51,9 @@ function remoteMicrophone(
 
 // Publishes copies: LiveKit may stop a track it fails to publish, and the
 // member's own track must outlive the room. Changes run in order, so turning
-// the microphone off waits for a publish still in flight; any still queued at
+// a source off waits for a publish still in flight; any still queued at
 // close never clone.
-function microphonePublisher({ Track }: LivekitRoomModule, room: Room) {
+function localTrackPublisher(room: Room, source: Track.Source) {
   const copies = new Set<MediaStreamTrack>();
   let published:
     | Readonly<{ copy: MediaStreamTrack; publication: LocalTrackPublication }>
@@ -86,7 +89,7 @@ function microphonePublisher({ Track }: LivekitRoomModule, room: Room) {
   function publish(track: MediaStreamTrack) {
     return withCopy(track, async (copy) => {
       const publication = await room.localParticipant.publishTrack(copy, {
-        source: Track.Source.Microphone,
+        source,
       });
       published = { copy, publication };
     });
@@ -141,7 +144,17 @@ function connectRoom(
   let grantedIdentities: string | undefined;
   let heardRemoteAudio = false;
   let leaving = false;
-  const microphone = microphonePublisher(livekit, room);
+  const publishers: Readonly<
+    Record<CaptureSource, ReturnType<typeof localTrackPublisher>>
+  > = {
+    camera: localTrackPublisher(room, Track.Source.Camera),
+    microphone: localTrackPublisher(room, Track.Source.Microphone),
+  };
+
+  async function handleLocalPublicationChange(change: LocalPublicationChange) {
+    const source = localChangeSource(change);
+    if (source !== "screen") await publishers[source].handle(change);
+  }
 
   function microphoneOwnerId(
     publication: RemoteTrackPublication,
@@ -254,9 +267,9 @@ function connectRoom(
     async disconnect() {
       leaving = true;
       await room.disconnect(true).catch(() => undefined);
-      microphone.close();
+      for (const publisher of Object.values(publishers)) publisher.close();
     },
-    handleLocalPublicationChange: microphone.handle,
+    handleLocalPublicationChange,
   };
   return { connection, grantAudience };
 }

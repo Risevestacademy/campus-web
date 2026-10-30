@@ -624,25 +624,55 @@ describe("createCallMediaSession", () => {
     },
   );
 
-  it("replays an enabled microphone chosen before the room connects", async () => {
-    const { joined, session } = setup();
-    const publication = localPublication("microphone");
-    session.handleLocalPublicationChange({ publication, type: "added" });
+  it.each(["microphone", "camera"] as const)(
+    "replays a %s turned on before the room connects",
+    async (source) => {
+      const { joined, session } = setup();
+      const publication = localPublication(source);
+      session.handleLocalPublicationChange({ publication, type: "added" });
 
-    session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+      session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
 
-    const { connection } = await joined();
-    expect(connection.handleLocalPublicationChange).toHaveBeenCalledWith({
-      publication,
-      type: "added",
-    });
-  });
+      const { connection } = await joined();
+      expect(connection.handleLocalPublicationChange).toHaveBeenCalledWith({
+        publication,
+        type: "added",
+      });
+    },
+  );
+
+  it.each(["microphone", "camera"] as const)(
+    "forgets a %s turned off before the room connects",
+    async (source) => {
+      const { joined, session } = setup();
+      const publication = localPublication(source);
+      session.handleLocalPublicationChange({ publication, type: "added" });
+      session.handleLocalPublicationChange({
+        previousTrack: publication.track,
+        publicationId: publication.publicationId,
+        source,
+        type: "removed",
+      });
+
+      session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+
+      const { connection } = await joined();
+      expect(connection.handleLocalPublicationChange).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     [
       "a new microphone",
       (): LocalPublicationChange => ({
         publication: localPublication("microphone"),
+        type: "added",
+      }),
+    ],
+    [
+      "a new camera",
+      (): LocalPublicationChange => ({
+        publication: localPublication("camera"),
         type: "added",
       }),
     ],
@@ -675,21 +705,31 @@ describe("createCallMediaSession", () => {
     },
   );
 
-  it("never publishes the camera to the room", async () => {
+  it("hands every camera change to the room it joined", async () => {
     const { joined, session } = setup();
-    session.handleLocalPublicationChange({
-      publication: localPublication("camera"),
-      type: "added",
-    });
     session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
     const { connection } = await joined();
+    const first = localPublication("camera");
+    const changes: LocalPublicationChange[] = [
+      { publication: first, type: "added" },
+      {
+        previousTrack: first.track,
+        publication: localPublication("camera"),
+        type: "replaced",
+      },
+      {
+        previousTrack: first.track,
+        publicationId: first.publicationId,
+        source: "camera",
+        type: "removed",
+      },
+    ];
 
-    session.handleLocalPublicationChange({
-      publication: localPublication("camera"),
-      type: "added",
-    });
+    for (const change of changes) session.handleLocalPublicationChange(change);
 
-    expect(connection.handleLocalPublicationChange).not.toHaveBeenCalled();
+    expect(
+      vi.mocked(connection.handleLocalPublicationChange).mock.calls,
+    ).toEqual(changes.map((change) => [change]));
   });
 
   it.each([

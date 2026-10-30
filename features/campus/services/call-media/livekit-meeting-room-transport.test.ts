@@ -9,7 +9,10 @@ import {
   createTestMediaStream,
   createTestMediaTrack,
 } from "../../testing/media-session-test-utils";
-import type { LocalMediaPublication } from "../media-session/contracts";
+import type {
+  CaptureSource,
+  LocalMediaPublication,
+} from "../media-session/contracts";
 import {
   type MeetingRoomConnection,
   type MeetingRoomEvents,
@@ -29,27 +32,31 @@ function roomEvents() {
   } satisfies MeetingRoomEvents;
 }
 
-function localMicrophone(deviceId: string) {
-  const copy = createTestMediaTrack("audio", `${deviceId}-copy`);
-  const track = Object.assign(createTestMediaTrack("audio", deviceId), {
+function localCapture(source: CaptureSource, deviceId: string) {
+  const kind = source === "camera" ? "video" : "audio";
+  const copy = createTestMediaTrack(kind, `${deviceId}-copy`);
+  const track = Object.assign(createTestMediaTrack(kind, deviceId), {
     clone: vi.fn(() => copy),
   });
   const publication: LocalMediaPublication = {
     enabled: true,
     origin: "local",
     publicationId: `local-${deviceId}`,
-    source: "microphone",
+    source,
     stream: createTestMediaStream([track]),
     track,
   };
   return { copy, publication, track };
 }
 
-type LocalMicrophone = ReturnType<typeof localMicrophone>;
+const localMicrophone = (deviceId: string) =>
+  localCapture("microphone", deviceId);
 
-function addMicrophone(
+type LocalCapture = ReturnType<typeof localCapture>;
+
+function addCapture(
   connection: MeetingRoomConnection,
-  { publication }: LocalMicrophone,
+  { publication }: LocalCapture,
 ) {
   return connection.handleLocalPublicationChange({
     publication,
@@ -57,20 +64,20 @@ function addMicrophone(
   });
 }
 
-function removeMicrophone(
+function removeCapture(
   connection: MeetingRoomConnection,
-  { publication, track }: LocalMicrophone,
+  { publication, track }: LocalCapture,
 ) {
   return connection.handleLocalPublicationChange({
     previousTrack: track,
     publicationId: publication.publicationId,
-    source: "microphone",
+    source: publication.source,
     type: "removed",
   });
 }
 
-function runningCopies(...microphones: LocalMicrophone[]) {
-  return microphones.filter(
+function runningCopies(...captures: LocalCapture[]) {
+  return captures.filter(
     ({ copy, track }) =>
       track.clone.mock.calls.length > copy.stop.mock.calls.length,
   );
@@ -273,25 +280,38 @@ describe("createLivekitMeetingRoomTransport", () => {
     expect(events.onRemotePublicationChange).toHaveBeenCalledTimes(2);
   });
 
-  it("publishes a copy of the member's microphone, never the track itself", async () => {
+  it.each(["microphone", "camera"] as const)(
+    "publishes a copy of the member's %s as that source, never the track itself",
+    async (source) => {
+      const { connection, room } = await joinedRoom();
+      const capture = localCapture(source, `${source}-1`);
+
+      await addCapture(connection, capture);
+
+      expect(room.published).toEqual([
+        expect.objectContaining({ options: { source }, track: capture.copy }),
+      ]);
+    },
+  );
+
+  it("turns the microphone off without touching the camera", async () => {
     const { connection, room } = await joinedRoom();
     const microphone = localMicrophone("mic-1");
+    const camera = localCapture("camera", "camera-1");
+    await addCapture(connection, microphone);
+    await addCapture(connection, camera);
 
-    await addMicrophone(connection, microphone);
+    await removeCapture(connection, microphone);
 
-    expect(room.published).toEqual([
-      expect.objectContaining({
-        options: { source: "microphone" },
-        track: microphone.copy,
-      }),
-    ]);
+    expect(room.unpublished).toEqual([{ stop: false, track: microphone.copy }]);
+    expect(runningCopies(microphone, camera)).toEqual([camera]);
   });
 
   it("swaps in a copy of the new microphone and stops the old copy", async () => {
     const { connection, room } = await joinedRoom();
     const first = localMicrophone("mic-1");
     const second = localMicrophone("mic-2");
-    await addMicrophone(connection, first);
+    await addCapture(connection, first);
 
     await connection.handleLocalPublicationChange({
       previousTrack: first.track,
@@ -313,7 +333,7 @@ describe("createLivekitMeetingRoomTransport", () => {
     const microphone = localMicrophone("mic-1");
     room.publishFails = true;
 
-    await expect(addMicrophone(connection, microphone)).rejects.toThrow();
+    await expect(addCapture(connection, microphone)).rejects.toThrow();
     expect(runningCopies(microphone)).toEqual([]);
   });
 
@@ -321,7 +341,7 @@ describe("createLivekitMeetingRoomTransport", () => {
     const { connection, room } = await joinedRoom();
     const first = localMicrophone("mic-1");
     const second = localMicrophone("mic-2");
-    await addMicrophone(connection, first);
+    await addCapture(connection, first);
     publishedAt(room, 0).replaceTrack.mockRejectedValueOnce(
       new Error("swap failed"),
     );
@@ -339,9 +359,9 @@ describe("createLivekitMeetingRoomTransport", () => {
   it("unpublishes and stops the copy when the microphone turns off", async () => {
     const { connection, room } = await joinedRoom();
     const microphone = localMicrophone("mic-1");
-    await addMicrophone(connection, microphone);
+    await addCapture(connection, microphone);
 
-    await removeMicrophone(connection, microphone);
+    await removeCapture(connection, microphone);
 
     expect(room.unpublished).toEqual([{ stop: false, track: microphone.copy }]);
     expect(microphone.copy.stop).toHaveBeenCalledOnce();
@@ -353,8 +373,8 @@ describe("createLivekitMeetingRoomTransport", () => {
     const microphone = localMicrophone("mic-1");
 
     await Promise.all([
-      addMicrophone(connection, microphone),
-      removeMicrophone(connection, microphone),
+      addCapture(connection, microphone),
+      removeCapture(connection, microphone),
     ]);
 
     expect(room.unpublished).toEqual([{ stop: false, track: microphone.copy }]);
@@ -363,13 +383,16 @@ describe("createLivekitMeetingRoomTransport", () => {
   it("leaves by disconnecting the room and stopping every copy, without reporting a drop", async () => {
     const { connection, events, room } = await joinedRoom();
     const microphone = localMicrophone("mic-1");
-    await addMicrophone(connection, microphone);
+    const camera = localCapture("camera", "camera-1");
+    await addCapture(connection, microphone);
+    await addCapture(connection, camera);
 
     await connection.disconnect();
 
     expect(room.disconnectCalls).toEqual([true]);
-    expect(microphone.copy.stop).toHaveBeenCalledOnce();
+    expect(runningCopies(microphone, camera)).toEqual([]);
     expect(microphone.track.stop).not.toHaveBeenCalled();
+    expect(camera.track.stop).not.toHaveBeenCalled();
     expect(events.onDisconnected).not.toHaveBeenCalled();
   });
 
@@ -379,7 +402,7 @@ describe("createLivekitMeetingRoomTransport", () => {
     const second = localMicrophone("mic-2");
     const release = room.holdPublishes();
     const changes = [
-      addMicrophone(connection, first),
+      addCapture(connection, first),
       connection.handleLocalPublicationChange({
         previousTrack: first.track,
         publication: second.publication,
@@ -397,7 +420,7 @@ describe("createLivekitMeetingRoomTransport", () => {
   it("finishes leaving even when the room fails to disconnect", async () => {
     const { connection, room } = await joinedRoom();
     const microphone = localMicrophone("mic-1");
-    await addMicrophone(connection, microphone);
+    await addCapture(connection, microphone);
     room.disconnectFails = true;
 
     await expect(connection.disconnect()).resolves.toBeUndefined();
@@ -415,7 +438,7 @@ describe("createLivekitMeetingRoomTransport", () => {
   it("still stops every copy when leaving, again and again, after a drop it reported", async () => {
     const { connection, events, room } = await joinedRoom();
     const microphone = localMicrophone("mic-1");
-    await addMicrophone(connection, microphone);
+    await addCapture(connection, microphone);
     room.emit("disconnected");
 
     await expect(connection.disconnect()).resolves.toBeUndefined();

@@ -25,7 +25,8 @@ The Presence Session uses `createBrowserCallMediaSession()`, which binds
 audio to PostHog, and the LiveKit adapter as `roomTransport`.
 
 - `connect(callbacks)` / `handleLocalPublicationChange(change)`: the media
-  session's transport seam. Only the microphone reaches the room.
+  session's transport seam. The microphone and camera reach the room, each
+  replayed when a room joins (microphone first); screen never does.
 - `applyWorldMessage(message, presence)`: a `call` World can hear
   (`hearingOf`) swaps rooms; `call: null` or a hearing added later leaves.
   `snapshot`, `joined`, `left`, `moved`, `moveResult`, `nearby` and
@@ -59,9 +60,10 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 - Only microphone publications of the asked-for ids subscribe. Camera, screen
   and unknown sources stay unsubscribed. The first subscribed microphone
   reports first audio, once per room.
-- It publishes copies of the member's microphone, never the store's track:
-  LiveKit can stop a track it fails to publish. A device switch swaps the copy
-  in place; turning off unpublishes it. Changes run in order.
+- It publishes copies of the member's microphone and camera, each as its own
+  source, never the store's track: LiveKit can stop a track it fails to
+  publish. A device switch swaps the copy in place; turning off unpublishes
+  it. Changes to one source run in order.
 - `removed` follows an unsubscribe or unpublish. A leave and a full reconnect
   unpublish every track first, so they need nothing more.
 - `connect` rejects once `signal` aborts and leaves the half-joined room.
@@ -71,7 +73,8 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 
 ## Rules
 
-- Audio only. Camera and screen never publish or subscribe.
+- Your camera publishes while it is on and a call is joined, like your
+  microphone. Remote cameras and screen never subscribe.
 - The audience is presence's `meetingRoster`: room mates under room
   hearing, known `nearby` otherwise, never you. An empty roster grants
   nobody.
@@ -92,7 +95,7 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 - `callAudioStatus`: `connecting`, then `connected` before the first gains;
   `idle` after a leave;
   `unavailable` when the host is not pinned, the join fails, the room
-  disconnects on its own, or a microphone change fails. Remote publications
+  disconnects on its own, or a microphone or camera change fails. Remote publications
   and gains clear in every case.
 - First-audio time is measured only for calls that arrive while the roster
   is not empty, from `call` to the room's first remote microphone, and is

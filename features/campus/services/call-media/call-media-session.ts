@@ -2,11 +2,13 @@ import { type Hearing, hearingOf, type Presence } from "@/core/presence";
 import type { Call, ServerMessage } from "@/core/realtime";
 
 import type {
+  CaptureSource,
   LocalMediaPublication,
   LocalPublicationChange,
   MeetingMediaTransportCallbacks,
   RemotePublicationChange,
 } from "../media-session/contracts";
+import { localChangeSource } from "../media-session/publication-registry";
 import {
   type CallMediaSession,
   type MeetingRoomConnection,
@@ -40,6 +42,11 @@ type Position = Readonly<{ x: number; y: number }>;
 
 type PublicationRemoval = Extract<RemotePublicationChange, { type: "removed" }>;
 
+type LocalPublications = Partial<Record<CaptureSource, LocalMediaPublication>>;
+
+// The microphone joins first, so a member is heard before they are seen.
+const REPLAY_ORDER: readonly CaptureSource[] = ["microphone", "camera"];
+
 // How long to wait for World's fresh call before offering Try again again. A
 // call that arrives later still joins on World's own path.
 const CALL_REFRESH_TIMEOUT_MS = 15_000;
@@ -70,7 +77,7 @@ export function createCallMediaSession(
   let callbacks: MeetingMediaTransportCallbacks | undefined;
   let active: ActiveRoom | undefined;
   let pendingJoin: AbortController | undefined;
-  let localMicrophone: LocalMediaPublication | undefined;
+  let localPublications: LocalPublications = {};
   let latestPresence: Presence | undefined;
   let latestCall: HeardCall | undefined;
   const pendingRemovals = new Map<string, PublicationRemoval>();
@@ -246,8 +253,13 @@ export function createCallMediaSession(
     };
     current.onStatusChange("connected");
     applyPolicy();
-    if (localMicrophone) {
-      forwardLocalChange({ publication: localMicrophone, type: "added" });
+    replayLocalPublications();
+  }
+
+  function replayLocalPublications() {
+    for (const source of REPLAY_ORDER) {
+      const publication = localPublications[source];
+      if (publication) forwardLocalChange({ publication, type: "added" });
     }
   }
 
@@ -325,12 +337,14 @@ export function createCallMediaSession(
   }
 
   function handleLocalPublicationChange(change: LocalPublicationChange) {
-    const source =
-      change.type === "removed" ? change.source : change.publication.source;
-    if (source !== "microphone") return;
+    const source = localChangeSource(change);
+    if (source === "screen") return;
 
-    localMicrophone =
-      change.type === "removed" ? undefined : change.publication;
+    const { [source]: _previous, ...others } = localPublications;
+    localPublications =
+      change.type === "removed"
+        ? others
+        : { ...others, [source]: change.publication };
     forwardLocalChange(change);
   }
 
@@ -345,7 +359,7 @@ export function createCallMediaSession(
       joinLatestCall();
 
       return () => {
-        localMicrophone = undefined;
+        localPublications = {};
         closeRoom();
         callbacks = undefined;
       };

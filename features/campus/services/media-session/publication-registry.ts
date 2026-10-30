@@ -1,4 +1,6 @@
 import type {
+  LocalPublicationChange,
+  PublicationSource,
   RemoteMediaPublication,
   RemotePublicationChange,
   RemotePublicationRegistry,
@@ -42,4 +44,10 @@ export function removeRemotePublication(
   const { [change.participantId]: _removedParticipant, ...remainingRegistry } =
     registry;
   return remainingRegistry;
+}
+
+export function localChangeSource(
+  change: LocalPublicationChange,
+): PublicationSource {
+  return change.type === "removed" ? change.source : change.publication.source;
 }
