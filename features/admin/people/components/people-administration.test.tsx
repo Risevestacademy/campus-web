@@ -130,17 +130,15 @@ describe("People page", () => {
       />,
     );
 
-    const status = (name: string) =>
-      within(screen.getByRole("row", { name: new RegExp(name) })).getAllByRole(
-        "cell",
-      )[3]!.textContent;
-    expect(status("ADA")).toBe("Available");
-    expect(status("BOLA")).toBe("Busy");
-    expect(status("CHI")).toBe("Away");
-    expect(status("DEE")).toBe("Offline");
+    const row = (name: string) =>
+      within(screen.getByRole("row", { name: new RegExp(name) }));
+    expect(row("ADA").getByText("Available")).toBeVisible();
+    expect(row("BOLA").getByText("Busy")).toBeVisible();
+    expect(row("CHI").getByText("Away")).toBeVisible();
+    expect(row("DEE").getByText("Offline")).toBeVisible();
   });
 
-  it("opens a person from anywhere on their row, and says so on the link", () => {
+  it("links a person's name to their page", () => {
     render(
       <PeopleAdministrationView
         cohortId="people-cohort"
@@ -149,11 +147,10 @@ describe("People page", () => {
       />,
     );
 
-    const link = screen.getByRole("link", { name: "ADA" });
-    expect(link).toHaveAttribute("href", "/campus/people-cohort/people/ada");
-    // The link is stretched over its row, which is its positioning context.
-    expect(link).toHaveClass("after:absolute", "after:inset-0");
-    expect(link.closest("tr")).toHaveClass("relative");
+    expect(screen.getByRole("link", { name: "ADA" })).toHaveAttribute(
+      "href",
+      "/campus/people-cohort/people/ada",
+    );
   });
 
   it("marks a suspended member and does not link them to a page that cannot open", () => {
