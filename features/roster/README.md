@@ -27,8 +27,9 @@ passes the panel in because Campus may not import Roster.
   Available, and their detail line says In a room. Room names are not shown
   yet.
 - **Offline** is the cohort directory minus everyone online. The group is
-  hidden until the first snapshot has arrived and while the directory is
-  loading or unreadable, so it never shows a count it could not check. Offline
+  hidden until a current snapshot has arrived (not after the socket closes,
+  until the next one) and whenever the directory is loading, being fetched
+  again or unreadable, so it never shows a count it could not check. Offline
   rows have a grey dot, no detail line and no actions.
 - **Avatar colors** come from the person's ID, since the backend sends none:
   one of four tones, the same for everyone who looks, online or off. They
@@ -78,7 +79,7 @@ Add it to `quickTransportDestinations` in `quick-transport.ts`.
   `features/feedback` reads the same endpoint for its own picker, and each
   keeps its own copy.
 - Parse the directory where it arrives and keep only `id` and `displayName`.
-- Subscribe with `useStore`; select `participants`, `selfId` and the snapshot
+- Subscribe with `useStore`; select `participants`, `selfId` and the `synced`
   flag separately and build the rows inside `useMemo`.
 - Comment only a non-obvious why.
 

@@ -15,6 +15,10 @@ export type WorldMap = SnapshotMessage["map"];
 export interface Presence {
   selfId: string | null;
   map: WorldMap | null;
+  // True from a snapshot until the socket closes. The map outlives a closed
+  // socket so the scene stays drawn, but who is online is unknown until the
+  // next snapshot.
+  synced: boolean;
   participants: ReadonlyMap<string, Participant>;
   positions: ReadonlyMap<string, Position>;
   nearby: readonly string[];
@@ -26,6 +30,7 @@ export interface Presence {
 export const EMPTY_PRESENCE: Presence = {
   selfId: null,
   map: null,
+  synced: false,
   participants: new Map(),
   positions: new Map(),
   nearby: [],
@@ -147,6 +152,7 @@ export function applyServerMessage(
       return {
         ...presence,
         map: message.map,
+        synced: true,
         ...rebuild(message.players, message.map),
         nearby: [],
       };
@@ -204,6 +210,7 @@ export function withoutRemoteParticipants(presence: Presence): Presence {
   const position = selfId ? presence.positions.get(selfId) : undefined;
   return {
     ...presence,
+    synced: false,
     participants:
       selfId && participant ? new Map([[selfId, participant]]) : new Map(),
     positions: selfId && position ? new Map([[selfId, position]]) : new Map(),

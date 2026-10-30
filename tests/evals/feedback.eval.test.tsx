@@ -66,7 +66,7 @@ function renderPopup() {
         isOpen
         onClose={() => {}}
         cohortId="cohort-1"
-        userName="Joseph Okoro"
+        viewer={{ id: "u-1", displayName: "Joseph Okoro" }}
       />,
     ),
   );

@@ -13,12 +13,16 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
 - `useMediaSession(selector)`: selected state and commands. Commands
   (`toggleSource`, `selectInputDevice`, `chooseAudioOutput`) resolve to the
   `MediaSessionErrorCode` they produced, or `null`.
-- `connect(roomId)`: joins the transport after Admission. Idempotent; replays
-  publications chosen on pre-join as `added`. `stop()` disconnects.
-- `MeetingMediaTransport`: `connect(roomId, onRemoteChange)` returns a
-  disconnect function; `handleLocalPublicationChange` is called only while
+- `connect()`: joins the transport after Admission. Idempotent; replays
+  publications chosen on pre-join as `added`. `stop()` disconnects and resets
+  `callAudioStatus`, `remoteAudioGains` and `remotePublications`.
+- `MeetingMediaTransport`: `connect(callbacks)` returns a disconnect function.
+  The transport picks its own rooms and reports remote publication changes,
+  per-participant `remoteAudioGains` (0 to 1) and a safe `callAudioStatus`
+  (`idle`, `connecting`, `connected`, `unavailable`); no room, URL or token
+  reaches the store. `handleLocalPublicationChange` is called only while
   connected, so pre-join never publishes. Production uses
-  `noopMeetingMediaTransport` until the signaling/SFU adapter exists.
+  `noopMeetingMediaTransport` until proximity audio is wired in.
 
 Tests inject a store through `MediaSessionProvider`.
 
@@ -35,6 +39,10 @@ Tests inject a store through `MediaSessionProvider`.
 | `meeting-media-transport.ts`                                   | the transport seam and its no-op adapter                  | `MeetingMediaTransport`  |
 
 ## Contributing
+
+`MeetingMediaTransport.retry()` (the store's `retryCallAudio()`) tries the
+call again after it became `unavailable`; it reaches the transport only while
+connected.
 
 ### Adding the backend transport
 

@@ -49,6 +49,7 @@ export function MediaControls({ className }: { className?: string }) {
             error={microphone.error}
             isEnabled={microphone.desiredEnabled && Boolean(microphone.track)}
             kind="microphone"
+            levelTrack={microphone.track}
             onToggle={() => handleToggle("microphone")}
             status={microphone.status}
           />

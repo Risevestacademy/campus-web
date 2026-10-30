@@ -11,15 +11,18 @@ same cohort never starts one; see [Presence Tab](#presence-tab).
 ## Interface
 
 - `PresenceSessionProvider`: creates the admission store, the media store, the
-  Presence Tab and the world session, and follows the tab's status and world's
-  outcomes. It needs the shared refresh port (`SessionRefreshProvider` from
+  Presence Tab, the world session and one proximity-audio session (the media
+  store's transport, fed every world frame through `onMessage` and every
+  close through `onRemoteParticipantsCleared`), and follows
+  the tab's status and world's outcomes. It needs the shared refresh port (`SessionRefreshProvider` from
   auth, composed by the cohort layout).
 - `useAdmission(selector)`: `pendingDestination`, `admitted`, `grantEntry`,
   `completeEntry`, `clear`.
 - `usePresenceTab()`: `status`, `claim`, `takeOver`.
 - `AdmissionProvider`, `PresenceTabProvider`: inject a store or tab for tests.
 
-`components/presence-session.tsx` adds the session's `RemoteAudioOutput`;
+`components/presence-session.tsx` adds the session's `RemoteAudioOutput` and
+`CallAudioFeedback`;
 `components/presence-session-gate.tsx` admits an exact grant and connects the
 transport and world.
 
@@ -95,6 +98,8 @@ lapsed access (a wake after expiry, before renewal finishes) still goes through
 - Admission is workflow state, never authorization; server checks run first.
 - Never persist it in cookies, storage, or the URL.
 - Only an exact granted destination admits.
+- Audio lives as long as the Presence Session: same-cohort navigation keeps
+  the room, and anything that stops media (takeover, release) leaves it.
 - The Presence Tab coordinates tabs and never authorizes. Without Web Locks
   (an insecure context or an old browser) every tab joins as before.
 

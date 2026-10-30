@@ -60,7 +60,7 @@ export function PresenceSessionGate({
     if (!admitted) return;
 
     if (hasExactGrant) completeEntry(initialRequest.href);
-    connect(cohortId);
+    connect();
     world.connect();
   });
 
@@ -68,7 +68,7 @@ export function PresenceSessionGate({
     const href = relativeHref(pathname, searchParameters.toString());
     grantEntry(href);
     completeEntry(href);
-    connect(cohortId);
+    connect();
   }
 
   // Taking the session back admits whichever cohort page this tab is on now.

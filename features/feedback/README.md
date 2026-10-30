@@ -8,12 +8,17 @@ issue" rail button: the form and the confirmation after sending. Opening and pla
 ```tsx
 import { FeedbackPopup } from "@/features/feedback";
 
-<CampusShell FeedbackPopup={FeedbackPopup} userName={user.displayName} … />;
+<CampusShell
+  FeedbackPopup={FeedbackPopup}
+  viewer={{ id: user.id, displayName: user.displayName }}
+  …
+/>;
 ```
 
 `FeedbackPopup` receives `isOpen`, `onClose`, a `container` ref to portal into
-(the Campus Shell's content area), the cohort's id, the member's `userId` (so
-the picker leaves them out) and `userName` for the confirmation greeting. The route passes it in because Campus may not import
+(the Campus Shell's content area), the cohort's id and the member as a `viewer` (their
+`id`, so the picker leaves them out, and their `displayName` for the
+confirmation greeting). The route passes it in because Campus may not import
 Feedback.
 
 ## Modules

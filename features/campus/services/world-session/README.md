@@ -15,6 +15,8 @@ const world = createWorldSession({
   refreshSession, // the shared refresh port (core/session)
   captureEvent, // ([name, properties]) => capture
   onOutcome, // once per terminal outcome; async work owns its ordering
+  onMessage, // optional: (message, presence) after presence applies each frame
+  onRemoteParticipantsCleared, // optional: (presence) after a close clears them
   createSocket,
   logger,
   isOnline, // browserIsOnline: ports for offline-aware scheduling
@@ -23,6 +25,7 @@ const world = createWorldSession({
 
 world.connect(); // from idle only
 world.reconnect(); // the member's press: also after a stop, fresh budget
+world.rejoin(); // live sessions only: fresh socket so World resends its call
 world.close(); // ends the socket and empties the map
 useSyncExternalStore(world.subscribe, world.getStatus);
 ```
@@ -32,6 +35,10 @@ In React, `useWorldSession()` gives `status`, `connect` and `reconnect` under
 
 - Every parsed frame goes to `presence.apply`, which rebuilds from each
   `snapshot`, so a reconnect never duplicates an avatar.
+- `onMessage` then gets the same frame with the presence it produced. The
+  Presence Session passes proximity audio's `applyWorldMessage`, so a
+  `nearby` frame reaches subscriptions in the same task, and its
+  `applyPresence` as `onRemoteParticipantsCleared`.
 - `connect()` and `reconnect()` bind movement to the active client's sender,
   only when they open a socket: `reconnect()` on a live or retrying session
   does nothing, so movement keeps its `stepMs`. Constructing a discarded React

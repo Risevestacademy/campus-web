@@ -357,4 +357,18 @@ describe("nearby", () => {
     expect([reconnected.nearby, reconnected.encounter]).toEqual([[], 1]);
     expect([closed.nearby, closed.encounter]).toEqual([[], 1]);
   });
+
+  it("is synced from a snapshot until the socket closes, and keeps the map meanwhile", () => {
+    const joined = snapshotOf(ADA, GRACE);
+    const closed = withoutRemoteParticipants(joined);
+
+    expect(EMPTY_PRESENCE.synced).toBe(false);
+    expect(joined.synced).toBe(true);
+    expect(closed.synced).toBe(false);
+    expect(closed.map).toEqual(MAP);
+    expect(
+      applyServerMessage(closed, { type: "snapshot", map: MAP, players: [ADA] })
+        .synced,
+    ).toBe(true);
+  });
 });
