@@ -11,6 +11,8 @@ import ActiveCampusPage from "@/app/campus/[id]/(active-campus)/page";
 import FeedbackPage from "@/app/campus/[id]/(administration)/feedback/page";
 import AdministrationLayout from "@/app/campus/[id]/(administration)/layout";
 import AdministrationOverviewPage from "@/app/campus/[id]/(administration)/overview/page";
+import PersonPage from "@/app/campus/[id]/(administration)/people/[userId]/page";
+import PeoplePage from "@/app/campus/[id]/(administration)/people/page";
 import CohortTracksPage from "@/app/campus/[id]/(administration)/tracks/page";
 import JoinPage from "@/app/campus/[id]/join/page";
 import CohortLayout from "@/app/campus/[id]/layout";
@@ -91,6 +93,19 @@ const PAGES: Record<string, ProtectedPage> = {
   },
   "app/campus/[id]/(administration)/feedback/page.tsx": {
     render: () => FeedbackPage({ params, searchParams }),
+    denial: ROUTE_DENIAL,
+    routeAccessCalls: SYSTEM_ADMIN,
+  },
+  "app/campus/[id]/(administration)/people/page.tsx": {
+    render: () => PeoplePage({ params, searchParams }),
+    denial: ROUTE_DENIAL,
+    routeAccessCalls: SYSTEM_ADMIN,
+  },
+  "app/campus/[id]/(administration)/people/[userId]/page.tsx": {
+    render: () =>
+      PersonPage({
+        params: Promise.resolve({ id: "protected-cohort", userId: "person" }),
+      }),
     denial: ROUTE_DENIAL,
     routeAccessCalls: SYSTEM_ADMIN,
   },

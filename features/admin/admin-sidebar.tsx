@@ -2,6 +2,7 @@
 
 import { GaugeIcon } from "@phosphor-icons/react/dist/ssr/Gauge";
 import { StackIcon } from "@phosphor-icons/react/dist/ssr/Stack";
+import { UsersIcon } from "@phosphor-icons/react/dist/ssr/Users";
 import { cn } from "cn";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,6 +18,11 @@ function navigationItems(cohortId: string) {
       href: cohortAdministrationHref(cohortId, "overview"),
       label: "Overview",
       Icon: GaugeIcon,
+    },
+    {
+      href: cohortAdministrationHref(cohortId, "people"),
+      label: "People",
+      Icon: UsersIcon,
     },
     {
       href: cohortAdministrationHref(cohortId, "tracks"),
