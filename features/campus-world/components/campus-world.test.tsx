@@ -40,7 +40,9 @@ const WORLD_MAP = {
 
 function connectedPresence() {
   const store = createPresenceStore();
-  store.getState().apply({ type: "snapshot", map: WORLD_MAP, players: [] });
+  store
+    .getState()
+    .apply({ type: "snapshot", map: WORLD_MAP, players: [], spaces: [] });
   return store;
 }
 
@@ -249,6 +251,7 @@ describe("CampusWorld", () => {
       type: "snapshot",
       map: { id: "placeholder", version: "placeholder", width: 5, height: 4 },
       players: [],
+      spaces: [],
     });
     const { dependencies } = renderWorld(
       {
@@ -290,6 +293,7 @@ describe("CampusWorld", () => {
         type: "snapshot",
         map: { ...WORLD_MAP, version: "version-2" },
         players: [],
+        spaces: [],
       });
     });
 
@@ -316,9 +320,12 @@ describe("CampusWorld", () => {
     await expectReady();
 
     act(() => {
-      store
-        .getState()
-        .apply({ type: "snapshot", map: { ...WORLD_MAP }, players: [] });
+      store.getState().apply({
+        type: "snapshot",
+        map: { ...WORLD_MAP },
+        players: [],
+        spaces: [],
+      });
     });
 
     expect(region()).toHaveAttribute("data-status", "ready");

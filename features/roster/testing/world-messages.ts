@@ -30,5 +30,5 @@ export function welcome(userId: string): ServerMessage {
 }
 
 export function snapshot(...players: Avatar[]): ServerMessage {
-  return { type: "snapshot", map: MAP, players };
+  return { type: "snapshot", map: MAP, players, spaces: [] };
 }

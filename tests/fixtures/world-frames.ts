@@ -39,6 +39,10 @@ export const serverFrames: ServerFrames = {
     ],
     lockableSpaces: ["library"],
     lockedSpaces: [],
+    spaces: [
+      { spaceKey: "_default", name: "_default" },
+      { spaceKey: "library", name: "Library" },
+    ],
   },
   joined: {
     type: "joined",
@@ -73,6 +77,15 @@ export const serverFrames: ServerFrames = {
       subscribeRadius: 8,
     },
   },
+  broadcast: {
+    type: "broadcast",
+    call: {
+      url: "wss://media.example.test",
+      room: "cohort-1:broadcast",
+      token: "broadcast-token",
+      canSpeak: false,
+    },
+  },
   nearby: { type: "nearby", userIds: [GRACE] },
   lockChanged: {
     type: "lockChanged",
@@ -81,6 +94,57 @@ export const serverFrames: ServerFrames = {
     userId: GRACE,
   },
   lockableSpaces: { type: "lockableSpaces", spaceKeys: ["library"] },
+  spaces: {
+    type: "spaces",
+    spaces: [
+      { spaceKey: "_default", name: "_default" },
+      { spaceKey: "library", name: "Reading Room" },
+    ],
+  },
+  entryRequested: {
+    type: "entryRequested",
+    requestId: "r3qu35t",
+    userId: GRACE,
+    spaceKey: "library",
+  },
+  entryRequestEnded: {
+    type: "entryRequestEnded",
+    requestId: "r3qu35t",
+    userId: GRACE,
+    spaceKey: "library",
+    outcome: "admitted",
+    answeredBy: ADA,
+  },
+  said: {
+    type: "said",
+    id: "l1n3",
+    userId: GRACE,
+    spaceKey: "library",
+    text: "Hello",
+    at: "2026-10-30T09:00:00.000Z",
+  },
+  staffAction: {
+    type: "staffAction",
+    action: "removed",
+    userId: GRACE,
+    by: ADA,
+    spaceKey: "library",
+    until: "2026-10-30T09:01:30.000Z",
+    player: { userId: GRACE, x: 3, y: 7, facing: "down" },
+  },
+  walking: {
+    type: "walking",
+    userId: GRACE,
+    player: { userId: ADA, x: 4, y: 6, facing: "up" },
+  },
+  walkEnded: {
+    type: "walkEnded",
+    userId: GRACE,
+    reason: "refused",
+    player: { userId: ADA, x: 4, y: 6, facing: "up" },
+    spaceKey: "library",
+    mayAsk: true,
+  },
   replaced: { type: "replaced" },
   moved: {
     type: "moved",

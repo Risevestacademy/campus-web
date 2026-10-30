@@ -65,6 +65,7 @@ function storyPresence() {
       height: manifest.heightTiles,
     },
     players: [],
+    spaces: [],
   });
   return store;
 }
@@ -198,6 +199,7 @@ function hostilePresence() {
       height: mapFixture.height,
     },
     players,
+    spaces: [],
   });
   return store;
 }
