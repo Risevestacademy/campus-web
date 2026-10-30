@@ -151,6 +151,29 @@ describe("People page", () => {
     expect(screen.queryByText("Offline")).not.toBeInTheDocument();
   });
 
+  it("stops calling people offline when the socket closes, until the next snapshot", () => {
+    seed("people-cohort", [avatar("ada", "available")]);
+    render(
+      <PeopleAdministrationView
+        cohortId="people-cohort"
+        query={QUERY}
+        view={view([person("ada"), person("bola")])}
+      />,
+    );
+    expect(screen.getByText("Offline")).toBeInTheDocument();
+
+    act(() =>
+      presenceFor("people-cohort").getState().clearRemoteParticipants(),
+    );
+
+    expect(screen.queryByText("Offline")).not.toBeInTheDocument();
+    expect(screen.queryByText("Available")).not.toBeInTheDocument();
+
+    act(() => seed("people-cohort", [avatar("ada", "available")]));
+
+    expect(screen.getByText("Offline")).toBeInTheDocument();
+  });
+
   it("follows a status change", () => {
     seed("people-cohort", [avatar("ada", "available")]);
     render(

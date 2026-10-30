@@ -30,8 +30,9 @@ export function PersonStatus({
     presence,
     (state) => state.participants.get(userId)?.status,
   );
-  // Until the snapshot arrives nobody is known to be online.
-  const hasSnapshot = useStore(presence, (state) => state.map !== null);
+  // Until a current snapshot arrives nobody is known to be online. The map
+  // outlives a closed socket, so it cannot say whether the snapshot is current.
+  const hasSnapshot = useStore(presence, (state) => state.synced);
 
   if (!hasSnapshot) {
     return (
