@@ -22,8 +22,22 @@ const activeCampusViewModel = {
   viewer: { initials: "AL", presenceStatus: "active" },
 } as const;
 
-function OverviewPanelStub({ collapseButton }: { collapseButton: ReactNode }) {
-  return <section aria-label="Overview panel">{collapseButton}</section>;
+function OverviewPanelStub({
+  cohort,
+  cohortId,
+  collapseButton,
+}: {
+  cohort?: { name: string; role?: string };
+  cohortId: string;
+  collapseButton: ReactNode;
+}) {
+  return (
+    <section aria-label="Overview panel">
+      <p>{cohortId}</p>
+      <p>{cohort?.name}</p>
+      {collapseButton}
+    </section>
+  );
 }
 
 function AccountMenuStub({ children }: { children: ReactNode }) {
@@ -85,6 +99,25 @@ describe("ActiveCampus", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("complementary", { name: "Campus controls" }),
+    ).toBeInTheDocument();
+  });
+
+  it("tells the overview panel which cohort it shows and the member's place in it", () => {
+    render(
+      <CampusShell
+        OverviewPanel={OverviewPanelStub}
+        cohort={{ name: "Product Design 2026", role: "student" }}
+        cohortId="c-1"
+      >
+        <p>Route content</p>
+      </CampusShell>,
+    );
+
+    const overview = screen.getByRole("region", { name: "Overview panel" });
+
+    expect(within(overview).getByText("c-1")).toBeInTheDocument();
+    expect(
+      within(overview).getByText("Product Design 2026"),
     ).toBeInTheDocument();
   });
 

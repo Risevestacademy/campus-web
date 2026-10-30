@@ -219,6 +219,8 @@ function playRemoteGap({ drawnAt, moved, path }: RemoteGap) {
         facing: "down" as const,
         displayName: "Ada",
         spriteKey: null,
+        status: "available" as const,
+        spaceKey: "_default",
       },
       {
         userId: "grace",
@@ -226,6 +228,8 @@ function playRemoteGap({ drawnAt, moved, path }: RemoteGap) {
         facing: "down" as const,
         displayName: "Grace",
         spriteKey: null,
+        status: "available" as const,
+        spaceKey: "_default",
       },
     ],
   };
@@ -283,7 +287,16 @@ function startPacedOwnAvatar(start: Omit<Player, "userId">) {
   const snapshot = {
     type: "snapshot" as const,
     map: { id: "campus", version: "v1", width: 5, height: 4 },
-    players: [{ userId: ADA, ...start, displayName: "Ada", spriteKey: null }],
+    players: [
+      {
+        userId: ADA,
+        ...start,
+        displayName: "Ada",
+        spriteKey: null,
+        status: "available" as const,
+        spaceKey: "_default",
+      },
+    ],
   };
   movement.bind(({ direction, seq }) => {
     sent.push({ direction, seq });
@@ -419,6 +432,8 @@ function startCameraWorld(refuses: (seq: number, target: Tile) => boolean) {
         facing: "right" as const,
         displayName: "Ada",
         spriteKey: null,
+        status: "available" as const,
+        spaceKey: "_default",
       },
     ],
   };

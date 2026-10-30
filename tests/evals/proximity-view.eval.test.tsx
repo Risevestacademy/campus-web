@@ -35,6 +35,8 @@ const TONI: Avatar = {
   facing: "left",
   displayName: "Toni Morrison",
   spriteKey: null,
+  status: "available",
+  spaceKey: "_default",
 };
 
 async function renderActiveCampusLayout() {
@@ -91,7 +93,8 @@ describe("proximity view eval (required threshold: 6/6)", () => {
     expect(nearbyHeading()).toBeInTheDocument();
     expect(tileFor("Ada Lovelace")).toBeInTheDocument();
     expect(tileFor("Grace Hopper")).toBeInTheDocument();
-    expect(screen.getByText("You")).toBeInTheDocument();
+    // Once on your meeting tile, once on your own roster row.
+    expect(screen.getAllByText("You")).toHaveLength(2);
   });
 
   it("never shows anyone on the map who is not near", async () => {

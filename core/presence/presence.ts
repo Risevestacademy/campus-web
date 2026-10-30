@@ -5,13 +5,20 @@ import type {
   SnapshotMessage,
 } from "@/core/realtime";
 
-export type Participant = Pick<Avatar, "userId" | "displayName" | "spriteKey">;
+export type Participant = Pick<
+  Avatar,
+  "userId" | "displayName" | "spriteKey" | "status" | "spaceKey"
+>;
 export type Position = Pick<Player, "x" | "y" | "facing">;
 export type WorldMap = SnapshotMessage["map"];
 
 export interface Presence {
   selfId: string | null;
   map: WorldMap | null;
+  // True from a snapshot until the socket closes. The map outlives a closed
+  // socket so the scene stays drawn, but who is online is unknown until the
+  // next snapshot.
+  synced: boolean;
   participants: ReadonlyMap<string, Participant>;
   positions: ReadonlyMap<string, Position>;
   nearby: readonly string[];
@@ -23,6 +30,7 @@ export interface Presence {
 export const EMPTY_PRESENCE: Presence = {
   selfId: null,
   map: null,
+  synced: false,
   participants: new Map(),
   positions: new Map(),
   nearby: [],
@@ -33,8 +41,10 @@ function participantOf({
   userId,
   displayName,
   spriteKey,
+  status,
+  spaceKey,
 }: Participant): Participant {
-  return { userId, displayName, spriteKey };
+  return { userId, displayName, spriteKey, status, spaceKey };
 }
 
 function positionOf({ x, y, facing }: Player, map: WorldMap): Position {
@@ -73,6 +83,22 @@ function rebuild(
     positions: new Map(
       players.map((player) => [player.userId, positionOf(player, map)]),
     ),
+  };
+}
+
+function withParticipantChange(
+  presence: Presence,
+  userId: string,
+  change: Partial<Participant>,
+): Presence {
+  const participant = presence.participants.get(userId);
+  if (!participant) return presence;
+  return {
+    ...presence,
+    participants: withEntry(presence.participants, userId, {
+      ...participant,
+      ...change,
+    }),
   };
 }
 
@@ -126,6 +152,7 @@ export function applyServerMessage(
       return {
         ...presence,
         map: message.map,
+        synced: true,
         ...rebuild(message.players, message.map),
         nearby: [],
       };
@@ -145,15 +172,18 @@ export function applyServerMessage(
         ),
       };
     case "appearance":
-      if (!presence.participants.has(message.userId)) return presence;
-      return {
-        ...presence,
-        participants: withEntry(
-          presence.participants,
-          message.userId,
-          participantOf(message),
-        ),
-      };
+      return withParticipantChange(presence, message.userId, {
+        displayName: message.displayName,
+        spriteKey: message.spriteKey,
+      });
+    case "statusChanged":
+      return withParticipantChange(presence, message.userId, {
+        status: message.status,
+      });
+    case "spaceChanged":
+      return withParticipantChange(presence, message.userId, {
+        spaceKey: message.spaceKey,
+      });
     case "left":
       if (!presence.participants.has(message.userId)) return presence;
       return {
@@ -180,6 +210,7 @@ export function withoutRemoteParticipants(presence: Presence): Presence {
   const position = selfId ? presence.positions.get(selfId) : undefined;
   return {
     ...presence,
+    synced: false,
     participants:
       selfId && participant ? new Map([[selfId, participant]]) : new Map(),
     positions: selfId && position ? new Map([[selfId, position]]) : new Map(),

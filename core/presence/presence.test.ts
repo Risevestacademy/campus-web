@@ -18,6 +18,8 @@ const ADA: Avatar = {
   facing: "down",
   displayName: "Ada",
   spriteKey: "placeholder-1",
+  status: "available",
+  spaceKey: "_default",
 };
 const GRACE: Avatar = {
   userId: "grace",
@@ -26,6 +28,8 @@ const GRACE: Avatar = {
   facing: "right",
   displayName: null,
   spriteKey: null,
+  status: "available",
+  spaceKey: "_default",
 };
 
 const MAP = { id: "campus", version: "v1", width: 60, height: 40 };
@@ -55,7 +59,13 @@ describe("applyServerMessage", () => {
     expect([...presence.participants]).toEqual([
       [
         "ada",
-        { userId: "ada", displayName: "Ada", spriteKey: "placeholder-1" },
+        {
+          userId: "ada",
+          displayName: "Ada",
+          spriteKey: "placeholder-1",
+          status: "available",
+          spaceKey: "_default",
+        },
       ],
     ]);
     expect([...presence.positions]).toEqual([
@@ -135,7 +145,65 @@ describe("applyServerMessage", () => {
       userId: "grace",
       displayName: "Grace",
       spriteKey: "placeholder-2",
+      status: "available",
+      spaceKey: "_default",
     });
+  });
+
+  it("keeps a person's status and room through a new appearance", () => {
+    const before = applyServerMessage(snapshotOf(ADA), {
+      type: "statusChanged",
+      userId: "ada",
+      status: "busy",
+    });
+
+    const presence = applyServerMessage(before, {
+      type: "appearance",
+      userId: "ada",
+      displayName: "Ada L.",
+      spriteKey: null,
+    });
+
+    expect(presence.participants.get("ada")).toMatchObject({
+      displayName: "Ada L.",
+      status: "busy",
+      spaceKey: "_default",
+    });
+  });
+
+  it("changes a known person's status, leaving where they stand alone", () => {
+    const before = snapshotOf(ADA, GRACE);
+
+    const presence = applyServerMessage(before, {
+      type: "statusChanged",
+      userId: "grace",
+      status: "away",
+    });
+
+    expect(presence.participants.get("grace")?.status).toBe("away");
+    expect(presence.participants.get("ada")).toBe(
+      before.participants.get("ada"),
+    );
+    expect(presence.positions).toBe(before.positions);
+  });
+
+  it("moves a known person into the space they stepped into", () => {
+    const presence = applyServerMessage(snapshotOf(ADA), {
+      type: "spaceChanged",
+      userId: "ada",
+      spaceKey: "library",
+    });
+
+    expect(presence.participants.get("ada")?.spaceKey).toBe("library");
+  });
+
+  it.each<ServerMessage>([
+    { type: "statusChanged", userId: "stranger", status: "busy" },
+    { type: "spaceChanged", userId: "stranger", spaceKey: "library" },
+  ])("ignores a $type for somebody who is not here", (message) => {
+    const before = snapshotOf(ADA);
+
+    expect(applyServerMessage(before, message)).toBe(before);
   });
 
   it("moves everyone listed that it knows, leaving who is here alone", () => {
@@ -288,5 +356,19 @@ describe("nearby", () => {
 
     expect([reconnected.nearby, reconnected.encounter]).toEqual([[], 1]);
     expect([closed.nearby, closed.encounter]).toEqual([[], 1]);
+  });
+
+  it("is synced from a snapshot until the socket closes, and keeps the map meanwhile", () => {
+    const joined = snapshotOf(ADA, GRACE);
+    const closed = withoutRemoteParticipants(joined);
+
+    expect(EMPTY_PRESENCE.synced).toBe(false);
+    expect(joined.synced).toBe(true);
+    expect(closed.synced).toBe(false);
+    expect(closed.map).toEqual(MAP);
+    expect(
+      applyServerMessage(closed, { type: "snapshot", map: MAP, players: [ADA] })
+        .synced,
+    ).toBe(true);
   });
 });

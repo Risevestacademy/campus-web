@@ -4,7 +4,16 @@ import type { Avatar, ServerMessage } from "@/core/realtime";
 import { serverFrames } from "./world-frames";
 
 function avatar(userId: string, displayName: string | null): Avatar {
-  return { userId, x: 1, y: 1, facing: "down", displayName, spriteKey: null };
+  return {
+    userId,
+    x: 1,
+    y: 1,
+    facing: "down",
+    displayName,
+    spriteKey: null,
+    status: "available",
+    spaceKey: "_default",
+  };
 }
 
 export const ADA = avatar(serverFrames.welcome.userId, "Ada Lovelace");

@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 
 import { serverFrames } from "@/tests/fixtures/world-frames";
 
-import type { Avatar as WorldAvatar } from "./generated/world-protocol";
 import {
   parseServerMessage,
   type ServerMessage,
@@ -12,14 +11,6 @@ import {
 
 function frameText(value: unknown): string {
   return JSON.stringify(value);
-}
-
-function avatarAsRead({
-  status: _status,
-  spaceKey: _spaceKey,
-  ...avatar
-}: WorldAvatar) {
-  return avatar;
 }
 
 const { awayAfterSeconds: _awayAfterSeconds, ...welcome } =
@@ -40,13 +31,7 @@ const {
 const framesAsRead = {
   ...serverFrames,
   welcome,
-  snapshot: { ...snapshot, players: snapshot.players.map(avatarAsRead) },
-  joined: {
-    ...serverFrames.joined,
-    player: avatarAsRead(serverFrames.joined.player),
-  },
-  statusChanged: { type: "statusChanged" },
-  spaceChanged: { type: "spaceChanged" },
+  snapshot,
   call: { type: "call", call },
   nearby: serverFrames.nearby,
   lockChanged: { type: "lockChanged" },

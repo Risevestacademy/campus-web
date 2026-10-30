@@ -116,10 +116,10 @@ result.
 - `contract.typecheck.ts` pins `ServerMessage`'s types to the generated
   union, so a message added, removed or renamed upstream fails
   `pnpm typecheck` until it has a schema.
-- Messages no feature reads yet (`statusChanged`, `spaceChanged`,
-  `lockChanged`, `lockableSpaces`) parse to `{ type }` alone. They
-  are known, so they are not logged as skipped, and nothing unread travels on.
-  The feature that reads one gives it a real schema.
+- Messages no feature reads yet (`lockChanged`, `lockableSpaces`) parse to
+  `{ type }` alone. They are known, so they are not logged as skipped, and
+  nothing unread travels on. The feature that reads one gives it a real
+  schema.
 - `call` keeps `url` and `token` (both non-empty), `hearing` and
   `audibleRadius` (non-negative);
   `call: null` means no call. `room` and `subscribeRadius` are stripped: the

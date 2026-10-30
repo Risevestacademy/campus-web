@@ -17,6 +17,8 @@ const ADA = {
   facing: "down" as const,
   displayName: "Ada",
   spriteKey: null,
+  status: "available" as const,
+  spaceKey: "_default",
 };
 
 function startMovement(

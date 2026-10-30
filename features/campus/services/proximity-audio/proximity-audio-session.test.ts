@@ -53,9 +53,28 @@ function presenceWith(nearby: readonly string[]): Presence {
   return {
     selfId: SELF_ID,
     map: { id: "map", version: "v1", width: 10, height: 10 },
+    synced: true,
     participants: new Map([
-      [SELF_ID, { userId: SELF_ID, displayName: "Ada", spriteKey: null }],
-      [NEARBY_ID, { userId: NEARBY_ID, displayName: "Grace", spriteKey: null }],
+      [
+        SELF_ID,
+        {
+          userId: SELF_ID,
+          displayName: "Ada",
+          spriteKey: null,
+          status: "available" as const,
+          spaceKey: "_default",
+        },
+      ],
+      [
+        NEARBY_ID,
+        {
+          userId: NEARBY_ID,
+          displayName: "Grace",
+          spriteKey: null,
+          status: "available" as const,
+          spaceKey: "_default",
+        },
+      ],
     ]),
     positions: new Map([
       [SELF_ID, { x: 1, y: 1, facing: "right" }],

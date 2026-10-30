@@ -64,6 +64,8 @@ describe("campus avatars eval", () => {
         facing: "down",
         displayName,
         spriteKey: null,
+        status: "available" as const,
+        spaceKey: "_default",
       });
 
       expect(readAsKaplayDoes(entry!.label!)).toBe(displayName);
@@ -80,6 +82,8 @@ describe("campus avatars eval", () => {
           facing: "up" as const,
           displayName: null,
           spriteKey,
+          status: "available" as const,
+          spaceKey: "_default",
         }),
       ),
     );

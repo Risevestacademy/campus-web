@@ -26,7 +26,13 @@ presence.getState().clear(); // when the Presence Session ends
   height — from `snapshot`. The map renderer loads art for exactly this
   map, so everyone sees the same layout world enforced, not a default the
   bundle shipped.
-- `participants`: who is here, `Map<userId, { userId, displayName, spriteKey }>`.
+- `synced`: true from a `snapshot` until the socket closes. `map` outlives a
+  closed socket so the scene stays drawn, so read `synced`, not `map`, to
+  know whether who is online is current.
+- `participants`: who is here, `Map<userId, { userId, displayName, spriteKey,
+status, spaceKey }>`. `status` is `available`, `busy`, `away` (or `unknown`
+  for a value world adds later) and `spaceKey` names the space they stand in,
+  `_default` for the corridors and grounds. Room names are not kept yet.
 - `positions`: where they stand, `Map<userId, { x, y, facing }>` in tiles,
   clamped into the map's bounds.
 - `nearby`: the `userId`s world says are close enough to hear you, once each,
@@ -37,18 +43,21 @@ presence.getState().clear(); // when the Presence Session ends
   reopen by itself when the next one starts.
 
 They are separate maps so React can subscribe to who is here without
-rendering on every `moved` tick. KAPLAY reads `positions` each frame and
+rendering on every `moved` tick. A `spaceChanged` does replace the person's
+entry, since it is the one movement the roster shows. KAPLAY reads `positions` each frame and
 keeps anything finer (pixels, walking) itself.
 
-| Message      | participants             | positions                  |
-| ------------ | ------------------------ | -------------------------- |
-| `welcome`    | (sets `selfId`)          |                            |
-| `snapshot`   | replaced                 | replaced, with the map     |
-| `joined`     | set, replacing any entry | set                        |
-| `appearance` | updated if present       |                            |
-| `left`       | removed                  | removed                    |
-| `moved`      |                          | updated for known ids      |
-| `moveResult` |                          | yours, from world's answer |
+| Message         | participants              | positions                  |
+| --------------- | ------------------------- | -------------------------- |
+| `welcome`       | (sets `selfId`)           |                            |
+| `snapshot`      | replaced                  | replaced, with the map     |
+| `joined`        | set, replacing any entry  | set                        |
+| `appearance`    | name and sprite updated   |                            |
+| `statusChanged` | status updated if present |                            |
+| `spaceChanged`  | space updated if present  |                            |
+| `left`          | removed                   | removed                    |
+| `moved`         |                           | updated for known ids      |
+| `moveResult`    |                           | yours, from world's answer |
 
 `nearby` changes only `nearby` (and `encounter` when it goes from empty to
 not). It can name somebody not in `participants` yet; readers skip them

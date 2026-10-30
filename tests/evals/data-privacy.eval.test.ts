@@ -38,6 +38,7 @@ import {
   parsePendingInvite,
 } from "@/features/invitation/schemas/invite.schema";
 import { moveInviteTokenToCookie } from "@/features/invitation/services/invite-token-proxy.service";
+import { parseCohortDirectory } from "@/features/roster/schemas/directory.schema";
 import { invitePreview, pendingInvite } from "@/tests/fixtures/invites";
 import { serverFrames } from "@/tests/fixtures/world-frames";
 
@@ -176,7 +177,13 @@ const analyticsMemberSchemas = [
 ] as const;
 
 const PLAYER_PATHS = ["facing", "userId", "x", "y"];
-const AVATAR_PATHS = [...PLAYER_PATHS, "displayName", "spriteKey"].sort();
+const AVATAR_PATHS = [
+  ...PLAYER_PATHS,
+  "displayName",
+  "spaceKey",
+  "spriteKey",
+  "status",
+].sort();
 
 function under(prefix: string, paths: string[]): string[] {
   return paths.map((path) => `${prefix}.${path}`);
@@ -201,8 +208,8 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   nearby: ["type", "userIds[]"],
   pong: ["type"],
   replaced: ["type"],
-  spaceChanged: ["type"],
-  statusChanged: ["type"],
+  spaceChanged: ["spaceKey", "type", "userId"],
+  statusChanged: ["status", "type", "userId"],
   snapshot: [
     ...under("map", ["height", "id", "version", "width"]),
     ...under("players[]", AVATAR_PATHS),
@@ -348,6 +355,19 @@ describe("Data privacy eval (threshold: every case holds)", () => {
 
     it("keeps only the id and name of each person the report picker lists", () => {
       const people = parseCohortPeople([
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          displayName: "Ada L.",
+          spriteKey: "placeholder-1",
+          ...UNEXPECTED,
+        },
+      ]);
+
+      expect(keyPaths(people)).toEqual(["[].displayName", "[].id"]);
+    });
+
+    it("keeps only the id and name of each person the roster lists", () => {
+      const people = parseCohortDirectory([
         {
           id: "11111111-1111-4111-8111-111111111111",
           displayName: "Ada L.",
