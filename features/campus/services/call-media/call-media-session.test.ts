@@ -138,6 +138,7 @@ function setup(
     }),
   };
   const callbacks = {
+    onCameraPublishFailed: vi.fn(),
     onRemoteAudioGainsChange: vi.fn(),
     onRemotePublicationChange: vi.fn(),
     onStatusChange: vi.fn(),
@@ -735,13 +736,6 @@ describe("createCallMediaSession", () => {
       }),
     ],
     [
-      "a new camera",
-      (): LocalPublicationChange => ({
-        publication: localPublication("camera"),
-        type: "added",
-      }),
-    ],
-    [
       "a replaced microphone device",
       (): LocalPublicationChange => ({
         previousTrack: createTestMediaTrack("audio", "microphone-0"),
@@ -769,6 +763,26 @@ describe("createCallMediaSession", () => {
       expect(connection.disconnect).toHaveBeenCalledOnce();
     },
   );
+
+  it("keeps the call, and says so, when the room rejects the camera", async () => {
+    const { callbacks, joined, session } = setup();
+    session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+    const { connection } = await joined();
+    vi.mocked(connection.handleLocalPublicationChange).mockRejectedValueOnce(
+      new Error("publish failed"),
+    );
+
+    session.handleLocalPublicationChange({
+      publication: localPublication("camera"),
+      type: "added",
+    });
+
+    await vi.waitFor(() =>
+      expect(callbacks.onCameraPublishFailed).toHaveBeenCalledOnce(),
+    );
+    expect(callbacks.onStatusChange).toHaveBeenLastCalledWith("connected");
+    expect(connection.disconnect).not.toHaveBeenCalled();
+  });
 
   it("hands every camera change to the room it joined", async () => {
     const { joined, session } = setup();

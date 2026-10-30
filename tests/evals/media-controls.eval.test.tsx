@@ -9,7 +9,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { VisualsDisplay } from "@/features/campus";
-import { CallAudioFeedback } from "@/features/campus/components/presence-session";
+import { CallMediaFeedback } from "@/features/campus/components/presence-session";
 import type {
   CallAudioStatus,
   MeetingMediaTransport,
@@ -511,6 +511,39 @@ describe("media controls acceptance", () => {
     });
   });
 
+  it("tells the member the call refused their camera, and that they are still heard", async () => {
+    const call: MeetingMediaTransport = {
+      connect(callbacks) {
+        callbacks.onStatusChange("connected");
+        callbacks.onCameraPublishFailed();
+        return () => undefined;
+      },
+      handleLocalPublicationChange() {},
+      retry() {},
+      setVideoDemand() {},
+    };
+    const store = createMediaSessionStore({
+      mediaDevices: null,
+      transport: call,
+    });
+    render(<Toaster />);
+    render(
+      <MediaSessionProvider store={store}>
+        <CallMediaFeedback />
+      </MediaSessionProvider>,
+    );
+
+    act(() => store.getState().connect());
+
+    const notification = await screen.findByRole("alert");
+    expect(notification).toHaveTextContent(
+      "Your camera isn't reaching the call",
+    );
+    expect(notification).toHaveTextContent(
+      "People nearby can still hear you. Turn your camera off and on to try again.",
+    );
+  });
+
   it("takes the audio failure away when the Presence Session ends", async () => {
     const call: MeetingMediaTransport = {
       connect(callbacks) {
@@ -528,7 +561,7 @@ describe("media controls acceptance", () => {
     render(<Toaster />);
     const session = render(
       <MediaSessionProvider store={store}>
-        <CallAudioFeedback />
+        <CallMediaFeedback />
       </MediaSessionProvider>,
     );
     act(() => store.getState().connect());
@@ -558,7 +591,7 @@ describe("media controls acceptance", () => {
     render(
       <>
         <MediaSessionProvider store={store}>
-          <CallAudioFeedback />
+          <CallMediaFeedback />
           <VisualsDisplay />
         </MediaSessionProvider>
         <Toaster />

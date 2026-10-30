@@ -262,8 +262,6 @@ describe("createLivekitMeetingRoomTransport", () => {
     });
   });
 
-  // Every World frame reapplies the audience, and each request is a signal
-  // message to the SFU.
   it("asks the SFU for a camera's layer only when its tile changes size", async () => {
     const { connection, livekit, room } = await joinedRoom();
     room.join(`${GRACE}:tab-1`, ["camera"]);
@@ -277,6 +275,22 @@ describe("createLivekitMeetingRoomTransport", () => {
       { identity: `${GRACE}:tab-1`, quality: "LOW" },
       { identity: `${GRACE}:tab-1`, quality: "MEDIUM" },
       { identity: `${GRACE}:tab-1`, quality: "HIGH" },
+    ]);
+  });
+
+  // A full reconnect rebuilds every remote publication under its old trackSid,
+  // and a new publication starts on LiveKit's high layer.
+  it("asks a rebuilt camera publication for its layer again", async () => {
+    const { connection, livekit, room } = await joinedRoom();
+    const grace = room.join(`${GRACE}:tab-1`, ["camera"]);
+    connection.applyAudience(audience([GRACE], [[GRACE, "low"]]));
+
+    room.leave(grace);
+    room.arrive(`${GRACE}:tab-1`, ["camera"]);
+
+    expect(livekit.qualities).toEqual([
+      { identity: `${GRACE}:tab-1`, quality: "LOW" },
+      { identity: `${GRACE}:tab-1`, quality: "LOW" },
     ]);
   });
 

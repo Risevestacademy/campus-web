@@ -138,6 +138,12 @@ export type LocalPublicationChange =
       type: "removed";
     }>;
 
+export function localChangeSource(
+  change: LocalPublicationChange,
+): PublicationSource {
+  return change.type === "removed" ? change.source : change.publication.source;
+}
+
 export type RemotePublicationChange =
   | Readonly<{
       publication: RemoteMediaPublication;
@@ -151,6 +157,8 @@ export type RemotePublicationChange =
     }>;
 
 export type MeetingMediaTransportCallbacks = Readonly<{
+  // The room refused the member's camera; the call itself carries on.
+  onCameraPublishFailed: () => void;
   onRemoteAudioGainsChange: (gains: RemoteAudioGains) => void;
   onRemotePublicationChange: (change: RemotePublicationChange) => void;
   onStatusChange: (status: CallAudioStatus) => void;

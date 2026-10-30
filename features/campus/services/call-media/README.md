@@ -2,7 +2,8 @@
 
 Who you hear and see, from World. World decides the room (`call`) and its hearing;
 presence keeps who you meet (`meetingRoster`). This module joins that room,
-subscribes only the roster's microphones, and sets each one's gain: full
+subscribes the roster's microphones and the cameras of their tiles on screen,
+lets only the roster receive your tracks, and sets each voice's gain: full
 under room hearing, from distance under proximity hearing. It is the media
 session's `MeetingMediaTransport`, so capture stays in the media session.
 
@@ -13,6 +14,8 @@ const session = createCallMediaSession({
   now,
   pinMediaUrl,
   recordFirstAudioMilliseconds,
+  recordFirstVideo,
+  refreshCall,
   roomTransport,
 });
 
@@ -22,7 +25,8 @@ session.applyPresence(presence); // presence that changed without a frame
 
 The Presence Session uses `createBrowserCallMediaSession()`, which binds
 `pinMediaUrl` to `NEXT_PUBLIC_MEDIA_URL`, `now` to `performance.now`, first
-audio to PostHog, and the LiveKit adapter as `roomTransport`.
+audio and first video to PostHog, `refreshCall` to `world.rejoin()`, and the
+LiveKit adapter as `roomTransport`.
 
 - `connect(callbacks)` / `handleLocalPublicationChange(change)`: the media
   session's transport seam. The microphone and camera reach the room, each
@@ -78,7 +82,7 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
   need nothing more.
 - `connect` rejects once `signal` aborts and leaves the half-joined room.
   `disconnect` always settles, stops every copy, and reports no drop.
-  Microphone changes still queued then never clone.
+  Microphone and camera changes still queued then never clone.
 - `livekit-client` loads only through `services/livekit/livekit-client.ts`.
 
 ## Rules
@@ -107,20 +111,26 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 - `callAudioStatus`: `connecting`, then `connected` before the first gains;
   `idle` after a leave;
   `unavailable` when the host is not pinned, the join fails, the room
-  disconnects on its own, or a microphone or camera change fails. Remote publications
+  disconnects on its own, or a microphone change fails. Remote publications
   and gains clear in every case.
+- A refused camera never fails the call: video degrades before audio. The
+  session reports `onCameraPublishFailed`, the member stays heard, and the
+  next camera publish clears it.
 - First-audio time is measured only for calls that arrive while the roster
   is not empty, from `call` to the room's first remote microphone, and is
   reported with the call's hearing.
 - First-video time runs from asking for a camera (its tile is on screen and
   its owner in the roster) to the SFU subscribing it, once per room, with the
-  call's hearing and the member's `connection_quality`. It is the data any
-  later rule for dropping video on a poor link should start from.
+  call's hearing and the member's `connection_quality`. A retry is measured
+  too, since the time starts at the ask, not at World's call. It is the data
+  any later rule for dropping video on a poor link should start from.
 
 `RemoteAudioOutput` follows each participant's gain outside React, so a gain
 change never detaches the audio. A participant with no gain plays silent.
-While the status is `unavailable`, `CallAudioFeedback` (once per Presence
+While the status is `unavailable`, `CallMediaFeedback` (once per Presence
 Session) shows a warning toast, "Audio couldn't connect", with Try again.
+While the camera is refused it shows "Your camera isn't reaching the call",
+saying the member is still heard.
 `retry()` rejoins the latest call in place; if LiveKit refuses that grant
 (`RoomAccessDeniedError`, usually an expired token) it calls `refreshCall`
 (`world.rejoin()`), and World answers with a fresh call. If World is not

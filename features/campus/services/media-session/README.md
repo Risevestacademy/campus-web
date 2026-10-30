@@ -24,6 +24,8 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
   connected, so pre-join never publishes. `setVideoDemand(demand)` names
   the remote cameras on screen and their layer, connected or not. Production
   uses the call-media session; `noopMeetingMediaTransport` is the default.
+- `cameraPublishFailed`: the call refused the member's camera
+  (`onCameraPublishFailed`); cleared by the next camera publish or `stop()`.
 - `demandVideo(participantId, layer)`: a tile showing a remote camera asks
   for it and gets back the function that lets it go. Requests settle in a
   microtask into one `VideoDemand` (the largest layer per participant), so a

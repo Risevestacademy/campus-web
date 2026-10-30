@@ -1,6 +1,6 @@
 import type { VideoDemand, VideoLayer } from "./contracts";
 
-type Request = Readonly<{ participantId: string; layer: VideoLayer }>;
+type VideoRequest = Readonly<{ participantId: string; layer: VideoLayer }>;
 
 const LAYER_RANK: Readonly<Record<VideoLayer, number>> = {
   low: 0,
@@ -8,7 +8,7 @@ const LAYER_RANK: Readonly<Record<VideoLayer, number>> = {
   high: 2,
 };
 
-function largestLayers(requests: Iterable<Request>): VideoDemand {
+function largestLayers(requests: Iterable<VideoRequest>): VideoDemand {
   const demand = new Map<string, VideoLayer>();
   for (const { participantId, layer } of requests) {
     const current = demand.get(participantId);
@@ -32,7 +32,7 @@ function sameDemand(left: VideoDemand, right: VideoDemand) {
 // attaches the new one, and forwarding each step would drop the camera and
 // subscribe it again on every layout change.
 export function createVideoDemand(onChange: (demand: VideoDemand) => void) {
-  const requests = new Set<Request>();
+  const requests = new Set<VideoRequest>();
   let forwarded: VideoDemand = new Map();
   let settling = false;
 
@@ -51,7 +51,7 @@ export function createVideoDemand(onChange: (demand: VideoDemand) => void) {
   }
 
   return function demandVideo(participantId: string, layer: VideoLayer) {
-    const request: Request = { participantId, layer };
+    const request: VideoRequest = { participantId, layer };
     requests.add(request);
     scheduleSettle();
     return () => {

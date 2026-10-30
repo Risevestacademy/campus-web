@@ -22,7 +22,7 @@ same cohort never starts one; see [Presence Tab](#presence-tab).
 - `AdmissionProvider`, `PresenceTabProvider`: inject a store or tab for tests.
 
 `components/presence-session.tsx` adds the session's `RemoteAudioOutput` and
-`CallAudioFeedback`;
+`CallMediaFeedback`;
 `components/presence-session-gate.tsx` admits an exact grant and connects the
 transport and world.
 

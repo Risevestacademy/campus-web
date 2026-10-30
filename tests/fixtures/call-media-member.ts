@@ -3,6 +3,7 @@ import { expect, vi } from "vitest";
 import { createPresenceStore } from "@/core/presence";
 import type { Avatar } from "@/core/realtime";
 import { parseServerMessage } from "@/core/realtime";
+import { parseParticipantId } from "@/features/campus/schemas/livekit-participant.schema";
 import { createCallMediaSession } from "@/features/campus/services/call-media/call-media-session";
 import { createLivekitMeetingRoomTransport } from "@/features/campus/services/call-media/livekit-meeting-room-transport";
 import type {
@@ -25,8 +26,6 @@ export function proximityCall() {
 const MEDIA_URL = proximityCall().url;
 
 export const identityOf = (userId: string) => `${userId}:tab-1`;
-
-const userIdOf = (identity: string) => identity.split(":")[0] ?? "";
 
 // One member's Presence Session, end to end below World: frames go through the
 // real parser and presence store into the real call-media session and
@@ -66,6 +65,7 @@ export function joinedMember() {
   const heard = new Set<string>();
   const seen = new Set<string>();
   session.connect({
+    onCameraPublishFailed: () => undefined,
     onRemoteAudioGainsChange: () => undefined,
     onRemotePublicationChange: (change) => {
       const { participantId, source } =
@@ -82,8 +82,11 @@ export function joinedMember() {
   let countedGrants = 0;
   let unauthorizedGrants = 0;
 
+  // Read with the production parser, so an identity production must never
+  // grant, like a bare user id, always counts as outside the roster.
   function isOutsideRoster(identity: string) {
-    return !presence.getState().meetingRoster.includes(userIdOf(identity));
+    const userId = parseParticipantId(identity);
+    return !userId || !presence.getState().meetingRoster.includes(userId);
   }
 
   function isUnwanted({
@@ -94,7 +97,8 @@ export function joinedMember() {
     source: string;
   }) {
     if (isOutsideRoster(identity)) return true;
-    return source === "camera" && !tilesOnScreen.has(userIdOf(identity));
+    const userId = parseParticipantId(identity) ?? "";
+    return source === "camera" && !tilesOnScreen.has(userId);
   }
 
   function countUnauthorized() {

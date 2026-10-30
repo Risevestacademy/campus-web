@@ -258,6 +258,29 @@ describe("media session store", () => {
     });
   });
 
+  it("remembers the room refused the camera until the camera is shared again", async () => {
+    const mediaDevices = createMediaDevices(async () =>
+      createStream([createTrack("video", "camera-1")]),
+    );
+    const { connections, transport } = createTransport();
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+      transport,
+    });
+    await store.getState().start();
+    store.getState().connect();
+    await store.getState().toggleSource("camera");
+
+    connections[0]?.onCameraPublishFailed();
+    const refused = store.getState().cameraPublishFailed;
+    await store.getState().toggleSource("camera");
+    await store.getState().toggleSource("camera");
+
+    expect(refused).toBe(true);
+    expect(store.getState().cameraPublishFailed).toBe(false);
+  });
+
   it("does not acquire an input selected while its source is off", async () => {
     const mediaDevices = createMediaDevices(async () =>
       createStream([createTrack("video", "camera-2")]),

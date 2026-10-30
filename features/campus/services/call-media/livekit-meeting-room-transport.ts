@@ -14,13 +14,13 @@ import {
   type LivekitClient,
   loadLivekitClient,
 } from "../livekit/livekit-client";
-import type {
-  CaptureSource,
-  LocalPublicationChange,
-  RemoteMediaPublication,
-  VideoLayer,
+import {
+  type CaptureSource,
+  localChangeSource,
+  type LocalPublicationChange,
+  type RemoteMediaPublication,
+  type VideoLayer,
 } from "../media-session/contracts";
-import { localChangeSource } from "../media-session/publication-registry";
 import {
   CONNECTION_QUALITIES,
   type ConnectionQuality,
@@ -69,9 +69,8 @@ function remotePublicationOf(
 }
 
 // Publishes copies: LiveKit may stop a track it fails to publish, and the
-// member's own track must outlive the room. Changes run in order, so turning
-// a source off waits for a publish still in flight; any still queued at
-// close never clone.
+// member's own track must outlive the room. Changes run in order, and any
+// still queued at close never clone.
 function localTrackPublisher(room: Room, source: Track.Source) {
   const copies = new Set<MediaStreamTrack>();
   let published:
@@ -204,7 +203,9 @@ function connectRoom(
   let leaving = false;
   const cameraAskedAt = new Map<string, number>();
   const grant = audienceGrant(room);
-  const requestedLayers = new Map<string, VideoLayer>();
+  // Per publication, not trackSid: a full reconnect rebuilds publications
+  // under their old ids, and each new one starts on the high layer.
+  const requestedLayers = new WeakMap<RemoteTrackPublication, VideoLayer>();
   const handedOver = new Set<string>();
   const publishers: Readonly<
     Record<CaptureSource, ReturnType<typeof localTrackPublisher>>
@@ -255,8 +256,8 @@ function connectRoom(
     publication: RemoteTrackPublication,
     layer: VideoLayer,
   ) {
-    if (requestedLayers.get(publication.trackSid) === layer) return;
-    requestedLayers.set(publication.trackSid, layer);
+    if (requestedLayers.get(publication) === layer) return;
+    requestedLayers.set(publication, layer);
     publication.setVideoQuality(VIDEO_QUALITY[layer]);
   }
 

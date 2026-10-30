@@ -1,15 +1,15 @@
 import { type Hearing, hearingOf, type Presence } from "@/core/presence";
 import type { Call, ServerMessage } from "@/core/realtime";
 
-import type {
-  CaptureSource,
-  LocalMediaPublication,
-  LocalPublicationChange,
-  MeetingMediaTransportCallbacks,
-  RemotePublicationChange,
-  VideoDemand,
+import {
+  type CaptureSource,
+  localChangeSource,
+  type LocalMediaPublication,
+  type LocalPublicationChange,
+  type MeetingMediaTransportCallbacks,
+  type RemotePublicationChange,
+  type VideoDemand,
 } from "../media-session/contracts";
-import { localChangeSource } from "../media-session/publication-registry";
 import {
   type CallMediaSession,
   type FirstRemoteVideo,
@@ -192,12 +192,24 @@ export function createCallMediaSession(
     current.onStatusChange("unavailable");
   }
 
+  // Video degrades before audio: a refused camera leaves the member heard.
+  function rejectLocalChange(
+    change: LocalPublicationChange,
+    stepGeneration: number,
+  ) {
+    if (localChangeSource(change) !== "camera") {
+      fail(stepGeneration);
+      return;
+    }
+    currentCallbacks(stepGeneration)?.onCameraPublishFailed();
+  }
+
   function forwardLocalChange(change: LocalPublicationChange) {
     if (!active) return;
     const stepGeneration = roomGeneration;
     active.connection
       .handleLocalPublicationChange(change)
-      .catch(() => fail(stepGeneration));
+      .catch(() => rejectLocalChange(change, stepGeneration));
   }
 
   function roomEvents(
