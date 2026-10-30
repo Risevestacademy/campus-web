@@ -56,10 +56,15 @@ function listItem(id: string, overrides: Record<string, unknown> = {}) {
   };
 }
 
-function page(items: unknown[]) {
+function page(items: unknown[], pageNumber = 1, totalPages = 1) {
   return Response.json({
     items,
-    meta: { page: 1, perPage: 100, total: items.length, totalPages: 1 },
+    meta: {
+      page: pageNumber,
+      perPage: 100,
+      total: items.length * totalPages,
+      totalPages,
+    },
   });
 }
 
@@ -118,6 +123,53 @@ describe("reading a person in a cohort", () => {
 
     scriptCard(() => new HttpResponse(null, { status: 400 }));
     expect((await readPerson(api, "c-1", ADA_ID)).kind).toBe("unavailable");
+  });
+
+  it("finds a person who is on a later page of the address matches", async () => {
+    scriptCard(() => Response.json(card(["c-1"])));
+    mockApi.server.use(
+      http.get(USERS_URL, ({ request }) => {
+        const requested = Number(
+          new URL(request.url).searchParams.get("page") ?? "1",
+        );
+        return requested === 1
+          ? page([listItem(OTHER_ID)], 1, 3)
+          : requested === 2
+            ? page([listItem("another-id")], 2, 3)
+            : page([listItem(ADA_ID)], 3, 3);
+      }),
+    );
+
+    expect(await readPerson(api, "c-1", ADA_ID)).toMatchObject({
+      kind: "loaded",
+      person: { id: ADA_ID },
+    });
+    expect(
+      mockApi.requests
+        .map(({ url }) => new URL(url))
+        .filter(({ pathname }) => pathname === "/v1/users")
+        .map(({ searchParams }) => searchParams.get("page")),
+    ).toEqual(["1", "2", "3"]);
+  });
+
+  it("stops at the last page when they are on none of them", async () => {
+    scriptCard(() => Response.json(card(["c-1"])));
+    mockApi.server.use(
+      http.get(USERS_URL, ({ request }) =>
+        page(
+          [listItem(OTHER_ID)],
+          Number(new URL(request.url).searchParams.get("page") ?? "1"),
+          2,
+        ),
+      ),
+    );
+
+    expect((await readPerson(api, "c-1", ADA_ID)).kind).toBe("unavailable");
+    expect(
+      mockApi.requests.filter(
+        ({ url }) => new URL(url).pathname === "/v1/users",
+      ),
+    ).toHaveLength(2);
   });
 
   it("is unavailable when the cohort list cannot say who they are", async () => {
