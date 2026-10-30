@@ -2,6 +2,8 @@ import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { withQueryClient } from "@/tests/fixtures/query-client";
+
 import JoinPage from "./join/page";
 import CohortLayout from "./layout";
 
@@ -22,10 +24,15 @@ const params = Promise.resolve({ id: "c-1" });
 describe("CohortLayout", () => {
   it("renders the Join Gate inside the cohort's Presence Session", async () => {
     render(
-      await CohortLayout({
-        params,
-        children: await JoinPage({ params, searchParams: Promise.resolve({}) }),
-      }),
+      withQueryClient(
+        await CohortLayout({
+          params,
+          children: await JoinPage({
+            params,
+            searchParams: Promise.resolve({}),
+          }),
+        }),
+      ),
     );
 
     expect(
