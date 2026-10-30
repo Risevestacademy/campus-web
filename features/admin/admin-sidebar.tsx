@@ -37,6 +37,12 @@ function navigationItems(cohortId: string) {
   ] as const;
 }
 
+// A page inside a section, like a person under People, keeps the section's
+// link current.
+function isCurrentPage(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function AdminSidebar({
   cohortId,
   collapseButton,
@@ -63,7 +69,7 @@ export function AdminSidebar({
           <Link
             key={href}
             href={href}
-            aria-current={pathname === href ? "page" : undefined}
+            aria-current={isCurrentPage(pathname, href) ? "page" : undefined}
             className={cn(
               "text-foreground-secondary hover:text-foreground flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm font-medium transition-colors duration-150 hover:bg-[#E9ECF6] dark:hover:bg-[#2B3B5F]",
               "aria-[current=page]:text-primary aria-[current=page]:bg-[#E9ECF6] dark:aria-[current=page]:bg-[#2B3B5F] dark:aria-[current=page]:text-[#F7F7F7]",
