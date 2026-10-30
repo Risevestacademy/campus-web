@@ -196,7 +196,8 @@ const snapshotMessageSchema = z.toZod<SnapshotMessage>()(
       height: z.int().positive(),
     }),
     players: z.array(avatarSchema),
-    spaces: z.array(spaceNameSchema),
+    // A label must not fail the handshake: names fall back to space keys.
+    spaces: z.array(spaceNameSchema).catch([]),
   }),
 );
 

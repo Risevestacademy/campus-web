@@ -127,6 +127,22 @@ describe("parseServerMessage", () => {
     });
   });
 
+  it.each([
+    ["missing", undefined],
+    ["not a list", "library"],
+    ["holding an unnamed space", [{ spaceKey: "library", name: null }]],
+  ])(
+    "reads a snapshot whose space names are %s with none, so entry never waits on a label",
+    (_case, spaces) => {
+      const frame = { ...serverFrames.snapshot, spaces };
+
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: true,
+        message: { ...snapshot, spaces: [] },
+      });
+    },
+  );
+
   it.each(["moved", "blocked", "refused", "too_fast"] as const)(
     "reads a %s outcome as world sent it",
     (outcome) => {

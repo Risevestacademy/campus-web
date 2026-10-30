@@ -123,7 +123,8 @@ result.
   media token is dropped with the rest. The feature that reads one gives it a
   real schema.
 - `snapshot.spaces` and the `spaces` frame keep each space's `spaceKey` and
-  `name`.
+  `name`. A `snapshot` whose `spaces` is missing or malformed reads as `[]`,
+  so a label never fails the handshake.
 - `call` keeps `url` and `token` (both non-empty), `hearing` and
   `audibleRadius` (non-negative);
   `call: null` means no call. `room` and `subscribeRadius` are stripped: the

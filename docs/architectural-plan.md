@@ -354,9 +354,13 @@ never invented event names:
 
 - server sends: `welcome`, `snapshot`, `joined`, `left`, `appearance`,
   `moved`, `moveResult`, `pong`, `error`, `replaced`, `statusChanged`,
-  `spaceChanged`, `call`, `nearby`, `lockChanged`, `lockableSpaces`;
-- client sends: `ping`, `move` (world also accepts `setStatus`, `active` and
-  `setLock`, which no feature sends yet).
+  `spaceChanged`, `spaces`, `call`, `broadcast`, `nearby`, `lockChanged`,
+  `lockableSpaces`, `entryRequested`, `entryRequestEnded`, `said`,
+  `staffAction`, `walking`, `walkEnded`;
+- client sends: `ping`, `move` (world also accepts `setStatus`, `active`,
+  `setLock`, `requestEntry`, `withdrawEntryRequest`, `answerEntryRequest`,
+  `say`, `mute`, `removeFromSpace`, `goTo` and `stopWalking`, which no
+  feature sends yet).
 
 A new message arrives by regenerating the types. `ServerMessage` lists what the
 client reads, by hand, and `contract.typecheck.ts` fails until it names every
