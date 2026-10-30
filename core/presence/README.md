@@ -10,6 +10,8 @@ the roster). It never parses a frame: `core/realtime` already did.
 import {
   applyServerMessage,
   createPresenceStore,
+  type Hearing,
+  hearingOf,
   presenceFor,
   type Presence,
   spaceNameOf,
@@ -43,9 +45,21 @@ status, spaceKey }>`. `status` is `available`, `busy`, `away` (or `unknown`
 - `nearby`: the `userId`s world says are close enough to hear you, once each,
   in the order they came near. World sends its list sorted; keeping arrival order
   means a newcomer never reshuffles whoever was already there.
-- `encounter`: how many times somebody came near after nobody was. A view
-  opened during one encounter (the meeting grid) checks it, so it does not
-  reopen by itself when the next one starts.
+- `hearing`: how World's `call` for your space hears, `room` or `proximity`;
+  `null` after `call: null` or a hearing World added later. After your own
+  step into another space, or a `snapshot`, a held call becomes `awaiting`
+  until World sends the space's next one: World mints that token after the
+  frame, and the old call says nothing about the new space. Only the hearing
+  is kept, never the call's token. `hearingOf(call)` is the one rule for
+  which calls are heard; the audio session uses it too.
+- `meetingRoster`: who you meet, in the order they arrived, without you.
+  Under `room` hearing it is everyone presence knows in your space; while
+  `awaiting` it is nobody; otherwise it is whoever `nearby` names that presence knows. World names nobody near
+  in a room space, so falling back to `nearby` is safe, and a World without
+  media (no `call` at all) still shows who is near.
+- `encounter`: how many times somebody joined `meetingRoster` after nobody
+  was. A view opened during one encounter (the meeting grid) checks it, so it
+  does not reopen by itself when the next one starts.
 
 They are separate maps so React can subscribe to who is here without
 rendering on every `moved` tick. A `spaceChanged` does replace the person's
@@ -59,24 +73,35 @@ keeps anything finer (pixels, walking) itself.
 | `joined`        | set, replacing any entry    | set                        |
 | `appearance`    | name and sprite updated     |                            |
 | `statusChanged` | status updated if present   |                            |
-| `spaceChanged`  | space updated if present    |                            |
+| `spaceChanged`  | space updated if present ¹  |                            |
 | `left`          | removed                     | removed                    |
 | `moved`         |                             | updated for known ids      |
 | `moveResult`    |                             | yours, from world's answer |
 | `spaces`        | (replaces `spaceNames`)     |                            |
+| `call`          | (sets `hearing`)            |                            |
 
-`nearby` changes only `nearby` (and `encounter` when it goes from empty to
-not). It can name somebody not in `participants` yet; readers skip them
-until `joined` arrives.
+¹ Your own `spaceChanged` into another space sets a held `hearing` to
+`awaiting`, and the roster is empty until World's next `call`. Otherwise
+stepping out of a room would meet the whole corridor, and stepping into one
+would keep the corridor's `nearby` until World's next tick.
+
+`nearby` changes only `nearby`. It can name somebody not in `participants`
+yet; the roster skips them until `joined` arrives.
+
+`meetingRoster` and `encounter` are recomputed after every message, in one
+wrapper around the reducer. It keeps the same array when nobody changed, so
+a `moved` tick never hands React a new roster.
 
 - A `snapshot` replaces every field above rather than patching them. After a
   reconnect, patching would keep whoever left while the socket was down.
 - Positions outside the map are clamped, not rejected: world is trusted, and
   a stale tile index should draw at the edge, not break the frame.
-- `encounter` is the one field a `snapshot` keeps, so it never repeats in a
-  session. World sends a fresh `nearby` after a reconnect.
-- `clearRemoteParticipants()` keeps you (`selfId`), the map and the space
-  names, and drops everyone else, `nearby` included. Every recoverable close calls it, so a
+- A `snapshot` keeps `encounter`, so it never repeats in a session, and
+  sets a held `hearing` to `awaiting`: World sends the space's `call` right
+  after every `snapshot`. World sends a fresh `nearby` after a reconnect.
+- `clearRemoteParticipants()` keeps you (`selfId`), the map, the space
+  names and `hearing`, and drops everyone else, `nearby` and
+  `meetingRoster` included. Every recoverable close calls it, so a
   drop never leaves frozen stand-ins mid-pose; `clear()` removes everything.
 - One entry per id by construction, so a reconnect never draws anyone twice.
 - `Map`, not `Record`: an id such as `constructor` must not reach

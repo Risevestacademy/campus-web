@@ -20,10 +20,10 @@ export function createBrowserProximityAudioSession(
   return createProximityAudioSession({
     now: () => performance.now(),
     pinMediaUrl: pinToMediaOrigin,
-    recordFirstAudioMilliseconds: (firstAudioMilliseconds) =>
+    recordFirstAudioMilliseconds: (firstAudioMilliseconds, hearing) =>
       captureBrowserAnalyticsEvent(
         ANALYTICS_EVENTS.CAMPUS_PROXIMITY_AUDIO_READY,
-        { first_audio_ms: firstAudioMilliseconds },
+        { first_audio_ms: firstAudioMilliseconds, hearing },
       ),
     refreshCall,
     roomTransport: createLivekitMeetingRoomTransport(),

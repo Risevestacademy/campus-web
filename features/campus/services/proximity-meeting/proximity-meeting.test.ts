@@ -8,19 +8,24 @@ import {
   type Presence,
 } from "@/core/presence";
 import type { Avatar, ServerMessage } from "@/core/realtime";
+import { callFrame } from "@/tests/fixtures/nearby-presence";
 
 import type {
+  Meeting,
   MeetingParticipant,
   OpenedMeetingLayout,
-  ProximityMeeting,
 } from "../../types/active-campus.types";
 import {
-  selectProximityMeeting,
+  selectMeeting,
   splitAtCap,
   visibleMeetingLayout,
 } from "./proximity-meeting";
 
-function avatar(userId: string, displayName: string | null): Avatar {
+function avatar(
+  userId: string,
+  displayName: string | null,
+  spaceKey = "_default",
+): Avatar {
   return {
     userId,
     x: 1,
@@ -29,7 +34,7 @@ function avatar(userId: string, displayName: string | null): Avatar {
     displayName,
     spriteKey: null,
     status: "available",
-    spaceKey: "_default",
+    spaceKey,
   };
 }
 
@@ -64,15 +69,14 @@ function meetingAfter(...messages: ServerMessage[]) {
     applyServerMessage,
     EMPTY_PRESENCE,
   );
-  return selectProximityMeeting(presence);
+  return selectMeeting(presence);
 }
 
-function meetingWith(
-  encounter: number,
-  ...participantIds: string[]
-): ProximityMeeting {
+function meetingWith(encounter: number, ...participantIds: string[]): Meeting {
   return {
     encounter,
+    hearing: "proximity",
+    title: "Nearby",
     localParticipantId: "ada",
     participants: participantIds.map((id): MeetingParticipant => ({
       id,
@@ -83,7 +87,7 @@ function meetingWith(
   };
 }
 
-describe("selectProximityMeeting", () => {
+describe("selectMeeting", () => {
   it("has no meeting while nobody is near", () => {
     expect(meetingAfter(WELCOME, EVERYONE_HERE)).toBeNull();
   });
@@ -127,7 +131,7 @@ describe("selectProximityMeeting", () => {
   });
 
   it("gives each person the same tone whatever order they came in", () => {
-    const tonesOf = (meeting: ProximityMeeting | null) =>
+    const tonesOf = (meeting: Meeting | null) =>
       Object.fromEntries(
         meeting?.participants.map(({ id, tone }) => [id, tone]) ?? [],
       );
@@ -145,6 +149,55 @@ describe("selectProximityMeeting", () => {
     );
 
     expect(tonesOf(oneThenOther)).toEqual(tonesOf(together));
+  });
+
+  function inLibraryWith(
+    spaces: { spaceKey: string; name: string }[],
+    ...messages: ServerMessage[]
+  ) {
+    return meetingAfter(
+      WELCOME,
+      {
+        type: "snapshot",
+        map: { id: "campus", version: "v1", width: 60, height: 40 },
+        players: [
+          avatar("ada", "Ada Lovelace", "library"),
+          avatar("grace", "Grace Hopper", "library"),
+        ],
+        spaces,
+      },
+      ...messages,
+    );
+  }
+
+  const ROOM_CALL = callFrame("room");
+  const LIBRARY = { spaceKey: "library", name: "Library" };
+
+  it.each([
+    ["proximity", [nearby("grace")], "Nearby"],
+    ["room", [ROOM_CALL], "Library"],
+  ] as const)(
+    "titles a %s meeting for where you meet",
+    (hearing, messages, title) => {
+      expect(inLibraryWith([LIBRARY], ...messages)).toMatchObject({
+        hearing,
+        title,
+      });
+    },
+  );
+
+  it("titles a room World has not named with its key", () => {
+    expect(inLibraryWith([], ROOM_CALL)?.title).toBe("library");
+  });
+
+  it("has no meeting while you are alone in a room", () => {
+    expect(
+      inLibraryWith([LIBRARY], ROOM_CALL, {
+        type: "spaceChanged",
+        userId: "grace",
+        spaceKey: "_default",
+      }),
+    ).toBeNull();
   });
 });
 

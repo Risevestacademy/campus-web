@@ -1,3 +1,5 @@
+import type { Hearing } from "@/core/presence";
+
 export const PARTICIPANT_TONES = ["cobalt", "lemon", "turquoise"] as const;
 
 export type ParticipantTone = (typeof PARTICIPANT_TONES)[number];
@@ -9,8 +11,10 @@ export type MeetingParticipant = Readonly<{
   tone: ParticipantTone;
 }>;
 
-export type ProximityMeeting = Readonly<{
+export type Meeting = Readonly<{
   encounter: number;
+  hearing: Hearing;
+  title: string;
   localParticipantId: MeetingParticipant["id"];
   participants: readonly MeetingParticipant[];
 }>;

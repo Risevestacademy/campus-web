@@ -7,10 +7,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Button } from "@/shared/ui/button";
 
 import { splitAtCap } from "../services/proximity-meeting/proximity-meeting";
-import type {
-  MeetingParticipant,
-  ProximityMeeting,
-} from "../types/active-campus.types";
+import type { Meeting, MeetingParticipant } from "../types/active-campus.types";
 import { useCampusView } from "./campus-view-provider";
 import {
   meetingFadeVariants,
@@ -95,7 +92,7 @@ function MeetingParticipantStack({
 
 export function MeetingHeader({
   meeting,
-}: Readonly<{ meeting: ProximityMeeting | null }>) {
+}: Readonly<{ meeting: Meeting | null }>) {
   const { openSidebar } = useCampusView();
   const reduceMotion = Boolean(useReducedMotion());
 
@@ -117,14 +114,14 @@ export function MeetingHeader({
       <AnimatePresence initial={false} custom={reduceMotion}>
         {meeting ? (
           <motion.div
-            key="nearby-meeting"
+            key="meeting"
             custom={reduceMotion}
             variants={meetingGroupVariants}
             {...meetingPresenceProps}
             className="flex items-center gap-1.5"
           >
             <MeetingParticipantStack participants={meeting.participants} />
-            <h2 className="text-sm font-medium">Nearby</h2>
+            <h2 className="text-sm font-medium">{meeting.title}</h2>
           </motion.div>
         ) : null}
       </AnimatePresence>

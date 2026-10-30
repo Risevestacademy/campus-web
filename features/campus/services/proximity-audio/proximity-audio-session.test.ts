@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Presence } from "@/core/presence";
+import type { Hearing, Presence } from "@/core/presence";
 import type { CallMessage, ServerMessage } from "@/core/realtime";
 
 import {
@@ -22,7 +22,6 @@ import { createProximityAudioSession } from "./proximity-audio-session";
 
 const SELF_ID = "11111111-1111-4111-8111-111111111111";
 const NEARBY_ID = "22222222-2222-4222-8222-222222222222";
-const UNKNOWN_ID = "33333333-3333-4333-8333-333333333333";
 const TOKEN = "room-token";
 
 const NEARBY: Extract<ServerMessage, { type: "nearby" }> = {
@@ -49,7 +48,10 @@ function callWith(overrides: Partial<NonNullable<CallMessage["call"]>>) {
   return { ...CALL, call: { ...CALL.call!, ...overrides } };
 }
 
-function presenceWith(nearby: readonly string[]): Presence {
+function presenceWith(
+  meetingRoster: readonly string[],
+  hearing: Hearing = "proximity",
+): Presence {
   return {
     selfId: SELF_ID,
     map: { id: "map", version: "v1", width: 10, height: 10 },
@@ -81,8 +83,10 @@ function presenceWith(nearby: readonly string[]): Presence {
       [NEARBY_ID, { x: 4, y: 1, facing: "left" }],
     ]),
     spaceNames: new Map(),
-    nearby,
-    encounter: nearby.length > 0 ? 1 : 0,
+    nearby: hearing === "proximity" ? meetingRoster : [],
+    hearing,
+    meetingRoster,
+    encounter: meetingRoster.length > 0 ? 1 : 0,
   };
 }
 
@@ -206,17 +210,45 @@ function remoteMicrophone(): RemoteMediaPublication {
 }
 
 describe("createProximityAudioSession", () => {
-  it("subscribes only known peers from nearby membership that arrived before the call", async () => {
-    const { joined, session } = setup();
-    const presence = presenceWith([SELF_ID, UNKNOWN_ID, NEARBY_ID]);
+  it.each([
+    ["room", 1],
+    ["proximity", 0.5],
+  ] as const)(
+    "subscribes the meeting roster of a %s call that arrived before it, at gain %d",
+    async (hearing, gain) => {
+      const { callbacks, joined, session } = setup();
+      const presence = presenceWith([NEARBY_ID], hearing);
 
-    session.applyWorldMessage(NEARBY, presence);
-    session.applyWorldMessage(CALL, presence);
+      session.applyWorldMessage(NEARBY, presence);
+      session.applyWorldMessage(callWith({ hearing }), presence);
 
-    const { connection } = await joined();
-    expect(connection.setSubscribedParticipantIds).toHaveBeenCalledWith(
-      new Set([NEARBY_ID]),
+      const { connection } = await joined();
+      expect(connection.setSubscribedParticipantIds).toHaveBeenCalledWith(
+        new Set([NEARBY_ID]),
+      );
+      expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith({
+        [NEARBY_ID]: gain,
+      });
+    },
+  );
+
+  it("unsubscribes a room mate who steps out, in the same task", async () => {
+    const { callbacks, joined, session } = setup();
+    session.applyWorldMessage(
+      callWith({ hearing: "room" }),
+      presenceWith([NEARBY_ID], "room"),
     );
+    const { connection } = await joined();
+
+    session.applyWorldMessage(
+      { type: "spaceChanged", userId: NEARBY_ID, spaceKey: "_default" },
+      presenceWith([], "room"),
+    );
+
+    expect(connection.setSubscribedParticipantIds).toHaveBeenLastCalledWith(
+      new Set(),
+    );
+    expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith({});
   });
 
   it("unsubscribes everyone and silences them when presence loses them", async () => {
@@ -291,8 +323,8 @@ describe("createProximityAudioSession", () => {
 
   it.each([
     [
-      "a room-hearing call",
-      callWith({ hearing: "room" }),
+      "a hearing World added later",
+      callWith({ hearing: "unknown" }),
       (url: string) => url,
       "idle",
     ],
@@ -482,17 +514,6 @@ describe("createProximityAudioSession", () => {
     });
   });
 
-  it("emits linear gain from authoritative tile positions", async () => {
-    const { callbacks, joined, session } = setup();
-
-    session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
-
-    await joined();
-    expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith({
-      [NEARBY_ID]: 0.5,
-    });
-  });
-
   it.each([
     [
       "their own position is unknown",
@@ -537,7 +558,11 @@ describe("createProximityAudioSession", () => {
     [
       "a nearby change",
       NOBODY_NEARBY,
-      (presence: Presence): Presence => ({ ...presence, nearby: [] }),
+      (presence: Presence): Presence => ({
+        ...presence,
+        nearby: [],
+        meetingRoster: [],
+      }),
       new Set(),
       {},
     ],
@@ -560,13 +585,15 @@ describe("createProximityAudioSession", () => {
     },
   );
 
-  it("disconnects the old room before joining the replacement", async () => {
+  it("leaves a room-hearing room before joining the next space's proximity room", async () => {
     const { joined, session, steps } = setup();
-    const presence = presenceWith([NEARBY_ID]);
-    session.applyWorldMessage(CALL, presence);
+    session.applyWorldMessage(
+      callWith({ hearing: "room" }),
+      presenceWith([NEARBY_ID], "room"),
+    );
     await joined();
 
-    session.applyWorldMessage(callWith({ token: "new-token" }), presence);
+    session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
 
     await joined(2);
     expect(steps).toEqual(["join", "leave", "join"]);
@@ -675,10 +702,10 @@ describe("createProximityAudioSession", () => {
       "idle",
     ],
     [
-      "World moves to a room-hearing space",
+      "World sends a call with a hearing it added later",
       (room: Room, session: ReturnType<typeof setup>["session"]) =>
         session.applyWorldMessage(
-          callWith({ hearing: "room" }),
+          callWith({ hearing: "unknown" }),
           presenceWith([NEARBY_ID]),
         ),
       "idle",
@@ -729,34 +756,36 @@ describe("createProximityAudioSession", () => {
     expect(callbacks.onRemotePublicationChange).not.toHaveBeenCalled();
   });
 
-  it("measures first remote audio from call receipt once per call", async () => {
-    const now = vi.fn().mockReturnValueOnce(100).mockReturnValue(250);
-    const { joined, recordFirstAudioMilliseconds, session } = setup({ now });
-    session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
-    const room = await joined();
-
-    room.events.onFirstRemoteAudio();
-    room.events.onFirstRemoteAudio();
-
-    expect(recordFirstAudioMilliseconds).toHaveBeenCalledExactlyOnceWith(150);
-  });
-
-  it.each([
-    ["nobody", []],
-    ["only yourself", [SELF_ID]],
-    ["only members presence does not know", [UNKNOWN_ID]],
-  ] as const)(
-    "does not measure a call that arrived with %s nearby",
-    async (_case, nearby) => {
-      const { joined, recordFirstAudioMilliseconds, session } = setup();
-      session.applyWorldMessage(CALL, presenceWith(nearby));
+  it.each(["room", "proximity"] as const)(
+    "measures first remote audio of a %s call from its receipt, once per call",
+    async (hearing) => {
+      const now = vi.fn().mockReturnValueOnce(100).mockReturnValue(250);
+      const { joined, recordFirstAudioMilliseconds, session } = setup({ now });
+      session.applyWorldMessage(
+        callWith({ hearing }),
+        presenceWith([NEARBY_ID], hearing),
+      );
       const room = await joined();
 
       room.events.onFirstRemoteAudio();
+      room.events.onFirstRemoteAudio();
 
-      expect(recordFirstAudioMilliseconds).not.toHaveBeenCalled();
+      expect(recordFirstAudioMilliseconds).toHaveBeenCalledExactlyOnceWith(
+        150,
+        hearing,
+      );
     },
   );
+
+  it("does not measure a call that arrived with nobody to meet", async () => {
+    const { joined, recordFirstAudioMilliseconds, session } = setup();
+    session.applyWorldMessage(CALL, presenceWith([]));
+    const room = await joined();
+
+    room.events.onFirstRemoteAudio();
+
+    expect(recordFirstAudioMilliseconds).not.toHaveBeenCalled();
+  });
 
   it("keeps the room token out of every callback", async () => {
     const { callbacks, joined, session } = setup();

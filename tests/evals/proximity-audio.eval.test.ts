@@ -16,6 +16,7 @@ import {
   LIN,
   MAYA,
   nearbyFrame,
+  spaceChangedFrame,
 } from "@/tests/fixtures/nearby-presence";
 import { serverFrames } from "@/tests/fixtures/world-frames";
 
@@ -78,10 +79,10 @@ function joinedMember() {
   let unauthorizedSubscriptions = 0;
 
   function countUnauthorizedSubscriptions() {
-    const { nearby } = presence.getState();
+    const { meetingRoster } = presence.getState();
     for (const record of livekit.subscriptions.slice(counted)) {
       const userId = record.identity.split(":")[0];
-      if (record.subscribed && !nearby.includes(userId ?? "")) {
+      if (record.subscribed && !meetingRoster.includes(userId ?? "")) {
         unauthorizedSubscriptions += 1;
       }
     }
@@ -141,7 +142,7 @@ function joinedMember() {
   };
 }
 
-describe("proximity audio eval (required threshold: 6/6, 100% same-task updates, 0 unauthorized subscriptions)", () => {
+describe("proximity audio eval (required threshold: 7/7, 100% same-task updates, 0 unauthorized subscriptions)", () => {
   it("joins world's call and subscribes only the microphones of whoever is near", async () => {
     const member = joinedMember();
     member.receive(nearbyFrame(GRACE));
@@ -232,7 +233,7 @@ describe("proximity audio eval (required threshold: 6/6, 100% same-task updates,
     expect(member.unauthorizedSubscriptions()).toBe(0);
   });
 
-  it("subscribes nobody once world ends the call or makes the space room-hearing", async () => {
+  it("subscribes nobody once world ends the call or sends one it cannot hear", async () => {
     const member = joinedMember();
     member.receive(nearbyFrame(GRACE));
     member.receive(serverFrames.call);
@@ -247,7 +248,7 @@ describe("proximity audio eval (required threshold: 6/6, 100% same-task updates,
     const subscriptionsBefore = member.livekit.subscriptions.length;
     member.receive({
       type: "call",
-      call: { ...proximityCall(), hearing: "room" },
+      call: { ...proximityCall(), hearing: "stage" },
     });
     member.receive(nearbyFrame(GRACE, LIN, MAYA));
 
@@ -261,6 +262,28 @@ describe("proximity audio eval (required threshold: 6/6, 100% same-task updates,
       ]),
     );
     expect(member.livekit.subscriptions.slice(subscriptionsBefore)).toEqual([]);
+    expect(member.unauthorizedSubscriptions()).toBe(0);
+  });
+
+  it("subscribes everyone in a room-hearing space and stops a mate who steps out in the same task", async () => {
+    const member = joinedMember();
+    member.receive(spaceChangedFrame(ADA, "library"));
+    member.receive(spaceChangedFrame(GRACE, "library"));
+
+    member.receive({
+      type: "call",
+      call: { ...proximityCall(), hearing: "room" },
+    });
+    await member.connected();
+    const room = member.livekit.roomAt(0);
+
+    expect(member.subscribedIn(room)).toEqual([
+      `${identityOf(GRACE.userId)}/microphone`,
+    ]);
+
+    member.receive(spaceChangedFrame(GRACE, "_default"));
+
+    expect(member.subscribedIn(room)).toEqual([]);
     expect(member.unauthorizedSubscriptions()).toBe(0);
   });
 

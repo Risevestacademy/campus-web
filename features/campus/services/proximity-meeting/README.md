@@ -1,20 +1,23 @@
 # Proximity meeting
 
-Who the meeting view shows, from presence. World decides who is near
-(`nearby`, in a proximity space); this module only turns presence into the
-view's people and layout. It never measures distance.
+Who the meeting view shows, from presence. Presence keeps who you meet
+(`meetingRoster`: your room mates under room hearing, whoever is near
+otherwise); this module only turns presence into the view's people, title and
+layout. It never measures distance.
 
 ## Interface
 
 ```ts
-import { useProximityMeeting } from "../../hooks/use-proximity-meeting";
+import { useMeeting } from "../../hooks/use-meeting";
 
-const meeting = useProximityMeeting(cohortId); // ProximityMeeting | null
+const meeting = useMeeting(cohortId); // Meeting | null
 ```
 
-- `selectProximityMeeting(presence)`: you first, then whoever `nearby`
-  names that presence knows, in the order they came near. `null` before
-  `welcome` or while nobody known is near.
+- `selectMeeting(presence)`: you first, then the roster in the order they
+  arrived. `title` is `"Nearby"` under proximity hearing and the space's
+  name under room hearing (`spaceNameOf`, so the key for an unnamed space).
+  `hearing` is `room` or `proximity`. `null` before `welcome` or while the
+  roster is empty, so you see nothing alone in a room.
 - `meetingParticipantOf(participant)`: name (`"Campus member"` when world
   has none), initials, and a tone hashed from the user id, so a person keeps
   one colour however the list changes.
@@ -22,7 +25,7 @@ const meeting = useProximityMeeting(cohortId); // ProximityMeeting | null
   it was opened in, and no focus on somebody who walked away.
 - `splitAtCap(items, cap)`: the shown items and how many more.
 
-All pure; `useProximityMeeting` is the only React seam. It selects stable
+All pure; `useMeeting` is the only React seam. It selects stable
 presence references with `useShallow` and derives with `useMemo`: a selector
 that built a fresh object would loop `useSyncExternalStore`.
 
