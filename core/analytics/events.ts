@@ -21,6 +21,7 @@ export const ANALYTICS_EVENTS = {
   CAMPUS_CONNECTION_CHECK_COMPLETED: "campus.connection_check_completed",
   CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN: "campus.presence_tab_conflict_shown",
   CAMPUS_PRESENCE_TAB_MOVED: "campus.presence_tab_moved",
+  CAMPUS_MEETING_VIDEO_READY: "campus.meeting_video_ready",
   CAMPUS_PROXIMITY_AUDIO_READY: "campus.proximity_audio_ready",
   CAMPUS_PROXIMITY_VIEW_SHOWN: "campus.proximity_view_shown",
   CAMPUS_WORLD_CAMERA_ZOOMED: "campus_world.camera_zoomed",
@@ -58,6 +59,13 @@ const authMethodSchema = z.enum(["email", "google", "rise_sso"]);
 const platformSchema = z.enum(["mobile", "web"]);
 const presenceTabSurfaceSchema = z.enum(["pre_join", "taken_over"]);
 const hearingSchema = z.enum(["proximity", "room"]);
+const connectionQualitySchema = z.enum([
+  "excellent",
+  "good",
+  "poor",
+  "lost",
+  "unknown",
+]);
 const verificationTypeSchema = z.enum(["email", "invite", "phone"]);
 const campusWorldMapErrorKindSchema = z.enum([
   "config",
@@ -171,6 +179,11 @@ export const analyticsEventSchemas = {
   }),
   [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_MOVED]: z.object({
     surface: presenceTabSurfaceSchema,
+  }),
+  [ANALYTICS_EVENTS.CAMPUS_MEETING_VIDEO_READY]: z.object({
+    connection_quality: connectionQualitySchema,
+    first_video_ms: durationMsSchema,
+    hearing: hearingSchema,
   }),
   [ANALYTICS_EVENTS.CAMPUS_PROXIMITY_AUDIO_READY]: z.object({
     first_audio_ms: durationMsSchema,

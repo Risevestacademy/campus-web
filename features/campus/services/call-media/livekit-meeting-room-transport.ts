@@ -22,6 +22,8 @@ import type {
 } from "../media-session/contracts";
 import { localChangeSource } from "../media-session/publication-registry";
 import {
+  CONNECTION_QUALITIES,
+  type ConnectionQuality,
   type MeetingAudience,
   type MeetingRoomConnection,
   type MeetingRoomEvents,
@@ -40,6 +42,13 @@ export type LivekitRoomModule = Pick<
 >;
 
 const CONNECT_OPTIONS = { autoSubscribe: false, maxRetries: 3 };
+
+// Publishers stop encoding the camera layers nobody subscribes to.
+const ROOM_OPTIONS = { dynacast: true };
+
+function connectionQualityOf(quality: string): ConnectionQuality {
+  return CONNECTION_QUALITIES.find((known) => known === quality) ?? "unknown";
+}
 
 type TrackOwner = Readonly<{ participantId: string; source: CaptureSource }>;
 
@@ -178,6 +187,7 @@ function connectRoom(
   livekit: LivekitRoomModule,
   room: Room,
   events: MeetingRoomEvents,
+  now: () => number,
 ) {
   const { RoomEvent, Track, VideoQuality } = livekit;
   const VIDEO_QUALITY: Readonly<Record<VideoLayer, number>> = {
@@ -190,7 +200,9 @@ function connectRoom(
     video: new Map(),
   };
   let heardRemoteAudio = false;
+  let sawRemoteVideo = false;
   let leaving = false;
+  const cameraAskedAt = new Map<string, number>();
   const grant = audienceGrant(room);
   const requestedLayers = new Map<string, VideoLayer>();
   const handedOver = new Set<string>();
@@ -254,7 +266,12 @@ function connectRoom(
   ) {
     const owner = wantedOwnerOf(publication, participant);
     const wanted = owner !== undefined;
-    if (publication.isDesired !== wanted) publication.setSubscribed(wanted);
+    if (publication.isDesired !== wanted) {
+      publication.setSubscribed(wanted);
+      if (wanted && owner.source === "camera") {
+        cameraAskedAt.set(publication.trackSid, now());
+      }
+    }
     const layer = owner && audience.video.get(owner.participantId);
     if (owner?.source === "camera" && layer) requestLayer(publication, layer);
   }
@@ -280,9 +297,26 @@ function connectRoom(
     if (!owner) return;
 
     upsert(owner, track, publication);
-    if (owner.source !== "microphone" || heardRemoteAudio) return;
+    if (owner.source === "camera") reportFirstVideo(publication);
+    else reportFirstAudio();
+  }
+
+  function reportFirstAudio() {
+    if (heardRemoteAudio) return;
     heardRemoteAudio = true;
     events.onFirstRemoteAudio();
+  }
+
+  function reportFirstVideo({ trackSid }: RemoteTrackPublication) {
+    const askedAt = cameraAskedAt.get(trackSid);
+    if (sawRemoteVideo || askedAt === undefined) return;
+    sawRemoteVideo = true;
+    events.onFirstRemoteVideo({
+      connectionQuality: connectionQualityOf(
+        room.localParticipant.connectionQuality,
+      ),
+      waitedMs: now() - askedAt,
+    });
   }
 
   // Mute events carry the base publication types; the room holds the remote
@@ -372,12 +406,18 @@ function joinFailure(
 
 export function createLivekitMeetingRoomTransport(
   load: () => Promise<LivekitRoomModule> = loadLivekitClient,
+  now: () => number = () => performance.now(),
 ): MeetingRoomTransport {
   return {
     async connect({ url, token }, events, signal) {
       const livekit = await untilAborted(load(), signal);
-      const room = new livekit.Room();
-      const { connection, grantAudience } = connectRoom(livekit, room, events);
+      const room = new livekit.Room(ROOM_OPTIONS);
+      const { connection, grantAudience } = connectRoom(
+        livekit,
+        room,
+        events,
+        now,
+      );
 
       try {
         await untilAborted(room.connect(url, token, CONNECT_OPTIONS), signal);

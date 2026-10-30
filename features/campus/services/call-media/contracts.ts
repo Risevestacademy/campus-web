@@ -14,9 +14,27 @@ export class RoomAccessDeniedError extends Error {
   override name = "RoomAccessDeniedError";
 }
 
+export const CONNECTION_QUALITIES = [
+  "excellent",
+  "good",
+  "poor",
+  "lost",
+  "unknown",
+] as const;
+
+export type ConnectionQuality = (typeof CONNECTION_QUALITIES)[number];
+
+// How long the room's first remote camera took from being asked for, and the
+// member's own link quality at that moment.
+export type FirstRemoteVideo = Readonly<{
+  connectionQuality: ConnectionQuality;
+  waitedMs: number;
+}>;
+
 export type MeetingRoomEvents = Readonly<{
   onDisconnected: () => void;
   onFirstRemoteAudio: () => void;
+  onFirstRemoteVideo: (firstVideo: FirstRemoteVideo) => void;
   onRemotePublicationChange: (change: RemotePublicationChange) => void;
 }>;
 

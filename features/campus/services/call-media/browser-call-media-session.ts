@@ -25,6 +25,15 @@ export function createBrowserCallMediaSession(
         ANALYTICS_EVENTS.CAMPUS_PROXIMITY_AUDIO_READY,
         { first_audio_ms: firstAudioMilliseconds, hearing },
       ),
+    recordFirstVideo: ({ connectionQuality, hearing, waitedMs }) =>
+      captureBrowserAnalyticsEvent(
+        ANALYTICS_EVENTS.CAMPUS_MEETING_VIDEO_READY,
+        {
+          connection_quality: connectionQuality,
+          first_video_ms: waitedMs,
+          hearing,
+        },
+      ),
     refreshCall,
     roomTransport: createLivekitMeetingRoomTransport(),
   });

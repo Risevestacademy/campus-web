@@ -12,6 +12,7 @@ import type {
 import { localChangeSource } from "../media-session/publication-registry";
 import {
   type CallMediaSession,
+  type FirstRemoteVideo,
   type MeetingRoomConnection,
   type MeetingRoomEvents,
   type MeetingRoomTransport,
@@ -24,6 +25,9 @@ type CallMediaSessionOptions = Readonly<{
   recordFirstAudioMilliseconds: (
     milliseconds: number,
     hearing: Hearing,
+  ) => void;
+  recordFirstVideo: (
+    firstVideo: FirstRemoteVideo & Readonly<{ hearing: Hearing }>,
   ) => void;
   // Asks World to send the call again with a fresh token; false when World
   // cannot be asked right now.
@@ -216,6 +220,11 @@ export function createCallMediaSession(
           hearing,
         );
         unmeasuredSince = undefined;
+      },
+      onFirstRemoteVideo: (firstVideo) => {
+        if (currentCallbacks(stepGeneration)) {
+          options.recordFirstVideo({ ...firstVideo, hearing });
+        }
       },
       onRemotePublicationChange: (change) => {
         if (currentCallbacks(stepGeneration)) forwardRemoteChange(change);

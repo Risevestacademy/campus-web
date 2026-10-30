@@ -143,11 +143,13 @@ function setup(
     onStatusChange: vi.fn(),
   };
   const recordFirstAudioMilliseconds = vi.fn();
+  const recordFirstVideo = vi.fn();
   const refreshCall = vi.fn(() => true);
   const session = createCallMediaSession({
     now: options.now ?? (() => 0),
     pinMediaUrl: options.pinMediaUrl ?? ((url) => url),
     recordFirstAudioMilliseconds,
+    recordFirstVideo,
     refreshCall,
     roomTransport,
   });
@@ -172,6 +174,7 @@ function setup(
     joined,
     joinSignals,
     recordFirstAudioMilliseconds,
+    recordFirstVideo,
     refreshCall,
     roomAt,
     roomTransport,
@@ -876,6 +879,43 @@ describe("createCallMediaSession", () => {
       );
     },
   );
+
+  it.each(["room", "proximity"] as const)(
+    "records the first remote camera of a %s call with its hearing",
+    async (hearing) => {
+      const { joined, recordFirstVideo, session } = setup();
+      session.applyWorldMessage(
+        callWith({ hearing }),
+        presenceWith([NEARBY_ID], hearing),
+      );
+      const room = await joined();
+
+      room.events.onFirstRemoteVideo({
+        connectionQuality: "good",
+        waitedMs: 240,
+      });
+
+      expect(recordFirstVideo).toHaveBeenCalledExactlyOnceWith({
+        connectionQuality: "good",
+        hearing,
+        waitedMs: 240,
+      });
+    },
+  );
+
+  it("never records a first camera from a room it already left", async () => {
+    const { joined, recordFirstVideo, session } = setup();
+    session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+    const room = await joined();
+    session.applyWorldMessage(NO_CALL, presenceWith([NEARBY_ID]));
+
+    room.events.onFirstRemoteVideo({
+      connectionQuality: "good",
+      waitedMs: 240,
+    });
+
+    expect(recordFirstVideo).not.toHaveBeenCalled();
+  });
 
   it("does not measure a call that arrived with nobody to meet", async () => {
     const { joined, recordFirstAudioMilliseconds, session } = setup();

@@ -37,6 +37,7 @@ function roomEvents() {
   return {
     onDisconnected: vi.fn(),
     onFirstRemoteAudio: vi.fn(),
+    onFirstRemoteVideo: vi.fn(),
     onRemotePublicationChange: vi.fn(),
   } satisfies MeetingRoomEvents;
 }
@@ -98,11 +99,12 @@ function publishedAt(room: FakeRoom, index: number) {
   return published;
 }
 
-async function joinedRoom() {
+async function joinedRoom(now: () => number = () => 0) {
   const livekit = fakeLivekitRoom();
   const events = roomEvents();
   const transport = createLivekitMeetingRoomTransport(
     async () => livekit.module,
+    now,
   );
   const connection = await transport.connect(
     ACCESS,
@@ -291,6 +293,34 @@ describe("createLivekitMeetingRoomTransport", () => {
       ([change]) => change.type === "upserted" && change.publication.enabled,
     );
     expect(enabled).toEqual([true, false, true]);
+  });
+
+  it("reports the room's first camera once, timed from its ask, with the link quality", async () => {
+    let clock = 0;
+    const { connection, events, room } = await joinedRoom(() => clock);
+    const grace = room.join(`${GRACE}:tab-1`, ["microphone", "camera"]);
+    const alan = room.join(`${ALAN}:tab-1`, ["camera"]);
+    room.localParticipant.connectionQuality = "good";
+    clock = 100;
+    connection.applyAudience(
+      audience(
+        [GRACE, ALAN],
+        [
+          [GRACE, "low"],
+          [ALAN, "low"],
+        ],
+      ),
+    );
+
+    clock = 340;
+    room.deliver(grace, "microphone");
+    room.deliver(grace, "camera");
+    room.deliver(alan, "camera");
+
+    expect(events.onFirstRemoteVideo).toHaveBeenCalledExactlyOnceWith({
+      connectionQuality: "good",
+      waitedMs: 240,
+    });
   });
 
   it("reports first remote audio for a microphone, never a camera", async () => {

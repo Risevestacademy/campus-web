@@ -46,6 +46,7 @@ export function joinedMember() {
     now: () => 0,
     pinMediaUrl: (url) => (url === MEDIA_URL ? url : undefined),
     recordFirstAudioMilliseconds: () => undefined,
+    recordFirstVideo: () => undefined,
     // World answers a rejoin with the space's call and a freshly minted token,
     // which LiveKit accepts.
     refreshCall: () => {

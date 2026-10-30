@@ -51,7 +51,8 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 
 ## LiveKit adapter
 
-- The `Room` is built after the session pins the host, and joins with
+- The `Room` is built after the session pins the host, with `dynacast` (a
+  publisher stops encoding camera layers nobody wants), and joins with
   `autoSubscribe: false` and `maxRetries: 3` (three join attempts). Listeners
   register before `connect`.
 - Identity is `<userId>:<anything>`; anything else is never subscribed or
@@ -64,6 +65,8 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
   ids, each asked for at its layer (`setVideoQuality`, sent only when it
   changes). Screen and unknown sources stay unsubscribed. The first
   subscribed microphone reports first audio, once per room.
+- The room's first subscribed camera reports first video once, timed from
+  the moment that camera was asked for, with the member's own link quality.
 - A subscribed track that mutes or unmutes is handed over again with
   `enabled` flipped, so a tile never freezes on its last frame.
 - It publishes copies of the member's microphone and camera, each as its own
@@ -109,6 +112,10 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 - First-audio time is measured only for calls that arrive while the roster
   is not empty, from `call` to the room's first remote microphone, and is
   reported with the call's hearing.
+- First-video time runs from asking for a camera (its tile is on screen and
+  its owner in the roster) to the SFU subscribing it, once per room, with the
+  call's hearing and the member's `connection_quality`. It is the data any
+  later rule for dropping video on a poor link should start from.
 
 `RemoteAudioOutput` follows each participant's gain outside React, so a gain
 change never detaches the audio. A participant with no gain plays silent.
@@ -125,9 +132,10 @@ to explain it.
 
 ## Analytics
 
-| Event                          | Properties                  | When                                       |
-| ------------------------------ | --------------------------- | ------------------------------------------ |
-| `campus.proximity_audio_ready` | `first_audio_ms`, `hearing` | first roster microphone of a measured call |
+| Event                          | Properties                                        | When                                       |
+| ------------------------------ | ------------------------------------------------- | ------------------------------------------ |
+| `campus.proximity_audio_ready` | `first_audio_ms`, `hearing`                       | first roster microphone of a measured call |
+| `campus.meeting_video_ready`   | `first_video_ms`, `hearing`, `connection_quality` | first camera a room subscribes             |
 
 `first_audio_ms` runs from a `call` that arrives with somebody already in
 `meetingRoster` to the first remote microphone subscribed. Two limits:

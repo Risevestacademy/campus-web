@@ -287,6 +287,7 @@ export function fakeLivekitRoom() {
     private publishing = Promise.resolve();
 
     readonly localParticipant = {
+      connectionQuality: "unknown",
       publishTrack: async (track: MediaStreamTrack, options?: unknown) => {
         await this.publishing;
         if (this.publishFails) throw new Error("publish failed");
