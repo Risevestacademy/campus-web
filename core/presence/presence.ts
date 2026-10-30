@@ -88,7 +88,7 @@ function rebuild(
   };
 }
 
-function spaceNamesOf(
+function namesBySpaceKey(
   spaces: SnapshotMessage["spaces"],
 ): ReadonlyMap<string, string> {
   return new Map(spaces.map(({ spaceKey, name }) => [spaceKey, name]));
@@ -162,11 +162,11 @@ export function applyServerMessage(
         map: message.map,
         synced: true,
         ...rebuild(message.players, message.map),
-        spaceNames: spaceNamesOf(message.spaces),
+        spaceNames: namesBySpaceKey(message.spaces),
         nearby: [],
       };
     case "spaces":
-      return { ...presence, spaceNames: spaceNamesOf(message.spaces) };
+      return { ...presence, spaceNames: namesBySpaceKey(message.spaces) };
     case "joined":
       if (!presence.map) return presence;
       return {

@@ -412,9 +412,12 @@ the roster all read it, and features may not import each other.
   `snapshot`. The map renderer loads art for exactly that map, so a
   published-map change on the server rectifies every client without a
   redeploy.
-- `participants`: `Map<UserId, { userId, displayName, spriteKey }>`.
+- `participants`: `Map<UserId, { userId, displayName, spriteKey, status,
+spaceKey }>`.
 - `positions`: `Map<UserId, { x, y, facing }>`, in tiles, clamped into the
   map's bounds.
+- `spaceNames`: `Map<spaceKey, name>` from `snapshot`, replaced whole by
+  `spaces`. `spaceNameOf` shows the key for a space World has not named.
 - `nearby`: the user ids world says are close enough to hear you, from
   `nearby`, in the order they came near.
 - `encounter`: how many times somebody came near after nobody was, so a view
@@ -423,9 +426,10 @@ the roster all read it, and features may not import each other.
 Two participant maps, so React subscribes to who is here without rendering
 on every `moved`. Tile positions are world's answer, not frame state: KAPLAY
 reads them each frame and keeps pixels and walking itself. A `snapshot`
-replaces the map, both maps and `nearby`, so a reconnect never shows anyone
-twice. Every recoverable close clears the remote participants and `nearby`
-(you and the map stay), so a drop never leaves frozen stand-ins. `presenceFor(cohortId)`
+replaces the map, both maps, `spaceNames` and `nearby`, so a reconnect never
+shows anyone twice. Every recoverable close clears the remote participants and
+`nearby` (you, the map and the space names stay), so a drop never leaves
+frozen stand-ins. `presenceFor(cohortId)`
 outlives the map's mount, so the map is populated again on the way back from
 another page.
 

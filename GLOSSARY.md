@@ -206,7 +206,7 @@ _Avoid_: Browser capture ownership, server media state
 A drawn area of the campus map, such as a classroom, pod or meeting room,
 or the corridors and grounds between them. Each member stands in one.
 World gives each space a name.
-_Avoid_: Room, zone, area
+_Avoid_: Room (a Call's audio room), zone, area
 
 **Call**:
 The audio room World grants for the space a member is in, or none. Each new

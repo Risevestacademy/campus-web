@@ -52,18 +52,18 @@ rendering on every `moved` tick. A `spaceChanged` does replace the person's
 entry, since it is the one movement the roster shows. KAPLAY reads `positions` each frame and
 keeps anything finer (pixels, walking) itself.
 
-| Message         | participants              | positions                  |
-| --------------- | ------------------------- | -------------------------- |
-| `welcome`       | (sets `selfId`)           |                            |
-| `snapshot`      | replaced                  | replaced, with the map     |
-| `joined`        | set, replacing any entry  | set                        |
-| `appearance`    | name and sprite updated   |                            |
-| `statusChanged` | status updated if present |                            |
-| `spaceChanged`  | space updated if present  |                            |
-| `left`          | removed                   | removed                    |
-| `moved`         |                           | updated for known ids      |
-| `moveResult`    |                           | yours, from world's answer |
-| `spaces`        | (replaces `spaceNames`)   |                            |
+| Message         | participants                | positions                  |
+| --------------- | --------------------------- | -------------------------- |
+| `welcome`       | (sets `selfId`)             |                            |
+| `snapshot`      | replaced, with `spaceNames` | replaced, with the map     |
+| `joined`        | set, replacing any entry    | set                        |
+| `appearance`    | name and sprite updated     |                            |
+| `statusChanged` | status updated if present   |                            |
+| `spaceChanged`  | space updated if present    |                            |
+| `left`          | removed                     | removed                    |
+| `moved`         |                             | updated for known ids      |
+| `moveResult`    |                             | yours, from world's answer |
+| `spaces`        | (replaces `spaceNames`)     |                            |
 
 `nearby` changes only `nearby` (and `encounter` when it goes from empty to
 not). It can name somebody not in `participants` yet; readers skip them

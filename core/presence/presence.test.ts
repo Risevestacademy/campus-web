@@ -363,14 +363,20 @@ describe("nearby", () => {
     expect([closed.nearby, closed.encounter]).toEqual([[], 1]);
   });
 
-  it("is synced from a snapshot until the socket closes, and keeps the map meanwhile", () => {
-    const joined = snapshotOf(ADA, GRACE);
+  it("is synced from a snapshot until the socket closes, and keeps the map and space names meanwhile", () => {
+    const joined = applyServerMessage(EMPTY_PRESENCE, {
+      type: "snapshot",
+      map: MAP,
+      players: [ADA, GRACE],
+      spaces: [{ spaceKey: "library", name: "Library" }],
+    });
     const closed = withoutRemoteParticipants(joined);
 
     expect(EMPTY_PRESENCE.synced).toBe(false);
     expect(joined.synced).toBe(true);
     expect(closed.synced).toBe(false);
     expect(closed.map).toEqual(MAP);
+    expect(spaceNameOf(closed, "library")).toBe("Library");
     expect(
       applyServerMessage(closed, {
         type: "snapshot",
