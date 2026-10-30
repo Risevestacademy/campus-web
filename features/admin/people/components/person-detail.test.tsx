@@ -81,6 +81,7 @@ describe("PersonDetail", () => {
             spaceKey: "_default",
           },
         ],
+        spaces: [],
       });
     renderDetail();
     expect(screen.getByText("Available")).toBeVisible();
