@@ -85,7 +85,9 @@ const WORLD_MAP = {
 
 function connectedPresence() {
   const store = createPresenceStore();
-  store.getState().apply({ type: "snapshot", map: WORLD_MAP, players: [] });
+  store
+    .getState()
+    .apply({ type: "snapshot", map: WORLD_MAP, players: [], spaces: [] });
   return store;
 }
 
@@ -548,6 +550,7 @@ describe("Campus world eval (required threshold: 22/22)", () => {
           width: mapFixture.width,
         },
         players: [],
+        spaces: [],
       });
     });
 

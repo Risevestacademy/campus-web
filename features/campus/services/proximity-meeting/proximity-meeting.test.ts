@@ -52,6 +52,7 @@ const EVERYONE_HERE: ServerMessage = {
     avatar("grace", "Grace Hopper"),
     avatar("lin", null),
   ],
+  spaces: [],
 };
 
 function nearby(...userIds: string[]): ServerMessage {

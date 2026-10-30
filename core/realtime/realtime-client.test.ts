@@ -22,6 +22,7 @@ const READ_SNAPSHOT = {
   type: SNAPSHOT.type,
   map: SNAPSHOT.map,
   players: SNAPSHOT.players,
+  spaces: SNAPSHOT.spaces,
 };
 
 describe("createRealtimeClient", () => {

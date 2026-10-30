@@ -80,6 +80,7 @@ function presenceWith(nearby: readonly string[]): Presence {
       [SELF_ID, { x: 1, y: 1, facing: "right" }],
       [NEARBY_ID, { x: 4, y: 1, facing: "left" }],
     ]),
+    spaceNames: new Map(),
     nearby,
     encounter: nearby.length > 0 ? 1 : 0,
   };

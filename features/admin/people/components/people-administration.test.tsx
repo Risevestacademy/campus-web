@@ -60,6 +60,7 @@ function seed(cohortId: string, players: Avatar[]) {
       type: "snapshot",
       map: { id: "campus", version: "v1", width: 10, height: 10 },
       players,
+      spaces: [],
     });
 }
 

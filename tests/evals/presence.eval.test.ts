@@ -40,7 +40,7 @@ function applyAll(messages: ServerMessage[], from: Presence = EMPTY_PRESENCE) {
 }
 
 function snapshot(...players: Avatar[]): ServerMessage {
-  return { type: "snapshot", map: MAP, players };
+  return { type: "snapshot", map: MAP, players, spaces: [] };
 }
 
 // Deterministic, so a failure replays exactly.

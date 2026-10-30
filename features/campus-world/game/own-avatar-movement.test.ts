@@ -47,6 +47,7 @@ function startMovement(
     type: "snapshot" as const,
     map: { id: "campus", version: "v1", width: 5, height: 4 },
     players: [ADA],
+    spaces: [],
   };
   presence.getState().apply(welcome);
   presence.getState().apply(snapshot);

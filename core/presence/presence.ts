@@ -21,6 +21,7 @@ export interface Presence {
   synced: boolean;
   participants: ReadonlyMap<string, Participant>;
   positions: ReadonlyMap<string, Position>;
+  spaceNames: ReadonlyMap<string, string>;
   nearby: readonly string[];
   // Counts each time somebody comes near after nobody was. A view opened for
   // one encounter must not reopen by itself for the next.
@@ -33,6 +34,7 @@ export const EMPTY_PRESENCE: Presence = {
   synced: false,
   participants: new Map(),
   positions: new Map(),
+  spaceNames: new Map(),
   nearby: [],
   encounter: 0,
 };
@@ -84,6 +86,12 @@ function rebuild(
       players.map((player) => [player.userId, positionOf(player, map)]),
     ),
   };
+}
+
+function namesBySpaceKey(
+  spaces: SnapshotMessage["spaces"],
+): ReadonlyMap<string, string> {
+  return new Map(spaces.map(({ spaceKey, name }) => [spaceKey, name]));
 }
 
 function withParticipantChange(
@@ -154,8 +162,11 @@ export function applyServerMessage(
         map: message.map,
         synced: true,
         ...rebuild(message.players, message.map),
+        spaceNames: namesBySpaceKey(message.spaces),
         nearby: [],
       };
+    case "spaces":
+      return { ...presence, spaceNames: namesBySpaceKey(message.spaces) };
     case "joined":
       if (!presence.map) return presence;
       return {
@@ -202,6 +213,13 @@ export function applyServerMessage(
     default:
       return presence;
   }
+}
+
+export function spaceNameOf(
+  { spaceNames }: Pick<Presence, "spaceNames">,
+  spaceKey: string,
+): string {
+  return spaceNames.get(spaceKey) ?? spaceKey;
 }
 
 export function withoutRemoteParticipants(presence: Presence): Presence {
