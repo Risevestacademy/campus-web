@@ -1,4 +1,8 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  onlineManager,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import {
   act,
   fireEvent,
@@ -83,6 +87,7 @@ function rows(group: "Online" | "Offline") {
 }
 
 afterEach(() => {
+  onlineManager.setOnline(true);
   mockApi.reset();
   vi.mocked(toRosterParticipants).mockClear();
 });
@@ -425,6 +430,51 @@ describe("CampusOverviewPanel", () => {
       );
 
       reply.resolve();
+
+      expect(
+        await screen.findByRole("button", { name: "Offline 0" }),
+      ).toBeVisible();
+    });
+
+    it("hides the group while a refetch waits for the network, then shows the new list", async () => {
+      const { apply, cohortId } = newCohort();
+      everyoneIn(cohortId, [
+        { id: "ada", displayName: "Ada", spriteKey: null },
+        { id: "bola", displayName: "Bola", spriteKey: null },
+      ]);
+      apply(welcome("ada"), snapshot(avatar("ada", { displayName: "Ada" })));
+      const client = new QueryClient();
+      render(
+        <QueryClientProvider client={client}>
+          <CampusOverviewPanel
+            cohort={{ name: "Product Design 2026", role: "student" }}
+            cohortId={cohortId}
+            collapseButton={null}
+          />
+        </QueryClientProvider>,
+      );
+      expect(
+        await screen.findByRole("button", { name: "Offline 1" }),
+      ).toBeVisible();
+
+      // Offline, a refetch is paused rather than fetching, and the cached
+      // directory would otherwise stay on screen.
+      onlineManager.setOnline(false);
+      everyoneIn(cohortId, [
+        { id: "ada", displayName: "Ada", spriteKey: null },
+      ]);
+      act(() => {
+        void client.invalidateQueries({ queryKey: ["roster", "directory"] });
+      });
+
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("button", { name: /Offline/ }),
+        ).not.toBeInTheDocument(),
+      );
+      expect(client.isFetching()).toBe(0);
+
+      act(() => onlineManager.setOnline(true));
 
       expect(
         await screen.findByRole("button", { name: "Offline 0" }),
