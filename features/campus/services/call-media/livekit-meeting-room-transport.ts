@@ -16,6 +16,7 @@ import type {
   RemoteMediaPublication,
 } from "../media-session/contracts";
 import {
+  type MeetingAudience,
   type MeetingRoomConnection,
   type MeetingRoomEvents,
   type MeetingRoomTransport,
@@ -136,7 +137,8 @@ function connectRoom(
   events: MeetingRoomEvents,
 ) {
   const { RoomEvent, Track } = livekit;
-  let wantedParticipantIds: ReadonlySet<string> = new Set();
+  let audience: MeetingAudience = { participantIds: new Set() };
+  let grantedIdentities: string | undefined;
   let heardRemoteAudio = false;
   let leaving = false;
   const microphone = microphonePublisher(livekit, room);
@@ -155,7 +157,7 @@ function connectRoom(
     participant: RemoteParticipant,
   ) {
     const participantId = microphoneOwnerId(publication, participant);
-    return participantId && wantedParticipantIds.has(participantId)
+    return participantId && audience.participantIds.has(participantId)
       ? participantId
       : undefined;
   }
@@ -166,6 +168,32 @@ function connectRoom(
   ) {
     const wanted = wantedParticipantId(publication, participant) !== undefined;
     if (publication.isDesired !== wanted) publication.setSubscribed(wanted);
+  }
+
+  function audienceIdentities() {
+    return [...room.remoteParticipants.values()]
+      .map(({ identity }) => identity)
+      .filter((identity) => {
+        const participantId = parseParticipantId(identity);
+        return participantId && audience.participantIds.has(participantId);
+      })
+      .toSorted();
+  }
+
+  // LiveKit lets anyone in the room subscribe until told otherwise, and keeps
+  // the last grant across its own reconnects.
+  function grantAudience() {
+    const identities = audienceIdentities();
+    const key = identities.join("\n");
+    if (key === grantedIdentities) return;
+    grantedIdentities = key;
+    room.localParticipant.setTrackSubscriptionPermissions(
+      false,
+      identities.map((participantIdentity) => ({
+        participantIdentity,
+        allowAll: true,
+      })),
+    );
   }
 
   function forwardSubscribedTrack(
@@ -202,6 +230,7 @@ function connectRoom(
   }
 
   room
+    .on(RoomEvent.ParticipantConnected, grantAudience)
     .on(RoomEvent.TrackPublished, updateSubscription)
     .on(RoomEvent.TrackSubscribed, forwardSubscribedTrack)
     .on(RoomEvent.TrackUnsubscribed, (_track, publication, participant) =>
@@ -213,22 +242,23 @@ function connectRoom(
     });
 
   const connection: MeetingRoomConnection = {
-    async disconnect() {
-      leaving = true;
-      await room.disconnect(true).catch(() => undefined);
-      microphone.close();
-    },
-    handleLocalPublicationChange: microphone.handle,
-    setSubscribedParticipantIds(participantIds) {
-      wantedParticipantIds = participantIds;
+    applyAudience(nextAudience) {
+      audience = nextAudience;
+      grantAudience();
       for (const participant of room.remoteParticipants.values()) {
         for (const publication of participant.trackPublications.values()) {
           updateSubscription(publication, participant);
         }
       }
     },
+    async disconnect() {
+      leaving = true;
+      await room.disconnect(true).catch(() => undefined);
+      microphone.close();
+    },
+    handleLocalPublicationChange: microphone.handle,
   };
-  return connection;
+  return { connection, grantAudience };
 }
 
 function untilAborted<T>(work: Promise<T>, signal: AbortSignal) {
@@ -259,7 +289,7 @@ export function createLivekitMeetingRoomTransport(
     async connect({ url, token }, events, signal) {
       const livekit = await untilAborted(load(), signal);
       const room = new livekit.Room();
-      const connection = connectRoom(livekit, room, events);
+      const { connection, grantAudience } = connectRoom(livekit, room, events);
 
       try {
         await untilAborted(room.connect(url, token, CONNECT_OPTIONS), signal);
@@ -267,6 +297,8 @@ export function createLivekitMeetingRoomTransport(
         void connection.disconnect();
         throw joinFailure(livekit, error);
       }
+      // A grant made before connecting is never sent.
+      grantAudience();
       return connection;
     },
   };

@@ -77,16 +77,31 @@ function joinedMember() {
   });
   let counted = 0;
   let unauthorizedSubscriptions = 0;
+  let countedGrants = 0;
+  let unauthorizedGrants = 0;
+
+  function isOutsideRoster(identity: string) {
+    const userId = identity.split(":")[0];
+    return !presence.getState().meetingRoster.includes(userId ?? "");
+  }
 
   function countUnauthorizedSubscriptions() {
-    const { meetingRoster } = presence.getState();
     for (const record of livekit.subscriptions.slice(counted)) {
-      const userId = record.identity.split(":")[0];
-      if (record.subscribed && !meetingRoster.includes(userId ?? "")) {
+      if (record.subscribed && isOutsideRoster(record.identity)) {
         unauthorizedSubscriptions += 1;
       }
     }
     counted = livekit.subscriptions.length;
+
+    for (const grant of livekit.grants.slice(countedGrants)) {
+      if (
+        grant.allParticipantsAllowed ||
+        grant.identities.some(isOutsideRoster)
+      ) {
+        unauthorizedGrants += 1;
+      }
+    }
+    countedGrants = livekit.grants.length;
   }
 
   function receive(frame: unknown) {
@@ -138,11 +153,12 @@ function joinedMember() {
     tryAgain: () => session.retry(),
     worldCloses,
     worldRefreshes: () => worldRefreshes,
+    unauthorizedGrants: () => unauthorizedGrants,
     unauthorizedSubscriptions: () => unauthorizedSubscriptions,
   };
 }
 
-describe("proximity audio eval (required threshold: 7/7, 100% same-task updates, 0 unauthorized subscriptions)", () => {
+describe("proximity audio eval (required threshold: 8/8, 100% same-task updates, 0 unauthorized subscriptions or grants)", () => {
   it("joins world's call and subscribes only the microphones of whoever is near", async () => {
     const member = joinedMember();
     member.receive(nearbyFrame(GRACE));
@@ -154,6 +170,30 @@ describe("proximity audio eval (required threshold: 7/7, 100% same-task updates,
       `${identityOf(GRACE.userId)}/microphone`,
     ]);
     expect(member.unauthorizedSubscriptions()).toBe(0);
+    expect(member.unauthorizedGrants()).toBe(0);
+  });
+
+  it("lets only whoever is near receive the member's tracks, and nobody before", async () => {
+    const member = joinedMember();
+    member.receive(serverFrames.call);
+    await member.connected();
+    const room = member.livekit.roomAt(0);
+
+    member.receive(nearbyFrame(GRACE, LIN));
+    member.receive(nearbyFrame(LIN));
+
+    expect(room.grants).toEqual([
+      { allParticipantsAllowed: false, identities: [] },
+      {
+        allParticipantsAllowed: false,
+        identities: [
+          identityOf(GRACE.userId),
+          identityOf(LIN.userId),
+        ].toSorted(),
+      },
+      { allParticipantsAllowed: false, identities: [identityOf(LIN.userId)] },
+    ]);
+    expect(member.unauthorizedGrants()).toBe(0);
   });
 
   it("applies every nearby change to the subscriptions in the same task", async () => {
@@ -180,6 +220,7 @@ describe("proximity audio eval (required threshold: 7/7, 100% same-task updates,
 
     expect(sameTaskUpdates / updates.length).toBe(1);
     expect(member.unauthorizedSubscriptions()).toBe(0);
+    expect(member.unauthorizedGrants()).toBe(0);
   });
 
   it("stops the audio of anyone World no longer names as near", async () => {
@@ -204,6 +245,7 @@ describe("proximity audio eval (required threshold: 7/7, 100% same-task updates,
 
     expect(member.subscribedIn(room)).toEqual([]);
     expect(member.unauthorizedSubscriptions()).toBe(0);
+    expect(member.unauthorizedGrants()).toBe(0);
   });
 
   it("leaves the old room before it joins the next space's room", async () => {
@@ -231,6 +273,7 @@ describe("proximity audio eval (required threshold: 7/7, 100% same-task updates,
       `${identityOf(LIN.userId)}/microphone`,
     ]);
     expect(member.unauthorizedSubscriptions()).toBe(0);
+    expect(member.unauthorizedGrants()).toBe(0);
   });
 
   it("subscribes nobody once world ends the call or sends one it cannot hear", async () => {
@@ -263,6 +306,7 @@ describe("proximity audio eval (required threshold: 7/7, 100% same-task updates,
     );
     expect(member.livekit.subscriptions.slice(subscriptionsBefore)).toEqual([]);
     expect(member.unauthorizedSubscriptions()).toBe(0);
+    expect(member.unauthorizedGrants()).toBe(0);
   });
 
   it("subscribes everyone in a room-hearing space and stops a mate who steps out in the same task", async () => {
@@ -285,6 +329,7 @@ describe("proximity audio eval (required threshold: 7/7, 100% same-task updates,
 
     expect(member.subscribedIn(room)).toEqual([]);
     expect(member.unauthorizedSubscriptions()).toBe(0);
+    expect(member.unauthorizedGrants()).toBe(0);
   });
 
   it("gets audio back in place when trying again finds the grant expired", async () => {
@@ -307,5 +352,6 @@ describe("proximity audio eval (required threshold: 7/7, 100% same-task updates,
       `${identityOf(GRACE.userId)}/microphone`,
     ]);
     expect(member.unauthorizedSubscriptions()).toBe(0);
+    expect(member.unauthorizedGrants()).toBe(0);
   });
 });

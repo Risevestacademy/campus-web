@@ -100,7 +100,7 @@ function createConnection(): MeetingRoomConnection {
   return {
     disconnect: vi.fn().mockResolvedValue(undefined),
     handleLocalPublicationChange: vi.fn().mockResolvedValue(undefined),
-    setSubscribedParticipantIds: vi.fn(),
+    applyAudience: vi.fn(),
   };
 }
 
@@ -223,9 +223,9 @@ describe("createCallMediaSession", () => {
       session.applyWorldMessage(callWith({ hearing }), presence);
 
       const { connection } = await joined();
-      expect(connection.setSubscribedParticipantIds).toHaveBeenCalledWith(
-        new Set([NEARBY_ID]),
-      );
+      expect(connection.applyAudience).toHaveBeenCalledWith({
+        participantIds: new Set([NEARBY_ID]),
+      });
       expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith({
         [NEARBY_ID]: gain,
       });
@@ -245,9 +245,9 @@ describe("createCallMediaSession", () => {
       presenceWith([], "room"),
     );
 
-    expect(connection.setSubscribedParticipantIds).toHaveBeenLastCalledWith(
-      new Set(),
-    );
+    expect(connection.applyAudience).toHaveBeenLastCalledWith({
+      participantIds: new Set(),
+    });
     expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith({});
   });
 
@@ -258,9 +258,9 @@ describe("createCallMediaSession", () => {
 
     session.applyPresence(presenceWith([]));
 
-    expect(connection.setSubscribedParticipantIds).toHaveBeenLastCalledWith(
-      new Set(),
-    );
+    expect(connection.applyAudience).toHaveBeenLastCalledWith({
+      participantIds: new Set(),
+    });
     expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith({});
   });
 
@@ -272,9 +272,9 @@ describe("createCallMediaSession", () => {
     session.connect(callbacks);
 
     const { connection } = await joined();
-    expect(connection.setSubscribedParticipantIds).toHaveBeenCalledWith(
-      new Set([NEARBY_ID]),
-    );
+    expect(connection.applyAudience).toHaveBeenCalledWith({
+      participantIds: new Set([NEARBY_ID]),
+    });
   });
 
   it("rejoins World's latest call when the media session connects again", async () => {
@@ -576,9 +576,9 @@ describe("createCallMediaSession", () => {
 
       session.applyWorldMessage(message, apply(presence));
 
-      expect(connection.setSubscribedParticipantIds).toHaveBeenLastCalledWith(
+      expect(connection.applyAudience).toHaveBeenLastCalledWith({
         participantIds,
-      );
+      });
       expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith(
         gains,
       );
@@ -620,9 +620,7 @@ describe("createCallMediaSession", () => {
         expect(roomAt(0).connection.disconnect).toHaveBeenCalledOnce(),
       );
       expect(joinSignals[0]?.aborted).toBe(true);
-      expect(
-        roomAt(0).connection.setSubscribedParticipantIds,
-      ).not.toHaveBeenCalled();
+      expect(roomAt(0).connection.applyAudience).not.toHaveBeenCalled();
     },
   );
 

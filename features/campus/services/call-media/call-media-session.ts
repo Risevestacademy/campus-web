@@ -98,7 +98,7 @@ export function createCallMediaSession(
     const { meetingRoster, positions, selfId } = latestPresence;
     const selfPosition = selfId ? positions.get(selfId) : undefined;
 
-    connection.setSubscribedParticipantIds(new Set(meetingRoster));
+    connection.applyAudience({ participantIds: new Set(meetingRoster) });
     callbacks.onRemoteAudioGainsChange(
       Object.fromEntries(
         meetingRoster.map((participantId) => [

@@ -157,6 +157,7 @@ class ConnectionError extends Error {
 
 const RoomEvent = {
   Disconnected: "disconnected",
+  ParticipantConnected: "participantConnected",
   ParticipantDisconnected: "participantDisconnected",
   TrackPublished: "trackPublished",
   TrackSubscribed: "trackSubscribed",
@@ -200,12 +201,19 @@ export type SubscriptionRecord = Readonly<{
   subscribed: boolean;
 }>;
 
+// Who the member let subscribe to their tracks, as the SFU was told.
+export type GrantRecord = Readonly<{
+  allParticipantsAllowed: boolean;
+  identities: readonly string[];
+}>;
+
 // Mirrors the slice of livekit-client's Room the call-media adapter uses.
 // Subscribing never delivers a track by itself: tests call deliver(), as the
 // SFU answers later and may not answer at all.
 export function fakeLivekitRoom() {
   const rooms: FakeRoom[] = [];
   const subscriptions: SubscriptionRecord[] = [];
+  const grants: GrantRecord[] = [];
   const timeline: string[] = [];
   const control: {
     connect: FakeConnectOutcome;
@@ -247,6 +255,7 @@ export function fakeLivekitRoom() {
     readonly disconnectCalls: (boolean | undefined)[] = [];
     readonly published: FakeLocalPublication[] = [];
     readonly unpublished: { track: MediaStreamTrack; stop?: boolean }[] = [];
+    readonly grants: GrantRecord[] = [];
     readonly remoteParticipants = new Map<string, FakeRemoteParticipant>();
     disconnectFails = false;
     publishFails = false;
@@ -265,6 +274,19 @@ export function fakeLivekitRoom() {
       unpublishTrack: async (track: MediaStreamTrack, stop?: boolean) => {
         this.unpublished.push({ track, stop });
         return undefined;
+      },
+      setTrackSubscriptionPermissions: (
+        allParticipantsAllowed: boolean,
+        permissions: readonly { participantIdentity?: string }[] = [],
+      ) => {
+        const grant = {
+          allParticipantsAllowed,
+          identities: permissions.map(
+            ({ participantIdentity }) => participantIdentity ?? "",
+          ),
+        };
+        this.grants.push(grant);
+        grants.push(grant);
       },
     };
 
@@ -348,6 +370,7 @@ export function fakeLivekitRoom() {
 
     arrive(identity: string, sources: readonly FakeTrackSource[]) {
       const participant = this.join(identity, sources);
+      this.emit(RoomEvent.ParticipantConnected, participant);
       for (const publication of participant.trackPublications.values()) {
         this.emit(RoomEvent.TrackPublished, publication, participant);
       }
@@ -398,6 +421,7 @@ export function fakeLivekitRoom() {
 
   return {
     control,
+    grants,
     module: {
       ConnectionError,
       ConnectionErrorReason,

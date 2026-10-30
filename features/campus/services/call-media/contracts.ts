@@ -19,12 +19,17 @@ export type MeetingRoomEvents = Readonly<{
   onRemotePublicationChange: (change: RemotePublicationChange) => void;
 }>;
 
+// The members you meet: you hear them, and only they may receive your tracks.
+export type MeetingAudience = Readonly<{
+  participantIds: ReadonlySet<string>;
+}>;
+
 export interface MeetingRoomConnection {
   // Safe to call more than once, including after onDisconnected: the session
   // always calls it to release local tracks, even when the room already dropped.
+  applyAudience(audience: MeetingAudience): void;
   disconnect(): Promise<void>;
   handleLocalPublicationChange(change: LocalPublicationChange): Promise<void>;
-  setSubscribedParticipantIds(participantIds: ReadonlySet<string>): void;
 }
 
 export interface MeetingRoomTransport {

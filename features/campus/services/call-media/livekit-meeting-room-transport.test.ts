@@ -106,6 +106,55 @@ describe("createLivekitMeetingRoomTransport", () => {
     ]);
   });
 
+  it("lets nobody subscribe to the member's tracks once it joins", async () => {
+    const { room } = await joinedRoom();
+
+    expect(room.grants).toEqual([
+      { allParticipantsAllowed: false, identities: [] },
+    ]);
+  });
+
+  it("lets only the asked-for participants subscribe to the member's tracks", async () => {
+    const { connection, room } = await joinedRoom();
+    room.join(`${GRACE}:tab-2`, ["microphone"]);
+    room.join(`${GRACE}:tab-1`, ["microphone"]);
+    room.join(`${ALAN}:tab-1`, ["microphone"]);
+    room.join(GRACE, ["microphone"]);
+    room.join(`:${GRACE}`, ["microphone"]);
+
+    connection.applyAudience({ participantIds: new Set([GRACE]) });
+
+    expect(room.grants.at(-1)).toEqual({
+      allParticipantsAllowed: false,
+      identities: [`${GRACE}:tab-1`, `${GRACE}:tab-2`],
+    });
+  });
+
+  it("lets an asked-for participant who joins the room later subscribe", async () => {
+    const { connection, room } = await joinedRoom();
+    connection.applyAudience({ participantIds: new Set([GRACE]) });
+
+    room.arrive(`${GRACE}:tab-1`, ["microphone"]);
+
+    expect(room.grants.at(-1)).toEqual({
+      allParticipantsAllowed: false,
+      identities: [`${GRACE}:tab-1`],
+    });
+  });
+
+  // Every World frame reapplies the audience, and each grant is a signal
+  // message to the SFU.
+  it("tells the SFU only when who may subscribe changes", async () => {
+    const { connection, room } = await joinedRoom();
+    room.join(`${GRACE}:tab-1`, ["microphone"]);
+
+    connection.applyAudience({ participantIds: new Set([GRACE]) });
+    connection.applyAudience({ participantIds: new Set([GRACE]) });
+    room.arrive(`${ALAN}:tab-1`, ["microphone"]);
+
+    expect(room.grants).toHaveLength(2);
+  });
+
   it("subscribes only the microphones of the participants it is asked for", async () => {
     const { connection, livekit, room } = await joinedRoom();
     room.join(`${GRACE}:tab-1`, ["microphone", "camera", "screen_share"]);
@@ -113,7 +162,7 @@ describe("createLivekitMeetingRoomTransport", () => {
     room.join(GRACE, ["microphone"]);
     room.join(`:${GRACE}`, ["microphone"]);
 
-    connection.setSubscribedParticipantIds(new Set([GRACE]));
+    connection.applyAudience({ participantIds: new Set([GRACE]) });
 
     expect(livekit.subscriptions).toEqual([
       { identity: `${GRACE}:tab-1`, source: "microphone", subscribed: true },
@@ -123,9 +172,9 @@ describe("createLivekitMeetingRoomTransport", () => {
   it("unsubscribes a microphone once its participant is no longer asked for", async () => {
     const { connection, livekit, room } = await joinedRoom();
     room.join(`${GRACE}:tab-1`, ["microphone"]);
-    connection.setSubscribedParticipantIds(new Set([GRACE]));
+    connection.applyAudience({ participantIds: new Set([GRACE]) });
 
-    connection.setSubscribedParticipantIds(new Set());
+    connection.applyAudience({ participantIds: new Set() });
 
     expect(livekit.subscriptions.at(-1)).toEqual({
       identity: `${GRACE}:tab-1`,
@@ -136,7 +185,7 @@ describe("createLivekitMeetingRoomTransport", () => {
 
   it("subscribes a microphone published after the ask", async () => {
     const { connection, livekit, room } = await joinedRoom();
-    connection.setSubscribedParticipantIds(new Set([GRACE, ALAN]));
+    connection.applyAudience({ participantIds: new Set([GRACE, ALAN]) });
 
     room.arrive(`${GRACE}:tab-1`, ["camera", "microphone"]);
 
@@ -148,7 +197,7 @@ describe("createLivekitMeetingRoomTransport", () => {
   it("hands each subscribed microphone to the media session under its user id", async () => {
     const { connection, events, room } = await joinedRoom();
     const grace = room.join(`${GRACE}:tab-1`, ["microphone"]);
-    connection.setSubscribedParticipantIds(new Set([GRACE]));
+    connection.applyAudience({ participantIds: new Set([GRACE]) });
 
     const track = room.deliver(grace, "microphone");
 
@@ -170,7 +219,7 @@ describe("createLivekitMeetingRoomTransport", () => {
     const { connection, events, room } = await joinedRoom();
     const grace = room.join(`${GRACE}:tab-1`, ["microphone"]);
     const alan = room.join(`${ALAN}:tab-1`, ["microphone"]);
-    connection.setSubscribedParticipantIds(new Set([GRACE, ALAN]));
+    connection.applyAudience({ participantIds: new Set([GRACE, ALAN]) });
 
     room.deliver(grace, "microphone");
     room.deliver(alan, "microphone");
@@ -181,8 +230,8 @@ describe("createLivekitMeetingRoomTransport", () => {
   it("drops a microphone that arrives after its participant left the ask", async () => {
     const { connection, events, room } = await joinedRoom();
     const grace = room.join(`${GRACE}:tab-1`, ["microphone"]);
-    connection.setSubscribedParticipantIds(new Set([GRACE]));
-    connection.setSubscribedParticipantIds(new Set());
+    connection.applyAudience({ participantIds: new Set([GRACE]) });
+    connection.applyAudience({ participantIds: new Set() });
 
     room.deliver(grace, "microphone");
 
@@ -209,9 +258,9 @@ describe("createLivekitMeetingRoomTransport", () => {
   ])("removes a microphone that $name", async ({ end }) => {
     const { connection, events, room } = await joinedRoom();
     const grace = room.join(`${GRACE}:tab-1`, ["microphone", "camera"]);
-    connection.setSubscribedParticipantIds(new Set([GRACE]));
+    connection.applyAudience({ participantIds: new Set([GRACE]) });
     room.deliver(grace, "microphone");
-    connection.setSubscribedParticipantIds(new Set());
+    connection.applyAudience({ participantIds: new Set() });
 
     end(room, grace);
 

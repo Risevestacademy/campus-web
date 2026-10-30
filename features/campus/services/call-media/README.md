@@ -33,8 +33,9 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
   same task. `applyPresence` does the same for presence a World close
   emptied, so nobody stays audible while World cannot say who is near.
 - `MeetingRoomTransport` (`contracts.ts`): joins one room with
-  `{ url, token }` and returns a `MeetingRoomConnection` that subscribes by
-  participant id, publishes local changes, and disconnects.
+  `{ url, token }` and returns a `MeetingRoomConnection` that applies the
+  `MeetingAudience` (who you hear and who may receive your tracks),
+  publishes local changes, and disconnects.
 
 ## Modules
 
@@ -49,7 +50,12 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 - The `Room` is built after the session pins the host, and joins with
   `autoSubscribe: false` and `maxRetries: 3` (three join attempts). Listeners
   register before `connect`.
-- Identity is `<userId>:<anything>`; anything else is never subscribed.
+- Identity is `<userId>:<anything>`; anything else is never subscribed or
+  granted.
+- Right after joining it grants nobody, then grants every identity of the
+  audience's ids (`setTrackSubscriptionPermissions`), so the SFU refuses
+  your tracks to anyone else in the room. It regrants when someone joins the
+  room and tells the SFU only when the grant changes.
 - Only microphone publications of the asked-for ids subscribe. Camera, screen
   and unknown sources stay unsubscribed. The first subscribed microphone
   reports first audio, once per room.
@@ -66,8 +72,9 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 ## Rules
 
 - Audio only. Camera and screen never publish or subscribe.
-- Subscribed ids are presence's `meetingRoster`: room mates under room
-  hearing, known `nearby` otherwise, never you.
+- The audience is presence's `meetingRoster`: room mates under room
+  hearing, known `nearby` otherwise, never you. An empty roster grants
+  nobody.
 - Gain is `1` under room hearing: everyone in the space hears everyone, and
   nothing leaks in or out. Under proximity hearing it is
   `max(0, 1 - distance / audibleRadius)` in tiles; an unknown position or a
