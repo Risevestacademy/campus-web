@@ -21,6 +21,10 @@ import {
   parseFeedbackList,
   parseFeedbackRecord,
 } from "@/features/admin/feedback/schemas/feedback.schema";
+import {
+  parsePeopleList,
+  parsePersonCard,
+} from "@/features/admin/people/schemas/people.schema";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
 import { checkConnection } from "@/features/campus/services/connection-check/check-connection";
@@ -91,6 +95,29 @@ const FEEDBACK_RECORD_ALLOW_LIST = [
   "resolvedAt",
   "resolvedBy",
 ].sort();
+
+const PERSON_ALLOW_LIST = [
+  "displayName",
+  "email",
+  "firstName",
+  "id",
+  "lastName",
+  "role",
+  "status",
+  "systemRole",
+  "trackName",
+];
+const PERSON_CARD_ALLOW_LIST = [
+  "displayName",
+  "email",
+  "firstName",
+  "id",
+  "lastName",
+  "memberships[].cohort.id",
+  "memberships[].cohort.name",
+  "memberships[].role",
+  "memberships[].track.name",
+];
 
 const SESSION_ALLOW_LIST = [
   "expiresAt",
@@ -336,6 +363,74 @@ describe("Data privacy eval (threshold: every case holds)", () => {
         "total",
         "totalPages",
       ]);
+    });
+
+    it("keeps only the person fields the People page reads", () => {
+      const page = parsePeopleList(
+        {
+          items: [
+            {
+              id: "u-1",
+              email: "ada@campus.local",
+              firstName: "Ada",
+              lastName: "Lovelace",
+              displayName: null,
+              systemRole: "user",
+              status: "active",
+              lastLoginAt: "2026-10-01T08:15:00.000Z",
+              avatarUrl: null,
+              ...UNEXPECTED,
+              memberships: [
+                {
+                  cohort: {
+                    id: "c-1",
+                    name: "Cohort",
+                    code: "C",
+                    ...UNEXPECTED,
+                  },
+                  track: { id: "t-1", name: "Backend", code: "BE" },
+                  role: "student",
+                  status: "active",
+                  joinedAt: "2026-09-22T12:00:00.000Z",
+                },
+              ],
+            },
+          ],
+          meta: {
+            page: 1,
+            totalPages: 1,
+            total: 1,
+            perPage: 20,
+            ...UNEXPECTED,
+          },
+        },
+        "c-1",
+      );
+
+      expect(keyPaths(page?.people[0])).toEqual(PERSON_ALLOW_LIST);
+    });
+
+    it("keeps only the profile card fields the person page reads", () => {
+      const card = parsePersonCard({
+        id: "u-1",
+        email: "ada@campus.local",
+        firstName: "Ada",
+        lastName: "Lovelace",
+        displayName: null,
+        bio: "private bio",
+        avatarUrl: null,
+        spriteKey: null,
+        ...UNEXPECTED,
+        memberships: [
+          {
+            cohort: { id: "c-1", name: "Cohort", code: "C" },
+            track: { id: "t-1", name: "Backend", code: "BE" },
+            role: "student",
+          },
+        ],
+      });
+
+      expect(keyPaths(card)).toEqual(PERSON_CARD_ALLOW_LIST);
     });
 
     it("keeps only the feedback fields the detail panel renders", () => {

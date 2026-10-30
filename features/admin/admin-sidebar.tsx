@@ -2,6 +2,7 @@
 
 import { GaugeIcon } from "@phosphor-icons/react/dist/ssr/Gauge";
 import { StackIcon } from "@phosphor-icons/react/dist/ssr/Stack";
+import { UsersIcon } from "@phosphor-icons/react/dist/ssr/Users";
 import { cn } from "cn";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -19,6 +20,11 @@ function navigationItems(cohortId: string) {
       Icon: GaugeIcon,
     },
     {
+      href: cohortAdministrationHref(cohortId, "people"),
+      label: "People",
+      Icon: UsersIcon,
+    },
+    {
       href: cohortAdministrationHref(cohortId, "tracks"),
       label: "Programme Tracks",
       Icon: StackIcon,
@@ -29,6 +35,12 @@ function navigationItems(cohortId: string) {
       Icon: ChatCircleWarningIcon,
     },
   ] as const;
+}
+
+// A page inside a section, like a person under People, keeps the section's
+// link current.
+function isCurrentPage(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export function AdminSidebar({
@@ -57,7 +69,7 @@ export function AdminSidebar({
           <Link
             key={href}
             href={href}
-            aria-current={pathname === href ? "page" : undefined}
+            aria-current={isCurrentPage(pathname, href) ? "page" : undefined}
             className={cn(
               "text-foreground-secondary hover:text-foreground flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm font-medium transition-colors duration-150 hover:bg-[#E9ECF6] dark:hover:bg-[#2B3B5F]",
               "aria-[current=page]:text-primary aria-[current=page]:bg-[#E9ECF6] dark:aria-[current=page]:bg-[#2B3B5F] dark:aria-[current=page]:text-[#F7F7F7]",

@@ -13,5 +13,6 @@ export {
   cohortRoleSchema,
   sessionScopeSchema,
   systemRoleSchema,
+  userStatusSchema,
 } from "./roles";
 export type { Simplify } from "./simplify";

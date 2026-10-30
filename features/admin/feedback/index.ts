@@ -1,5 +1,5 @@
 export { feedbackTypeDetails } from "./components/feedback-type-badge";
-export { describeAge } from "./feedback-format";
+export { avatarTone, describeAge, initialOf } from "./feedback-format";
 export { feedbackAdministrationHref } from "./feedback-href";
 export {
   attentionItems,

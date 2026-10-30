@@ -56,6 +56,9 @@ describe("administrator sidebar navigation", () => {
       within(administration).getByRole("link", { name: "Overview" }),
     ).toHaveAttribute("href", "/campus/c-1/overview");
     expect(
+      within(administration).getByRole("link", { name: "People" }),
+    ).toHaveAttribute("href", "/campus/c-1/people");
+    expect(
       within(administration).getByRole("link", {
         name: "Programme Tracks",
       }),
@@ -63,7 +66,7 @@ describe("administrator sidebar navigation", () => {
     expect(
       within(administration).getByRole("link", { name: "Feedback & reports" }),
     ).toHaveAttribute("href", "/campus/c-1/feedback");
-    expect(within(administration).getAllByRole("link")).toHaveLength(3);
+    expect(within(administration).getAllByRole("link")).toHaveLength(4);
   });
 
   it("restores Administration mode when an administrator re-enters Active Campus", async () => {
