@@ -22,6 +22,8 @@ import type {
   ServerMessage as PublishedServerMessage,
   SnapshotMessage as PublishedSnapshotMessage,
   SpaceChangedMessage,
+  SpaceName,
+  SpacesMessage,
   Status as PublishedStatus,
   StatusChangedMessage as PublishedStatusChangedMessage,
   WelcomeMessage as PublishedWelcomeMessage,
@@ -67,7 +69,9 @@ export type WelcomeMessage = Simplify<
   >
 >;
 export type SnapshotMessage = Simplify<
-  Pick<PublishedSnapshotMessage, "type" | "map"> & { players: Avatar[] }
+  Pick<PublishedSnapshotMessage, "type" | "map" | "spaces"> & {
+    players: Avatar[];
+  }
 >;
 export type JoinedMessage = Simplify<
   Pick<PublishedJoinedMessage, "type"> & { player: Avatar }
@@ -84,7 +88,15 @@ export type CallMessage = Simplify<
 // stripped to their type, so nothing unread travels on.
 type UnreadType = Extract<
   PublishedServerMessage["type"],
-  "lockChanged" | "lockableSpaces"
+  | "lockChanged"
+  | "lockableSpaces"
+  | "broadcast"
+  | "said"
+  | "entryRequested"
+  | "entryRequestEnded"
+  | "staffAction"
+  | "walking"
+  | "walkEnded"
 >;
 type UnreadMessage = { [Type in UnreadType]: { type: Type } }[UnreadType];
 
@@ -102,6 +114,7 @@ export type ServerMessage =
   | NearbyMessage
   | StatusChangedMessage
   | SpaceChangedMessage
+  | SpacesMessage
   | CallMessage
   | UnreadMessage;
 
@@ -153,6 +166,10 @@ const avatarSchema = z.toZod<Avatar>()(
   }),
 );
 
+const spaceNameSchema = z.toZod<SpaceName>()(
+  z.object({ spaceKey: z.string(), name: z.string() }),
+);
+
 const welcomeMessageSchema = z.toZod<WelcomeMessage>()(
   z.object({
     type: z.literal("welcome"),
@@ -179,6 +196,7 @@ const snapshotMessageSchema = z.toZod<SnapshotMessage>()(
       height: z.int().positive(),
     }),
     players: z.array(avatarSchema),
+    spaces: z.array(spaceNameSchema),
   }),
 );
 
@@ -243,6 +261,10 @@ const spaceChangedMessageSchema = z.toZod<SpaceChangedMessage>()(
   }),
 );
 
+const spacesMessageSchema = z.toZod<SpacesMessage>()(
+  z.object({ type: z.literal("spaces"), spaces: z.array(spaceNameSchema) }),
+);
+
 const callSchema = z.toZod<Call>()(
   z.object({
     url: z.string().min(1),
@@ -275,9 +297,17 @@ const serverMessageSchema = z.toZod<ServerMessage>()(
     nearbyMessageSchema,
     statusChangedMessageSchema,
     spaceChangedMessageSchema,
+    spacesMessageSchema,
     callMessageSchema,
     unreadMessageSchema("lockChanged"),
     unreadMessageSchema("lockableSpaces"),
+    unreadMessageSchema("broadcast"),
+    unreadMessageSchema("said"),
+    unreadMessageSchema("entryRequested"),
+    unreadMessageSchema("entryRequestEnded"),
+    unreadMessageSchema("staffAction"),
+    unreadMessageSchema("walking"),
+    unreadMessageSchema("walkEnded"),
   ]),
 );
 

@@ -81,6 +81,7 @@ describe("createCampusRuntime", () => {
           spaceKey: "_default",
         },
       ],
+      spaces: [],
     });
     const starting = createCampusRuntime().start(
       container(),

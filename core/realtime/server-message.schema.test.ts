@@ -36,6 +36,13 @@ const framesAsRead = {
   nearby: serverFrames.nearby,
   lockChanged: { type: "lockChanged" },
   lockableSpaces: { type: "lockableSpaces" },
+  broadcast: { type: "broadcast" },
+  entryRequested: { type: "entryRequested" },
+  entryRequestEnded: { type: "entryRequestEnded" },
+  said: { type: "said" },
+  staffAction: { type: "staffAction" },
+  walking: { type: "walking" },
+  walkEnded: { type: "walkEnded" },
 } satisfies {
   [Type in ServerMessage["type"]]: Extract<ServerMessage, { type: Type }>;
 };

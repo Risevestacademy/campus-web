@@ -8,6 +8,7 @@ import {
   applyServerMessage,
   EMPTY_PRESENCE,
   type Presence,
+  spaceNameOf,
   withoutRemoteParticipants,
 } from "./presence";
 
@@ -39,6 +40,7 @@ function snapshotOf(...players: Avatar[]) {
     type: "snapshot",
     map: MAP,
     players,
+    spaces: [],
   });
 }
 
@@ -54,6 +56,7 @@ describe("applyServerMessage", () => {
       type: "snapshot",
       map: { id: "campus", version: "v1", width: 60, height: 40 },
       players: [{ ...ADA, x: 9 }],
+      spaces: [],
     });
 
     expect([...presence.participants]).toEqual([
@@ -84,6 +87,7 @@ describe("applyServerMessage", () => {
       type: "snapshot",
       map: { id: "campus", version: "v1", width: 3, height: 2 },
       players: [{ ...ADA, x: 99, y: 99 }],
+      spaces: [],
     });
 
     expect(presence.positions.get("ada")).toEqual({
@@ -351,6 +355,7 @@ describe("nearby", () => {
       type: "snapshot",
       map: MAP,
       players: [ADA, GRACE],
+      spaces: [],
     });
     const closed = withoutRemoteParticipants(near);
 
@@ -367,8 +372,51 @@ describe("nearby", () => {
     expect(closed.synced).toBe(false);
     expect(closed.map).toEqual(MAP);
     expect(
-      applyServerMessage(closed, { type: "snapshot", map: MAP, players: [ADA] })
-        .synced,
+      applyServerMessage(closed, {
+        type: "snapshot",
+        map: MAP,
+        players: [ADA],
+        spaces: [],
+      }).synced,
     ).toBe(true);
+  });
+});
+
+describe("space names", () => {
+  function namedSnapshot(...spaces: { spaceKey: string; name: string }[]) {
+    return applyServerMessage(EMPTY_PRESENCE, {
+      type: "snapshot",
+      map: MAP,
+      players: [ADA],
+      spaces,
+    });
+  }
+
+  it("names each space from the snapshot", () => {
+    const presence = namedSnapshot({ spaceKey: "library", name: "Library" });
+
+    expect(spaceNameOf(presence, "library")).toBe("Library");
+  });
+
+  it("replaces every name on a spaces frame, dropping any it omits", () => {
+    const presence = applyServerMessage(
+      namedSnapshot(
+        { spaceKey: "library", name: "Library" },
+        { spaceKey: "pod-1", name: "Pod One" },
+      ),
+      {
+        type: "spaces",
+        spaces: [{ spaceKey: "library", name: "Reading Room" }],
+      },
+    );
+
+    expect([
+      spaceNameOf(presence, "library"),
+      spaceNameOf(presence, "pod-1"),
+    ]).toEqual(["Reading Room", "pod-1"]);
+  });
+
+  it("shows the key for a space world has not named", () => {
+    expect(spaceNameOf(EMPTY_PRESENCE, "pod-9")).toBe("pod-9");
   });
 });

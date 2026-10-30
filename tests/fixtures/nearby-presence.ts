@@ -40,6 +40,7 @@ export function seedPresence(cohortId: string, ...near: Avatar[]) {
     type: "snapshot",
     map: serverFrames.snapshot.map,
     players: [ADA, GRACE, LIN, MAYA],
+    spaces: [],
   });
   if (near.length > 0) presence.apply(nearbyFrame(...near));
 }

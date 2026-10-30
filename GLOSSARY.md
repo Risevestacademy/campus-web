@@ -202,6 +202,12 @@ grant crosses it. It connects only after Admission and disconnects when the
 Presence Session ends.
 _Avoid_: Browser capture ownership, server media state
 
+**Space**:
+A drawn area of the campus map, such as a classroom, pod or meeting room,
+or the corridors and grounds between them. Each member stands in one.
+World gives each space a name.
+_Avoid_: Room, zone, area
+
 **Call**:
 The audio room World grants for the space a member is in, or none. Each new
 space brings a new Call while the Presence Session carries on.

@@ -48,6 +48,7 @@ function drawListFor(...players: Avatar[]) {
       type: "snapshot",
       map: { id: "campus", version: "v1", width: 60, height: 40 },
       players,
+      spaces: [],
     }),
     TILE,
   );

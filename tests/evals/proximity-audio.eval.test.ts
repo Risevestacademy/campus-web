@@ -124,6 +124,7 @@ function joinedMember() {
     type: "snapshot",
     map: serverFrames.snapshot.map,
     players: [ADA, GRACE, LIN, MAYA],
+    spaces: [],
   });
 
   return {

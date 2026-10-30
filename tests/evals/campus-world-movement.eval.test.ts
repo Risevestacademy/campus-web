@@ -232,6 +232,7 @@ function playRemoteGap({ drawnAt, moved, path }: RemoteGap) {
         spaceKey: "_default",
       },
     ],
+    spaces: [],
   };
   presence.getState().apply(welcome);
   presence.getState().apply(snapshot);
@@ -297,6 +298,7 @@ function startPacedOwnAvatar(start: Omit<Player, "userId">) {
         spaceKey: "_default",
       },
     ],
+    spaces: [],
   };
   movement.bind(({ direction, seq }) => {
     sent.push({ direction, seq });
@@ -436,6 +438,7 @@ function startCameraWorld(refuses: (seq: number, target: Tile) => boolean) {
         spaceKey: "_default",
       },
     ],
+    spaces: [],
   };
   presence.getState().apply(welcome);
   presence.getState().apply(snapshot);

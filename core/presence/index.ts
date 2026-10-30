@@ -4,6 +4,7 @@ export {
   type Participant,
   type Position,
   type Presence,
+  spaceNameOf,
   withoutRemoteParticipants,
   type WorldMap,
 } from "./presence";

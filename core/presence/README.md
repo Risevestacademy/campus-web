@@ -12,6 +12,7 @@ import {
   createPresenceStore,
   presenceFor,
   type Presence,
+  spaceNameOf,
 } from "@/core/presence";
 
 const presence = presenceFor(cohortId);
@@ -32,9 +33,13 @@ presence.getState().clear(); // when the Presence Session ends
 - `participants`: who is here, `Map<userId, { userId, displayName, spriteKey,
 status, spaceKey }>`. `status` is `available`, `busy`, `away` (or `unknown`
   for a value world adds later) and `spaceKey` names the space they stand in,
-  `_default` for the corridors and grounds. Room names are not kept yet.
+  `_default` for the corridors and grounds.
 - `positions`: where they stand, `Map<userId, { x, y, facing }>` in tiles,
   clamped into the map's bounds.
+- `spaceNames`: what each space is called, `Map<spaceKey, name>`, from
+  `snapshot` and replaced whole by `spaces` when one is renamed. Read it with
+  `spaceNameOf(presence, spaceKey)`, which shows the key for a space World has
+  not named, as World does.
 - `nearby`: the `userId`s world says are close enough to hear you, once each,
   in the order they came near. World sends its list sorted; keeping arrival order
   means a newcomer never reshuffles whoever was already there.
@@ -58,6 +63,7 @@ keeps anything finer (pixels, walking) itself.
 | `left`          | removed                   | removed                    |
 | `moved`         |                           | updated for known ids      |
 | `moveResult`    |                           | yours, from world's answer |
+| `spaces`        | (replaces `spaceNames`)   |                            |
 
 `nearby` changes only `nearby` (and `encounter` when it goes from empty to
 not). It can name somebody not in `participants` yet; readers skip them
@@ -69,8 +75,8 @@ until `joined` arrives.
   a stale tile index should draw at the edge, not break the frame.
 - `encounter` is the one field a `snapshot` keeps, so it never repeats in a
   session. World sends a fresh `nearby` after a reconnect.
-- `clearRemoteParticipants()` keeps you (`selfId`) and the map, and drops
-  everyone else, `nearby` included. Every recoverable close calls it, so a
+- `clearRemoteParticipants()` keeps you (`selfId`), the map and the space
+  names, and drops everyone else, `nearby` included. Every recoverable close calls it, so a
   drop never leaves frozen stand-ins mid-pose; `clear()` removes everything.
 - One entry per id by construction, so a reconnect never draws anyone twice.
 - `Map`, not `Record`: an id such as `constructor` must not reach
