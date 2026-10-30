@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { Button, buttonVariants } from "@/shared/ui/button";
 
-import { avatarTone, initialOf } from "../../feedback";
+import { avatarTone, initialOf } from "../../avatar";
 import { firstNameOf, personName, ROLE_LABELS } from "../people-format";
 import { peopleHref } from "../people-href";
 import {

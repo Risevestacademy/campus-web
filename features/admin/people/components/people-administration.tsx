@@ -12,19 +12,9 @@ import {
   type PeopleView,
 } from "../services/people-view.service";
 import type { PeopleQuery } from "../types/people.types";
+import { Notice } from "./notice";
 import { PeopleChips, PeopleFilters } from "./people-filters";
 import { PeopleTable } from "./people-table";
-
-function Notice({ children }: { children: React.ReactNode }) {
-  return (
-    <p
-      role="alert"
-      className="border-border text-foreground-secondary rounded-3xl border p-6 dark:border-[#2B3B5F]"
-    >
-      {children}
-    </p>
-  );
-}
 
 function PeopleList({
   cohortId,
