@@ -48,6 +48,7 @@ describe("people list parser", () => {
           lastName: "Lovelace",
           displayName: null,
           systemRole: "user",
+          status: "active",
           role: "student",
           trackName: "Backend",
         },
@@ -56,6 +57,39 @@ describe("people list parser", () => {
       total: 41,
       totalPages: 3,
     });
+  });
+
+  it("keeps a suspended account's status, so the page can say so", () => {
+    const page = parsePeopleList(
+      { items: [user({ status: "suspended" })], meta: META },
+      COHORT_ID,
+    );
+
+    expect(page?.people[0]?.status).toBe("suspended");
+  });
+
+  it("rejects a role or status the API does not define", () => {
+    expect(
+      parsePeopleList(
+        {
+          items: [
+            user({
+              memberships: [
+                { cohort: { id: COHORT_ID }, track: null, role: "dean" },
+              ],
+            }),
+          ],
+          meta: META,
+        },
+        COHORT_ID,
+      ),
+    ).toBeUndefined();
+    expect(
+      parsePeopleList(
+        { items: [user({ status: "banned" })], meta: META },
+        COHORT_ID,
+      ),
+    ).toBeUndefined();
   });
 
   it("has no role for someone with no place in this cohort", () => {
@@ -127,6 +161,13 @@ describe("people query parser", () => {
       trackId: "3f0c2d1a-6b6e-4c4b-8f55-0c9d1e5a7b21",
       page: 3,
     });
+  });
+
+  it("accepts exactly the roles the API defines", () => {
+    for (const role of ["student", "professor", "mentor", "guest"]) {
+      expect(parsePeopleQuery({ role }).chip).toBe(role);
+    }
+    expect(parsePeopleQuery({ role: "instructor" }).chip).toBe("all");
   });
 
   it("falls back to everyone on the first page for anything it does not know", () => {

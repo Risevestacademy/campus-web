@@ -103,6 +103,7 @@ const PERSON_ALLOW_LIST = [
   "id",
   "lastName",
   "role",
+  "status",
   "systemRole",
   "trackName",
 ];

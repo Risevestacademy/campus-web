@@ -178,6 +178,11 @@ export class FakeApi {
     await this.scenario({ cohorts: pages });
   }
 
+  // Replies for routes no other script covers, keyed "METHOD /path".
+  async scriptRoutes(routes: Record<string, ScriptedReply>): Promise<void> {
+    await this.scenario({ routes });
+  }
+
   async scriptInvitePreview(reply: ScriptedReply): Promise<void> {
     await this.scenario({ preview: reply });
   }
@@ -208,6 +213,10 @@ export class FakeApi {
 
   async cohortReads(): Promise<LoggedRequest[]> {
     return this.requestsTo("GET", "/v1/cohorts");
+  }
+
+  async usersReads(): Promise<LoggedRequest[]> {
+    return this.requestsTo("GET", "/v1/users");
   }
 
   async previewPosts(): Promise<LoggedRequest[]> {

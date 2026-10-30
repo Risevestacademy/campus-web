@@ -1,4 +1,5 @@
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/ssr/MagnifyingGlass";
+import Form from "next/form";
 import Link from "next/link";
 
 import { buttonVariants } from "@/shared/ui/button";
@@ -20,9 +21,10 @@ export function PeopleFilters({
   tracks: TrackOptionsRead;
 }) {
   return (
-    <form
-      action={`/campus/${encodeURIComponent(cohortId)}/people`}
-      method="get"
+    // `Form` navigates on the client. A native submit reloads the document,
+    // and a reload on an administration page returns through Join.
+    <Form
+      action={peopleHref(cohortId)}
       role="search"
       className="flex flex-wrap items-center gap-3"
     >
@@ -65,7 +67,7 @@ export function PeopleFilters({
       <button type="submit" className={buttonVariants({ variant: "outline" })}>
         Search
       </button>
-    </form>
+    </Form>
   );
 }
 

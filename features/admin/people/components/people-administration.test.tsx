@@ -25,6 +25,7 @@ function person(id: string, overrides: Partial<Person> = {}): Person {
     lastName: null,
     displayName: id.toUpperCase(),
     systemRole: "user",
+    status: "active",
     role: "student",
     trackName: "Backend",
     ...overrides,
@@ -137,6 +138,51 @@ describe("People page", () => {
     expect(status("BOLA")).toBe("Busy");
     expect(status("CHI")).toBe("Away");
     expect(status("DEE")).toBe("Offline");
+  });
+
+  it("opens a person from anywhere on their row, and says so on the link", () => {
+    render(
+      <PeopleAdministrationView
+        cohortId="people-cohort"
+        query={QUERY}
+        view={view([person("ada")])}
+      />,
+    );
+
+    const link = screen.getByRole("link", { name: "ADA" });
+    expect(link).toHaveAttribute("href", "/campus/people-cohort/people/ada");
+    // The link is stretched over its row, which is its positioning context.
+    expect(link).toHaveClass("after:absolute", "after:inset-0");
+    expect(link.closest("tr")).toHaveClass("relative");
+  });
+
+  it("marks a suspended member and does not link them to a page that cannot open", () => {
+    render(
+      <PeopleAdministrationView
+        cohortId="people-cohort"
+        query={QUERY}
+        view={view([person("ada", { status: "suspended" }), person("bola")])}
+      />,
+    );
+
+    const row = screen.getByRole("row", { name: /ADA/ });
+    expect(within(row).getByText("Suspended")).toBeVisible();
+    expect(within(row).queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "BOLA" })).toBeInTheDocument();
+  });
+
+  it("badges a system administrator as Admin whatever their cohort role", () => {
+    render(
+      <PeopleAdministrationView
+        cohortId="people-cohort"
+        query={QUERY}
+        view={view([person("ada", { systemRole: "admin", role: "student" })])}
+      />,
+    );
+
+    const row = screen.getByRole("row", { name: /ADA/ });
+    expect(within(row).getByText("Admin")).toBeVisible();
+    expect(within(row).queryByText("Student")).not.toBeInTheDocument();
   });
 
   it("does not call anyone offline before the first snapshot", () => {

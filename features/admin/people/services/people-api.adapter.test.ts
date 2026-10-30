@@ -93,4 +93,15 @@ describe("people API adapter", () => {
     expect((await readPersonCard(api, "user-1")).kind).toBe("loaded");
     expect((await readPersonCard(api, "gone")).kind).toBe("missing");
   });
+
+  it("does not pass a refused request off as a missing person", async () => {
+    mockApi.server.use(
+      http.get(
+        `${USERS_URL}/bad/profile`,
+        () => new HttpResponse(null, { status: 400 }),
+      ),
+    );
+
+    expect((await readPersonCard(api, "bad")).kind).toBe("unavailable");
+  });
 });

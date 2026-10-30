@@ -15,7 +15,7 @@ import {
   SAMPLE_STATS,
   type SampleOutcome,
 } from "../person-detail-sample";
-import type { PersonCard } from "../types/people.types";
+import type { Person } from "../types/people.types";
 import { PersonStatus } from "./person-status";
 import { RoleBadge } from "./role-badge";
 
@@ -29,14 +29,15 @@ const OUTCOME_CLASS_NAMES: Readonly<Record<SampleOutcome, string>> = {
 
 export function PersonDetail({
   cohortId,
-  card,
+  cohortName,
+  person,
 }: {
   cohortId: string;
-  card: PersonCard;
+  cohortName: string;
+  person: Person;
 }) {
-  const name = personName(card);
-  const firstName = firstNameOf(card);
-  const place = card.memberships.find(({ cohort }) => cohort.id === cohortId);
+  const name = personName(person);
+  const firstName = firstNameOf(person);
 
   return (
     <section
@@ -61,16 +62,16 @@ export function PersonDetail({
             </h1>
             <p className="text-foreground-secondary mt-1">
               {[
-                place ? ROLE_LABELS[place.role] : undefined,
-                place?.track?.name,
-                place?.cohort.name,
+                person.role ? ROLE_LABELS[person.role] : undefined,
+                person.trackName,
+                cohortName,
               ]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
           </div>
           <a
-            href={`mailto:${card.email}`}
+            href={`mailto:${person.email}`}
             className={buttonVariants({ variant: "outline" })}
           >
             <EnvelopeSimpleIcon aria-hidden size={18} />
@@ -81,18 +82,18 @@ export function PersonDetail({
 
       <div className={cn(PANEL, "flex flex-wrap items-center gap-5")}>
         <Avatar className="size-20">
-          <AvatarFallback className={cn(avatarTone(card.id), "text-3xl")}>
+          <AvatarFallback className={cn(avatarTone(person.id), "text-3xl")}>
             {initialOf(name)}
           </AvatarFallback>
         </Avatar>
         <div className="grid gap-2">
           <p className="flex flex-wrap items-center gap-3">
-            <span className="[overflow-wrap:anywhere]">{card.email}</span>
-            <RoleBadge person={{ systemRole: "user", role: place?.role }} />
+            <span className="[overflow-wrap:anywhere]">{person.email}</span>
+            <RoleBadge person={person} />
           </p>
           <PersonStatus
             cohortId={cohortId}
-            userId={card.id}
+            userId={person.id}
             className="text-foreground-secondary"
           />
         </div>
@@ -171,7 +172,7 @@ export function PersonDetail({
             <div className="mt-4 grid gap-3">
               <Button disabled>Ask mentor to check in</Button>
               <a
-                href={`mailto:${card.email}`}
+                href={`mailto:${person.email}`}
                 className={buttonVariants({ variant: "outline" })}
               >
                 <EnvelopeSimpleIcon aria-hidden size={18} />

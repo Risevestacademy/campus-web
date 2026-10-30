@@ -4,9 +4,16 @@ import {
   cohortRoleSchema,
   paginationMetaWithTotalSchema,
   systemRoleSchema,
+  userStatusSchema,
 } from "@/core/api/schemas";
 
-import type { PeoplePage, Person, PersonCard } from "../types/people.types";
+import type {
+  PeopleListBody,
+  PeoplePage,
+  Person,
+  PersonCard,
+  PersonListItem,
+} from "../types/people.types";
 
 const namedUserShape = {
   id: z.string().min(1),
@@ -16,22 +23,27 @@ const namedUserShape = {
   displayName: z.string().nullable(),
 };
 
-const listItemSchema = z.object({
-  ...namedUserShape,
-  systemRole: systemRoleSchema,
-  memberships: z.array(
-    z.object({
-      cohort: z.object({ id: z.string() }),
-      track: z.object({ name: z.string() }).nullable(),
-      role: cohortRoleSchema,
-    }),
-  ),
-});
+const listItemSchema = z.toZod<PersonListItem>()(
+  z.object({
+    ...namedUserShape,
+    systemRole: systemRoleSchema,
+    status: userStatusSchema,
+    memberships: z.array(
+      z.object({
+        cohort: z.object({ id: z.string() }),
+        track: z.object({ name: z.string() }).nullable(),
+        role: cohortRoleSchema,
+      }),
+    ),
+  }),
+);
 
-const listSchema = z.object({
-  items: z.array(listItemSchema),
-  meta: paginationMetaWithTotalSchema,
-});
+const listSchema = z.toZod<PeopleListBody>()(
+  z.object({
+    items: z.array(listItemSchema),
+    meta: paginationMetaWithTotalSchema,
+  }),
+);
 
 export function parsePeopleList(
   body: unknown,

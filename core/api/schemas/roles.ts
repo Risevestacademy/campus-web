@@ -15,3 +15,7 @@ export const systemRoleSchema = z.toZod<Schemas["SystemRole"]>()(
 export const cohortRoleSchema = z.toZod<Schemas["CohortRole"]>()(
   z.enum(["student", "professor", "mentor", "guest"]),
 );
+
+export const userStatusSchema = z.toZod<Schemas["UserStatus"]>()(
+  z.enum(["active", "suspended"]),
+);

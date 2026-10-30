@@ -5,7 +5,7 @@ import Link from "next/link";
 import { getServerApi } from "@/core/api/client/server";
 
 import { peopleHref } from "../people-href";
-import { readPersonCard } from "../services/people-api.adapter";
+import { readPerson } from "../services/person-read.service";
 import { PersonDetail } from "./person-detail";
 
 function Notice({ children }: { children: React.ReactNode }) {
@@ -28,12 +28,13 @@ export async function PersonAdministration({
   cohortId: string;
   userId: string;
 }) {
-  const read = await readPersonCard(await getServerApi(), userId);
+  const read = await readPerson(await getServerApi(), cohortId, userId);
 
   if (read.kind === "missing") {
     return (
       <Notice>
-        This person no longer exists.{" "}
+        We can&apos;t show this person here. They may not be in this cohort, or
+        their account may be suspended.{" "}
         <Link className="text-primary underline" href={peopleHref(cohortId)}>
           Back to people
         </Link>
@@ -44,5 +45,11 @@ export async function PersonAdministration({
     return <Notice>We couldn&apos;t load this person. Try again.</Notice>;
   }
 
-  return <PersonDetail cohortId={cohortId} card={read.card} />;
+  return (
+    <PersonDetail
+      cohortId={cohortId}
+      cohortName={read.cohortName}
+      person={read.person}
+    />
+  );
 }

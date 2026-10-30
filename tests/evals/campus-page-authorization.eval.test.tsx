@@ -104,7 +104,10 @@ const PAGES: Record<string, ProtectedPage> = {
   "app/campus/[id]/(administration)/people/[userId]/page.tsx": {
     render: () =>
       PersonPage({
-        params: Promise.resolve({ id: "protected-cohort", userId: "person" }),
+        params: Promise.resolve({
+          id: "protected-cohort",
+          userId: "3f0c2d1a-6b6e-4c4b-8f55-0c9d1e5a7b21",
+        }),
       }),
     denial: ROUTE_DENIAL,
     routeAccessCalls: SYSTEM_ADMIN,
@@ -184,6 +187,17 @@ describe("Campus production page authorization", () => {
     async (_, renderRoute) => {
       await expect(renderRoute()).rejects.toThrow("404");
       expect(requireRouteAccess).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["../x", "not-a-uuid", "3f0c2d1a"])(
+    "the person page rejects the malformed person ID %j before rendering",
+    async (userId) => {
+      await expect(
+        PersonPage({
+          params: Promise.resolve({ id: "protected-cohort", userId }),
+        }),
+      ).rejects.toThrow("404");
     },
   );
 

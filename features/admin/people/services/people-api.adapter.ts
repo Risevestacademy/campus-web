@@ -53,9 +53,7 @@ export async function readPersonCard(
     const { data, response } = await api.GET("/v1/users/{id}/profile", {
       params: { path: { id: userId } },
     });
-    if (response.status === 404 || response.status === 400) {
-      return { kind: "missing" };
-    }
+    if (response.status === 404) return { kind: "missing" };
 
     const card = response.ok ? parsePersonCard(data) : undefined;
     return card ? { kind: "loaded", card } : { kind: "unavailable" };

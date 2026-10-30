@@ -6,3 +6,4 @@ export { CohortTrackAdministration } from "./cohorts/components/cohort-track-adm
 export { FeedbackAdministration } from "./feedback/components/feedback-administration";
 export { PeopleAdministration } from "./people/components/people-administration";
 export { PersonAdministration } from "./people/components/person-administration";
+export { parsePersonId } from "./people/schemas/person-id.schema";

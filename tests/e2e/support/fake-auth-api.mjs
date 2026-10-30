@@ -55,6 +55,8 @@ let previewReply;
 let pendingInviteReply;
 let decisionReplies = [];
 let sessionAfterAccept;
+// "METHOD /path" -> reply, for the pages that read only a route or two.
+let routeReplies = {};
 let requests = [];
 
 function sendJson(response, status, body, headers = {}) {
@@ -196,6 +198,7 @@ function applyScenario(scenario) {
   if ("preview" in scenario) previewReply = scenario.preview;
   if ("pendingInvite" in scenario) pendingInviteReply = scenario.pendingInvite;
   if ("decision" in scenario) decisionReplies = scenario.decision;
+  if ("routes" in scenario) routeReplies = scenario.routes;
   if ("sessionAfterAccept" in scenario) {
     sessionAfterAccept = scenario.sessionAfterAccept;
   }
@@ -213,6 +216,7 @@ async function handleControl(request, response, path) {
     pendingInviteReply = undefined;
     decisionReplies = [];
     sessionAfterAccept = undefined;
+    routeReplies = {};
     requests = [];
     return sendJson(response, 204);
   }
@@ -277,6 +281,12 @@ const server = createServer(async (request, response) => {
 
   if (request.method === "POST" && path === "/v1/invites/decision") {
     replyToDecision(response);
+    return;
+  }
+
+  const scripted = routeReplies[`${request.method} ${path}`];
+  if (scripted) {
+    sendScripted(response, scripted);
     return;
   }
 
