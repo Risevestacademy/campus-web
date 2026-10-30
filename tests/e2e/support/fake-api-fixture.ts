@@ -235,10 +235,7 @@ export class FakeApi {
     await this.control.post("/__scenario", { data: scenario });
   }
 
-  private async requestsTo(
-    method: string,
-    path: string,
-  ): Promise<LoggedRequest[]> {
+  async requestsTo(method: string, path: string): Promise<LoggedRequest[]> {
     const response = await this.control.get("/__requests");
     const requests = (await response.json()) as LoggedRequest[];
     return requests.filter(

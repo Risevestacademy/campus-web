@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getServerApi } from "@/core/api/client/server";
 
 import { CataloguePagination } from "../../catalogue/catalogue-presentation";
+import { Notice } from "../../notice";
 import { peopleHref } from "../people-href";
 import { parsePeopleQuery } from "../schemas/people-query.schema";
 import {
@@ -12,7 +13,6 @@ import {
   type PeopleView,
 } from "../services/people-view.service";
 import type { PeopleQuery } from "../types/people.types";
-import { Notice } from "./notice";
 import { PeopleChips, PeopleFilters } from "./people-filters";
 import { PeopleTable } from "./people-table";
 

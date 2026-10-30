@@ -7,7 +7,9 @@ import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { Button, buttonVariants } from "@/shared/ui/button";
 
 import { avatarTone, initialOf } from "../../avatar";
-import { firstNameOf, personName, ROLE_LABELS } from "../people-format";
+import { RoleBadge } from "../../role-badge";
+import { ROLE_LABELS } from "../../role-labels";
+import { firstNameOf, personName } from "../people-format";
 import { peopleHref } from "../people-href";
 import {
   SAMPLE_HISTORY,
@@ -17,7 +19,6 @@ import {
 } from "../person-detail-sample";
 import type { Person } from "../types/people.types";
 import { PersonStatus } from "./person-status";
-import { RoleBadge } from "./role-badge";
 
 const PANEL = "border-border rounded-3xl border p-6 dark:border-[#2B3B5F]";
 

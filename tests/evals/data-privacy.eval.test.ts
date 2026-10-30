@@ -22,6 +22,10 @@ import {
   parseFeedbackRecord,
 } from "@/features/admin/feedback/schemas/feedback.schema";
 import {
+  parseEmailed,
+  parseInvites,
+} from "@/features/admin/invites/schemas/invite.schema";
+import {
   parsePeopleList,
   parsePersonCard,
 } from "@/features/admin/people/schemas/people.schema";
@@ -106,6 +110,15 @@ const PERSON_ALLOW_LIST = [
   "status",
   "systemRole",
   "trackName",
+];
+const INVITE_ALLOW_LIST = [
+  "cohortRole",
+  "createdAt",
+  "email",
+  "expiresAt",
+  "id",
+  "revokedAt",
+  "status",
 ];
 const PERSON_CARD_ALLOW_LIST = [
   "displayName",
@@ -408,6 +421,36 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       );
 
       expect(keyPaths(page?.people[0])).toEqual(PERSON_ALLOW_LIST);
+    });
+
+    it("keeps only the invite fields the Invites page reads, never who sent it or any link", () => {
+      const page = parseInvites({
+        items: [
+          {
+            id: "i-1",
+            email: "ada@campus.local",
+            status: "pending",
+            cohortId: "c-1",
+            cohortRole: "student",
+            systemRole: "user",
+            expiresAt: "2026-10-10T12:00:00.000Z",
+            invitedBy: "22222222-2222-4222-8222-222222222222",
+            revokedBy: null,
+            revokedAt: null,
+            flaggedAt: null,
+            flagMessage: "typo",
+            createdAt: "2026-10-03T12:00:00.000Z",
+            inviteLink: "https://campus.example/invitation?token=secret",
+            ...UNEXPECTED,
+          },
+        ],
+        meta: { page: 1, totalPages: 1, total: 1, perPage: 20, ...UNEXPECTED },
+      });
+
+      expect(keyPaths(page?.invites[0])).toEqual(INVITE_ALLOW_LIST);
+      expect(
+        parseEmailed({ emailStatus: "sent", inviteLink: "https://x?token=s" }),
+      ).toBe(true);
     });
 
     it("keeps only the profile card fields the person page reads", () => {
