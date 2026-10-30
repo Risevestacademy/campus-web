@@ -6,7 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { Button } from "@/shared/ui/button";
 
-import { splitAtCap } from "../services/proximity-meeting/proximity-meeting";
+import { splitAtCap } from "../services/meeting/meeting";
 import type { Meeting, MeetingParticipant } from "../types/active-campus.types";
 import { useCampusView } from "./campus-view-provider";
 import {

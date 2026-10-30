@@ -15,11 +15,7 @@ import type {
   MeetingParticipant,
   OpenedMeetingLayout,
 } from "../../types/active-campus.types";
-import {
-  selectMeeting,
-  splitAtCap,
-  visibleMeetingLayout,
-} from "./proximity-meeting";
+import { selectMeeting, splitAtCap, visibleMeetingLayout } from "./meeting";
 
 function avatar(
   userId: string,

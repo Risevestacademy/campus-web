@@ -1,4 +1,4 @@
-# Proximity audio
+# Call audio
 
 Who you hear, from World. World decides the room (`call`) and its hearing;
 presence keeps who you meet (`meetingRoster`). This module joins that room,
@@ -9,7 +9,7 @@ session's `MeetingMediaTransport`, so capture stays in the media session.
 ## Interface
 
 ```ts
-const session = createProximityAudioSession({
+const session = createCallAudioSession({
   now,
   pinMediaUrl,
   recordFirstAudioMilliseconds,
@@ -20,7 +20,7 @@ session.applyWorldMessage(message, presence); // every parsed World frame
 session.applyPresence(presence); // presence that changed without a frame
 ```
 
-The Presence Session uses `createBrowserProximityAudioSession()`, which binds
+The Presence Session uses `createBrowserCallAudioSession()`, which binds
 `pinMediaUrl` to `NEXT_PUBLIC_MEDIA_URL`, `now` to `performance.now`, first
 audio to PostHog, and the LiveKit adapter as `roomTransport`.
 
@@ -38,11 +38,11 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 
 ## Modules
 
-| Module                               | Owns                                                      |
-| ------------------------------------ | --------------------------------------------------------- |
-| `proximity-audio-session.ts`         | call lifecycle, subscription policy, gain, status, timing |
-| `livekit-meeting-room-transport.ts`  | one LiveKit `Room` as a `MeetingRoomConnection`           |
-| `browser-proximity-audio-session.ts` | production composition: media host pin, clock, analytics  |
+| Module                              | Owns                                                      |
+| ----------------------------------- | --------------------------------------------------------- |
+| `call-audio-session.ts`             | call lifecycle, subscription policy, gain, status, timing |
+| `livekit-meeting-room-transport.ts` | one LiveKit `Room` as a `MeetingRoomConnection`           |
+| `browser-call-audio-session.ts`     | production composition: media host pin, clock, analytics  |
 
 ## LiveKit adapter
 
@@ -115,7 +115,7 @@ to explain it.
 ## Tests
 
 ```bash
-pnpm vitest run --project=unit features/campus/services/proximity-audio
+pnpm vitest run --project=unit features/campus/services/call-audio
 pnpm eval:proximity-audio
 pnpm eval:privacy
 ```

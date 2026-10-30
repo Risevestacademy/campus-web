@@ -4,7 +4,7 @@ import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 import { SquaresFourIcon } from "@phosphor-icons/react/dist/ssr/SquaresFour";
 import { motion, useIsPresent, useReducedMotion } from "motion/react";
 
-import { visibleMeetingLayout } from "../services/proximity-meeting/proximity-meeting";
+import { visibleMeetingLayout } from "../services/meeting/meeting";
 import type {
   Meeting,
   MeetingParticipant,

@@ -4,7 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 
 import { presenceFor } from "@/core/presence";
 
-import { selectMeeting } from "../services/proximity-meeting/proximity-meeting";
+import { selectMeeting } from "../services/meeting/meeting";
 
 // A selector that builds a fresh object each call would loop
 // useSyncExternalStore: select the stable references, then derive.

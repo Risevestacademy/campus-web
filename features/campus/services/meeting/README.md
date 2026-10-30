@@ -1,4 +1,4 @@
-# Proximity meeting
+# Meeting
 
 Who the meeting view shows, from presence. Presence keeps who you meet
 (`meetingRoster`: your room mates under room hearing, whoever is near
@@ -32,6 +32,6 @@ that built a fresh object would loop `useSyncExternalStore`.
 ## Tests
 
 ```bash
-pnpm vitest run --project=unit features/campus/services/proximity-meeting
+pnpm vitest run --project=unit features/campus/services/meeting
 pnpm eval:proximity
 ```

@@ -12,13 +12,13 @@ import type {
   LocalPublicationChange,
   RemoteMediaPublication,
 } from "../media-session/contracts";
+import { createCallAudioSession } from "./call-audio-session";
 import {
   type MeetingRoomConnection,
   type MeetingRoomEvents,
   type MeetingRoomTransport,
   RoomAccessDeniedError,
 } from "./contracts";
-import { createProximityAudioSession } from "./proximity-audio-session";
 
 const SELF_ID = "11111111-1111-4111-8111-111111111111";
 const NEARBY_ID = "22222222-2222-4222-8222-222222222222";
@@ -143,7 +143,7 @@ function setup(
   };
   const recordFirstAudioMilliseconds = vi.fn();
   const refreshCall = vi.fn(() => true);
-  const session = createProximityAudioSession({
+  const session = createCallAudioSession({
     now: options.now ?? (() => 0),
     pinMediaUrl: options.pinMediaUrl ?? ((url) => url),
     recordFirstAudioMilliseconds,
@@ -209,7 +209,7 @@ function remoteMicrophone(): RemoteMediaPublication {
   };
 }
 
-describe("createProximityAudioSession", () => {
+describe("createCallAudioSession", () => {
   it.each([
     ["room", 1],
     ["proximity", 0.5],
