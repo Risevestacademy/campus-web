@@ -1,9 +1,8 @@
 import { cn } from "cn";
 
-import { roleLabelOf } from "../people-format";
-import type { Person } from "../types/people.types";
+import { type AdminRole, roleLabelOf } from "./role-labels";
 
-function toneFor({ systemRole, role }: Pick<Person, "systemRole" | "role">) {
+function toneFor({ systemRole, role }: AdminRole) {
   if (systemRole !== "user") {
     return "bg-lemon-100 text-lemon-800 dark:bg-lemon-900/40 dark:text-lemon-300";
   }
@@ -13,11 +12,7 @@ function toneFor({ systemRole, role }: Pick<Person, "systemRole" | "role">) {
   return "text-foreground-secondary bg-[#EFFAFF] dark:bg-[#2B3B5F]";
 }
 
-export function RoleBadge({
-  person,
-}: {
-  person: Pick<Person, "systemRole" | "role">;
-}) {
+export function RoleBadge({ person }: { person: AdminRole }) {
   return (
     <span
       className={cn(

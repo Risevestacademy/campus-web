@@ -178,8 +178,11 @@ export class FakeApi {
     await this.scenario({ cohorts: pages });
   }
 
-  // Replies for routes no other script covers, keyed "METHOD /path".
-  async scriptRoutes(routes: Record<string, ScriptedReply>): Promise<void> {
+  // Replies for routes no other script covers, keyed "METHOD /path". A list
+  // answers in order and repeats its last reply.
+  async scriptRoutes(
+    routes: Record<string, ScriptedReply | ScriptedReply[]>,
+  ): Promise<void> {
     await this.scenario({ routes });
   }
 
@@ -235,10 +238,7 @@ export class FakeApi {
     await this.control.post("/__scenario", { data: scenario });
   }
 
-  private async requestsTo(
-    method: string,
-    path: string,
-  ): Promise<LoggedRequest[]> {
+  async requestsTo(method: string, path: string): Promise<LoggedRequest[]> {
     const response = await this.control.get("/__requests");
     const requests = (await response.json()) as LoggedRequest[];
     return requests.filter(

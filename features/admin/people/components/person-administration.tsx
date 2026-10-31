@@ -4,9 +4,9 @@ import Link from "next/link";
 
 import { getServerApi } from "@/core/api/client/server";
 
+import { Notice } from "../../notice";
 import { peopleHref } from "../people-href";
 import { readPerson } from "../services/person-read.service";
-import { Notice } from "./notice";
 import { PersonDetail } from "./person-detail";
 
 function Page({ children }: { children: React.ReactNode }) {
