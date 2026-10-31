@@ -222,7 +222,7 @@ test("Invite people shows only the fields a role takes", async ({ page }) => {
   await expect(track).toBeVisible();
   await expect(group).toHaveCount(0);
   await role.selectOption("mentor");
-  await expect(track).toHaveCount(0);
+  await expect(track).toBeVisible();
   await expect(group).toHaveCount(0);
   await role.selectOption("admin");
   await expect(track).toHaveCount(0);

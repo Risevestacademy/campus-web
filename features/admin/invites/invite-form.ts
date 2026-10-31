@@ -28,11 +28,12 @@ interface FieldRules {
 }
 
 // An admin invite is not placed in a cohort. A pod is a set of students, so
-// campus-api refuses a group on any other role; a mentor takes no track.
+// campus-api refuses a group on any other role; a track is optional for every
+// cohort role but a student.
 const FIELD_RULES: Readonly<Record<InviteRole, FieldRules>> = {
   student: { track: "required", group: "optional" },
   professor: { track: "optional", group: "off" },
-  mentor: { track: "off", group: "off" },
+  mentor: { track: "optional", group: "off" },
   admin: { track: "off", group: "off" },
 };
 

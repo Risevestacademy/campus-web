@@ -149,7 +149,7 @@ describe("which fields each role shows", () => {
   it.each([
     ["student", true, true],
     ["professor", true, false],
-    ["mentor", false, false],
+    ["mentor", true, false],
     ["admin", false, false],
   ])("%s: track shown %s, group shown %s", async (role, track, group) => {
     renderDialog();
@@ -168,7 +168,7 @@ describe("which fields each role shows", () => {
     }
   });
 
-  it("clears a track and group the new role cannot take", async () => {
+  it("keeps the track and drops the group when a student becomes a mentor", async () => {
     const bodies = recordInvites(CREATED);
     renderDialog();
     await openDialog();
@@ -184,6 +184,7 @@ describe("which fields each role shows", () => {
       email: "ada@campus.local",
       cohortId: "c-1",
       cohortRole: "mentor",
+      cohortTrackId: "ct-1",
     });
   });
 

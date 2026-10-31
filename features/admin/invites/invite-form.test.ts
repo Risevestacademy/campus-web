@@ -46,8 +46,11 @@ describe("field rules by role", () => {
     });
   });
 
-  it("gives a mentor neither: no track, and campus-api allows a group on students only", () => {
-    expect(fieldRulesFor("mentor")).toEqual({ track: "off", group: "off" });
+  it("gives a mentor an optional track and no group, since campus-api allows a group on students only", () => {
+    expect(fieldRulesFor("mentor")).toEqual({
+      track: "optional",
+      group: "off",
+    });
   });
 
   it("gives an admin neither, since an admin is not placed in a cohort", () => {
@@ -168,16 +171,17 @@ describe("building the requests", () => {
     });
   });
 
-  it("never sends a track or group for a mentor", () => {
+  it("sends a mentor's track but never a group", () => {
     expect(
       buildInviteRequests(
         COHORT,
-        values({ role: "mentor", groupId: "g-1" }),
+        values({ role: "mentor", trackId: "ct-1", groupId: "g-1" }),
       )[0],
     ).toEqual({
       email: "ada@campus.local",
       cohortId: COHORT,
       cohortRole: "mentor",
+      cohortTrackId: "ct-1",
     });
   });
 
