@@ -2,6 +2,7 @@ import { expect, type Page } from "@playwright/test";
 
 import { enterCampus, joinButton } from "./support/campus-entry";
 import {
+  invites,
   membership,
   type ScriptedReply,
   sessions,
@@ -46,71 +47,73 @@ function row(page: Page) {
   return page.getByRole("row", { name: /ada@campus.local/ });
 }
 
+const ROUTES: Record<string, ScriptedReply | ScriptedReply[]> = {
+  "GET /v1/invites": INVITES_PAGE,
+  [`POST /v1/invites/${INVITE_ID}/resend`]: {
+    status: 200,
+    body: { emailStatus: "sent" },
+  },
+  [`POST /v1/invites/${INVITE_ID}/revoke`]: {
+    status: 200,
+    body: { status: "revoked" },
+  },
+  "GET /v1/cohorts/c-3/profiles": { status: 200, body: [] },
+  "GET /v1/cohorts/c-3": {
+    status: 200,
+    body: {
+      id: "c-3",
+      name: "Cohort 3",
+      code: "C3",
+      tracks: [
+        {
+          id: "ct-1",
+          track: {
+            id: "t-1",
+            name: "Backend",
+            code: "BE",
+            description: null,
+          },
+        },
+      ],
+    },
+  },
+  "GET /v1/cohorts/c-3/mentorship-groups": {
+    status: 200,
+    body: {
+      items: [],
+      meta: { page: 1, perPage: 100, total: 0, totalPages: 0 },
+    },
+  },
+  "POST /v1/invites": { status: 201, body: { emailStatus: "sent" } },
+  "POST /v1/invites/import": {
+    status: 200,
+    body: {
+      total: 2,
+      invited: 2,
+      failed: 0,
+      rows: [
+        {
+          line: 2,
+          email: "ada@campus.local",
+          outcome: "invited",
+          emailStatus: "sent",
+        },
+        {
+          line: 3,
+          email: "grace@campus.local",
+          outcome: "invited",
+          emailStatus: "sent",
+        },
+      ],
+    },
+  },
+};
+
 test.beforeEach(async ({ baseURL, context, fakeApi, page }) => {
   await installSanityMapStub(page);
   await signIn(context, baseURL);
   await fakeApi.scriptSession(sessions.admin(membership("c-3", "Cohort 3")));
-  await fakeApi.scriptRoutes({
-    "GET /v1/invites": INVITES_PAGE,
-    [`POST /v1/invites/${INVITE_ID}/resend`]: {
-      status: 200,
-      body: { emailStatus: "sent" },
-    },
-    [`POST /v1/invites/${INVITE_ID}/revoke`]: {
-      status: 200,
-      body: { status: "revoked" },
-    },
-    "GET /v1/cohorts/c-3/profiles": { status: 200, body: [] },
-    "GET /v1/cohorts/c-3": {
-      status: 200,
-      body: {
-        id: "c-3",
-        name: "Cohort 3",
-        code: "C3",
-        tracks: [
-          {
-            id: "ct-1",
-            track: {
-              id: "t-1",
-              name: "Backend",
-              code: "BE",
-              description: null,
-            },
-          },
-        ],
-      },
-    },
-    "GET /v1/cohorts/c-3/mentorship-groups": {
-      status: 200,
-      body: {
-        items: [],
-        meta: { page: 1, perPage: 100, total: 0, totalPages: 0 },
-      },
-    },
-    "POST /v1/invites": { status: 201, body: { emailStatus: "sent" } },
-    "POST /v1/invites/import": {
-      status: 200,
-      body: {
-        total: 2,
-        invited: 2,
-        failed: 0,
-        rows: [
-          {
-            line: 2,
-            email: "ada@campus.local",
-            outcome: "invited",
-            emailStatus: "sent",
-          },
-          {
-            line: 3,
-            email: "grace@campus.local",
-            outcome: "invited",
-            emailStatus: "sent",
-          },
-        ],
-      },
-    },
-  });
+  await fakeApi.scriptRoutes(ROUTES);
 });
 
 test("changing tabs stays in the page and asks for that status", async ({
@@ -205,6 +208,36 @@ test("Invite people sends one invite per address with the chosen placement", asy
       cohortTrackId: "ct-1",
     },
   ]);
+});
+
+test("A session that ends mid-send keeps the unsent addresses in the popup", async ({
+  page,
+  fakeApi,
+}) => {
+  await fakeApi.scriptRoutes({
+    ...ROUTES,
+    "POST /v1/invites": [
+      { status: 201, body: { emailStatus: "sent" } },
+      invites.failure(401, "UNAUTHENTICATED"),
+    ],
+  });
+  await enterCampus(page, INVITES);
+
+  await page.getByRole("button", { name: "Invite people" }).click();
+  const dialog = page.getByRole("dialog", { name: "Invite people" });
+  await dialog
+    .getByRole("textbox", { name: "Emails" })
+    .fill("ada@campus.local, grace@campus.local, linus@campus.local");
+  await dialog.getByRole("combobox", { name: /^Track/ }).selectOption("ct-1");
+  await dialog.getByRole("button", { name: "Send 3 invites" }).click();
+
+  await expect(page.getByText("1 invite sent, 2 not sent")).toBeVisible();
+  await expect(dialog).toBeVisible();
+  const unsent = dialog.getByRole("alert");
+  await expect(unsent).toContainText("grace@campus.local");
+  await expect(unsent).toContainText("linus@campus.local");
+  await expect(unsent).not.toContainText("ada@campus.local");
+  await expect(page).toHaveURL(new RegExp(`${INVITES}$`));
 });
 
 test("Invite people shows only the fields a role takes", async ({ page }) => {

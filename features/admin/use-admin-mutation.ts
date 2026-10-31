@@ -21,7 +21,9 @@ interface AdminMutationOptions<
   // The outcome is the one the request returned, so a caller reads what it
   // needs from it instead of keeping a copy on the side.
   onSucceeded: (variables: TVariables, outcome: TOutcome) => void;
-  refreshAfterSuccess?: boolean;
+  // A function lets an outcome opt out, for one that must leave the page as it
+  // is, such as a popup still holding work the user has to retry.
+  refreshAfterSuccess?: boolean | ((outcome: TOutcome) => boolean);
 }
 
 export function useAdminMutation<
@@ -50,7 +52,11 @@ export function useAdminMutation<
       if (outcome.problem) return;
 
       onSucceeded(variables, outcome);
-      if (refreshAfterSuccess) router.refresh();
+      const refresh =
+        typeof refreshAfterSuccess === "function"
+          ? refreshAfterSuccess(outcome)
+          : refreshAfterSuccess;
+      if (refresh) router.refresh();
     },
     onSettled: () => {
       inFlight.current = false;

@@ -41,6 +41,15 @@ function announce({ sent, notEmailed, failures }: Done) {
   }
 }
 
+// The refresh would send a signed-out session to sign-in and unmount the popup
+// that still holds the addresses to retry.
+function keepsUnsentAddresses(outcome: SendOutcome) {
+  return (
+    outcome.kind === "done" &&
+    outcome.failures.some(({ problem }) => problem === "signed-out")
+  );
+}
+
 export function useSendInvites({
   onDone,
 }: {
@@ -62,6 +71,7 @@ export function useSendInvites({
       announce(outcome);
       onDone(outcome.failures);
     },
+    refreshAfterSuccess: (outcome) => !keepsUnsentAddresses(outcome),
   });
 
   return { send: mutate, ...controls };
