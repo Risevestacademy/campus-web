@@ -11,7 +11,7 @@ same cohort never starts one; see [Presence Tab](#presence-tab).
 ## Interface
 
 - `PresenceSessionProvider`: creates the admission store, the media store, the
-  Presence Tab, the world session and one proximity-audio session (the media
+  Presence Tab, the world session and one call-audio session (the media
   store's transport, fed every world frame through `onMessage` and every
   close through `onRemoteParticipantsCleared`), and follows
   the tab's status and world's outcomes. It needs the shared refresh port (`SessionRefreshProvider` from

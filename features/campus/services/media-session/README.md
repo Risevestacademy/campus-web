@@ -22,7 +22,7 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
   (`idle`, `connecting`, `connected`, `unavailable`); no room, URL or token
   reaches the store. `handleLocalPublicationChange` is called only while
   connected, so pre-join never publishes. Production uses
-  `noopMeetingMediaTransport` until proximity audio is wired in.
+  `noopMeetingMediaTransport` until call audio is wired in.
 
 Tests inject a store through `MediaSessionProvider`.
 

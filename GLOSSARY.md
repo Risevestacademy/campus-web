@@ -57,6 +57,12 @@ A cohort's live campus that a member enters after the Join Gate: the map or
 meeting view, the sidebar panels, and the campus controls.
 _Avoid_: Campus room, main campus
 
+**Meeting view**:
+The part of the Active Campus that shows your Meeting roster: an avatar stack
+titled "Nearby" or with the room's name, and the participant tiles. It shows
+nothing while the roster is empty.
+_Avoid_: Call view, room view
+
 **Presence Session**:
 One browser document's joined, real-time presence in one Cohort. It starts at
 Join, continues across every page of that Cohort, and ends on Leave, on
@@ -215,8 +221,20 @@ _Avoid_: Meeting, room grant, Presence Session
 
 **Hearing**:
 How a Call decides who hears whom: `proximity` (only nearby members, louder
-when closer) or `room` (everyone in the space).
+when closer) or `room` (everyone in the space at full volume, nobody outside
+it, switching the moment a member crosses the threshold).
 _Avoid_: Audio mode
+
+**Meeting roster**:
+The members you meet right now, in the order they arrived: everyone else in
+your space under room Hearing, the members World names as nearby otherwise.
+Who you hear and who the meeting view shows are both the Meeting roster.
+_Avoid_: Nearby list, room members
+
+**Encounter**:
+A stretch during which your Meeting roster is not empty. A meeting view
+opened in one Encounter does not reopen by itself in the next.
+_Avoid_: Session, meeting
 
 **Audible radius**:
 The distance in tiles at which a nearby member fades to silence under

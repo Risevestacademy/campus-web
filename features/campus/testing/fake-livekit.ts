@@ -1,7 +1,7 @@
 import { type Mock, vi } from "vitest";
 
+import type { LivekitRoomModule } from "../services/call-audio/livekit-meeting-room-transport";
 import type { LivekitModule } from "../services/connection-check/livekit-probe";
-import type { LivekitRoomModule } from "../services/proximity-audio/livekit-meeting-room-transport";
 import {
   createTestMediaStream,
   createTestMediaTrack,
@@ -200,7 +200,7 @@ export type SubscriptionRecord = Readonly<{
   subscribed: boolean;
 }>;
 
-// Mirrors the slice of livekit-client's Room the proximity-audio adapter uses.
+// Mirrors the slice of livekit-client's Room the call-audio adapter uses.
 // Subscribing never delivers a track by itself: tests call deliver(), as the
 // SFU answers later and may not answer at all.
 export function fakeLivekitRoom() {

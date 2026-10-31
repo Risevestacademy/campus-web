@@ -1,5 +1,5 @@
 import { presenceFor } from "@/core/presence";
-import type { Avatar, ServerMessage } from "@/core/realtime";
+import type { Avatar, Call, ServerMessage } from "@/core/realtime";
 
 import { serverFrames } from "./world-frames";
 
@@ -30,6 +30,27 @@ export function nearbyFrame(...people: Avatar[]): ServerMessage {
 
 export function joinedFrame(player: Avatar): ServerMessage {
   return { type: "joined", player };
+}
+
+export function spaceChangedFrame(
+  person: Avatar,
+  spaceKey: string,
+): ServerMessage {
+  return { type: "spaceChanged", userId: person.userId, spaceKey };
+}
+
+export const MEDIA_TOKEN = "media-token";
+
+export function callFrame(hearing: Call["hearing"]): ServerMessage {
+  return {
+    type: "call",
+    call: {
+      url: "wss://media.example.test",
+      token: MEDIA_TOKEN,
+      hearing,
+      audibleRadius: 6,
+    },
+  };
 }
 
 export function seedPresence(cohortId: string, ...near: Avatar[]) {

@@ -130,7 +130,7 @@ result.
   `call: null` means no call. `room` and `subscribeRadius` are stripped: the
   token already names the room. A `hearing` world added later reads as
   `"unknown"`.
-  The token is a media secret: proximity audio holds it only for the join
+  The token is a media secret: call audio holds it only for the join
   that uses it.
 - Objects strip unknown fields rather than reject them. The schema's
   `additionalProperties: false` describes what world sends today, not a

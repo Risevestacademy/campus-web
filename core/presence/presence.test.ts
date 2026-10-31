@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Avatar, ServerMessage } from "@/core/realtime";
+import { callFrame, MEDIA_TOKEN } from "@/tests/fixtures/nearby-presence";
 
 import {
   applyServerMessage,
@@ -272,6 +273,7 @@ describe("applyServerMessage", () => {
       player: { userId: "ada", x: 5, y: 7, facing: "right" },
     },
     { type: "nearby", userIds: [] },
+    { type: "call", call: null },
   ])(
     "returns the same presence for $type that changes nobody it knows",
     (message) => {
@@ -360,7 +362,11 @@ describe("nearby", () => {
     const closed = withoutRemoteParticipants(near);
 
     expect([reconnected.nearby, reconnected.encounter]).toEqual([[], 1]);
-    expect([closed.nearby, closed.encounter]).toEqual([[], 1]);
+    expect([closed.nearby, closed.meetingRoster, closed.encounter]).toEqual([
+      [],
+      [],
+      1,
+    ]);
   });
 
   it("is synced from a snapshot until the socket closes, and keeps the map and space names meanwhile", () => {
@@ -385,6 +391,205 @@ describe("nearby", () => {
         spaces: [],
       }).synced,
     ).toBe(true);
+  });
+});
+
+describe("meeting roster", () => {
+  const LIN: Avatar = { ...GRACE, userId: "lin", displayName: "Lin" };
+
+  function inLibrary(avatar: Avatar): Avatar {
+    return { ...avatar, spaceKey: "library" };
+  }
+
+  function stepInto(userId: string, spaceKey: string): ServerMessage {
+    return { type: "spaceChanged", userId, spaceKey };
+  }
+
+  function presenceAfter(players: Avatar[], ...messages: ServerMessage[]) {
+    return [
+      {
+        type: "welcome",
+        userId: "ada",
+        connectionId: "connection-1",
+        heartbeatSeconds: 30,
+        stepMs: 100,
+        tickMs: 50,
+        displayName: "Ada",
+        spriteKey: null,
+      } satisfies ServerMessage,
+      {
+        type: "snapshot",
+        map: MAP,
+        players,
+        spaces: [],
+      } satisfies ServerMessage,
+      ...messages,
+    ].reduce(applyServerMessage, EMPTY_PRESENCE);
+  }
+
+  it.each([
+    {
+      hearing: "proximity",
+      players: [ADA, GRACE, LIN],
+      messages: [
+        callFrame("proximity"),
+        { type: "nearby", userIds: ["lin"] },
+        { type: "nearby", userIds: ["ada", "grace", "lin", "stranger"] },
+      ],
+    },
+    {
+      hearing: "room",
+      players: [inLibrary(ADA), GRACE, inLibrary(LIN)],
+      messages: [callFrame("room"), stepInto("grace", "library")],
+    },
+  ] satisfies {
+    hearing: string;
+    players: Avatar[];
+    messages: ServerMessage[];
+  }[])(
+    "lists who you meet under $hearing hearing in the order they arrived, without you",
+    ({ players, messages }) => {
+      expect(presenceAfter(players, ...messages).meetingRoster).toEqual([
+        "lin",
+        "grace",
+      ]);
+    },
+  );
+
+  it("counts a room encounter when the first mate arrives, not when you enter an empty room", () => {
+    const enteredAlone = presenceAfter(
+      [ADA, GRACE],
+      stepInto("ada", "library"),
+      callFrame("room"),
+    );
+    const mateArrived = applyServerMessage(
+      enteredAlone,
+      stepInto("grace", "library"),
+    );
+
+    expect([enteredAlone.encounter, mateArrived.encounter]).toEqual([0, 1]);
+    expect(mateArrived.meetingRoster).toEqual(["grace"]);
+  });
+
+  it.each([
+    ["your own step into another space", stepInto("ada", "_default")],
+    [
+      "a reconnect snapshot",
+      {
+        type: "snapshot",
+        map: MAP,
+        players: [ADA, inLibrary(GRACE), LIN],
+        spaces: [],
+      } satisfies ServerMessage,
+    ],
+  ])(
+    "meets nobody after %s until World sends that space's call",
+    (_case, message) => {
+      const inRoom = presenceAfter(
+        [inLibrary(ADA), inLibrary(GRACE), LIN],
+        callFrame("room"),
+      );
+
+      const waiting = applyServerMessage(inRoom, message);
+      const called = applyServerMessage(waiting, callFrame("proximity"));
+
+      expect(waiting.meetingRoster).toEqual([]);
+      expect(called.hearing).toBe("proximity");
+    },
+  );
+
+  it("opens a new encounter in a room even before World empties the corridor's nearby", () => {
+    const inCorridor = presenceAfter(
+      [ADA, GRACE, inLibrary(LIN)],
+      callFrame("proximity"),
+      { type: "nearby", userIds: ["grace"] },
+    );
+
+    const inRoom = [stepInto("ada", "library"), callFrame("room")].reduce(
+      applyServerMessage,
+      inCorridor,
+    );
+
+    expect(inRoom.meetingRoster).toEqual(["lin"]);
+    expect(inRoom.encounter).toBe(inCorridor.encounter + 1);
+  });
+
+  function nearGraceInCorridor() {
+    return presenceAfter([ADA, GRACE], callFrame("proximity"), {
+      type: "nearby",
+      userIds: ["grace"],
+    });
+  }
+
+  it.each([
+    ["a proximity call", callFrame("proximity")],
+    ["no call", { type: "call", call: null } satisfies ServerMessage],
+  ])(
+    "meets nobody from the space you left when %s arrives before World's next nearby",
+    (_case, call) => {
+      const inCorridor = nearGraceInCorridor();
+
+      const crossed = [stepInto("ada", "courtyard"), call].reduce(
+        applyServerMessage,
+        inCorridor,
+      );
+
+      expect([crossed.meetingRoster, crossed.encounter]).toEqual([
+        [],
+        inCorridor.encounter,
+      ]);
+    },
+  );
+
+  it("still meets whoever crosses with you before World's next nearby", () => {
+    const crossedTogether = [
+      stepInto("ada", "courtyard"),
+      stepInto("grace", "courtyard"),
+      callFrame("proximity"),
+    ].reduce(applyServerMessage, nearGraceInCorridor());
+
+    expect(crossedTogether.meetingRoster).toEqual(["grace"]);
+  });
+
+  it.each([
+    ["no call", { type: "call", call: null } satisfies ServerMessage],
+    ["a hearing world added later", callFrame("unknown")],
+  ])("meets whoever is near with %s", (_case, call) => {
+    const presence = presenceAfter([ADA, GRACE], callFrame("room"), call, {
+      type: "nearby",
+      userIds: ["grace"],
+    });
+
+    expect([presence.hearing, presence.meetingRoster]).toEqual([
+      null,
+      ["grace"],
+    ]);
+  });
+
+  it("keeps the hearing of World's call and never its token", () => {
+    const presence = presenceAfter([ADA], callFrame("room"));
+
+    const serialized = JSON.stringify(presence, (_key, value: unknown) =>
+      value instanceof Map ? [...value] : value,
+    );
+
+    expect(presence.hearing).toBe("room");
+    expect(serialized).not.toContain(MEDIA_TOKEN);
+  });
+
+  it("keeps the same roster through a movement tick", () => {
+    const before = presenceAfter([ADA, GRACE], {
+      type: "nearby",
+      userIds: ["grace"],
+    });
+
+    const after = applyServerMessage(before, {
+      type: "moved",
+      players: [{ userId: "grace", x: 1, y: 0, facing: "right" }],
+    });
+
+    expect(after.meetingRoster).toBe(before.meetingRoster);
+    expect(after.encounter).toBe(before.encounter);
   });
 });
 
