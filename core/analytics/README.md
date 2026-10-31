@@ -123,10 +123,13 @@ sends no request at all and writes no `ph_*` cookie or storage.
   `ph_<token>_primary_window_exists`, which opting out leaves behind. Events
   captured before Reject may still be sent.
 - `PrivacyChoicesButton`, mounted in the root layout above the theme toggle,
-  and a "Privacy choices" item in the campus rail call
-  `openAnalyticsConsentChoices`. Both appear once the choice is known. A
-  reopened banner takes focus; a choice or Escape closes it and returns focus
-  to the opener. Escape keeps the earlier choice.
+  and a "Privacy choices" item in the campus rail are a switch
+  (`toggleAnalyticsConsentChoices`): one press shows the banner, the next hides
+  it. Both appear once the choice is known and stay after a choice, so it can
+  still be changed. Hiding a choice not yet made leaves it pending (nothing is
+  granted) and the next press brings it back. A reopened banner takes focus; a
+  choice or Escape closes it and returns focus to the opener. Escape keeps the
+  earlier choice.
 
 The choice lives in PostHog's consent key, renamed to `campus_analytics_consent`
 (`consent_persistence_name`, `ANALYTICS_CONSENT_KEY`; `1` or `0`) in

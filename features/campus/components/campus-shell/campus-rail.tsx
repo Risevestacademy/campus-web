@@ -13,10 +13,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import logoMark from "@/assets/icon-inverse.svg";
-import {
-  openAnalyticsConsentChoices,
-  useAnalyticsConsent,
-} from "@/core/analytics/consent";
+import { useAnalyticsConsent } from "@/core/analytics/consent";
 import { campusHref } from "@/core/navigation";
 import { badgeVariants } from "@/shared/ui/badge";
 import { buttonVariants } from "@/shared/ui/button";
@@ -90,12 +87,12 @@ function ThemeRailButton() {
 
 // The rail hides the floating Privacy choices control, so it offers its own.
 function PrivacyRailButton() {
-  const { canReopen } = useAnalyticsConsent();
+  const { canReopen, isOpen, toggle } = useAnalyticsConsent();
 
   if (!canReopen) return null;
 
   return (
-    <RailButton label="Privacy choices" onClick={openAnalyticsConsentChoices}>
+    <RailButton label="Privacy choices" isPressed={isOpen} onClick={toggle}>
       <ShieldCheckIcon aria-hidden size="1.3rem" weight="bold" />
     </RailButton>
   );

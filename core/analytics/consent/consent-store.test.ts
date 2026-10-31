@@ -25,7 +25,11 @@ describe("analytics consent store", () => {
 
     const snapshot = store.getServerAnalyticsConsentSnapshot();
 
-    expect(snapshot).toEqual({ consent: "unknown", reviewing: false });
+    expect(snapshot).toEqual({
+      consent: "unknown",
+      reviewing: false,
+      dismissed: false,
+    });
     expect(store.isConsentChoiceOpen(snapshot)).toBe(false);
   });
 
@@ -42,6 +46,7 @@ describe("analytics consent store", () => {
     expect(store.getAnalyticsConsentSnapshot()).toEqual({
       consent: "pending",
       reviewing: false,
+      dismissed: false,
     });
   });
 
@@ -151,6 +156,56 @@ describe("analytics consent store", () => {
     expect(isOpen(store)).toBe(false);
   });
 
+  it("shows a made choice on one press of the switch and hides it on the next", async () => {
+    client.readAnalyticsConsent.mockResolvedValue("granted");
+    const store = await subscribedStore();
+
+    store.toggleAnalyticsConsentChoices();
+    expect(isOpen(store)).toBe(true);
+
+    store.toggleAnalyticsConsentChoices();
+    expect(isOpen(store)).toBe(false);
+    expect(client.grantAnalyticsConsent).not.toHaveBeenCalled();
+    expect(client.denyAnalyticsConsent).not.toHaveBeenCalled();
+  });
+
+  it("hides a choice not yet made without answering it, and brings it back", async () => {
+    const store = await subscribedStore();
+    expect(isOpen(store)).toBe(true);
+
+    store.toggleAnalyticsConsentChoices();
+    expect(isOpen(store)).toBe(false);
+    expect(store.getAnalyticsConsentSnapshot().consent).toBe("pending");
+    expect(client.grantAnalyticsConsent).not.toHaveBeenCalled();
+    expect(client.denyAnalyticsConsent).not.toHaveBeenCalled();
+
+    store.toggleAnalyticsConsentChoices();
+    expect(isOpen(store)).toBe(true);
+  });
+
+  it("closes a hidden choice for good once it is answered", async () => {
+    const store = await subscribedStore();
+    store.toggleAnalyticsConsentChoices();
+    store.toggleAnalyticsConsentChoices();
+
+    store.acceptAnalyticsConsent();
+
+    expect(isOpen(store)).toBe(false);
+    expect(store.getAnalyticsConsentSnapshot().dismissed).toBe(false);
+  });
+
+  it("does nothing on the switch before the stored choice is known or when analytics is unavailable", async () => {
+    const early = await import("./consent-store");
+    early.toggleAnalyticsConsentChoices();
+    expect(isOpen(early)).toBe(false);
+
+    vi.resetModules();
+    client.readAnalyticsConsent.mockResolvedValue("unavailable");
+    const unavailable = await subscribedStore();
+    unavailable.toggleAnalyticsConsentChoices();
+    expect(isOpen(unavailable)).toBe(false);
+  });
+
   it("closes a reopened choice without changing it", async () => {
     client.readAnalyticsConsent.mockResolvedValue("granted");
     const store = await subscribedStore();
@@ -161,6 +216,7 @@ describe("analytics consent store", () => {
     expect(store.getAnalyticsConsentSnapshot()).toEqual({
       consent: "granted",
       reviewing: false,
+      dismissed: false,
     });
     expect(client.grantAnalyticsConsent).not.toHaveBeenCalled();
     expect(client.denyAnalyticsConsent).not.toHaveBeenCalled();
@@ -187,6 +243,7 @@ describe("analytics consent store", () => {
     expect(store.getAnalyticsConsentSnapshot()).toEqual({
       consent: "denied",
       reviewing: false,
+      dismissed: false,
     });
     expect(client.denyAnalyticsConsent).not.toHaveBeenCalled();
   });
