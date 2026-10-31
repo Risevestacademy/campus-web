@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "cn";
+import type { Ref } from "react";
 
 import { useMediaElementRef } from "../hooks/use-media-element-ref";
 import type { MediaPublication } from "../services/media-session/contracts";
@@ -11,6 +12,7 @@ type MediaPublicationOutputProps = Readonly<{
   fallbackInitials?: string;
   fallbackLabel: string;
   label: string;
+  ref?: Ref<HTMLDivElement>;
   videoPublication?: MediaPublication;
 }>;
 
@@ -20,6 +22,7 @@ export function MediaPublicationOutput({
   fallbackInitials,
   fallbackLabel,
   label,
+  ref,
   videoPublication,
 }: MediaPublicationOutputProps) {
   const videoRef = useMediaElementRef(videoPublication);
@@ -29,6 +32,7 @@ export function MediaPublicationOutput({
 
   return (
     <div
+      ref={ref}
       data-video-state={showVideo ? "visible" : "fallback"}
       className={cn(
         "bg-surface relative grid size-full place-items-center overflow-hidden",

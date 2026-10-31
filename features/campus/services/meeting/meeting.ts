@@ -2,9 +2,11 @@ import { type Participant, type Presence, spaceNameOf } from "@/core/presence";
 
 import type {
   Meeting,
+  MeetingParticipant,
   MeetingTileLayout,
   OpenedMeetingLayout,
 } from "../../types/active-campus.types";
+import type { VideoLayer } from "../media-session/contracts";
 import { meetingParticipantOf } from "./participant-identity";
 
 type MeetingPresence = Pick<
@@ -70,4 +72,13 @@ export function visibleMeetingLayout(
     mode: "expanded",
     focusedTileId: focusIsNear ? layout.focusedTileId : null,
   };
+}
+
+export function tileVideoLayer(
+  layout: MeetingTileLayout,
+  participantId: MeetingParticipant["id"],
+): VideoLayer {
+  if (layout.mode === "compact") return "low";
+  if (layout.focusedTileId === null) return "medium";
+  return layout.focusedTileId === participantId ? "high" : "low";
 }
