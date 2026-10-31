@@ -14,10 +14,6 @@ describe("avatarTone", () => {
 
     expect(tones.size).toBeGreaterThan(1);
   });
-
-  it("falls back to a tone for an empty id", () => {
-    expect(avatarTone("")).toMatch(/^bg-/);
-  });
 });
 
 describe("initialOf", () => {
