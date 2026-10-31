@@ -8,22 +8,24 @@ import { CLIENT_ADDRESS_HEADER, readClientAddress } from "./client-address";
 import type { components } from "./generated/schema";
 import {
   appendRefreshAttemptedCookie,
-  AUTH_COOKIE_PATH,
   copyAuthSetCookies,
   expireCookies,
   findAuthCookies,
-  findCookieValue,
   hasSessionCookie,
   type ScopedCookie,
-  serializeProxyCookie,
   startsSession,
 } from "./proxy-cookie-policy";
+import {
+  appendReturnCookie,
+  type ParseReturnTo,
+  readRequestedReturnTo,
+  removeRequestedReturnTo,
+  rewriteSuccessfulOauthDestination,
+} from "./proxy-oauth-policy";
 import { findForwardedRoute } from "./upstream-routes";
 
 type ExceptionCode = components["schemas"]["ExceptionCode"];
 
-const OAUTH_RETURN_COOKIE_NAME = "campus_oauth_return_to";
-const OAUTH_RETURN_MAX_AGE_SECONDS = 600;
 const AUTH_ROUTE_PREFIX = "/v1/auth/";
 const GOOGLE_AUTH_ROUTE = "/v1/auth/google";
 const GOOGLE_CALLBACK_ROUTE = "/v1/auth/google/callback";
@@ -61,8 +63,6 @@ const RESPONSE_HEADERS = [
   "x-ratelimit-reset",
 ];
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
-
-type ParseReturnTo = (value: string | undefined) => string | undefined;
 
 interface ApiProxyOptions {
   baseUrl: string | (() => string);
@@ -126,43 +126,6 @@ function copyHeaders(source: Headers, names: readonly string[]): Headers {
   return headers;
 }
 
-function readRequestedReturnTo(
-  requestUrl: string,
-  parseReturnTo: ParseReturnTo,
-): string | undefined {
-  return parseReturnTo(
-    new URL(requestUrl).searchParams.get("returnTo") ?? undefined,
-  );
-}
-
-function readStoredReturnTo(
-  request: Request,
-  parseReturnTo: ParseReturnTo,
-): string | undefined {
-  return parseReturnTo(
-    findCookieValue(request.headers.get("cookie"), OAUTH_RETURN_COOKIE_NAME),
-  );
-}
-
-function appendReturnCookie(
-  headers: Headers,
-  returnTo: string | undefined,
-  secure: boolean,
-): void {
-  headers.append(
-    "set-cookie",
-    serializeProxyCookie(
-      {
-        name: OAUTH_RETURN_COOKIE_NAME,
-        value: returnTo ?? "",
-        path: AUTH_COOKIE_PATH,
-        maxAge: returnTo ? OAUTH_RETURN_MAX_AGE_SECONDS : 0,
-      },
-      secure,
-    ),
-  );
-}
-
 function isPrivateResponse(
   route: string,
   request: Request,
@@ -192,9 +155,7 @@ function createUpstreamUrl(
   const upstreamUrl = new URL(`/${encodedPath}`, baseUrl);
   upstreamUrl.search = new URL(requestUrl).search;
 
-  if (route === GOOGLE_AUTH_ROUTE) {
-    upstreamUrl.searchParams.delete("returnTo");
-  }
+  if (route === GOOGLE_AUTH_ROUTE) removeRequestedReturnTo(upstreamUrl);
 
   return upstreamUrl;
 }
@@ -271,28 +232,6 @@ function createErrorResponse(
 
 function getErrorName(reason: unknown): string {
   return reason instanceof Error ? reason.name : "UnknownError";
-}
-
-function rewriteSuccessfulOauthDestination(
-  request: Request,
-  responseHeaders: Headers,
-  parseReturnTo: ParseReturnTo,
-): void {
-  const location = responseHeaders.get("location");
-  if (!location) return;
-
-  const requestUrl = new URL(request.url);
-  const destination = new URL(location, requestUrl);
-  const isFrontendRoot =
-    destination.origin === requestUrl.origin &&
-    destination.pathname === "/" &&
-    destination.search === "" &&
-    destination.hash === "";
-
-  if (!isFrontendRoot) return;
-
-  const returnTo = readStoredReturnTo(request, parseReturnTo) ?? "/campus";
-  responseHeaders.set("location", new URL(returnTo, requestUrl).href);
 }
 
 export function createApiProxy(options: ApiProxyOptions) {
