@@ -17,8 +17,8 @@ export function MissingInviteLinkNotice() {
           Open your invitation link.
         </h1>
         <p className="text-foreground-secondary">
-          Open the link in your invitation email to continue. No invitation yet?
-          Contact your Rise programme admin.
+          Open the link in your invitation email to continue. <br /> No
+          invitation yet? Contact your Rise programme admin.
         </p>
       </div>
       <Link
