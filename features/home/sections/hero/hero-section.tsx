@@ -1,5 +1,6 @@
 import { ArrowDownIcon } from "@phosphor-icons/react/dist/ssr/ArrowDown";
 import { ArrowUpRightIcon } from "@phosphor-icons/react/dist/ssr/ArrowUpRight";
+import { cn } from "cn";
 import Link from "next/link";
 
 import mentorship from "@/assets/landing-page/mentorship.svg";
@@ -7,6 +8,7 @@ import mentorshipDark from "@/assets/landing-page/mentorship-dark.svg";
 import yourCohort from "@/assets/landing-page/your-cohort.svg";
 import yourCohortDark from "@/assets/landing-page/your-cohort-dark.svg";
 
+import { DARK_BRAND_GRADIENT } from "../../brand-gradient";
 import { HeroCard } from "./hero-card";
 import { HeroNavigation } from "./hero-navigation";
 import { enterCampusHref } from "./navigation-links";
@@ -16,7 +18,10 @@ export function HeroSection() {
     <section
       id="hero"
       aria-labelledby="home-hero-heading"
-      className="content-grid bg-primary text-primary-foreground relative overflow-hidden pt-(--hero-nav-height) pb-12 [--hero-nav-height:5.5rem] md:pb-28 md:[--hero-nav-height:7rem] lg:min-h-216 lg:pb-32 dark:bg-[radial-gradient(ellipse_52%_38%_at_50%_49%,rgb(49_85_214/0.5),transparent),linear-gradient(to_bottom,#2443b2,#162452)]"
+      className={cn(
+        "content-grid bg-primary text-primary-foreground relative overflow-hidden pt-(--hero-nav-height) pb-12 [--hero-nav-height:5.5rem] md:pb-28 md:[--hero-nav-height:7rem] lg:min-h-216 lg:pb-32",
+        DARK_BRAND_GRADIENT,
+      )}
     >
       <HeroNavigation />
 
@@ -71,7 +76,7 @@ export function HeroSection() {
           darkImage={yourCohortDark}
           className="bg-neutral-50 md:absolute md:bottom-5 md:left-6 md:-rotate-18 lg:bottom-42 lg:left-0 lg:-rotate-7 dark:bg-[#2b3b5f]"
         >
-          <p className="text-success-700 mt-2 flex items-center gap-2 text-sm dark:text-[#71cb94]">
+          <p className="text-success-foreground mt-2 flex items-center gap-2 text-sm dark:text-[#71cb94]">
             <span
               aria-hidden
               className="bg-success-600 dark:bg-success-400 size-2.5 rounded-full"

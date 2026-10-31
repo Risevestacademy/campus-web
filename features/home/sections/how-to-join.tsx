@@ -1,6 +1,7 @@
 import brandEnvelope from "@/assets/landing-page/brand-envelope.svg";
 import brandEnvelopeDark from "@/assets/landing-page/brand-envelope-dark.svg";
-import { ThemedImage } from "@/shared/ui/themed-image";
+
+import { ThemedImage } from "../themed-image";
 
 const onboardingSteps = [
   {

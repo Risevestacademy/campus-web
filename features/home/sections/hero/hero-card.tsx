@@ -2,12 +2,12 @@ import { cn } from "cn";
 import { type StaticImageData } from "next/image";
 import type { ReactNode } from "react";
 
-import { ThemedImage } from "@/shared/ui/themed-image";
+import { ThemedImage } from "../../themed-image";
 
 type HeroCardProps = {
   title: string;
   image: StaticImageData;
-  darkImage?: StaticImageData;
+  darkImage: StaticImageData;
   className?: string;
   children: ReactNode;
 };

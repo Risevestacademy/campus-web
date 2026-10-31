@@ -1,15 +1,21 @@
 import { ArrowUpRightIcon } from "@phosphor-icons/react/dist/ssr/ArrowUpRight";
+import { cn } from "cn";
 import Image from "next/image";
 import Link from "next/link";
 
 import campusMark from "@/assets/icon-lemon.svg";
+
+import { DARK_BRAND_GRADIENT } from "../brand-gradient";
 
 export function CTASection() {
   return (
     <section
       id="cta"
       aria-labelledby="cta-heading"
-      className="content-grid bg-primary text-primary-foreground py-24 font-sans dark:bg-[radial-gradient(ellipse_52%_38%_at_50%_49%,rgb(49_85_214/0.5),transparent),linear-gradient(to_bottom,#2443b2,#162452)]"
+      className={cn(
+        "content-grid bg-primary text-primary-foreground py-24 font-sans",
+        DARK_BRAND_GRADIENT,
+      )}
     >
       <div className="grid w-full grid-cols-1 items-center gap-16 md:grid-cols-[minmax(0,1fr)_270px]">
         <div>

@@ -1,6 +1,7 @@
 import campusMap from "@/assets/landing-page/editable-spatial-illustration.svg";
 import campusMapDark from "@/assets/landing-page/editable-spatial-illustration-dark.svg";
-import { ThemedImage } from "@/shared/ui/themed-image";
+
+import { ThemedImage } from "../themed-image";
 
 const capabilities = [
   {

@@ -81,7 +81,7 @@ export function FAQsSection() {
               className="border-border-subtle border-b dark:border-[#2b3b5f]"
             >
               <Accordion.Header className="m-0">
-                <Accordion.Trigger className="group text-foreground hover:text-primary dark:hover:text-brand-foreground focus-visible:ring-primary flex min-h-[3.5rem] w-full cursor-pointer items-center justify-between gap-4 py-6 text-left text-xl leading-7 font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset">
+                <Accordion.Trigger className="group text-foreground hover:text-primary dark:hover:text-brand-foreground focus-visible:ring-primary dark:focus-visible:ring-brand-foreground flex min-h-[3.5rem] w-full cursor-pointer items-center justify-between gap-4 py-6 text-left text-xl leading-7 font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset">
                   <span>{question}</span>
 
                   <span className="text-primary dark:text-brand-foreground grid size-5 shrink-0 place-items-center">

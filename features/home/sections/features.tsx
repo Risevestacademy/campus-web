@@ -1,10 +1,11 @@
 import chooseHowYouShowUp from "@/assets/landing-page/choose-how-you-show-up.svg";
 import chooseHowYouShowUpDark from "@/assets/landing-page/choose-how-you-show-up-dark.svg";
 import safetyControls from "@/assets/landing-page/safety-controls.svg";
-import stepAwayDark from "@/assets/landing-page/step-away-when-you-need-to-dark.svg";
+import safetyControlsDark from "@/assets/landing-page/safety-controls-dark.svg";
 import talkWhereYouAre from "@/assets/landing-page/talk-where-you-are.svg";
 import talkWhereYouAreDark from "@/assets/landing-page/talk-where-you-are-dark.svg";
-import { ThemedImage } from "@/shared/ui/themed-image";
+
+import { ThemedImage } from "../themed-image";
 
 const featureCards = [
   {
@@ -108,7 +109,7 @@ function SafetyIllustration() {
   return (
     <ThemedImage
       light={safetyControls}
-      dark={stepAwayDark}
+      dark={safetyControlsDark}
       alt=""
       width={363}
       height={190}
