@@ -8,11 +8,11 @@ const HEADER_CELL = "bg-[#EFFAFF] px-4 py-3 font-medium dark:bg-[#2B3B5F]";
 const BODY_CELL =
   "border-border border-b px-4 py-4 group-last/row:border-b-0 dark:border-[#2B3B5F]";
 
-// What the third column holds depends on the tab: time left on a pending
-// invite, the day a revoked one was revoked, how the rest ended.
-const END_COLUMN_LABELS: Readonly<Record<InviteTab, string>> = {
+// What the last data column holds depends on the tab: time left on a pending
+// invite, how an expired one ended, the day a revoked one was revoked. An
+// accepted invite has nothing to add to its status, so it has no such column.
+const END_COLUMN_LABELS: Readonly<Partial<Record<InviteTab, string>>> = {
   pending: "Expires",
-  accepted: "Expiry",
   expired: "Expiry",
   revoked: "Date revoked",
 };
@@ -26,6 +26,8 @@ export function InvitesTable({
   now: number;
   tab: InviteTab;
 }) {
+  const endLabel = END_COLUMN_LABELS[tab];
+
   return (
     <div className="border-border overflow-x-auto rounded-3xl border p-3 dark:border-[#2B3B5F]">
       <table className="w-full min-w-176 border-separate border-spacing-0 text-left text-sm">
@@ -41,9 +43,11 @@ export function InvitesTable({
             <th scope="col" className={HEADER_CELL}>
               Date sent
             </th>
-            <th scope="col" className={HEADER_CELL}>
-              {END_COLUMN_LABELS[tab]}
-            </th>
+            {endLabel ? (
+              <th scope="col" className={HEADER_CELL}>
+                {endLabel}
+              </th>
+            ) : null}
             <th scope="col" className={`${HEADER_CELL} rounded-r-[0.5rem]`}>
               <span className="sr-only">Actions</span>
             </th>
@@ -68,9 +72,11 @@ export function InvitesTable({
               <td className={`${BODY_CELL} text-foreground-secondary`}>
                 {sentOn(invite)}
               </td>
-              <td className={BODY_CELL}>
-                <InviteExpiry invite={invite} now={now} />
-              </td>
+              {endLabel ? (
+                <td className={BODY_CELL}>
+                  <InviteExpiry invite={invite} now={now} />
+                </td>
+              ) : null}
               <td className={`${BODY_CELL} text-right`}>
                 <InviteActions
                   inviteId={invite.id}

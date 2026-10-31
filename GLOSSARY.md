@@ -131,7 +131,7 @@ _Avoid_: Admin panel, admin dashboard
 **Invitation**:
 A lifecycle record inviting a person to a Cohort. It may be pending, accepted,
 declined, expired, or revoked. Resending or revoking changes the lifecycle; it
-is not generic CRUD.
+is not generic CRUD. Admins manage them on the Invites page (`/invites`).
 _Avoid_: Invite Link, invitation token
 
 ## Campus Media

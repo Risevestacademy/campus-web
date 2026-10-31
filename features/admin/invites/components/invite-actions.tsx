@@ -46,10 +46,11 @@ export function InviteActions({
   const revoke = useRevokeInvite({ inviteId, email });
   const canResend = status === "pending" || status === "expired";
   const canRevoke = status === "pending";
+  // Keyed by what failed: the two can fail with the same words.
   const messages = [
-    resend.problem ? RESEND_PROBLEMS[resend.problem] : undefined,
-    revoke.problem ? REVOKE_PROBLEMS[revoke.problem] : undefined,
-  ].filter(Boolean);
+    { key: "resend", text: resend.problem && RESEND_PROBLEMS[resend.problem] },
+    { key: "revoke", text: revoke.problem && REVOKE_PROBLEMS[revoke.problem] },
+  ].flatMap(({ key, text }) => (text ? [{ key, text }] : []));
 
   if (!canResend && !canRevoke) return null;
 
@@ -83,13 +84,13 @@ export function InviteActions({
           </Button>
         ) : null}
       </div>
-      {messages.map((message) => (
+      {messages.map(({ key, text }) => (
         <p
-          key={message}
+          key={key}
           role="alert"
           className="text-destructive max-w-64 text-right text-sm"
         >
-          {message}
+          {text}
         </p>
       ))}
     </div>

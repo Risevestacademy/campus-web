@@ -280,7 +280,7 @@ describe("sending", () => {
     fireEvent.click(sendButton());
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent(
-        "Fix or remove: kemi.bello@gmail",
+        "Fix or remove the highlighted addresses.",
       ),
     );
 
@@ -395,6 +395,27 @@ describe("sending", () => {
     fireEvent.click(sendButton());
     await waitFor(() => expect(bodies).toHaveLength(3));
     expect(bodies[2]?.email).toBe("grace@campus.local");
+  });
+
+  it("still says which invites were created without an email when another address failed", async () => {
+    recordInvites(({ email }) =>
+      email === "grace@campus.local"
+        ? Response.json({ error: { code: "CONFLICT" } }, { status: 409 })
+        : Response.json({ emailStatus: "disabled" }, { status: 201 }),
+    );
+    renderDialog();
+    await openDialog();
+    paste("ada@campus.local, grace@campus.local");
+    choose(/^Track/, "ct-1");
+
+    fireEvent.click(sendButton());
+
+    expect(await screen.findByText("1 invite sent, 1 not sent")).toBeVisible();
+    expect(
+      screen.getByText(
+        /1 created without an email: resend those from the list/,
+      ),
+    ).toBeVisible();
   });
 
   it("warns when invites were made but their emails did not go out", async () => {

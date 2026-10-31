@@ -39,7 +39,9 @@ function failure(status: number, code: string) {
   return () => Response.json({ error: { code } }, { status });
 }
 
-function renderActions(status: "pending" | "expired" = "pending") {
+function renderActions(
+  status: "pending" | "expired" | "accepted" | "revoked" = "pending",
+) {
   render(
     <>
       {withQueryClient(
@@ -225,7 +227,7 @@ describe("Revoke invite eval (threshold: 0 mismatched outcomes; exactly 1 reques
 });
 
 describe("which actions an invite offers", () => {
-  it("offers Resend and Revoke while pending, and only Resend once expired", () => {
+  it("offers Resend and Revoke while pending, only Resend once expired, and neither once accepted or revoked", () => {
     renderActions("pending");
     expect(resendButton()).toBeVisible();
     expect(revokeButton()).toBeVisible();
@@ -236,5 +238,14 @@ describe("which actions an invite offers", () => {
     expect(
       screen.queryByRole("button", { name: `Revoke invite to ${EMAIL}` }),
     ).not.toBeInTheDocument();
+    cleanup();
+
+    for (const settled of ["accepted", "revoked"] as const) {
+      renderActions(settled);
+      expect(
+        screen.queryByRole("button", { name: /Resend|Revoke/ }),
+      ).not.toBeInTheDocument();
+      cleanup();
+    }
   });
 });

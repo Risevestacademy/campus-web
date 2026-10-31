@@ -12,19 +12,28 @@ interface AdminMutationOutcome<TProblem extends string> {
   problem?: TProblem;
 }
 
-interface AdminMutationOptions<TVariables, TProblem extends string> {
-  mutationFn: (
-    variables: TVariables,
-  ) => Promise<AdminMutationOutcome<TProblem>>;
-  onSucceeded: (variables: TVariables) => void;
+interface AdminMutationOptions<
+  TVariables,
+  TProblem extends string,
+  TOutcome extends AdminMutationOutcome<TProblem>,
+> {
+  mutationFn: (variables: TVariables) => Promise<TOutcome>;
+  // The outcome is the one the request returned, so a caller reads what it
+  // needs from it instead of keeping a copy on the side.
+  onSucceeded: (variables: TVariables, outcome: TOutcome) => void;
   refreshAfterSuccess?: boolean;
 }
 
-export function useAdminMutation<TVariables, TProblem extends string>({
+export function useAdminMutation<
+  TVariables,
+  TProblem extends string,
+  TOutcome extends AdminMutationOutcome<TProblem> =
+    AdminMutationOutcome<TProblem>,
+>({
   mutationFn,
   onSucceeded,
   refreshAfterSuccess = true,
-}: AdminMutationOptions<TVariables, TProblem>) {
+}: AdminMutationOptions<TVariables, TProblem, TOutcome>) {
   const router = useRouter();
   const inFlight = useRef(false);
 
@@ -40,7 +49,7 @@ export function useAdminMutation<TVariables, TProblem extends string>({
       }
       if (outcome.problem) return;
 
-      onSucceeded(variables);
+      onSucceeded(variables, outcome);
       if (refreshAfterSuccess) router.refresh();
     },
     onSettled: () => {

@@ -1,9 +1,8 @@
-import { useRef } from "react";
-
 import { browserApi } from "@/core/api/client/browser";
 import { toast } from "@/shared/ui/toast";
 
 import { useAdminMutation } from "../../use-admin-mutation";
+import { plural } from "../invite-format";
 import { sendInvites } from "../services/send-invites.service";
 import type {
   InviteFailure,
@@ -13,27 +12,32 @@ import type {
 
 type Done = Extract<InvitesSent, { kind: "done" }>;
 
-function plural(count: number): string {
-  return `${count} invite${count === 1 ? "" : "s"}`;
-}
+type SendOutcome = Done | { kind: "problem"; problem: "signed-out" };
 
 function announce({ sent, notEmailed, failures }: Done) {
   if (sent === 0) return;
 
+  const withoutEmail =
+    notEmailed > 0
+      ? `${notEmailed} created without an email: resend those from the list.`
+      : undefined;
+
   if (failures.length > 0) {
     toast.add({
-      title: `${plural(sent)} sent, ${failures.length} not sent`,
-      description: "The rest are still in the popup.",
+      title: `${plural(sent, "invite")} sent, ${failures.length} not sent`,
+      description: [withoutEmail, "The rest are still in the popup."]
+        .filter(Boolean)
+        .join(" "),
       type: "warning",
     });
   } else if (notEmailed > 0) {
     toast.add({
-      title: `${plural(sent)} created, ${notEmailed} without an email`,
+      title: `${plural(sent, "invite")} created, ${notEmailed} without an email`,
       description: "Resend those from the list.",
       type: "warning",
     });
   } else {
-    toast.add({ title: `${plural(sent)} sent`, type: "success" });
+    toast.add({ title: `${plural(sent, "invite")} sent`, type: "success" });
   }
 }
 
@@ -42,23 +46,21 @@ export function useSendInvites({
 }: {
   onDone: (failures: InviteFailure[]) => void;
 }) {
-  const result = useRef<Done>(undefined);
   const { mutate, ...controls } = useAdminMutation<
     readonly InviteRequest[],
-    "signed-out"
+    "signed-out",
+    SendOutcome
   >({
     mutationFn: async (requests) => {
       const outcome = await sendInvites(browserApi, requests);
-      if (outcome.kind === "signed-out") {
-        return { kind: "problem", problem: "signed-out" };
-      }
-      result.current = outcome;
-      return { kind: "done" };
+      return outcome.kind === "signed-out"
+        ? { kind: "problem", problem: "signed-out" }
+        : outcome;
     },
-    onSucceeded: () => {
-      if (!result.current) return;
-      announce(result.current);
-      onDone(result.current.failures);
+    onSucceeded: (_, outcome) => {
+      if (outcome.kind !== "done") return;
+      announce(outcome);
+      onDone(outcome.failures);
     },
   });
 

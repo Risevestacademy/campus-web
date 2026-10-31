@@ -109,30 +109,24 @@ describe("Invites page", () => {
     expect(screen.getByRole("button", { name: "Bulk invite" })).toBeVisible();
   });
 
-  it("offers Resend and Revoke on a pending invite", () => {
-    renderPage(view([invite("ada@campus.local")]));
+  it.each([
+    ["pending", ["Email", "Role", "Date sent", "Expires", "Actions"]],
+    ["expired", ["Email", "Role", "Date sent", "Expiry", "Actions"]],
+    ["revoked", ["Email", "Role", "Date sent", "Date revoked", "Actions"]],
+    ["accepted", ["Email", "Role", "Date sent", "Actions"]],
+  ] as const)(
+    "shows the %s tab with the columns that tab can fill",
+    (tab, columns) => {
+      renderPage(view([invite("ada@campus.local", { status: tab })]), {
+        tab,
+        page: 1,
+      });
 
-    expect(
-      screen.getByRole("button", { name: "Resend invite to ada@campus.local" }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Revoke invite to ada@campus.local" }),
-    ).toBeVisible();
-  });
-
-  it("offers no actions on an accepted or revoked invite", () => {
-    renderPage(
-      view([
-        invite("a@campus.local", { status: "accepted" }),
-        invite("b@campus.local", { status: "revoked" }),
-      ]),
-      { tab: "accepted", page: 1 },
-    );
-
-    expect(
-      screen.queryByRole("button", { name: /Resend|Revoke/ }),
-    ).not.toBeInTheDocument();
-  });
+      expect(
+        screen.getAllByRole("columnheader").map((header) => header.textContent),
+      ).toEqual(columns);
+    },
+  );
 
   it("says when a tab is empty and when the list cannot load", () => {
     const { rerender } = renderPage(view([]), { tab: "revoked", page: 1 });

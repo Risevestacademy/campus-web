@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -77,11 +78,11 @@ function sendButton() {
 const IMPORTED = (
   rows: { line: number; email: string; reason?: string }[],
   invited: number,
+  notEmailed = 0,
 ) => ({
   kind: "imported" as const,
-  total: invited + rows.length,
   invited,
-  notEmailed: 0,
+  notEmailed,
   failed: rows.map(({ line, email, reason }) => ({
     line,
     email,
@@ -214,6 +215,58 @@ describe("sending a file", () => {
       "1 invite sent, 1 not sent",
     );
     expect(trigger()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("says how many were created without an email, even when some rows failed", async () => {
+    importInvites.mockResolvedValue(
+      IMPORTED(
+        [{ line: 3, email: "grace@campus.local", reason: "Unknown track" }],
+        2,
+        2,
+      ),
+    );
+    renderDialog();
+    await openDialog();
+    await choose(VALID_CSV);
+
+    fireEvent.click(sendButton());
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "2 invites created, 2 without an email, 1 not sent",
+    );
+    expect(
+      screen.getByText(
+        "2 invites created without an email. Resend them from the list.",
+      ),
+    ).toBeVisible();
+  });
+
+  it("keeps the file picked last when an earlier one is still being read", async () => {
+    renderDialog();
+    await openDialog();
+    const input = screen.getByLabelText(/Choose a CSV file/);
+
+    const slow = new File([VALID_CSV], "slow.csv", { type: "text/csv" });
+    const readSlow = Promise.withResolvers<string>();
+    Object.defineProperty(slow, "text", { value: () => readSlow.promise });
+    const quick = new File(
+      ["email,role\nlin@campus.local,mentor\n"],
+      "quick.csv",
+      { type: "text/csv" },
+    );
+
+    fireEvent.change(input, { target: { files: [slow] } });
+    fireEvent.change(input, { target: { files: [quick] } });
+    expect(
+      await screen.findByRole("button", { name: "Send 1 invite" }),
+    ).toBeVisible();
+
+    await act(async () => {
+      readSlow.resolve(VALID_CSV);
+    });
+
+    expect(screen.getByRole("button", { name: "Send 1 invite" })).toBeVisible();
+    expect(screen.getByText("quick.csv", { selector: "span" })).toBeVisible();
   });
 
   it("goes back to choosing a file after a partial result", async () => {
