@@ -60,6 +60,7 @@ function startLayerWith(
     type: "snapshot",
     map: { id: "campus", version: "v1", width: 60, height: 40 },
     players,
+    spaces: [],
   });
 
   const canvas = document.createElement("canvas");
@@ -104,6 +105,7 @@ function admit(
     type: "snapshot" as const,
     map: { id: "campus", version: "v1", width: 60, height: 40 },
     players,
+    spaces: [],
   };
   presence.getState().apply(welcome);
   presence.getState().apply(snapshot);

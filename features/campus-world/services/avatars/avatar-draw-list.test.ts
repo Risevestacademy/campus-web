@@ -16,6 +16,7 @@ function presenceOf(selfId: string | null, ...players: Avatar[]): Presence {
     type: "snapshot",
     map: { id: "campus", version: "v1", width: 60, height: 40 },
     players,
+    spaces: [],
   });
   return { ...placed, selfId };
 }

@@ -42,7 +42,7 @@ function statusOf({ status }: PresenceParticipant): ParticipantStatus {
   return status === "busy" || status === "away" ? status : "available";
 }
 
-// Room names are not kept yet, so a room is only said to be one.
+// The roster does not show room names yet, so a room is only said to be one.
 function detailOf(person: PresenceParticipant, selfId: string | null): string {
   if (person.userId === selfId) return "You";
   const status = statusOf(person);

@@ -211,6 +211,7 @@ const AVATAR_PATHS = [
   "spriteKey",
   "status",
 ].sort();
+const SPACE_NAME_PATHS = ["name", "spaceKey"];
 
 function under(prefix: string, paths: string[]): string[] {
   return paths.map((path) => `${prefix}.${path}`);
@@ -218,6 +219,7 @@ function under(prefix: string, paths: string[]): string[] {
 
 const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   appearance: ["displayName", "spriteKey", "type", "userId"],
+  broadcast: ["type"],
   call: [
     "call.audibleRadius",
     "call.hearing",
@@ -225,6 +227,8 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
     "call.url",
     "type",
   ],
+  entryRequestEnded: ["type"],
+  entryRequested: ["type"],
   error: ["code", "message", "type"],
   joined: [...under("player", AVATAR_PATHS), "type"],
   left: ["type", "userId"],
@@ -235,13 +239,19 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   nearby: ["type", "userIds[]"],
   pong: ["type"],
   replaced: ["type"],
+  said: ["type"],
   spaceChanged: ["spaceKey", "type", "userId"],
   statusChanged: ["status", "type", "userId"],
   snapshot: [
     ...under("map", ["height", "id", "version", "width"]),
     ...under("players[]", AVATAR_PATHS),
+    ...under("spaces[]", SPACE_NAME_PATHS),
     "type",
   ],
+  spaces: [...under("spaces[]", SPACE_NAME_PATHS), "type"],
+  staffAction: ["type"],
+  walkEnded: ["type"],
+  walking: ["type"],
   welcome: [
     "connectionId",
     "displayName",
