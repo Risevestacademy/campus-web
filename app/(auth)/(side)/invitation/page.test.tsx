@@ -183,7 +183,11 @@ describe("InvitationPage: no token", () => {
     expect(new Set(calledPaths())).toEqual(new Set(["GET /v1/auth/me"]));
   });
 
-  it.each([
+  it.each<{
+    visitor: string;
+    cookies: Record<string, string>;
+    reads: string[];
+  }>([
     { visitor: "no cookies", cookies: {}, reads: [] },
     {
       visitor: "an empty token",
