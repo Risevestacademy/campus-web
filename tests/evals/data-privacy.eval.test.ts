@@ -119,7 +119,6 @@ const IMPORT_ALLOW_LIST = [
   "failed[].reason",
   "invited",
   "notEmailed",
-  "total",
 ];
 const GROUP_OPTION_ALLOW_LIST = ["id", "mentorName", "name"];
 const INVITE_ALLOW_LIST = [
@@ -476,9 +475,7 @@ describe("Data privacy eval (threshold: every case holds)", () => {
 
     it("keeps only the import result fields the popup reads, never an invite link", () => {
       const imported = parseImport({
-        total: 2,
         invited: 1,
-        failed: 1,
         ...UNEXPECTED,
         rows: [
           {
@@ -527,7 +524,7 @@ describe("Data privacy eval (threshold: every case holds)", () => {
             },
           ],
           meta: { page: 1, totalPages: 1, total: 1, perPage: 100 },
-        }) ?? [];
+        })?.options ?? [];
 
       expect(keyPaths(group)).toEqual(GROUP_OPTION_ALLOW_LIST);
     });

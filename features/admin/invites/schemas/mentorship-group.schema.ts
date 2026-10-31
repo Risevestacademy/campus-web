@@ -22,18 +22,24 @@ const groupsSchema = z.toZod<GroupsBody>()(
   }),
 );
 
-export function parseGroupOptions(
-  body: unknown,
-): InviteGroupOption[] | undefined {
+export interface GroupOptionsPage {
+  options: InviteGroupOption[];
+  totalPages: number;
+}
+
+export function parseGroupOptions(body: unknown): GroupOptionsPage | undefined {
   const parsed = groupsSchema.safeParse(body);
   if (!parsed.success) return undefined;
 
-  return parsed.data.items.map(({ id, name, mentor }) => ({
-    id,
-    name,
-    mentorName:
-      mentor.user.displayName?.trim() ||
-      mentor.user.firstName?.trim() ||
-      undefined,
-  }));
+  return {
+    totalPages: parsed.data.meta.totalPages,
+    options: parsed.data.items.map(({ id, name, mentor }) => ({
+      id,
+      name,
+      mentorName:
+        mentor.user.displayName?.trim() ||
+        mentor.user.firstName?.trim() ||
+        undefined,
+    })),
+  };
 }

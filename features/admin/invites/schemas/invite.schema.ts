@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { components } from "@/core/api/client";
 import {
   cohortRoleSchema,
   paginationMetaWithTotalSchema,
@@ -35,9 +36,13 @@ export function parseInvites(body: unknown): InvitesPage | undefined {
 
 // What a resend answers with: only whether the email went out is read. The
 // link in it is a secret shown once, and nothing here shows it.
-const emailStatusSchema = z.object({
-  emailStatus: z.enum(["sent", "failed", "disabled"]),
-});
+const emailStatusSchema = z.toZod<
+  Pick<components["schemas"]["InviteResponseDto"], "emailStatus">
+>()(
+  z.object({
+    emailStatus: z.enum(["sent", "failed", "disabled"]),
+  }),
+);
 
 export function parseEmailed(body: unknown): boolean | undefined {
   const parsed = emailStatusSchema.safeParse(body);

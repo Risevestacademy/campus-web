@@ -265,6 +265,49 @@ describe("mentorship group options", () => {
     });
   });
 
+  it("reads every page of groups, not only the first", async () => {
+    const group = (id: string) => ({
+      id,
+      cohortId: "c-1",
+      name: `Pod ${id}`,
+      description: null,
+      mentor: {
+        cohortMemberId: "m-1",
+        user: {
+          id: "u-1",
+          email: "catherine@campus.local",
+          firstName: "Catherine",
+          lastName: "Onyeulo",
+          displayName: null,
+          avatarUrl: null,
+          status: "active",
+        },
+      },
+      students: [],
+      createdAt: "2026-10-01T00:00:00.000Z",
+      updatedAt: "2026-10-01T00:00:00.000Z",
+    });
+    const asked: string[] = [];
+    mockApi.server.use(
+      http.get(url, ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get("page"));
+        asked.push(String(page));
+        return Response.json({
+          items: [group(`g-${page}`)],
+          meta: { page, perPage: 100, total: 2, totalPages: 2 },
+        });
+      }),
+    );
+
+    const read = await listGroupOptions(api, "c-1");
+
+    expect(asked).toEqual(["1", "2"]);
+    expect(read.kind === "loaded" && read.options.map(({ id }) => id)).toEqual([
+      "g-1",
+      "g-2",
+    ]);
+  });
+
   it("is unavailable when the read fails or the body is malformed", async () => {
     mockApi.server.use(
       http.get(url, () => new HttpResponse(null, { status: 500 })),
@@ -349,7 +392,6 @@ describe("import", () => {
 
     expect(await importInvites(api, "c-1", file)).toEqual({
       kind: "imported",
-      total: 3,
       invited: 2,
       notEmailed: 1,
       failed: [

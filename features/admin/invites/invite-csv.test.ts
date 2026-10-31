@@ -39,6 +39,32 @@ describe("reading an invite file", () => {
     });
   });
 
+  it("reads a quoted header and quoted fields as a spreadsheet writes them", () => {
+    expect(read('"email","role"\n"a@c.io","student"\n')).toEqual({
+      kind: "ready",
+      rows: 1,
+    });
+    expect(read('Email,"Role"\r\n"a,b@c.io",student\r\n')).toEqual({
+      kind: "ready",
+      rows: 1,
+    });
+  });
+
+  it("counts a line break inside a quoted field as part of one row", () => {
+    expect(
+      read(
+        'email,role,note\na@c.io,student,"first line\nsecond line"\nb@c.io,mentor,\n',
+      ),
+    ).toEqual({ kind: "ready", rows: 2 });
+  });
+
+  it("reads a doubled quote inside a quoted field as one quote", () => {
+    expect(read('email,role,note\na@c.io,student,"say ""hi"""\n')).toEqual({
+      kind: "ready",
+      rows: 1,
+    });
+  });
+
   it("refuses what campus-api would refuse as a whole", () => {
     expect(read("a@c.io,student\n")).toMatchObject({
       kind: "invalid",

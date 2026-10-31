@@ -141,7 +141,7 @@ export type GroupsBody = Simplify<{
 // What `POST /v1/invites/import` sends that the popup reads. The link in each
 // row is a secret shown once, and nothing here shows it.
 export type ImportBody = Simplify<
-  Pick<Schemas["InviteImportResponseDto"], "total" | "invited" | "failed"> & {
+  Pick<Schemas["InviteImportResponseDto"], "invited"> & {
     rows: Simplify<
       Pick<
         Schemas["InviteImportRowDto"],
@@ -158,7 +158,6 @@ export interface ImportedRow {
 }
 
 export interface InviteImport {
-  total: number;
   invited: number;
   notEmailed: number;
   // The rows that were not invited, with why.

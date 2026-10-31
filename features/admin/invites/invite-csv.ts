@@ -25,17 +25,12 @@ export function readInviteCsv(file: {
     };
   }
 
-  const [header, ...rows] = file.text
-    .replace(/^﻿/, "")
-    .split(/\r?\n/)
-    .filter((line) => line.trim() !== "");
+  const [header, ...rows] = parseRecords(file.text.replace(/^\uFEFF/, ""));
   if (header === undefined) {
     return { kind: "invalid", message: "The file is empty." };
   }
 
-  const columns = header
-    .split(",")
-    .map((column) => column.trim().toLowerCase());
+  const columns = header.map((column) => column.trim().toLowerCase());
   const missing = REQUIRED_COLUMNS.filter((name) => !columns.includes(name));
   if (missing.length > 0) {
     return {
@@ -57,6 +52,45 @@ export function readInviteCsv(file: {
   }
 
   return { kind: "ready", rows: rows.length };
+}
+
+// The records of a file as a spreadsheet writes it: a quoted field may hold
+// commas and line breaks, and "" is a quote inside one. Blank lines are not
+// records.
+function parseRecords(text: string): string[][] {
+  const records: string[][] = [];
+  let record: string[] = [];
+  let field = "";
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text.charAt(index);
+
+    if (quoted) {
+      if (char !== '"') field += char;
+      else if (text.charAt(index + 1) === '"') {
+        field += '"';
+        index += 1;
+      } else quoted = false;
+    } else if (char === '"') {
+      quoted = true;
+    } else if (char === ",") {
+      record.push(field);
+      field = "";
+    } else if (char === "\n" || char === "\r") {
+      if (char === "\r" && text.charAt(index + 1) === "\n") index += 1;
+      record.push(field);
+      records.push(record);
+      record = [];
+      field = "";
+    } else {
+      field += char;
+    }
+  }
+  record.push(field);
+  records.push(record);
+
+  return records.filter((cells) => cells.some((cell) => cell.trim() !== ""));
 }
 
 export const TEMPLATE_FILE_NAME = "invite-template.csv";

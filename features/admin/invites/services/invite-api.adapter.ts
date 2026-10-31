@@ -156,25 +156,34 @@ export async function createInvite(
   }
 }
 
-// The backend caps a page at 100 groups.
+// The backend caps a page at 100 groups. A cohort with more is read page by
+// page, up to a bound, so a bad answer cannot loop forever.
 const GROUPS_PAGE_SIZE = 100;
+const GROUPS_MAX_PAGES = 10;
 
 export async function listGroupOptions(
   api: ApiClient,
   cohortId: string,
 ): Promise<InviteOptionsRead<InviteGroupOption>> {
   try {
-    const { data, response } = await api.GET(
-      "/v1/cohorts/{cohortId}/mentorship-groups",
-      {
-        params: {
-          path: { cohortId },
-          query: { page: 1, perPage: GROUPS_PAGE_SIZE },
+    const options: InviteGroupOption[] = [];
+    for (let page = 1; page <= GROUPS_MAX_PAGES; page += 1) {
+      const { data, response } = await api.GET(
+        "/v1/cohorts/{cohortId}/mentorship-groups",
+        {
+          params: {
+            path: { cohortId },
+            query: { page, perPage: GROUPS_PAGE_SIZE },
+          },
         },
-      },
-    );
-    const options = response.ok ? parseGroupOptions(data) : undefined;
-    return options ? { kind: "loaded", options } : { kind: "unavailable" };
+      );
+      const read = response.ok ? parseGroupOptions(data) : undefined;
+      if (!read) return { kind: "unavailable" };
+
+      options.push(...read.options);
+      if (page >= read.totalPages) break;
+    }
+    return { kind: "loaded", options };
   } catch {
     return { kind: "unavailable" };
   }

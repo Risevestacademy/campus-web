@@ -14,6 +14,7 @@ const STOPS_THE_REST: readonly InviteCreateProblem[] = [
   "forbidden",
   "rate-limited",
   "unavailable",
+  "signed-out",
 ];
 
 // One request per address, in turn: a failure names its address, and no burst
@@ -34,7 +35,13 @@ export async function sendInvites(
       if (!outcome.emailed) notEmailed += 1;
       continue;
     }
-    if (outcome.problem === "signed-out") return { kind: "signed-out" };
+    // Nothing was created yet, so signing in again loses nothing. After that
+    // the invites already made are reported, and the rest wait for a retry,
+    // instead of being dropped by the sign-in redirect and refused as
+    // duplicates.
+    if (outcome.problem === "signed-out" && sent === 0) {
+      return { kind: "signed-out" };
+    }
 
     failures.push({ email: request.email, problem: outcome.problem });
     if (STOPS_THE_REST.includes(outcome.problem)) {

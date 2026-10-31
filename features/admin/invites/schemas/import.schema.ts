@@ -4,9 +4,7 @@ import type { ImportBody, InviteImport } from "../types/invite.types";
 
 const importSchema = z.toZod<ImportBody>()(
   z.object({
-    total: z.number().int().nonnegative(),
     invited: z.number().int().nonnegative(),
-    failed: z.number().int().nonnegative(),
     rows: z.array(
       z.object({
         line: z.number().int().positive(),
@@ -23,9 +21,8 @@ export function parseImport(body: unknown): InviteImport | undefined {
   const parsed = importSchema.safeParse(body);
   if (!parsed.success) return undefined;
 
-  const { total, invited, rows } = parsed.data;
+  const { invited, rows } = parsed.data;
   return {
-    total,
     invited,
     notEmailed: rows.filter(
       ({ outcome, emailStatus }) =>

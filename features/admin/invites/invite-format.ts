@@ -10,7 +10,7 @@ export interface InviteExpiry {
   soon: boolean;
 }
 
-function plural(count: number, unit: string): string {
+export function plural(count: number, unit: string): string {
   return `${count} ${unit}${count === 1 ? "" : "s"}`;
 }
 

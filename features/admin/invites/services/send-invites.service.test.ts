@@ -107,37 +107,52 @@ describe("sending several invites", () => {
     expect(bodiesSent()).toHaveLength(2);
   });
 
-  it("stops when the connection fails", async () => {
-    mockApi.server.use(http.post(INVITES_URL, () => HttpResponse.error()));
+  it.each([
+    ["a refused permission", () => fail(403, "FORBIDDEN"), "forbidden"],
+    ["a rate limit", () => fail(429, "RATE_LIMITED"), "rate-limited"],
+    ["a failed connection", () => HttpResponse.error(), "unavailable"],
+  ] as const)(
+    "stops at once on %s and reports every address as not sent",
+    async (_case, reply, problem) => {
+      mockApi.server.use(http.post(INVITES_URL, reply));
 
-    expect(await sendInvites(api, REQUESTS)).toMatchObject({
-      sent: 0,
-      failures: [
-        { email: "a@c.io", problem: "unavailable" },
-        { email: "b@c.io", problem: "unavailable" },
-        { email: "c@c.io", problem: "unavailable" },
-      ],
-    });
-    expect(bodiesSent()).toHaveLength(1);
-  });
-
-  it("stops on a rate limit", async () => {
-    mockApi.server.use(http.post(INVITES_URL, () => fail(429, "RATE_LIMITED")));
-
-    expect(await sendInvites(api, REQUESTS)).toMatchObject({
-      failures: [
-        { problem: "rate-limited" },
-        { problem: "rate-limited" },
-        { problem: "rate-limited" },
-      ],
-    });
-    expect(bodiesSent()).toHaveLength(1);
-  });
+      expect(await sendInvites(api, REQUESTS)).toEqual({
+        kind: "done",
+        sent: 0,
+        notEmailed: 0,
+        failures: REQUESTS.map(({ email }) => ({ email, problem })),
+      });
+      expect(bodiesSent()).toHaveLength(1);
+    },
+  );
 
   it("ends at once when the session has lapsed", async () => {
     mockApi.server.use(http.post(INVITES_URL, () => fail(401, "UNAUTHORIZED")));
 
     expect(await sendInvites(api, REQUESTS)).toEqual({ kind: "signed-out" });
     expect(bodiesSent()).toHaveLength(1);
+  });
+
+  it("keeps what was sent when the session lapses part way, and reports the rest", async () => {
+    let calls = 0;
+    mockApi.server.use(
+      http.post(INVITES_URL, () => {
+        calls += 1;
+        return calls === 1
+          ? Response.json({ emailStatus: "disabled" }, { status: 201 })
+          : fail(401, "UNAUTHORIZED");
+      }),
+    );
+
+    expect(await sendInvites(api, REQUESTS)).toEqual({
+      kind: "done",
+      sent: 1,
+      notEmailed: 1,
+      failures: [
+        { email: "b@c.io", problem: "signed-out" },
+        { email: "c@c.io", problem: "signed-out" },
+      ],
+    });
+    expect(bodiesSent()).toHaveLength(2);
   });
 });
