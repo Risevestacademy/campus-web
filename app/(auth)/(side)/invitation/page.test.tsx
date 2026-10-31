@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { getAccessFallbackHTTPStatus } from "next/dist/client/components/http-access-fallback/http-access-fallback";
 import { getURLFromRedirectError } from "next/dist/client/components/redirect";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { Fragment, type ReactElement, type ReactNode } from "react";
@@ -16,6 +17,16 @@ vi.mock("next/headers", () => ({
   headers: nextHeaders.headers,
 }));
 vi.mock("server-only", () => ({}));
+
+const analytics = vi.hoisted(() => ({
+  captureBrowserAnalyticsEvent: vi.fn(),
+  resetIdentifiedAnalyticsUser: vi.fn(),
+}));
+
+vi.mock("@/core/analytics/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/core/analytics/client")>()),
+  ...analytics,
+}));
 
 const TOKEN = "zHrjwba-bzFiiuyT5wb1OiuUQUdS619_DNNd0C6sFg0";
 const API_ORIGIN = "https://api.example.test";
@@ -62,6 +73,14 @@ const invitedSession = {
   memberships: [],
 };
 
+const fullAccessSession = {
+  ...invitedSession,
+  scope: "full_access",
+  inviteId: null,
+};
+
+const MISSING_LINK_HEADING = "Open your invitation link.";
+
 beforeEach(() => {
   vi.stubEnv("API_BASE_URL", API_ORIGIN);
   vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
@@ -77,6 +96,8 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   backend.mockReset();
+  analytics.captureBrowserAnalyticsEvent.mockReset();
+  analytics.resetIdentifiedAnalyticsUser.mockReset();
   nextHeaders.cookies.mockReset();
   nextHeaders.headers.mockReset();
 });
@@ -140,34 +161,105 @@ describe("InvitationPage: an invite token cookie", () => {
 });
 
 describe("InvitationPage: no token", () => {
-  it("sends a signed-in invitee on to the preview", async () => {
+  it.each([
+    { visitor: "an invitee", session: invitedSession, href: "/preview" },
+    { visitor: "a member", session: fullAccessSession, href: "/campus" },
+    {
+      visitor: "a provisional session without an invite",
+      session: { ...invitedSession, inviteId: null },
+      href: "/sign-in?error=invite_required",
+    },
+  ])("sends $visitor on to $href", async ({ session, href }) => {
     withCookies({ campus_session: "session-token" });
-    backend.mockResolvedValue(Response.json(invitedSession));
+    backend.mockImplementation(async () => Response.json(session));
 
     const interrupt = await visit().catch((error: unknown) => error);
 
     expect(isRedirectError(interrupt)).toBe(true);
     if (!isRedirectError(interrupt)) return;
-    expect(getURLFromRedirectError(interrupt)).toBe("/preview");
-    expect(calledPaths()).toEqual(["GET /v1/auth/me"]);
+    expect(getURLFromRedirectError(interrupt)).toBe(href);
+    // React's cache memoizes the session read only inside a server request,
+    // so outside one each caller reads it again.
+    expect(new Set(calledPaths())).toEqual(new Set(["GET /v1/auth/me"]));
   });
 
-  it.each<Record<string, string>>([
-    {},
-    { campus_invite_token: "" },
-    { campus_invite_token: "   " },
+  it.each([
+    { visitor: "no cookies", cookies: {}, reads: [] },
+    {
+      visitor: "an empty token",
+      cookies: { campus_invite_token: "" },
+      reads: [],
+    },
+    {
+      visitor: "a blank token",
+      cookies: { campus_invite_token: "   " },
+      reads: [],
+    },
+    {
+      visitor: "an ended session",
+      cookies: { campus_session: "session-token" },
+      reads: ["GET /v1/auth/me"],
+    },
   ])(
-    "sends a visitor with neither a token nor a session through refresh (%o)",
-    async (cookies) => {
+    "tells a signed-out visitor with $visitor how to continue",
+    async ({ cookies, reads }) => {
       withCookies(cookies);
-      const interrupt = await visit().catch((error: unknown) => error);
-
-      expect(isRedirectError(interrupt)).toBe(true);
-      if (!isRedirectError(interrupt)) return;
-      expect(getURLFromRedirectError(interrupt)).toBe(
-        "/session/refresh?returnTo=%2Finvitation",
+      backend.mockImplementation(
+        async () => new Response(null, { status: 401 }),
       );
-      expect(backend).not.toHaveBeenCalled();
+
+      render((await InvitationPage()) as ReactElement);
+
+      expect(
+        screen.getByRole("heading", { name: MISSING_LINK_HEADING }),
+      ).toBeVisible();
+      expect(
+        screen.getByRole("link", { name: "Back to home" }),
+      ).toHaveAttribute("href", "/");
+      expect(screen.queryByRole("link", { name: /google/i })).toBeNull();
+      expect(calledPaths()).toEqual(reads);
     },
   );
+
+  it("forgets the previous member before counting the missing link", async () => {
+    render((await InvitationPage()) as ReactElement);
+
+    const { captureBrowserAnalyticsEvent, resetIdentifiedAnalyticsUser } =
+      analytics;
+    expect(captureBrowserAnalyticsEvent.mock.calls).toEqual([
+      ["invitation.missing_link_shown", {}],
+    ]);
+    expect(
+      resetIdentifiedAnalyticsUser.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      captureBrowserAnalyticsEvent.mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
+  it("refuses an account the backend refuses", async () => {
+    withCookies({ campus_session: "session-token" });
+    backend.mockImplementation(async () => new Response(null, { status: 403 }));
+
+    const interrupt = await visit().catch((error: unknown) => error);
+
+    expect(getAccessFallbackHTTPStatus(interrupt as never)).toBe(403);
+  });
+
+  it("keeps the outage notice for a session that can't be read", async () => {
+    withCookies({ campus_session: "session-token" });
+    backend.mockImplementation(async () => new Response("not a session"));
+
+    render(await visit());
+
+    expect(
+      screen.getByRole("heading", { name: "We couldn't check your session" }),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Try again" })).toHaveAttribute(
+      "href",
+      "/invitation",
+    );
+    expect(
+      screen.queryByRole("heading", { name: MISSING_LINK_HEADING }),
+    ).toBeNull();
+  });
 });

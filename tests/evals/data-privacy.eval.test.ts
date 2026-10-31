@@ -187,6 +187,7 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "cohort.created": ["cohort_status"],
   "identity.profile_setup_completed": ["cohort_id", "role", "track_id"],
   "identity.profile_setup_started": ["cohort_id", "role", "track_id"],
+  "invitation.missing_link_shown": [],
   "realtime.closed": ["action", "code", "reason"],
   "realtime.connected": ["reconnect"],
   "realtime.gave_up": ["attempts"],

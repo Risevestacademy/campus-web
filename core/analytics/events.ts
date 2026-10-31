@@ -35,6 +35,7 @@ export const ANALYTICS_EVENTS = {
   REALTIME_RECONNECTED: "realtime.reconnected",
   IDENTITY_PROFILE_SETUP_COMPLETED: "identity.profile_setup_completed",
   IDENTITY_PROFILE_SETUP_STARTED: "identity.profile_setup_started",
+  INVITATION_MISSING_LINK_SHOWN: "invitation.missing_link_shown",
 } as const;
 
 export type AnalyticsEventName =
@@ -193,6 +194,7 @@ export const analyticsEventSchemas = {
   }),
   [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_STARTED]: placementSchema,
   [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_COMPLETED]: placementSchema,
+  [ANALYTICS_EVENTS.INVITATION_MISSING_LINK_SHOWN]: z.object({}),
   [ANALYTICS_EVENTS.REALTIME_CONNECTED]: z.object({
     reconnect: z.boolean(),
   }),

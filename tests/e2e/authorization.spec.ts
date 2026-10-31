@@ -919,6 +919,22 @@ test.describe("invitation routes", () => {
     await expect(previewHeading(page)).toBeVisible();
   });
 
+  test("a signed-out visitor without an invitation link is told how to continue", async ({
+    page,
+    fakeApi,
+  }) => {
+    await page.goto("/invitation");
+
+    await expect(page).toHaveURL("/invitation");
+    await expect(
+      page.getByRole("heading", { name: "Open your invitation link." }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Back to home" }),
+    ).toHaveAttribute("href", "/");
+    expect(await fakeApi.refreshPosts()).toEqual([]);
+  });
+
   test("an expired invitation session that refreshes goes on to answer the invite", async ({
     page,
     fakeApi,
@@ -926,7 +942,7 @@ test.describe("invitation routes", () => {
     await fakeApi.scriptRefresh(SUCCESS);
     await fakeApi.scriptSession(sessions.provisional());
 
-    await page.goto("/invitation");
+    await page.goto("/preview");
 
     await expect(page).toHaveURL("/preview");
     await expect(previewHeading(page)).toBeVisible();
@@ -941,9 +957,9 @@ test.describe("invitation routes", () => {
     await fakeApi.scriptRefresh(SUCCESS);
     await fakeApi.scriptSession({ status: 401 });
 
-    await page.goto("/invitation");
+    await page.goto("/preview");
 
-    await expect(page).toHaveURL(withReturnTo("/sign-in", "/invitation"));
+    await expect(page).toHaveURL(withReturnTo("/sign-in", "/preview"));
     expect(await fakeApi.refreshPosts()).toHaveLength(1);
     // One read by the protected route, one by sign-in, which then renders.
     expect(await fakeApi.sessionReads()).toHaveLength(2);
