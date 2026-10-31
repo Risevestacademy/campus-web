@@ -63,7 +63,7 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-medium">
+    <label className="grid content-start gap-2 text-sm font-medium">
       {label}
       <span className="relative grid">
         {children}
@@ -177,12 +177,7 @@ export function InvitePeopleDialog({
 
           <div className="grid flex-1 content-start gap-5 p-6">
             <div className="grid gap-2">
-              <span className="text-sm font-medium">
-                Emails{" "}
-                <span className="text-foreground-secondary font-normal">
-                  paste several at once
-                </span>
-              </span>
+              <span className="text-sm font-medium">Emails</span>
               <EmailTokenField
                 emails={emails}
                 onChange={setEmails}
@@ -190,7 +185,8 @@ export function InvitePeopleDialog({
                 describedBy={errors.emails ? errorsId : undefined}
               />
               <span className="text-foreground-secondary text-xs">
-                Everyone above gets the same placement
+                Paste several at once, separated by commas, spaces or new lines.
+                Everyone gets the same placement.
               </span>
             </div>
 
@@ -211,7 +207,7 @@ export function InvitePeopleDialog({
             </Field>
 
             {rules.track !== "off" || rules.group !== "off" ? (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid items-start gap-4 sm:grid-cols-2">
                 {rules.track !== "off" ? (
                   <Field
                     label="Track"
