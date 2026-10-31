@@ -56,7 +56,7 @@ export function FAQsSection() {
     >
       <div className="grid w-full grid-cols-1 gap-12 md:grid-cols-[368px_minmax(0,1fr)] md:gap-24">
         <header>
-          <p className="text-primary text-xs leading-5 font-semibold tracking-[0.08em] uppercase">
+          <p className="text-primary dark:text-brand-foreground text-xs leading-5 font-semibold tracking-[0.08em] uppercase">
             Frequently asked questions
           </p>
 
@@ -72,19 +72,19 @@ export function FAQsSection() {
         <Accordion.Root
           aria-label="Frequently asked questions"
           defaultValue={["audience"]}
-          className="border-border-subtle border-t"
+          className="border-border-subtle dark:border-border border-t"
         >
           {faqs.map(({ id, question, answer }) => (
             <Accordion.Item
               key={id}
               value={id}
-              className="border-border-subtle border-b"
+              className="border-border-subtle dark:border-border border-b"
             >
               <Accordion.Header className="m-0">
-                <Accordion.Trigger className="group text-foreground hover:text-primary focus-visible:ring-primary flex min-h-[3.5rem] w-full cursor-pointer items-center justify-between gap-4 py-6 text-left text-xl leading-7 font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset">
+                <Accordion.Trigger className="group text-foreground hover:text-primary dark:hover:text-brand-foreground focus-visible:ring-primary flex min-h-[3.5rem] w-full cursor-pointer items-center justify-between gap-4 py-6 text-left text-xl leading-7 font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset">
                   <span>{question}</span>
 
-                  <span className="text-primary grid size-5 shrink-0 place-items-center">
+                  <span className="text-primary dark:text-brand-foreground grid size-5 shrink-0 place-items-center">
                     <PlusIcon
                       aria-hidden
                       size={16}

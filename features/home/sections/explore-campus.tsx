@@ -39,8 +39,11 @@ function CampusCapabilities() {
   return (
     <ol className="grid gap-x-6 gap-y-10 md:grid-cols-2 lg:grid-cols-3">
       {capabilities.map(({ title, description }, index) => (
-        <li key={title} className="border-t border-[#D3DAE9] pt-6">
-          <span className="text-primary text-base font-semibold md:text-[1.25rem] lg:text-[1.5rem]">
+        <li
+          key={title}
+          className="dark:border-border border-t border-[#D3DAE9] pt-6"
+        >
+          <span className="text-primary dark:text-brand-foreground text-base font-semibold md:text-[1.25rem] lg:text-[1.5rem]">
             {String(index + 1).padStart(2, "0")}
           </span>
           <h3 className="text-foreground mt-3 text-xl font-medium md:text-2xl">
@@ -63,7 +66,7 @@ export function ExploreCampusSection() {
       className="content-grid bg-background font-display scroll-mt-22 py-16 md:scroll-mt-28 md:py-24"
     >
       <div>
-        <p className="text-primary text-sm font-medium tracking-wider uppercase md:text-base">
+        <p className="text-primary dark:text-brand-foreground text-sm font-medium tracking-wider uppercase md:text-base">
           Explore Campus
         </p>
 
@@ -81,11 +84,11 @@ export function ExploreCampusSection() {
           </p>
         </div>
 
-        <div className="mt-10 rounded-2xl bg-[#EFFAFF] p-2 md:mt-12 md:p-4">
+        <div className="mt-10 rounded-2xl bg-[#EFFAFF] p-2 md:mt-12 md:p-4 dark:bg-[#2B3B5F]">
           <Image
             src={campusMap}
             alt="Map of the Campus showing Town Hall, the Notice Wall, the Resource Centre, Common Area, Admin, Faculty and the private rooms."
-            className="mx-auto h-auto w-full"
+            className="mx-auto h-auto w-full rounded-2xl"
           />
         </div>
 
