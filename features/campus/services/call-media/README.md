@@ -147,15 +147,6 @@ to explain it.
 | `campus.proximity_audio_ready` | `first_audio_ms`, `hearing`                       | first roster microphone of a measured call |
 | `campus.meeting_video_ready`   | `first_video_ms`, `hearing`, `connection_quality` | first camera a room subscribes             |
 
-`first_audio_ms` runs from a `call` that arrives with somebody already in
-`meetingRoster` to the first remote microphone subscribed. Two limits:
-
-- The first person into a room is never measured: their roster is empty when
-  their `call` arrives, even if someone joins later.
-- Muted mates stretch it: a room where everyone is muted can report minutes.
-
-Compare room and proximity latency only with both in mind.
-
 ## Tests
 
 ```bash
