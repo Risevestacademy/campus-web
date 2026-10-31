@@ -54,9 +54,12 @@ status, spaceKey }>`. `status` is `available`, `busy`, `away` (or `unknown`
   which calls are heard; the audio session uses it too.
 - `meetingRoster`: who you meet, in the order they arrived, without you.
   Under `room` hearing it is everyone presence knows in your space; while
-  `awaiting` it is nobody; otherwise it is whoever `nearby` names that presence knows. World names nobody near
-  in a room space, so falling back to `nearby` is safe, and a World without
-  media (no `call` at all) still shows who is near.
+  `awaiting` it is nobody; otherwise it is whoever `nearby` names that
+  presence knows in your space. World's `nearby` lags a crossing by a tick,
+  and the call that ends `awaiting` usually arrives first, so the space check
+  keeps the old space's people out. World names nobody near in a room space,
+  so falling back to `nearby` is safe. A World without media sends neither
+  `call` nor `nearby`, so its roster stays empty.
 - `encounter`: how many times somebody joined `meetingRoster` after nobody
   was. A view opened during one encounter (the meeting grid) checks it, so it
   does not reopen by itself when the next one starts.

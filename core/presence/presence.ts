@@ -188,10 +188,18 @@ function roomMateIds({ selfId, participants }: Presence): string[] {
     .map(({ userId }) => userId);
 }
 
+// World only names people in your space, but its list lags a crossing by a
+// tick, and the call that ends awaiting usually arrives first.
 function knownNearbyIds({ selfId, participants, nearby }: Presence): string[] {
-  return nearby.filter(
-    (userId) => userId !== selfId && participants.has(userId),
-  );
+  const self = selfId === null ? undefined : participants.get(selfId);
+  return nearby.filter((userId) => {
+    const other = participants.get(userId);
+    return (
+      userId !== selfId &&
+      other !== undefined &&
+      (!self || other.spaceKey === self.spaceKey)
+    );
+  });
 }
 
 // World only names who is near in proximity spaces, and empties the list on

@@ -514,14 +514,41 @@ describe("meeting roster", () => {
     expect(inRoom.encounter).toBe(inCorridor.encounter + 1);
   });
 
-  it("keeps meeting whoever is near across a crossing when World sends no calls", () => {
-    const presence = presenceAfter(
-      [ADA, GRACE],
-      { type: "nearby", userIds: ["grace"] },
-      stepInto("ada", "lounge"),
-    );
+  function nearGraceInCorridor() {
+    return presenceAfter([ADA, GRACE], callFrame("proximity"), {
+      type: "nearby",
+      userIds: ["grace"],
+    });
+  }
 
-    expect(presence.meetingRoster).toEqual(["grace"]);
+  it.each([
+    ["a proximity call", callFrame("proximity")],
+    ["no call", { type: "call", call: null } satisfies ServerMessage],
+  ])(
+    "meets nobody from the space you left when %s arrives before World's next nearby",
+    (_case, call) => {
+      const inCorridor = nearGraceInCorridor();
+
+      const crossed = [stepInto("ada", "courtyard"), call].reduce(
+        applyServerMessage,
+        inCorridor,
+      );
+
+      expect([crossed.meetingRoster, crossed.encounter]).toEqual([
+        [],
+        inCorridor.encounter,
+      ]);
+    },
+  );
+
+  it("still meets whoever crosses with you before World's next nearby", () => {
+    const crossedTogether = [
+      stepInto("ada", "courtyard"),
+      stepInto("grace", "courtyard"),
+      callFrame("proximity"),
+    ].reduce(applyServerMessage, nearGraceInCorridor());
+
+    expect(crossedTogether.meetingRoster).toEqual(["grace"]);
   });
 
   it.each([
