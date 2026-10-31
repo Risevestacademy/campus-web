@@ -7,6 +7,9 @@ import { createApiClient } from "@/core/api/client";
 
 import {
   countInvites,
+  createInvite,
+  importInvites,
+  listGroupOptions,
   listInvites,
   resendInvite,
   revokeInvite,
@@ -155,6 +158,237 @@ describe("revoke", () => {
     expect(await revokeInvite(api, "invite-1")).toEqual({
       kind: "problem",
       problem,
+    });
+  });
+});
+
+describe("create", () => {
+  const body = {
+    email: "ada@campus.local",
+    cohortId: "c-1",
+    cohortRole: "student" as const,
+  };
+
+  it("sends the request as given and reports whether the email went out", async () => {
+    mockApi.server.use(
+      http.post(INVITES_URL, async ({ request }) => {
+        expect(await request.json()).toEqual(body);
+        return Response.json({ emailStatus: "sent" }, { status: 201 });
+      }),
+    );
+
+    expect(await createInvite(api, body)).toEqual({
+      kind: "created",
+      emailed: true,
+    });
+  });
+
+  it("reports an invite whose email did not go out", async () => {
+    mockApi.server.use(
+      http.post(INVITES_URL, () =>
+        Response.json({ emailStatus: "disabled" }, { status: 201 }),
+      ),
+    );
+
+    expect(await createInvite(api, body)).toEqual({
+      kind: "created",
+      emailed: false,
+    });
+  });
+
+  it.each([
+    [409, "CONFLICT", "conflict"],
+    [409, "SOMETHING_ELSE", "unavailable"],
+    [429, "RATE_LIMITED", "rate-limited"],
+    [404, "NOT_FOUND", "missing"],
+    [403, "FORBIDDEN", "forbidden"],
+    [401, "UNAUTHORIZED", "signed-out"],
+    [400, "INVALID_ARGUMENT", "invalid"],
+    [500, "INTERNAL_ERROR", "unavailable"],
+  ])("maps a %i %s to %s", async (status, code, problem) => {
+    mockApi.server.use(http.post(INVITES_URL, failure(status, code)));
+
+    expect(await createInvite(api, body)).toEqual({
+      kind: "problem",
+      problem,
+    });
+  });
+
+  it("never throws on a network failure", async () => {
+    mockApi.server.use(http.post(INVITES_URL, () => HttpResponse.error()));
+
+    expect(await createInvite(api, body)).toEqual({
+      kind: "problem",
+      problem: "unavailable",
+    });
+  });
+});
+
+describe("mentorship group options", () => {
+  const url = `${API_ORIGIN}/v1/cohorts/c-1/mentorship-groups`;
+
+  it("labels each group with its mentor and keeps nothing else", async () => {
+    mockApi.server.use(
+      http.get(url, () =>
+        Response.json({
+          items: [
+            {
+              id: "g-1",
+              cohortId: "c-1",
+              name: "Pod C",
+              description: "private",
+              mentor: {
+                cohortMemberId: "m-1",
+                user: {
+                  id: "u-1",
+                  email: "catherine@campus.local",
+                  firstName: "Catherine",
+                  lastName: "Onyeulo",
+                  displayName: null,
+                  avatarUrl: null,
+                  status: "active",
+                },
+              },
+              students: [],
+              createdAt: "2026-10-01T00:00:00.000Z",
+              updatedAt: "2026-10-01T00:00:00.000Z",
+            },
+          ],
+          meta: { page: 1, perPage: 100, total: 1, totalPages: 1 },
+        }),
+      ),
+    );
+
+    expect(await listGroupOptions(api, "c-1")).toEqual({
+      kind: "loaded",
+      options: [{ id: "g-1", name: "Pod C", mentorName: "Catherine" }],
+    });
+  });
+
+  it("is unavailable when the read fails or the body is malformed", async () => {
+    mockApi.server.use(
+      http.get(url, () => new HttpResponse(null, { status: 500 })),
+    );
+    expect((await listGroupOptions(api, "c-1")).kind).toBe("unavailable");
+
+    mockApi.server.use(http.get(url, () => Response.json({ items: 1 })));
+    expect((await listGroupOptions(api, "c-1")).kind).toBe("unavailable");
+  });
+});
+
+describe("import", () => {
+  const url = `${INVITES_URL}/import`;
+  const file = new File(
+    ["email,role\nada@campus.local,student\n"],
+    "cohort.csv",
+    {
+      type: "text/csv",
+    },
+  );
+
+  function imported(rows: unknown[]) {
+    return Response.json({
+      total: rows.length,
+      invited: rows.filter(
+        (row) => (row as { outcome: string }).outcome === "invited",
+      ).length,
+      failed: rows.filter(
+        (row) => (row as { outcome: string }).outcome === "failed",
+      ).length,
+      rows,
+    });
+  }
+
+  it("uploads the file and the cohort as multipart form data", async () => {
+    mockApi.server.use(
+      http.post(url, async ({ request }) => {
+        expect(request.headers.get("content-type")).toMatch(
+          /^multipart\/form-data; boundary=/,
+        );
+        const form = await request.formData();
+        expect(form.get("cohortId")).toBe("c-1");
+        const sent = form.get("file") as File;
+        expect(sent.name).toBe("cohort.csv");
+        expect(await sent.text()).toContain("ada@campus.local,student");
+        return imported([]);
+      }),
+    );
+
+    expect((await importInvites(api, "c-1", file)).kind).toBe("imported");
+  });
+
+  it("reports who was invited, who was not and why, and keeps no link", async () => {
+    mockApi.server.use(
+      http.post(url, () =>
+        imported([
+          {
+            line: 2,
+            email: "ada@campus.local",
+            outcome: "invited",
+            inviteId: "i-1",
+            inviteLink: "https://campus.example/invitation?token=secret",
+            emailStatus: "sent",
+          },
+          {
+            line: 3,
+            email: "grace@campus.local",
+            outcome: "invited",
+            inviteId: "i-2",
+            inviteLink: "https://campus.example/invitation?token=secret2",
+            emailStatus: "failed",
+          },
+          {
+            line: 4,
+            email: "lin@campus.local",
+            outcome: "failed",
+            reason: "A pending invite already exists for lin@campus.local",
+          },
+        ]),
+      ),
+    );
+
+    expect(await importInvites(api, "c-1", file)).toEqual({
+      kind: "imported",
+      total: 3,
+      invited: 2,
+      notEmailed: 1,
+      failed: [
+        {
+          line: 4,
+          email: "lin@campus.local",
+          reason: "A pending invite already exists for lin@campus.local",
+        },
+      ],
+    });
+  });
+
+  it.each([
+    [400, "INVALID_ARGUMENT", "unreadable"],
+    [403, "FORBIDDEN", "forbidden"],
+    [404, "NOT_FOUND", "missing"],
+    [401, "UNAUTHORIZED", "signed-out"],
+    [429, "RATE_LIMITED", "rate-limited"],
+    [500, "INTERNAL_ERROR", "unavailable"],
+  ])("maps a %i %s to %s", async (status, code, problem) => {
+    mockApi.server.use(http.post(url, failure(status, code)));
+
+    expect(await importInvites(api, "c-1", file)).toEqual({
+      kind: "problem",
+      problem,
+    });
+  });
+
+  it("is unavailable when the answer is not an import result, or the network fails", async () => {
+    mockApi.server.use(http.post(url, () => Response.json({ total: "x" })));
+    expect(await importInvites(api, "c-1", file)).toEqual({
+      kind: "problem",
+      problem: "unavailable",
+    });
+
+    mockApi.server.use(http.post(url, () => HttpResponse.error()));
+    expect(await importInvites(api, "c-1", file)).toEqual({
+      kind: "problem",
+      problem: "unavailable",
     });
   });
 });

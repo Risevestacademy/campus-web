@@ -21,10 +21,12 @@ import {
   parseFeedbackList,
   parseFeedbackRecord,
 } from "@/features/admin/feedback/schemas/feedback.schema";
+import { parseImport } from "@/features/admin/invites/schemas/import.schema";
 import {
   parseEmailed,
   parseInvites,
 } from "@/features/admin/invites/schemas/invite.schema";
+import { parseGroupOptions } from "@/features/admin/invites/schemas/mentorship-group.schema";
 import {
   parsePeopleList,
   parsePersonCard,
@@ -111,6 +113,15 @@ const PERSON_ALLOW_LIST = [
   "systemRole",
   "trackName",
 ];
+const IMPORT_ALLOW_LIST = [
+  "failed[].email",
+  "failed[].line",
+  "failed[].reason",
+  "invited",
+  "notEmailed",
+  "total",
+];
+const GROUP_OPTION_ALLOW_LIST = ["id", "mentorName", "name"];
 const INVITE_ALLOW_LIST = [
   "cohortRole",
   "createdAt",
@@ -461,6 +472,64 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       expect(
         parseEmailed({ emailStatus: "sent", inviteLink: "https://x?token=s" }),
       ).toBe(true);
+    });
+
+    it("keeps only the import result fields the popup reads, never an invite link", () => {
+      const imported = parseImport({
+        total: 2,
+        invited: 1,
+        failed: 1,
+        ...UNEXPECTED,
+        rows: [
+          {
+            line: 2,
+            email: "ada@campus.local",
+            outcome: "invited",
+            inviteId: "i-1",
+            inviteLink: "https://campus.example/invitation?token=secret",
+            emailStatus: "sent",
+          },
+          {
+            line: 3,
+            email: "grace@campus.local",
+            outcome: "failed",
+            reason: "Unknown track",
+            ...UNEXPECTED,
+          },
+        ],
+      });
+
+      expect(keyPaths(imported)).toEqual(IMPORT_ALLOW_LIST);
+    });
+
+    it("keeps only the group fields the invite popup reads", () => {
+      const [group] =
+        parseGroupOptions({
+          items: [
+            {
+              id: "g-1",
+              cohortId: "c-1",
+              name: "Pod C",
+              description: "private",
+              mentor: {
+                cohortMemberId: "m-1",
+                user: {
+                  id: "u-1",
+                  email: "catherine@campus.local",
+                  firstName: "Catherine",
+                  lastName: "Onyeulo",
+                  displayName: null,
+                  avatarUrl: null,
+                  status: "active",
+                },
+              },
+              students: [{ cohortMemberId: "s-1" }],
+            },
+          ],
+          meta: { page: 1, totalPages: 1, total: 1, perPage: 100 },
+        }) ?? [];
+
+      expect(keyPaths(group)).toEqual(GROUP_OPTION_ALLOW_LIST);
     });
 
     it("keeps only the profile card fields the person page reads", () => {

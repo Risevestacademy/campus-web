@@ -34,6 +34,13 @@ function view(invites: Invite[]): InvitesView {
     now: NOW,
     list: { kind: "loaded", invites, page: 1, totalPages: 1, total: 12 },
     counts: { pending: 12, accepted: 196, expired: 6, revoked: 1 },
+    options: {
+      tracks: {
+        kind: "loaded",
+        options: [{ id: "ct-1", name: "Backend", code: "BE" }],
+      },
+      groups: { kind: "loaded", options: [] },
+    },
   };
 }
 
@@ -69,19 +76,19 @@ describe("Invites page", () => {
     expect(tabs.getAllByRole("link")).toHaveLength(4);
   });
 
-  it("lists email, when it was sent, role and expiry", () => {
+  it("lists email, role, the date sent and when it expires", () => {
     renderPage(view([invite("ada@campus.local")]));
 
     expect(
       screen.getAllByRole("columnheader").map((header) => header.textContent),
-    ).toEqual(["Email", "Role", "Expiry", "Actions"]);
+    ).toEqual(["Email", "Role", "Date sent", "Expires", "Actions"]);
     const row = within(screen.getByRole("row", { name: /ada@campus.local/ }));
-    expect(row.getByText("Sent 3 Oct")).toBeVisible();
+    expect(row.getByText("3 Oct")).toBeVisible();
     expect(row.getByText("Student")).toBeVisible();
-    expect(row.getByText("Expires in 1 day")).toBeVisible();
+    expect(row.getByText("1 day")).toBeVisible();
   });
 
-  it("leaves out what the API does not send: placement, sender and the buttons that need it", () => {
+  it("leaves out what the API does not send: placement, sender and a guest invite", () => {
     renderPage(view([invite("ada@campus.local")]));
 
     expect(
@@ -90,9 +97,16 @@ describe("Invites page", () => {
     expect(screen.queryByText(/by /)).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", {
-        name: /Invite people|Bulk invite|guest/i,
+        name: /guest/i,
       }),
     ).not.toBeInTheDocument();
+  });
+
+  it("offers Invite people and Bulk invite from the header", () => {
+    renderPage(view([invite("ada@campus.local")]));
+
+    expect(screen.getByRole("button", { name: "Invite people" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Bulk invite" })).toBeVisible();
   });
 
   it("offers Resend and Revoke on a pending invite", () => {
@@ -115,7 +129,9 @@ describe("Invites page", () => {
       { tab: "accepted", page: 1 },
     );
 
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Resend|Revoke/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("says when a tab is empty and when the list cannot load", () => {

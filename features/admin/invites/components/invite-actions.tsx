@@ -64,7 +64,7 @@ export function InviteActions({
             disabled={resend.isPending || revoke.isPending}
             aria-label={`Resend invite to ${email}`}
             onClick={resend.resend}
-            className="text-primary dark:text-cobalt-300"
+            className="text-primary dark:text-cobalt-300 hover:text-primary dark:hover:text-cobalt-300 hover:bg-[#E9ECF6] dark:hover:bg-[#2B3B5F]"
           >
             Resend
           </Button>
@@ -77,7 +77,7 @@ export function InviteActions({
             disabled={resend.isPending || revoke.isPending}
             aria-label={`Revoke invite to ${email}`}
             onClick={revoke.revoke}
-            className="text-error-700 dark:text-error-300"
+            className="text-error-700 dark:text-error-300 hover:text-error-700 dark:hover:text-error-300 hover:bg-error-100 dark:hover:bg-error-900/40"
           >
             Revoke
           </Button>

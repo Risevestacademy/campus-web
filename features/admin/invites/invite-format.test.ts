@@ -19,15 +19,15 @@ function pending(inMs: number) {
 describe("describeExpiry", () => {
   it("counts days left, rounding up, and flags the last two", () => {
     expect(describeExpiry(pending(3 * HOUR), NOW)).toEqual({
-      text: "Expires in 1 day",
+      text: "1 day",
       soon: true,
     });
     expect(describeExpiry(pending(2 * DAY), NOW)).toEqual({
-      text: "Expires in 2 days",
+      text: "2 days",
       soon: true,
     });
     expect(describeExpiry(pending(5 * DAY - HOUR), NOW)).toEqual({
-      text: "Expires in 5 days",
+      text: "5 days",
       soon: false,
     });
   });
@@ -60,7 +60,7 @@ describe("describeExpiry", () => {
         },
         NOW,
       ).text,
-    ).toBe("Revoked 4 Oct");
+    ).toBe("4 Oct");
   });
 
   it("names an answered invite by its answer", () => {
@@ -77,8 +77,6 @@ describe("describeExpiry", () => {
 
 describe("sentOn", () => {
   it("prints the day in a fixed zone", () => {
-    expect(sentOn({ createdAt: "2026-10-03T23:30:00.000Z" })).toBe(
-      "Sent 3 Oct",
-    );
+    expect(sentOn({ createdAt: "2026-10-03T23:30:00.000Z" })).toBe("3 Oct");
   });
 });

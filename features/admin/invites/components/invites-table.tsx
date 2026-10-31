@@ -1,6 +1,6 @@
 import { RoleBadge } from "../../role-badge";
 import { sentOn } from "../invite-format";
-import type { Invite } from "../types/invite.types";
+import type { Invite, InviteTab } from "../types/invite.types";
 import { InviteActions } from "./invite-actions";
 import { InviteExpiry } from "./invite-expiry";
 
@@ -8,12 +8,23 @@ const HEADER_CELL = "bg-[#EFFAFF] px-4 py-3 font-medium dark:bg-[#2B3B5F]";
 const BODY_CELL =
   "border-border border-b px-4 py-4 group-last/row:border-b-0 dark:border-[#2B3B5F]";
 
+// What the third column holds depends on the tab: time left on a pending
+// invite, the day a revoked one was revoked, how the rest ended.
+const END_COLUMN_LABELS: Readonly<Record<InviteTab, string>> = {
+  pending: "Expires",
+  accepted: "Expiry",
+  expired: "Expiry",
+  revoked: "Date revoked",
+};
+
 export function InvitesTable({
   invites,
   now,
+  tab,
 }: {
   invites: readonly Invite[];
   now: number;
+  tab: InviteTab;
 }) {
   return (
     <div className="border-border overflow-x-auto rounded-3xl border p-3 dark:border-[#2B3B5F]">
@@ -28,7 +39,10 @@ export function InvitesTable({
               Role
             </th>
             <th scope="col" className={HEADER_CELL}>
-              Expiry
+              Date sent
+            </th>
+            <th scope="col" className={HEADER_CELL}>
+              {END_COLUMN_LABELS[tab]}
             </th>
             <th scope="col" className={`${HEADER_CELL} rounded-r-[0.5rem]`}>
               <span className="sr-only">Actions</span>
@@ -42,9 +56,6 @@ export function InvitesTable({
                 <span className="block font-medium [overflow-wrap:anywhere]">
                   {invite.email}
                 </span>
-                <span className="text-foreground-secondary block">
-                  {sentOn(invite)}
-                </span>
               </td>
               <td className={BODY_CELL}>
                 <RoleBadge
@@ -53,6 +64,9 @@ export function InvitesTable({
                     role: invite.cohortRole ?? undefined,
                   }}
                 />
+              </td>
+              <td className={`${BODY_CELL} text-foreground-secondary`}>
+                {sentOn(invite)}
               </td>
               <td className={BODY_CELL}>
                 <InviteExpiry invite={invite} now={now} />

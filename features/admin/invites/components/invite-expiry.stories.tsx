@@ -25,9 +25,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Pending: Story = {
   play: async ({ canvasElement }) => {
-    await expect(
-      within(canvasElement).getByText("Expires in 5 days"),
-    ).toBeVisible();
+    await expect(within(canvasElement).getByText("5 days")).toBeVisible();
   },
 };
 
@@ -41,9 +39,7 @@ export const ExpiresSoon: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    await expect(
-      within(canvasElement).getByText("Expires in 1 day"),
-    ).toBeVisible();
+    await expect(within(canvasElement).getByText("1 day")).toBeVisible();
   },
 };
 
@@ -71,9 +67,7 @@ export const Revoked: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    await expect(
-      within(canvasElement).getByText("Revoked 4 Oct"),
-    ).toBeVisible();
+    await expect(within(canvasElement).getByText("4 Oct")).toBeVisible();
   },
 };
 

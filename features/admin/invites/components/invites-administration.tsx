@@ -14,6 +14,8 @@ import {
   loadInvitesView,
 } from "../services/invites-view.service";
 import type { InvitesQuery, InviteTab } from "../types/invite.types";
+import { BulkInviteDialog } from "./bulk-invite-dialog";
+import { InvitePeopleDialog } from "./invite-people-dialog";
 import { InvitesTable } from "./invites-table";
 
 const TAB_LABELS: Readonly<Record<InviteTab, string>> = {
@@ -92,7 +94,7 @@ function InvitesList({
 
   return (
     <>
-      <InvitesTable invites={list.invites} now={now} />
+      <InvitesTable invites={list.invites} now={now} tab={query.tab} />
       <CataloguePagination
         ariaLabel="Invite pages"
         hrefForPage={(page) => invitesHref(cohortId, { ...query, page })}
@@ -117,16 +119,22 @@ export function InvitesAdministrationView({
       aria-labelledby="invites-heading"
       className="grid content-start gap-6 p-10"
     >
-      <header>
-        <h1
-          id="invites-heading"
-          className="font-display text-3xl font-semibold"
-        >
-          Invites
-        </h1>
-        <p className="text-foreground-secondary mt-2">
-          Invite-only. Role, cohort and track travel with the invite.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1
+            id="invites-heading"
+            className="font-display text-3xl font-semibold"
+          >
+            Invites
+          </h1>
+          <p className="text-foreground-secondary mt-2">
+            Invite-only. Role, cohort and track travel with the invite.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <BulkInviteDialog cohortId={cohortId} options={view.options} />
+          <InvitePeopleDialog cohortId={cohortId} options={view.options} />
+        </div>
       </header>
 
       <Tabs cohortId={cohortId} query={query} counts={view.counts} />

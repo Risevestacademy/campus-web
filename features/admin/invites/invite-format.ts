@@ -24,7 +24,7 @@ function dayOf(iso: string): string {
 }
 
 export function sentOn(invite: Pick<Invite, "createdAt">): string {
-  return `Sent ${dayOf(invite.createdAt)}`;
+  return dayOf(invite.createdAt);
 }
 
 export function describeExpiry(
@@ -38,7 +38,7 @@ export function describeExpiry(
       if (remaining <= 0) return { text: "Expired", soon: false };
       const days = Math.ceil(remaining / DAY);
       return {
-        text: `Expires in ${plural(days, "day")}`,
+        text: plural(days, "day"),
         soon: days <= SOON_DAYS,
       };
     }
@@ -51,7 +51,7 @@ export function describeExpiry(
     }
     case "revoked":
       return {
-        text: `Revoked ${dayOf(invite.revokedAt ?? invite.expiresAt)}`,
+        text: dayOf(invite.revokedAt ?? invite.expiresAt),
         soon: false,
       };
     case "accepted":

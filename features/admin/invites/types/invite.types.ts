@@ -61,3 +61,113 @@ export type InviteResend =
   | { kind: "problem"; problem: InviteResendProblem };
 export type InviteRevoke =
   { kind: "revoked" } | { kind: "problem"; problem: InviteRevokeProblem };
+
+// The roles Invite people offers. A guest has no entry: it needs an access end
+// date, and its own popup. Super admin cannot be invited.
+export type InviteRole =
+  Extract<Schemas["CohortRole"], "student" | "professor" | "mentor"> | "admin";
+
+// What `POST /v1/invites` takes that Invite people sends.
+export type InviteRequest = Simplify<
+  Pick<Schemas["CreateInviteDto"], "email"> &
+    Partial<
+      Pick<
+        Schemas["CreateInviteDto"],
+        | "cohortId"
+        | "cohortRole"
+        | "cohortTrackId"
+        | "mentorshipGroupId"
+        | "systemRole"
+      >
+    >
+>;
+
+export type InviteCreateProblem =
+  InviteRecordProblem | "conflict" | "rate-limited";
+
+export type InviteCreate =
+  | { kind: "created"; emailed: boolean }
+  | { kind: "problem"; problem: InviteCreateProblem };
+
+export interface InviteFailure {
+  email: string;
+  problem: InviteCreateProblem;
+}
+
+export type InvitesSent =
+  | { kind: "signed-out" }
+  | {
+      kind: "done";
+      sent: number;
+      notEmailed: number;
+      failures: InviteFailure[];
+    };
+
+// A track offered to an invite: the id is the cohort's attachment of the
+// track, which is what an invite names.
+export interface InviteTrackOption {
+  id: string;
+  name: string;
+  // What a CSV row names a track by.
+  code: string;
+}
+
+export interface InviteGroupOption {
+  id: string;
+  name: string;
+  mentorName: string | undefined;
+}
+
+export type InviteOptionsRead<TOption> =
+  { kind: "loaded"; options: TOption[] } | { kind: "unavailable" };
+
+export interface InviteOptions {
+  tracks: InviteOptionsRead<InviteTrackOption>;
+  groups: InviteOptionsRead<InviteGroupOption>;
+}
+
+// What `GET /v1/cohorts/{id}/mentorship-groups` sends that the popup reads.
+export type GroupsBody = Simplify<{
+  items: Simplify<
+    Pick<Schemas["MentorshipGroupResponseDto"], "id" | "name"> & {
+      mentor: {
+        user: Pick<Schemas["RosterUserDto"], "displayName" | "firstName">;
+      };
+    }
+  >[];
+  meta: Pick<Schemas["PaginationMetaDto"], "page" | "totalPages">;
+}>;
+
+// What `POST /v1/invites/import` sends that the popup reads. The link in each
+// row is a secret shown once, and nothing here shows it.
+export type ImportBody = Simplify<
+  Pick<Schemas["InviteImportResponseDto"], "total" | "invited" | "failed"> & {
+    rows: Simplify<
+      Pick<
+        Schemas["InviteImportRowDto"],
+        "line" | "email" | "outcome" | "emailStatus" | "reason"
+      >
+    >[];
+  }
+>;
+
+export interface ImportedRow {
+  line: number;
+  email: string;
+  reason: string;
+}
+
+export interface InviteImport {
+  total: number;
+  invited: number;
+  notEmailed: number;
+  // The rows that were not invited, with why.
+  failed: ImportedRow[];
+}
+
+export type InviteImportProblem =
+  InviteRecordProblem | "unreadable" | "rate-limited";
+
+export type InviteImportRead =
+  | ({ kind: "imported" } & InviteImport)
+  | { kind: "problem"; problem: InviteImportProblem };

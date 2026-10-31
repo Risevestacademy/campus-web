@@ -1,4 +1,3 @@
-import { ClockIcon } from "@phosphor-icons/react/dist/ssr/Clock";
 import { cn } from "cn";
 
 import { describeExpiry } from "../invite-format";
@@ -16,13 +15,11 @@ export function InviteExpiry({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2",
         soon
           ? "text-lemon-800 dark:text-lemon-300"
           : "text-foreground-secondary",
       )}
     >
-      <ClockIcon aria-hidden size={16} />
       {text}
     </span>
   );
