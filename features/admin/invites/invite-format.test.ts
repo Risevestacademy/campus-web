@@ -60,7 +60,7 @@ describe("describeExpiry", () => {
         },
         NOW,
       ).text,
-    ).toBe("4 Oct");
+    ).toBe("4 Oct 2026");
   });
 
   it("names an answered invite by its answer", () => {
@@ -77,6 +77,8 @@ describe("describeExpiry", () => {
 
 describe("sentOn", () => {
   it("prints the day in a fixed zone", () => {
-    expect(sentOn({ createdAt: "2026-10-03T23:30:00.000Z" })).toBe("3 Oct");
+    expect(sentOn({ createdAt: "2026-10-03T23:30:00.000Z" })).toBe(
+      "3 Oct 2026",
+    );
   });
 });

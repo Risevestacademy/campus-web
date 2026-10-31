@@ -67,7 +67,7 @@ export const Revoked: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByText("4 Oct")).toBeVisible();
+    await expect(within(canvasElement).getByText("4 Oct 2026")).toBeVisible();
   },
 };
 

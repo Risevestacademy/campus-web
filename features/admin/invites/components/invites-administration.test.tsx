@@ -83,7 +83,7 @@ describe("Invites page", () => {
       screen.getAllByRole("columnheader").map((header) => header.textContent),
     ).toEqual(["Email", "Role", "Date sent", "Expires", "Actions"]);
     const row = within(screen.getByRole("row", { name: /ada@campus.local/ }));
-    expect(row.getByText("3 Oct")).toBeVisible();
+    expect(row.getByText("3 Oct 2026")).toBeVisible();
     expect(row.getByText("Student")).toBeVisible();
     expect(row.getByText("1 day")).toBeVisible();
   });
