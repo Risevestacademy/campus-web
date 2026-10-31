@@ -16,7 +16,7 @@ const TRACKS: TrackOptionsRead = {
 };
 
 describe("PeopleFilters", () => {
-  it("searches the People page with its own fields, through next/form", () => {
+  it("points at the People page with a search box and a Track select", () => {
     render(<PeopleFilters cohortId="c-1" query={QUERY} tracks={TRACKS} />);
 
     const form = screen.getByRole("search");
@@ -36,10 +36,12 @@ describe("PeopleFilters", () => {
       />,
     );
 
-    const form = screen.getByRole("search");
-    expect(form.querySelector('input[name="role"]')).toHaveValue("mentor");
-    expect(screen.getByRole("searchbox")).toHaveValue("ada");
-    expect(screen.getByRole("combobox")).toHaveValue("t-1");
+    const fields = new FormData(screen.getByRole("search") as HTMLFormElement);
+    expect(Object.fromEntries(fields)).toEqual({
+      role: "mentor",
+      q: "ada",
+      track: "t-1",
+    });
   });
 
   it("offers no Track select when the tracks could not be read", () => {

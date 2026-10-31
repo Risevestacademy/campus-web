@@ -8,7 +8,8 @@ const MAX_PAGE_SIZE = 100;
 // Reads one person as a member of one cohort. The profile card answers for
 // any live account, so it cannot say whether the person belongs here; the
 // cohort list is the only read that carries the account's role, and it has
-// no filter by id, so the person is found in it by the card's address.
+// no filter by id, so the person is found in it by the card's address, page
+// by page.
 export async function readPerson(
   api: ApiClient,
   cohortId: string,
@@ -22,17 +23,22 @@ export async function readPerson(
   );
   if (!place) return { kind: "missing" };
 
-  const list = await listPeople(
-    api,
-    cohortId,
-    { search: read.card.email },
-    1,
-    MAX_PAGE_SIZE,
-  );
-  if (list.kind !== "loaded") return { kind: "unavailable" };
+  // The list has no filter by id and its search matches any part of an
+  // address, so the person may be on a later page of the matches.
+  for (let page = 1; ; page += 1) {
+    const list = await listPeople(
+      api,
+      cohortId,
+      { search: read.card.email },
+      page,
+      MAX_PAGE_SIZE,
+    );
+    if (list.kind !== "loaded") return { kind: "unavailable" };
 
-  const person = list.people.find(({ id }) => id === userId);
-  return person
-    ? { kind: "loaded", person, cohortName: place.cohort.name }
-    : { kind: "unavailable" };
+    const person = list.people.find(({ id }) => id === userId);
+    if (person) {
+      return { kind: "loaded", person, cohortName: place.cohort.name };
+    }
+    if (page >= list.totalPages) return { kind: "unavailable" };
+  }
 }

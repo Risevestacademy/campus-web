@@ -17,8 +17,8 @@ import {
 ```
 
 - `sessionScopeSchema`, `systemRoleSchema`, `cohortRoleSchema`,
-  `cohortStatusSchema`, `exceptionCodeSchema`: enums equal to the generated
-  types.
+  `userStatusSchema`, `cohortStatusSchema`, `exceptionCodeSchema`: enums equal
+  to the generated types.
 - `feedbackTypeSchema`, `feedbackStatusSchema`: the feedback vocabulary read
   by both the member popup and the admin page.
 - `paginationMetaSchema`: `{ page, totalPages }` of a paginated list; other
