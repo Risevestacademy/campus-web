@@ -77,6 +77,10 @@ export function hasSessionCookie(request: Request): boolean {
   );
 }
 
+function enforcedAttributes(secure: boolean): string[] {
+  return ["HttpOnly", ...(secure ? ["Secure"] : []), "SameSite=Lax"];
+}
+
 function normalizeAuthSetCookie(
   value: string,
   secure: boolean,
@@ -102,9 +106,7 @@ function normalizeAuthSetCookie(
       : undefined;
   const securityAttributes = [
     ...(domainAttribute ? [domainAttribute] : []),
-    "HttpOnly",
-    ...(secure ? ["Secure"] : []),
-    "SameSite=Lax",
+    ...enforcedAttributes(secure),
     cookieName === SESSION_COOKIE ? "Path=/" : `Path=${AUTH_COOKIE_PATH}`,
   ];
 
@@ -131,9 +133,7 @@ export function serializeProxyCookie(
 ): string {
   return [
     `${cookie.name}=${encodeURIComponent(cookie.value)}`,
-    "HttpOnly",
-    ...(secure ? ["Secure"] : []),
-    "SameSite=Lax",
+    ...enforcedAttributes(secure),
     `Path=${cookie.path}`,
     `Max-Age=${cookie.maxAge}`,
   ].join("; ");

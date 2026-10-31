@@ -7,6 +7,7 @@ import {
 const OAUTH_RETURN_COOKIE_NAME = "campus_oauth_return_to";
 const OAUTH_RETURN_MAX_AGE_SECONDS = 600;
 const RETURN_TO_PARAM = "returnTo";
+const CAMPUS_HOME_PATH = "/campus";
 
 export type ParseReturnTo = (value: string | undefined) => string | undefined;
 
@@ -69,6 +70,7 @@ export function rewriteSuccessfulOauthDestination(
 
   if (!isFrontendRoot) return;
 
-  const returnTo = readStoredReturnTo(request, parseReturnTo) ?? "/campus";
+  const returnTo =
+    readStoredReturnTo(request, parseReturnTo) ?? CAMPUS_HOME_PATH;
   responseHeaders.set("location", new URL(returnTo, requestUrl).href);
 }
