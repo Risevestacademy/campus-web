@@ -1,11 +1,4 @@
-import type { CohortRole, PeopleChip, Person } from "./types/people.types";
-
-export const ROLE_LABELS: Readonly<Record<CohortRole, string>> = {
-  student: "Student",
-  professor: "Professor",
-  mentor: "Mentor",
-  guest: "Guest",
-};
+import type { PeopleChip, Person } from "./types/people.types";
 
 export const CHIP_LABELS: Readonly<Record<PeopleChip, string>> = {
   all: "All",
@@ -26,11 +19,4 @@ export function firstNameOf(
   person: Pick<Person, "displayName" | "firstName" | "lastName" | "email">,
 ): string {
   return person.firstName?.trim() || personName(person).split(/\s+/)[0] || "";
-}
-
-export function roleLabelOf(
-  person: Pick<Person, "systemRole" | "role">,
-): string {
-  if (person.systemRole !== "user") return "Admin";
-  return person.role ? ROLE_LABELS[person.role] : "Member";
 }

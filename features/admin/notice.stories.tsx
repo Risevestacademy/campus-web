@@ -2,11 +2,11 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import Link from "next/link";
 import { expect, within } from "storybook/test";
 
-import { peopleHref } from "../people-href";
 import { Notice } from "./notice";
+import { peopleHref } from "./people/people-href";
 
 const meta = {
-  title: "Features/Admin/People/Notice",
+  title: "Features/Admin/Notice",
   component: Notice,
 } satisfies Meta<typeof Notice>;
 
