@@ -6,12 +6,12 @@ import type { Logger } from "@/core/observability";
 
 import { CLIENT_ADDRESS_HEADER, readClientAddress } from "./client-address";
 import type { components } from "./generated/schema";
+import { applyPrivateCachePolicy, forbidCaching } from "./proxy-cache-policy";
 import {
   appendRefreshAttemptedCookie,
   copyAuthSetCookies,
   expireCookies,
   findAuthCookies,
-  hasSessionCookie,
   type ScopedCookie,
   startsSession,
 } from "./proxy-cookie-policy";
@@ -26,7 +26,6 @@ import { findForwardedRoute } from "./upstream-routes";
 
 type ExceptionCode = components["schemas"]["ExceptionCode"];
 
-const AUTH_ROUTE_PREFIX = "/v1/auth/";
 const GOOGLE_AUTH_ROUTE = "/v1/auth/google";
 const GOOGLE_CALLBACK_ROUTE = "/v1/auth/google/callback";
 const REFRESH_ROUTE = "/v1/auth/refresh";
@@ -124,23 +123,6 @@ function copyHeaders(source: Headers, names: readonly string[]): Headers {
   }
 
   return headers;
-}
-
-function isPrivateResponse(
-  route: string,
-  request: Request,
-  responseHeaders: Headers,
-): boolean {
-  return (
-    route.startsWith(AUTH_ROUTE_PREFIX) ||
-    hasSessionCookie(request) ||
-    responseHeaders.has("set-cookie")
-  );
-}
-
-function forbidCaching(responseHeaders: Headers): void {
-  responseHeaders.set("cache-control", "private, no-store");
-  responseHeaders.delete("expires");
 }
 
 function createUpstreamUrl(
@@ -317,9 +299,7 @@ export function createApiProxy(options: ApiProxyOptions) {
         }
       }
 
-      if (isPrivateResponse(route, request, responseHeaders)) {
-        forbidCaching(responseHeaders);
-      }
+      applyPrivateCachePolicy(route, request, responseHeaders);
 
       responseHeaders.set("x-request-id", requestId);
       options.logger.info("api.proxy.completed", {
