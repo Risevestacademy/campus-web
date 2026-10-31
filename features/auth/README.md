@@ -8,10 +8,10 @@ reads and acceptance belong to `invitation`.
 
 ## Interface
 
-| Entry      | Imported by         | Exports                                                                                                                                                                                         |
-| ---------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.ts` | route code          | `requireRouteAccess`, `CohortGate`, `CohortSession`, `ForgetPreviousMember`, `SessionRefreshProvider`, `InvitationGate`, `ResumeInvitation`, `redirectSignedInVisitor`, `SessionUnavailable`, … |
-| `proxy.ts` | the root `proxy.ts` | `guardCampusRequest` (no React, no `server-only`)                                                                                                                                               |
+| Entry      | Imported by         | Exports                                                                                                                                                                                                        |
+| ---------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.ts` | route code          | `requireRouteAccess`, `CohortGate`, `CohortSession`, `ForgetPreviousMember`, `SessionRefreshProvider`, `InvitationGate`, `ResumeInvitation`, `redirectSignedInVisitor`, `SessionUnavailable`, `SignInPanel`, … |
+| `proxy.ts` | the root `proxy.ts` | `guardCampusRequest` (no React, no `server-only`)                                                                                                                                                              |
 
 ```tsx
 const access = await requireRouteAccess({ kind: "system-admin" });
@@ -37,22 +37,22 @@ access.session;
 
 ## Modules
 
-| Module                                    | Owns                                                          | Seam                                           |
-| ----------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------- |
-| `services/route-policy.ts`                | the policy above, as pure functions                           | none: shared by the proxy and `authorizeRoute` |
-| `services/authorization.service.ts`       | one `cache()`d session read per request, request signals      | `getServerApi()`                               |
-| `services/session.service.ts`             | `/v1/auth/me` with retries, refresh POST, logout POST         | `ApiClient`                                    |
-| `services/campus-proxy.service.ts`        | session refresh redirects and trusted render headers          | `NextRequest`                                  |
-| `services/session-renewal.ts`             | Session Renewal: when to renew, retries, cross-tab skips      | ports: refresh, lock, shared expiry, wake      |
-| `services/browser-session.ts`             | browser adapters for those ports; the refresh singletons      | `browserApi`, Web Locks, `localStorage`        |
-| `services/refresh-cooldown.ts`            | the 1/2/4/8 s backoff, stretched by `Retry-After`             | none                                           |
-| `services/member-analytics.ts`            | a cohort visit's analytics: user, system role, cohort, role   | none: pure                                     |
-| `schemas/`                                | session parsing; return-destination rules; sign-in error copy | none                                           |
-| `components/`                             | gates, `CohortSession`, refresh page, account menu            | none                                           |
-| `components/session-refresh-provider.tsx` | fills the shared refresh port with the locked refresher       | `core/session`                                 |
-| `components/cohort-analytics.tsx`         | identifies the member and enters the cohort in PostHog        | `core/analytics/client`                        |
-| `components/forget-previous-member.tsx`   | forgets an identified member on sign-in and invitation pages  | `core/analytics/client`                        |
-| `hooks/`                                  | refresh, renewal and logout; countdown                        | `browserApi`, shared `useMountEffect`          |
+| Module                                    | Owns                                                              | Seam                                           |
+| ----------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------- |
+| `services/route-policy.ts`                | the policy above, as pure functions                               | none: shared by the proxy and `authorizeRoute` |
+| `services/authorization.service.ts`       | one `cache()`d session read per request, request signals          | `getServerApi()`                               |
+| `services/session.service.ts`             | `/v1/auth/me` with retries, refresh POST, logout POST             | `ApiClient`                                    |
+| `services/campus-proxy.service.ts`        | session refresh redirects and trusted render headers              | `NextRequest`                                  |
+| `services/session-renewal.ts`             | Session Renewal: when to renew, retries, cross-tab skips          | ports: refresh, lock, shared expiry, wake      |
+| `services/browser-session.ts`             | browser adapters for those ports; the refresh singletons          | `browserApi`, Web Locks, `localStorage`        |
+| `services/refresh-cooldown.ts`            | the 1/2/4/8 s backoff, stretched by `Retry-After`                 | none                                           |
+| `services/member-analytics.ts`            | a cohort visit's analytics: user, system role, cohort, role       | none: pure                                     |
+| `schemas/`                                | session parsing; return-destination rules; sign-in error copy     | none                                           |
+| `components/`                             | gates, `CohortSession`, refresh page, account menu, sign-in panel | none                                           |
+| `components/session-refresh-provider.tsx` | fills the shared refresh port with the locked refresher           | `core/session`                                 |
+| `components/cohort-analytics.tsx`         | identifies the member and enters the cohort in PostHog            | `core/analytics/client`                        |
+| `components/forget-previous-member.tsx`   | forgets an identified member on sign-in and invitation pages      | `core/analytics/client`                        |
+| `hooks/`                                  | refresh, renewal and logout; countdown                            | `browserApi`, shared `useMountEffect`          |
 
 Flow: page → gate or `requireRouteAccess` → `authorizeRoute` →
 `route-policy` + `session.service`.
