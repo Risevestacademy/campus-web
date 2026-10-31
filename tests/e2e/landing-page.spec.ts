@@ -1,5 +1,7 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
+import { blockPostHog, rejectAnalyticsUpFront } from "./support/analytics";
+
 type Theme = "light" | "dark";
 
 const THEMES: readonly Theme[] = ["light", "dark"];
@@ -10,6 +12,10 @@ const NORMAL_TEXT_CONTRAST = 4.5;
 const LARGE_TEXT_CONTRAST = 3;
 
 async function openLandingPage(page: Page, theme: Theme) {
+  // Builds carry the real analytics token, so the consent choice would open
+  // over the page and be sampled as part of the backdrop.
+  await blockPostHog(page.context());
+  await rejectAnalyticsUpFront(page.context());
   await page.addInitScript(
     ({ storageKey, initialTheme }) => {
       window.localStorage.setItem(storageKey, initialTheme);
