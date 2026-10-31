@@ -13,10 +13,10 @@ const footerLinks = [
 
 export function FooterSection() {
   return (
-    <footer className="content-grid relative bg-[#142429] py-12 font-sans text-neutral-50">
+    <footer className="content-grid relative bg-[#142429] py-12 font-sans text-neutral-50 dark:bg-[#151b28]">
       <div
         aria-hidden="true"
-        className="full-width bg-turquoise-500 pointer-events-none absolute inset-x-0 top-0 h-0.5"
+        className="full-width bg-turquoise-500 pointer-events-none absolute inset-x-0 top-0 h-0.5 dark:hidden"
       />
 
       <div className="flex w-full flex-col gap-11">

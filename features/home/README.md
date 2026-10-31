@@ -10,10 +10,12 @@ them in order. Consumers never deep-import `sections/`.
 
 ## Modules
 
-| Module                | Owns                                       | Seam |
-| --------------------- | ------------------------------------------ | ---- |
-| `sections/<name>.tsx` | one landing-page section                   | none |
-| `sections/hero/`      | the hero and its mobile menu (client leaf) | none |
+| Module                                         | Owns                                       | Seam |
+| ---------------------------------------------- | ------------------------------------------ | ---- |
+| `sections/<name>.tsx`                          | one landing-page section                   | none |
+| `sections/hero/`                               | the hero and its mobile menu (client leaf) | none |
+| `themed-image.tsx`, `themed-image.stories.tsx` | an image with a light and a dark variant   | none |
+| `brand-gradient.ts`                            | the dark hero and CTA background           | none |
 
 A section is one file until it has a client leaf, a test, or several files;
 then it moves to `sections/<name>/` with `<name>-section.tsx` as its entry.

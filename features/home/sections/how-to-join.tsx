@@ -1,6 +1,7 @@
-import Image from "next/image";
-
 import brandEnvelope from "@/assets/landing-page/brand-envelope.svg";
+import brandEnvelopeDark from "@/assets/landing-page/brand-envelope-dark.svg";
+
+import { ThemedImage } from "../themed-image";
 
 const onboardingSteps = [
   {
@@ -27,11 +28,11 @@ export function HowToJoinSection() {
     <section
       id="how-to-join"
       aria-labelledby="how-to-join-heading"
-      className="content-grid scroll-mt-22 bg-[#142429] py-24 font-sans text-neutral-50 md:scroll-mt-28"
+      className="content-grid scroll-mt-22 bg-[#142429] py-24 font-sans text-neutral-50 md:scroll-mt-28 dark:bg-[linear-gradient(to_right,#162350_15%,#2442b0_57%,#162350_100%)]"
     >
       <div className="grid w-full grid-cols-1 gap-12 md:grid-cols-2 md:items-center md:gap-24">
         <div>
-          <p className="text-turquoise-300 text-[13px] leading-5 font-semibold tracking-[0.1em] uppercase">
+          <p className="text-turquoise-300 dark:text-accent text-[13px] leading-5 font-semibold tracking-[0.1em] uppercase">
             How to join
           </p>
 
@@ -43,13 +44,14 @@ export function HowToJoinSection() {
             <span className="block">is the starting point.</span>
           </h2>
 
-          <p className="mt-6 max-w-[390px] text-[17px] leading-[27px] text-neutral-200">
+          <p className="mt-6 max-w-[390px] text-[17px] leading-[27px] text-neutral-200 dark:text-neutral-50">
             No invitation yet? Contact your Rise programme admin.
           </p>
 
           <div aria-hidden="true" className="mt-6 h-[114px] w-[160px]">
-            <Image
-              src={brandEnvelope}
+            <ThemedImage
+              light={brandEnvelope}
+              dark={brandEnvelopeDark}
               alt=""
               width={160}
               height={114}
@@ -58,13 +60,13 @@ export function HowToJoinSection() {
           </div>
         </div>
 
-        <ol className="divide-y divide-neutral-50/15 border-y border-neutral-50/15">
+        <ol className="dark:divide-cobalt-400/90 dark:border-cobalt-400/90 divide-y divide-neutral-50/15 border-y border-neutral-50/15">
           {onboardingSteps.map(({ number, title, description }) => (
             <li
               key={number}
               className="grid grid-cols-[32px_minmax(0,1fr)] gap-x-5 py-[26px]"
             >
-              <span className="text-turquoise-300 pt-0.5 text-base leading-7 font-semibold tabular-nums">
+              <span className="text-turquoise-300 dark:text-accent pt-0.5 text-base leading-7 font-semibold tabular-nums">
                 {number}
               </span>
 
@@ -73,7 +75,7 @@ export function HowToJoinSection() {
                   {title}
                 </h3>
 
-                <p className="mt-2.5 max-w-[540px] text-base leading-[160%] text-neutral-200">
+                <p className="mt-2.5 max-w-[540px] text-base leading-[160%] text-neutral-200 dark:text-neutral-50">
                   {description}
                 </p>
               </div>
