@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 
-import { avatarTone, initialOf } from "../../feedback";
+import { avatarTone, initialOf } from "../../avatar";
 import { personName } from "../people-format";
 import { personHref } from "../people-href";
 import type { Person } from "../types/people.types";

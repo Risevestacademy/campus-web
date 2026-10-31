@@ -3,12 +3,8 @@ import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { buttonVariants } from "@/shared/ui/button";
 
-import {
-  avatarTone,
-  describeAge,
-  initialOf,
-  reportedNameOf,
-} from "../feedback-format";
+import { avatarTone, initialOf } from "../../avatar";
+import { describeAge, reportedNameOf } from "../feedback-format";
 import { feedbackAdministrationHref } from "../feedback-href";
 import type { FeedbackFilter, FeedbackPage } from "../types/feedback.types";
 import { FeedbackStatusLabel } from "./feedback-status-label";

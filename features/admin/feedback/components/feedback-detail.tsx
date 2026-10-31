@@ -7,8 +7,8 @@ import type { ReactNode } from "react";
 
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 
+import { avatarTone } from "../../avatar";
 import {
-  avatarTone,
   describeAge,
   personInitial,
   personName,

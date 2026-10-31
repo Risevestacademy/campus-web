@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { presenceFor } from "@/core/presence";
@@ -51,16 +51,15 @@ describe("PersonDetail", () => {
   it("badges a system administrator as Admin, as the list does", () => {
     renderDetail(person({ systemRole: "super_admin" }));
 
-    const profile = screen.getByText("ada@campus.local").closest("p");
-    expect(within(profile as HTMLElement).getByText("Admin")).toBeVisible();
-    expect(within(profile as HTMLElement).queryByText("Student")).toBeNull();
+    expect(screen.getByText("Admin")).toBeVisible();
+    expect(screen.queryByText("Student")).not.toBeInTheDocument();
   });
 
-  it("badges an ordinary member with their cohort role", () => {
+  it("names an ordinary member by their cohort role, not as an Admin", () => {
     renderDetail(person({ role: "mentor" }));
 
-    const profile = screen.getByText("ada@campus.local").closest("p");
-    expect(within(profile as HTMLElement).getByText("Mentor")).toBeVisible();
+    expect(screen.getByText("Mentor · Backend · Cohort 2")).toBeVisible();
+    expect(screen.queryByText("Admin")).not.toBeInTheDocument();
   });
 
   it("shows live status and follows it", () => {
