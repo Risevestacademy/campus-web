@@ -1,14 +1,15 @@
-# Proximity audio
+# Call audio
 
-Who you hear, from World. World decides the room (`call`) and who is near
-(`nearby`); this module joins that room, subscribes only the nearby
-microphones, and sets each one's gain from distance. It is the media
+Who you hear, from World. World decides the room (`call`) and its hearing;
+presence keeps who you meet (`meetingRoster`). This module joins that room,
+subscribes only the roster's microphones, and sets each one's gain: full
+under room hearing, from distance under proximity hearing. It is the media
 session's `MeetingMediaTransport`, so capture stays in the media session.
 
 ## Interface
 
 ```ts
-const session = createProximityAudioSession({
+const session = createCallAudioSession({
   now,
   pinMediaUrl,
   recordFirstAudioMilliseconds,
@@ -19,15 +20,16 @@ session.applyWorldMessage(message, presence); // every parsed World frame
 session.applyPresence(presence); // presence that changed without a frame
 ```
 
-The Presence Session uses `createBrowserProximityAudioSession()`, which binds
+The Presence Session uses `createBrowserCallAudioSession()`, which binds
 `pinMediaUrl` to `NEXT_PUBLIC_MEDIA_URL`, `now` to `performance.now`, first
 audio to PostHog, and the LiveKit adapter as `roomTransport`.
 
 - `connect(callbacks)` / `handleLocalPublicationChange(change)`: the media
   session's transport seam. Only the microphone reaches the room.
-- `applyWorldMessage(message, presence)`: a proximity `call` swaps rooms;
-  `call: null` or a room-hearing call leaves. `snapshot`, `joined`, `left`,
-  `moved`, `moveResult` and `nearby` reapply subscriptions and gains in the
+- `applyWorldMessage(message, presence)`: a `call` World can hear
+  (`hearingOf`) swaps rooms; `call: null` or a hearing added later leaves.
+  `snapshot`, `joined`, `left`, `moved`, `moveResult`, `nearby` and
+  `spaceChanged` reapply subscriptions and gains in the
   same task. `applyPresence` does the same for presence a World close
   emptied, so nobody stays audible while World cannot say who is near.
 - `MeetingRoomTransport` (`contracts.ts`): joins one room with
@@ -36,11 +38,11 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 
 ## Modules
 
-| Module                               | Owns                                                      |
-| ------------------------------------ | --------------------------------------------------------- |
-| `proximity-audio-session.ts`         | call lifecycle, subscription policy, gain, status, timing |
-| `livekit-meeting-room-transport.ts`  | one LiveKit `Room` as a `MeetingRoomConnection`           |
-| `browser-proximity-audio-session.ts` | production composition: media host pin, clock, analytics  |
+| Module                              | Owns                                                      |
+| ----------------------------------- | --------------------------------------------------------- |
+| `call-audio-session.ts`             | call lifecycle, subscription policy, gain, status, timing |
+| `livekit-meeting-room-transport.ts` | one LiveKit `Room` as a `MeetingRoomConnection`           |
+| `browser-call-audio-session.ts`     | production composition: media host pin, clock, analytics  |
 
 ## LiveKit adapter
 
@@ -64,10 +66,15 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
 ## Rules
 
 - Audio only. Camera and screen never publish or subscribe.
-- Subscribed ids are `nearby` minus you, limited to participants presence
-  knows.
-- Gain is `max(0, 1 - distance / audibleRadius)` in tiles. An unknown
-  position or a zero radius is silent.
+- Subscribed ids are presence's `meetingRoster`: room mates under room
+  hearing, known `nearby` otherwise, never you.
+- Gain is `1` under room hearing: everyone in the space hears everyone, and
+  nothing leaks in or out. Under proximity hearing it is
+  `max(0, 1 - distance / audibleRadius)` in tiles; an unknown position or a
+  zero radius is silent.
+- Stepping into another space empties the roster at once (presence clears
+  `hearing`), so audio cuts at the threshold before World's next call
+  arrives.
 - The old room finishes disconnecting before the next one joins. A call that
   changes mid-join aborts it and disconnects whatever it returned.
 - `MeetingRoomConnection.disconnect` is idempotent. It is still called after
@@ -80,10 +87,11 @@ audio to PostHog, and the LiveKit adapter as `roomTransport`.
   `unavailable` when the host is not pinned, the join fails, the room
   disconnects on its own, or a microphone change fails. Remote publications
   and gains clear in every case.
-- First-audio time is measured only for calls that arrive while a subscribed
-  peer is nearby, from `call` to the room's first remote microphone.
+- First-audio time is measured only for calls that arrive while the roster
+  is not empty, from `call` to the room's first remote microphone, and is
+  reported with the call's hearing.
 
-Room-hearing spaces and remote video are not supported yet.
+Remote video is not supported yet.
 
 `RemoteAudioOutput` follows each participant's gain outside React, so a gain
 change never detaches the audio. A participant with no gain plays silent.
@@ -100,19 +108,28 @@ to explain it.
 
 ## Analytics
 
-| Event                          | Properties       | When                                       |
-| ------------------------------ | ---------------- | ------------------------------------------ |
-| `campus.proximity_audio_ready` | `first_audio_ms` | first nearby microphone of a measured call |
+| Event                          | Properties                  | When                                       |
+| ------------------------------ | --------------------------- | ------------------------------------------ |
+| `campus.proximity_audio_ready` | `first_audio_ms`, `hearing` | first roster microphone of a measured call |
+
+`first_audio_ms` runs from a `call` that arrives with somebody already in
+`meetingRoster` to the first remote microphone subscribed. Two limits:
+
+- The first person into a room is never measured: their roster is empty when
+  their `call` arrives, even if someone joins later.
+- Muted mates stretch it: a room where everyone is muted can report minutes.
+
+Compare room and proximity latency only with both in mind.
 
 ## Tests
 
 ```bash
-pnpm vitest run --project=unit features/campus/services/proximity-audio
+pnpm vitest run --project=unit features/campus/services/call-audio
 pnpm eval:proximity-audio
 pnpm eval:privacy
 ```
 
 The eval drives real frames through presence, this session and the adapter
-over `testing/fake-livekit.ts`. Threshold: 6/6 scenarios, every `nearby`
+over `testing/fake-livekit.ts`. Threshold: 7/7 scenarios, every roster
 change applied in the same task, and no subscription outside the latest
-`nearby`.
+`meetingRoster`.

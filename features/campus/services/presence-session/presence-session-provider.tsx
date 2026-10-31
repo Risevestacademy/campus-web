@@ -13,10 +13,10 @@ import { type RefreshSession, useRefreshSession } from "@/core/session";
 import { replaceDocument } from "@/shared/lib/document-navigation";
 import { useMountEffect } from "@/shared/lib/use-mount-effect";
 
+import { createBrowserCallAudioSession } from "../call-audio/browser-call-audio-session";
 import { MediaSessionProvider } from "../media-session/media-session-provider";
 import { createMediaSessionStore } from "../media-session/media-session-store";
 import { useMediaSessionLifecycle } from "../media-session/use-media-session-lifecycle";
-import { createBrowserProximityAudioSession } from "../proximity-audio/browser-proximity-audio-session";
 import { createBrowserWorldSession } from "../world-session/browser-world-session";
 import { WorldSessionProvider } from "../world-session/world-session-provider";
 import {
@@ -69,7 +69,7 @@ function createPresenceSession(
   const admission = createAdmissionStore();
   // Audio and world need each other: World feeds audio its frames, and a
   // refused grant asks World for a fresh call. The arrow binds world late.
-  const audio = createBrowserProximityAudioSession(() => world.rejoin());
+  const audio = createBrowserCallAudioSession(() => world.rejoin());
   const media = createMediaSessionStore({ transport: audio });
   const presenceTab = createBrowserPresenceTab(cohortId);
   const world = createBrowserWorldSession(cohortId, {

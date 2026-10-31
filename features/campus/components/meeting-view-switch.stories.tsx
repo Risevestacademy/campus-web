@@ -7,10 +7,7 @@ import { Button } from "@/shared/ui/button";
 
 import { MediaSessionProvider } from "../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../services/media-session/media-session-store";
-import type {
-  MeetingParticipant,
-  ProximityMeeting,
-} from "../types/active-campus.types";
+import type { Meeting, MeetingParticipant } from "../types/active-campus.types";
 import { CampusViewProvider } from "./campus-view-provider";
 import {
   DEFAULT_MEETING_TILE_MOTION,
@@ -60,8 +57,10 @@ function MeetingViewMotionLab({
     durationMs,
     bounce,
   };
-  const meeting: ProximityMeeting = {
+  const meeting: Meeting = {
     encounter,
+    hearing: "proximity",
+    title: "Nearby",
     localParticipantId: "participant-a",
     participants: everyoneNearby.slice(0, nearbyCount + 1),
   };
