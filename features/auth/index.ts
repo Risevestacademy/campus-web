@@ -7,6 +7,7 @@ export { RefreshSession } from "./components/refresh-session";
 export { ResumeInvitation } from "./components/resume-invitation";
 export { SessionRefreshProvider } from "./components/session-refresh-provider";
 export { SessionUnavailable } from "./components/session-unavailable";
+export { SignInPanel } from "./components/sign-in-panel";
 export { authErrorMessage } from "./schemas/auth-error.schema";
 export {
   normalizeCohortReturnTo,
