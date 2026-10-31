@@ -1,6 +1,6 @@
-import Image from "next/image";
-
 import campusMap from "@/assets/landing-page/editable-spatial-illustration.svg";
+import campusMapDark from "@/assets/landing-page/editable-spatial-illustration-dark.svg";
+import { ThemedImage } from "@/shared/ui/themed-image";
 
 const capabilities = [
   {
@@ -41,15 +41,15 @@ function CampusCapabilities() {
       {capabilities.map(({ title, description }, index) => (
         <li
           key={title}
-          className="dark:border-border border-t border-[#D3DAE9] pt-6"
+          className="border-t border-[#D3DAE9] pt-6 dark:border-[#2b3b5f]"
         >
-          <span className="text-primary dark:text-brand-foreground text-base font-semibold md:text-[1.25rem] lg:text-[1.5rem]">
+          <span className="text-primary dark:text-accent text-base font-semibold md:text-[1.25rem] lg:text-[1.5rem]">
             {String(index + 1).padStart(2, "0")}
           </span>
           <h3 className="text-foreground mt-3 text-xl font-medium md:text-2xl">
             {title}
           </h3>
-          <p className="text-foreground-secondary mt-3 text-base md:text-lg">
+          <p className="text-foreground-secondary mt-3 text-base md:text-lg dark:text-[#abb9d8]">
             {description}
           </p>
         </li>
@@ -63,10 +63,10 @@ export function ExploreCampusSection() {
     <section
       id="explore-campus"
       aria-labelledby="explore-campus-heading"
-      className="content-grid bg-background font-display scroll-mt-22 py-16 md:scroll-mt-28 md:py-24"
+      className="content-grid bg-background font-display scroll-mt-22 py-16 md:scroll-mt-28 md:py-24 dark:bg-[#151b28]"
     >
       <div>
-        <p className="text-primary dark:text-brand-foreground text-sm font-medium tracking-wider uppercase md:text-base">
+        <p className="text-primary text-sm font-medium tracking-wider uppercase md:text-base dark:text-[#79c7ff]">
           Explore Campus
         </p>
 
@@ -78,21 +78,22 @@ export function ExploreCampusSection() {
             <span className="block">Get to know</span>
             <span className="block">your Campus.</span>
           </h2>
-          <p className="text-foreground-secondary mt-4 text-lg md:mt-0 md:text-xl">
+          <p className="text-foreground-secondary mt-4 text-lg md:mt-0 md:text-xl dark:text-[#abb9d8]">
             One map connects your classrooms, shared spaces and the people in
             your cohort. Here’s what you’ll find inside.
           </p>
         </div>
 
-        <div className="mt-10 rounded-2xl bg-[#EFFAFF] p-2 md:mt-12 md:p-4 dark:bg-[#2B3B5F]">
-          <Image
-            src={campusMap}
+        <div className="mt-10 rounded-2xl bg-[#EFFAFF] p-2 md:mt-12 md:p-4 dark:bg-[#1F2940]">
+          <ThemedImage
+            light={campusMap}
+            dark={campusMapDark}
             alt="Map of the Campus showing Town Hall, the Notice Wall, the Resource Centre, Common Area, Admin, Faculty and the private rooms."
             className="mx-auto h-auto w-full rounded-2xl"
           />
         </div>
 
-        <p className="text-foreground-secondary mt-8 text-center text-lg md:text-xl">
+        <p className="text-foreground-secondary mt-8 text-center text-lg md:text-xl dark:text-[#abb9d8]">
           Different spaces. One connected campus.
         </p>
 
