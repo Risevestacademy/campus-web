@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, within } from "storybook/test";
 
-import type { Person } from "../types/people.types";
 import { RoleBadge } from "./role-badge";
+import type { AdminRole } from "./role-labels";
 
 const meta = {
-  title: "Features/Admin/People/RoleBadge",
+  title: "Features/Admin/RoleBadge",
   component: RoleBadge,
   args: { person: { systemRole: "user", role: "student" } },
 } satisfies Meta<typeof RoleBadge>;
@@ -14,7 +14,7 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-function badge(person: Pick<Person, "systemRole" | "role">, label: string) {
+function badge(person: AdminRole, label: string) {
   return {
     args: { person },
     play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
