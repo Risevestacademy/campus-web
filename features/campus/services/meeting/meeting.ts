@@ -1,41 +1,47 @@
-import type { Participant, Presence } from "@/core/presence";
+import { type Participant, type Presence, spaceNameOf } from "@/core/presence";
 
 import type {
+  Meeting,
   MeetingTileLayout,
   OpenedMeetingLayout,
-  ProximityMeeting,
 } from "../../types/active-campus.types";
 import { meetingParticipantOf } from "./participant-identity";
 
-type ProximityPresence = Pick<
+type MeetingPresence = Pick<
   Presence,
-  "selfId" | "participants" | "nearby" | "encounter"
+  | "selfId"
+  | "participants"
+  | "meetingRoster"
+  | "encounter"
+  | "hearing"
+  | "spaceNames"
 >;
 
-function knownNearby({
+function rosterParticipants({
   participants,
-  nearby,
-}: ProximityPresence): Participant[] {
-  return nearby.flatMap((userId) => {
+  meetingRoster,
+}: MeetingPresence): Participant[] {
+  return meetingRoster.flatMap((userId) => {
     const participant = participants.get(userId);
     return participant ? [participant] : [];
   });
 }
 
-export function selectProximityMeeting(
-  presence: ProximityPresence,
-): ProximityMeeting | null {
+export function selectMeeting(presence: MeetingPresence): Meeting | null {
   const self =
     presence.selfId === null
       ? undefined
       : presence.participants.get(presence.selfId);
-  const near = knownNearby(presence);
-  if (!self || near.length === 0) return null;
+  const others = rosterParticipants(presence);
+  if (!self || others.length === 0) return null;
 
+  const inRoom = presence.hearing === "room";
   return {
     encounter: presence.encounter,
+    hearing: inRoom ? "room" : "proximity",
+    title: inRoom ? spaceNameOf(presence, self.spaceKey) : "Nearby",
     localParticipantId: self.userId,
-    participants: [self, ...near].map(meetingParticipantOf),
+    participants: [self, ...others].map(meetingParticipantOf),
   };
 }
 
@@ -51,7 +57,7 @@ export function splitAtCap<Item>(
 
 export function visibleMeetingLayout(
   layout: OpenedMeetingLayout,
-  meeting: ProximityMeeting,
+  meeting: Meeting,
 ): MeetingTileLayout {
   if (layout.mode === "compact" || layout.encounter !== meeting.encounter) {
     return { mode: "compact" };

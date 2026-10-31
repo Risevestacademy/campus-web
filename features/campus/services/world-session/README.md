@@ -36,7 +36,7 @@ In React, `useWorldSession()` gives `status`, `connect` and `reconnect` under
 - Every parsed frame goes to `presence.apply`, which rebuilds from each
   `snapshot`, so a reconnect never duplicates an avatar.
 - `onMessage` then gets the same frame with the presence it produced. The
-  Presence Session passes proximity audio's `applyWorldMessage`, so a
+  Presence Session passes call audio's `applyWorldMessage`, so a
   `nearby` frame reaches subscriptions in the same task, and its
   `applyPresence` as `onRemoteParticipantsCleared`.
 - `connect()` and `reconnect()` bind movement to the active client's sender,

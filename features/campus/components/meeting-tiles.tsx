@@ -4,7 +4,7 @@ import { cn } from "cn";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { useMediaSession } from "../services/media-session/media-session-provider";
-import { splitAtCap } from "../services/proximity-meeting/proximity-meeting";
+import { splitAtCap } from "../services/meeting/meeting";
 import type {
   MeetingParticipant,
   MeetingTileLayout,

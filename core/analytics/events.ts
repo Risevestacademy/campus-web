@@ -57,6 +57,7 @@ const roleSchema = z.enum([
 const authMethodSchema = z.enum(["email", "google", "rise_sso"]);
 const platformSchema = z.enum(["mobile", "web"]);
 const presenceTabSurfaceSchema = z.enum(["pre_join", "taken_over"]);
+const hearingSchema = z.enum(["proximity", "room"]);
 const verificationTypeSchema = z.enum(["email", "invite", "phone"]);
 const campusWorldMapErrorKindSchema = z.enum([
   "config",
@@ -173,8 +174,11 @@ export const analyticsEventSchemas = {
   }),
   [ANALYTICS_EVENTS.CAMPUS_PROXIMITY_AUDIO_READY]: z.object({
     first_audio_ms: durationMsSchema,
+    hearing: hearingSchema,
   }),
-  [ANALYTICS_EVENTS.CAMPUS_PROXIMITY_VIEW_SHOWN]: z.object({}),
+  [ANALYTICS_EVENTS.CAMPUS_PROXIMITY_VIEW_SHOWN]: z.object({
+    hearing: hearingSchema,
+  }),
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_LOADED]: campusWorldMapLoadedSchema,
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_FAILED]: campusWorldMapFailureSchema,
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_READY]: z.object({

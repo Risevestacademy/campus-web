@@ -38,7 +38,7 @@ export interface MeetingRoomTransport {
   ): Promise<MeetingRoomConnection>;
 }
 
-export interface ProximityAudioSession extends MeetingMediaTransport {
+export interface CallAudioSession extends MeetingMediaTransport {
   applyWorldMessage(message: ServerMessage, presence: Presence): void;
   // Presence that changed without a frame, like a World close clearing it.
   applyPresence(presence: Presence): void;

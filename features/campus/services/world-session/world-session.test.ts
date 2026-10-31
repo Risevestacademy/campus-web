@@ -307,7 +307,7 @@ describe("createWorldSession", () => {
       expect(world.connections).toHaveLength(1);
     });
 
-    it("never rejoins it for proximity audio", async () => {
+    it("never rejoins it for call audio", async () => {
       const { session, world } = await enteredElsewhere();
 
       expect(session.rejoin()).toBe(false);

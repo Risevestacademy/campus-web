@@ -1,4 +1,4 @@
-import type { Presence } from "@/core/presence";
+import { type Hearing, hearingOf, type Presence } from "@/core/presence";
 import type { Call, ServerMessage } from "@/core/realtime";
 
 import type {
@@ -8,26 +8,32 @@ import type {
   RemotePublicationChange,
 } from "../media-session/contracts";
 import {
+  type CallAudioSession,
   type MeetingRoomConnection,
   type MeetingRoomEvents,
   type MeetingRoomTransport,
-  type ProximityAudioSession,
   RoomAccessDeniedError,
 } from "./contracts";
 
-type ProximityAudioSessionOptions = Readonly<{
+type CallAudioSessionOptions = Readonly<{
   now: () => number;
   pinMediaUrl: (url: string) => string | undefined;
-  recordFirstAudioMilliseconds: (milliseconds: number) => void;
+  recordFirstAudioMilliseconds: (
+    milliseconds: number,
+    hearing: Hearing,
+  ) => void;
   // Asks World to send the call again with a fresh token; false when World
   // cannot be asked right now.
   refreshCall: () => boolean;
   roomTransport: MeetingRoomTransport;
 }>;
 
+type HeardCall = Call & Readonly<{ hearing: Hearing }>;
+
 type ActiveRoom = Readonly<{
   audibleRadius: number;
   connection: MeetingRoomConnection;
+  hearing: Hearing;
 }>;
 
 type Position = Readonly<{ x: number; y: number }>;
@@ -45,6 +51,7 @@ const POLICY_FRAMES: ReadonlySet<ServerMessage["type"]> = new Set([
   "moved",
   "moveResult",
   "nearby",
+  "spaceChanged",
 ]);
 
 function remoteAudioGain(
@@ -57,25 +64,15 @@ function remoteAudioGain(
   return Math.max(0, 1 - distance / audibleRadius);
 }
 
-function nearbyParticipantIds(presence: Presence): ReadonlySet<string> {
-  return new Set(
-    presence.nearby.filter(
-      (participantId) =>
-        participantId !== presence.selfId &&
-        presence.participants.has(participantId),
-    ),
-  );
-}
-
-export function createProximityAudioSession(
-  options: ProximityAudioSessionOptions,
-): ProximityAudioSession {
+export function createCallAudioSession(
+  options: CallAudioSessionOptions,
+): CallAudioSession {
   let callbacks: MeetingMediaTransportCallbacks | undefined;
   let active: ActiveRoom | undefined;
   let pendingJoin: AbortController | undefined;
   let localMicrophone: LocalMediaPublication | undefined;
   let latestPresence: Presence | undefined;
-  let latestCall: Call | undefined;
+  let latestCall: HeardCall | undefined;
   const pendingRemovals = new Map<string, PublicationRemoval>();
   // Bumped whenever the current room ends; async work from an older generation
   // is stale and must not touch state or callbacks.
@@ -97,21 +94,22 @@ export function createProximityAudioSession(
 
   function applyPolicy() {
     if (!callbacks || !active || !latestPresence) return;
-    const { audibleRadius, connection } = active;
-    const { positions, selfId } = latestPresence;
-    const participantIds = nearbyParticipantIds(latestPresence);
+    const { audibleRadius, connection, hearing } = active;
+    const { meetingRoster, positions, selfId } = latestPresence;
     const selfPosition = selfId ? positions.get(selfId) : undefined;
 
-    connection.setSubscribedParticipantIds(participantIds);
+    connection.setSubscribedParticipantIds(new Set(meetingRoster));
     callbacks.onRemoteAudioGainsChange(
       Object.fromEntries(
-        [...participantIds].map((participantId) => [
+        meetingRoster.map((participantId) => [
           participantId,
-          remoteAudioGain(
-            selfPosition,
-            positions.get(participantId),
-            audibleRadius,
-          ),
+          hearing === "room"
+            ? 1
+            : remoteAudioGain(
+                selfPosition,
+                positions.get(participantId),
+                audibleRadius,
+              ),
         ]),
       ),
     );
@@ -175,6 +173,7 @@ export function createProximityAudioSession(
   function roomEvents(
     stepGeneration: number,
     receivedAt: number | undefined,
+    hearing: Hearing,
   ): MeetingRoomEvents {
     let unmeasuredSince = receivedAt;
     return {
@@ -186,7 +185,10 @@ export function createProximityAudioSession(
         ) {
           return;
         }
-        options.recordFirstAudioMilliseconds(options.now() - unmeasuredSince);
+        options.recordFirstAudioMilliseconds(
+          options.now() - unmeasuredSince,
+          hearing,
+        );
         unmeasuredSince = undefined;
       },
       onRemotePublicationChange: (change) => {
@@ -213,7 +215,7 @@ export function createProximityAudioSession(
   }
 
   async function join(
-    call: Call,
+    call: HeardCall,
     stepGeneration: number,
     receivedAt: number | undefined,
   ) {
@@ -228,7 +230,7 @@ export function createProximityAudioSession(
     starting.onStatusChange("connecting");
     const connection = await connectAbortably(
       { url, token: call.token },
-      roomEvents(stepGeneration, receivedAt),
+      roomEvents(stepGeneration, receivedAt, call.hearing),
     );
 
     const current = currentCallbacks(stepGeneration);
@@ -237,7 +239,11 @@ export function createProximityAudioSession(
       return;
     }
 
-    active = { audibleRadius: call.audibleRadius, connection };
+    active = {
+      audibleRadius: call.audibleRadius,
+      connection,
+      hearing: call.hearing,
+    };
     current.onStatusChange("connected");
     applyPolicy();
     if (localMicrophone) {
@@ -252,7 +258,7 @@ export function createProximityAudioSession(
   }
 
   function measuredFromNow(presence: Presence) {
-    return nearbyParticipantIds(presence).size > 0 ? options.now() : undefined;
+    return presence.meetingRoster.length > 0 ? options.now() : undefined;
   }
 
   function joinLatestCall(
@@ -303,12 +309,13 @@ export function createProximityAudioSession(
       return;
     }
 
-    if (message.call?.hearing !== "proximity") {
+    const hearing = hearingOf(message.call);
+    if (!message.call || !hearing) {
       leave();
       return;
     }
 
-    latestCall = message.call;
+    latestCall = { ...message.call, hearing };
     joinLatestCall();
   }
 
