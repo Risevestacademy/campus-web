@@ -187,8 +187,8 @@ layout and its page in parallel, and keeps layouts across soft navigation.
 
 ### Known gaps
 
-- OAuth deep links: `core/api/client/proxy.ts` only rewrites a callback to
-  `/`, so a stored `returnTo` can be lost after Google sign-in.
+- OAuth deep links: `core/api/client/proxy-oauth-policy.ts` only rewrites a
+  callback to `/`, so a stored `returnTo` can be lost after Google sign-in.
 - A member with no cohort lands on the 403 page with no way to log out.
 - The rail avatar initial is a placeholder "J".
 - A refresh POST that hangs holds the Web Lock, so other tabs wait to renew;
