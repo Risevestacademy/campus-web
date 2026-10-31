@@ -9,7 +9,7 @@ export function CTASection() {
     <section
       id="cta"
       aria-labelledby="cta-heading"
-      className="content-grid bg-primary text-primary-foreground py-24 font-sans"
+      className="content-grid bg-primary text-primary-foreground py-24 font-sans dark:bg-[radial-gradient(ellipse_52%_38%_at_50%_49%,rgb(49_85_214/0.5),transparent),linear-gradient(to_bottom,#2443b2,#162452)]"
     >
       <div className="grid w-full grid-cols-1 items-center gap-16 md:grid-cols-[minmax(0,1fr)_270px]">
         <div>

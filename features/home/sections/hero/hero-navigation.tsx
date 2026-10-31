@@ -8,7 +8,7 @@ import { enterCampusHref, navigationLinks } from "./navigation-links";
 
 export function HeroNavigation() {
   return (
-    <header className="bg-primary text-primary-foreground fixed inset-x-0 top-0 z-30">
+    <header className="bg-primary dark:bg-cobalt-600 text-primary-foreground fixed inset-x-0 top-0 z-30">
       <div className="relative mx-auto flex h-(--hero-nav-height) w-[calc(100%-2rem)] max-w-7xl items-center justify-between gap-6">
         <Link
           href="/"
@@ -39,7 +39,7 @@ export function HeroNavigation() {
         <div className="flex items-center gap-2">
           <Link
             href={enterCampusHref}
-            className="bg-primary-foreground text-primary hover:bg-cobalt-100 active:bg-cobalt-200 outline-primary-foreground hidden h-10 items-center rounded-lg px-4 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 md:inline-flex md:h-12 md:px-5 md:text-base"
+            className="bg-primary-foreground text-primary hover:bg-cobalt-100 active:bg-cobalt-200 dark:text-cobalt-600 outline-primary-foreground hidden h-10 items-center rounded-lg px-4 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 md:inline-flex md:h-12 md:px-5 md:text-base dark:bg-[#effaff]"
           >
             Enter Campus
           </Link>
