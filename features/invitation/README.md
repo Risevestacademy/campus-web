@@ -12,6 +12,7 @@ import {
   INVITE_TOKEN_COOKIE_SCOPE,
   InvitationOffer,
   InviteConfirmation,
+  MissingInviteLinkNotice,
   readInviteToken,
 } from "@/features/invitation";
 
@@ -19,6 +20,9 @@ import {
 // token is the proof)
 const token = await readInviteToken();
 <InvitationOffer api={await getServerApi()} token={token} />;
+
+// /invitation without a token, signed out: say how to continue
+<MissingInviteLinkNotice />;
 
 // /preview, inside InvitationGate
 <InviteConfirmation api={await getServerApi()} />;
@@ -35,22 +39,24 @@ proxy as a cookie spent by sign-in. Once the Google callback starts a session,
 the proxy expires the token, and campus-api's redirect back to `/invitation`
 renders `ResumeInvitation`, which sends the session on to `/preview`.
 
-Both components are async Server Components that take the route's server `ApiClient`.
+The offer and the confirmation are async Server Components that take the
+route's server `ApiClient`; the missing-link notice is a client component.
 Pass the default `getServerApi()`, not `authentication: "none"`: only it
 forwards the visitor's address, which campus-api rate-limits on.
 
 ## Modules
 
-| Module                                   | Owns                                                                      | Seam          |
-| ---------------------------------------- | ------------------------------------------------------------------------- | ------------- |
-| `services/invite.service.ts`             | preview, validate, and decision calls; one outcome mapping                | `ApiClient`   |
-| `services/invite-token-proxy.service.ts` | token-to-cookie redirect for the root proxy                               | `NextRequest` |
-| `services/invite-token.service.ts`       | reads the token cookie for the page                                       | `cookies()`   |
-| `schemas/invite.schema.ts`               | strips responses to the fields screens render                             | none          |
-| `schemas/invite-token.schema.ts`         | token bounds, checked on the way in and on every read                     | none          |
-| `types/invite.types.ts`                  | the rendered picks of the generated DTOs, and `InviteProblem`             | none          |
-| `hooks/use-accept-invite.ts`             | the accept mutation, analytics, full-load navigation                      | `browserApi`  |
-| `components/`                            | offer, confirmation, details, one notice per problem, Google sign-in link | none          |
+| Module                                   | Owns                                                                                           | Seam          |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------- |
+| `services/invite.service.ts`             | preview, validate, and decision calls; one outcome mapping                                     | `ApiClient`   |
+| `services/invite-token-proxy.service.ts` | token-to-cookie redirect for the root proxy                                                    | `NextRequest` |
+| `services/invite-token.service.ts`       | reads the token cookie for the page                                                            | `cookies()`   |
+| `schemas/invite.schema.ts`               | strips responses to the fields screens render                                                  | none          |
+| `schemas/invite-token.schema.ts`         | token bounds, checked on the way in and on every read                                          | none          |
+| `types/invite.types.ts`                  | the rendered picks of the generated DTOs, and `InviteProblem`                                  | none          |
+| `hooks/use-accept-invite.ts`             | the accept mutation, analytics, full-load navigation                                           | `browserApi`  |
+| `hooks/use-missing-invite-link-shown.ts` | counts each missing-link notice shown                                                          | none          |
+| `components/`                            | offer, confirmation, details, one notice per problem, Google sign-in link, missing-link notice | none          |
 
 Reads run in Server Components and call the service directly: nothing
 refetches them, so a query layer would add only a loading state. The accept
@@ -81,6 +87,8 @@ runs in the browser through `/api`, because only the proxy sets auth cookies.
   holds the invitee's email. Widen a schema in `invite.schema.ts` and in
   `tests/evals/data-privacy.eval.test.ts` together.
 - A successful accept captures `auth.verification_completed` once.
+- A signed-out visit to `/invitation` without a token shows the missing-link
+  notice, never refresh, and captures `invitation.missing_link_shown` once.
 - Use `GLOSSARY.md` terms (Invite Link, Invite Preview, Invitation).
 - Comment only a non-obvious why.
 
