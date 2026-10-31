@@ -8,11 +8,11 @@ import { enterCampusHref, navigationLinks } from "./navigation-links";
 
 export function HeroNavigation() {
   return (
-    <header className="bg-primary fixed inset-x-0 top-0 z-30">
-      <div className="relative mx-auto flex h-(--hero-nav-height) w-[calc(100%-2rem)] max-w-7xl items-center justify-between gap-6 pr-12 md:pr-0">
+    <header className="bg-primary text-primary-foreground fixed inset-x-0 top-0 z-30">
+      <div className="relative mx-auto flex h-(--hero-nav-height) w-[calc(100%-2rem)] max-w-7xl items-center justify-between gap-6">
         <Link
           href="/"
-          className="outline-background rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4"
+          className="outline-primary-foreground rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4"
         >
           <Image
             src={logo}
@@ -27,7 +27,7 @@ export function HeroNavigation() {
               <li key={href}>
                 <Link
                   href={href}
-                  className="outline-background rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-offset-4"
+                  className="outline-primary-foreground rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-offset-4"
                 >
                   {label}
                 </Link>
@@ -39,7 +39,7 @@ export function HeroNavigation() {
         <div className="flex items-center gap-2">
           <Link
             href={enterCampusHref}
-            className="bg-background text-primary hover:bg-surface-hover active:bg-surface-pressed outline-background hidden h-10 items-center rounded-lg px-4 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 md:inline-flex md:h-12 md:px-5 md:text-base"
+            className="bg-primary-foreground text-primary hover:bg-cobalt-100 active:bg-cobalt-200 outline-primary-foreground hidden h-10 items-center rounded-lg px-4 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 md:inline-flex md:h-12 md:px-5 md:text-base"
           >
             Enter Campus
           </Link>

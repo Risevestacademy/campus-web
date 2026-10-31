@@ -14,7 +14,7 @@ export function HeroSection() {
     <section
       id="hero"
       aria-labelledby="home-hero-heading"
-      className="content-grid bg-primary text-background relative overflow-hidden pt-(--hero-nav-height) pb-12 [--hero-nav-height:5.5rem] md:pb-28 md:[--hero-nav-height:7rem] lg:min-h-216 lg:pb-32"
+      className="content-grid bg-primary text-primary-foreground relative overflow-hidden pt-(--hero-nav-height) pb-12 [--hero-nav-height:5.5rem] md:pb-28 md:[--hero-nav-height:7rem] lg:min-h-216 lg:pb-32"
     >
       <HeroNavigation />
 
@@ -41,14 +41,14 @@ export function HeroSection() {
         <div className="mt-8 flex flex-col items-center gap-4 md:flex-row md:gap-8">
           <Link
             href={enterCampusHref}
-            className="bg-accent text-accent-foreground hover:bg-accent-hover active:bg-accent-active outline-background inline-flex h-14 items-center gap-2 rounded-lg px-7 text-lg font-medium focus-visible:outline-2 focus-visible:outline-offset-4"
+            className="bg-accent text-accent-foreground hover:bg-accent-hover active:bg-accent-active outline-primary-foreground inline-flex h-14 items-center gap-2 rounded-lg px-7 text-lg font-medium focus-visible:outline-2 focus-visible:outline-offset-4"
           >
             Enter Campus
             <ArrowUpRightIcon aria-hidden size={20} weight="regular" />
           </Link>
           <Link
             href="#explore-campus"
-            className="outline-background inline-flex items-center gap-2 rounded-sm text-lg hover:underline focus-visible:outline-2 focus-visible:outline-offset-4"
+            className="outline-primary-foreground inline-flex items-center gap-2 rounded-sm text-lg hover:underline focus-visible:outline-2 focus-visible:outline-offset-4"
           >
             Explore Campus
             <ArrowDownIcon aria-hidden size={20} weight="regular" />
@@ -68,10 +68,10 @@ export function HeroSection() {
           image={yourCohort}
           className="bg-neutral-50 md:absolute md:bottom-5 md:left-6 md:-rotate-18 lg:bottom-42 lg:left-0 lg:-rotate-7"
         >
-          <p className="text-success-foreground mt-2 flex items-center gap-2 text-sm">
+          <p className="text-success-700 mt-2 flex items-center gap-2 text-sm">
             <span
               aria-hidden
-              className="bg-success-foreground size-2.5 rounded-full"
+              className="bg-success-600 size-2.5 rounded-full"
             />
             Available to chat
           </p>
