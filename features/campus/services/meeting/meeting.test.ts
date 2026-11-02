@@ -15,7 +15,12 @@ import type {
   MeetingParticipant,
   OpenedMeetingLayout,
 } from "../../types/active-campus.types";
-import { selectMeeting, splitAtCap, visibleMeetingLayout } from "./meeting";
+import {
+  selectMeeting,
+  splitAtCap,
+  tileVideoLayer,
+  visibleMeetingLayout,
+} from "./meeting";
 
 function avatar(
   userId: string,
@@ -233,5 +238,20 @@ describe("visibleMeetingLayout", () => {
     expect(
       visibleMeetingLayout(gridFocusedOnLin, meetingWith(1, "ada", "grace")),
     ).toEqual({ mode: "expanded", focusedTileId: null });
+  });
+});
+
+describe("tileVideoLayer", () => {
+  it.each([
+    ["a compact tile", { mode: "compact" }, "low"],
+    ["an equal grid cell", { mode: "expanded", focusedTileId: null }, "medium"],
+    ["the focused tile", { mode: "expanded", focusedTileId: "grace" }, "high"],
+    [
+      "a thumbnail beside the focus",
+      { mode: "expanded", focusedTileId: "lin" },
+      "low",
+    ],
+  ] as const)("gives %s the layer its size needs", (_case, layout, layer) => {
+    expect(tileVideoLayer(layout, "grace")).toBe(layer);
   });
 });

@@ -11,7 +11,7 @@ same cohort never starts one; see [Presence Tab](#presence-tab).
 ## Interface
 
 - `PresenceSessionProvider`: creates the admission store, the media store, the
-  Presence Tab, the world session and one call-audio session (the media
+  Presence Tab, the world session and one call-media session (the media
   store's transport, fed every world frame through `onMessage` and every
   close through `onRemoteParticipantsCleared`), and follows
   the tab's status and world's outcomes. It needs the shared refresh port (`SessionRefreshProvider` from
@@ -22,7 +22,7 @@ same cohort never starts one; see [Presence Tab](#presence-tab).
 - `AdmissionProvider`, `PresenceTabProvider`: inject a store or tab for tests.
 
 `components/presence-session.tsx` adds the session's `RemoteAudioOutput` and
-`CallAudioFeedback`;
+`CallMediaFeedback`;
 `components/presence-session-gate.tsx` admits an exact grant and connects the
 transport and world.
 

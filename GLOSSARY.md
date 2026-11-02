@@ -212,11 +212,12 @@ _Avoid_: Browser capture ownership, server media state
 A drawn area of the campus map, such as a classroom, pod or meeting room,
 or the corridors and grounds between them. Each member stands in one.
 World gives each space a name.
-_Avoid_: Room (a Call's audio room), zone, area
+_Avoid_: Room (a Call's media room), zone, area
 
 **Call**:
-The audio room World grants for the space a member is in, or none. Each new
-space brings a new Call while the Presence Session carries on.
+The room World grants for the space a member is in, carrying voices and
+cameras, or none. Each new space brings a new Call while the Presence
+Session carries on.
 _Avoid_: Meeting, room grant, Presence Session
 
 **Hearing**:
