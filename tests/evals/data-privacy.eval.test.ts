@@ -207,6 +207,12 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   ],
   "campus.proximity_audio_ready": ["first_audio_ms", "hearing"],
   "campus.proximity_view_shown": ["hearing"],
+  "campus.screen_share_ended": ["duration_ms", "hearing", "reason"],
+  "campus.screen_share_ready": [
+    "connection_quality",
+    "first_viewer_ms",
+    "hearing",
+  ],
   "campus_world.camera_zoomed": ["level"],
   "campus_world.map_failed": ["error_kind", "map_id"],
   "campus_world.map_loaded": ["load_ms", "map_id", "tilesets", "version"],

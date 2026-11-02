@@ -9,6 +9,7 @@ import { useMediaSession } from "../services/media-session/media-session-provide
 import { splitAtCap, tileVideoLayer } from "../services/meeting/meeting";
 import type {
   MeetingParticipant,
+  MeetingTile,
   MeetingTileLayout,
 } from "../types/active-campus.types";
 import { MediaPublicationOutput } from "./media-publication-output";
@@ -38,15 +39,19 @@ export interface MeetingTilesProps {
   localParticipantId: MeetingParticipant["id"];
   motionConfig?: MeetingTileMotionConfig;
   onShowAll: (shouldAnimate: boolean) => void;
-  onTileActivate: (
-    participantId: MeetingParticipant["id"],
-    shouldAnimate: boolean,
-  ) => void;
-  participants: readonly MeetingParticipant[];
+  onTileActivate: (tile: MeetingTile, shouldAnimate: boolean) => void;
   shouldAnimate?: boolean;
+  tiles: readonly MeetingTile[];
 }
 
 type ParticipantMediaProps = Readonly<{ participant: MeetingParticipant }>;
+
+type RemoteMediaProps = ParticipantMediaProps &
+  Readonly<{ videoLayer: VideoLayer }>;
+
+const OWN_SCREEN_NAME = "Your screen";
+
+const screenNameOf = ({ name }: MeetingParticipant) => `${name}'s screen`;
 
 function LocalParticipantMedia({ participant }: ParticipantMediaProps) {
   const videoPublication = useMediaSession(
@@ -64,14 +69,11 @@ function LocalParticipantMedia({ participant }: ParticipantMediaProps) {
   );
 }
 
-function RemoteParticipantMedia({
-  participant,
-  videoLayer,
-}: ParticipantMediaProps & Readonly<{ videoLayer: VideoLayer }>) {
+function RemoteParticipantMedia({ participant, videoLayer }: RemoteMediaProps) {
   const videoPublication = useMediaSession(
     (state) => state.remotePublications[participant.id]?.camera,
   );
-  const demandRef = useVideoDemandRef(participant.id, videoLayer);
+  const demandRef = useVideoDemandRef(participant.id, "camera", videoLayer);
 
   return (
     <MediaPublicationOutput
@@ -80,6 +82,38 @@ function RemoteParticipantMedia({
       fallbackInitials={participant.initials}
       fallbackLabel={participant.name}
       label={`${participant.name} video`}
+      videoPublication={videoPublication}
+    />
+  );
+}
+
+function ScreenShareMedia({ participant, videoLayer }: RemoteMediaProps) {
+  const videoPublication = useMediaSession(
+    (state) => state.remotePublications[participant.id]?.screen,
+  );
+  const demandRef = useVideoDemandRef(participant.id, "screen", videoLayer);
+
+  return (
+    <MediaPublicationOutput
+      ref={demandRef}
+      fallbackLabel={screenNameOf(participant)}
+      fit="contain"
+      label={screenNameOf(participant)}
+      videoPublication={videoPublication}
+    />
+  );
+}
+
+function OwnScreenMedia() {
+  const videoPublication = useMediaSession(({ screenShare }) =>
+    screenShare.status === "sharing" ? screenShare.publication : undefined,
+  );
+
+  return (
+    <MediaPublicationOutput
+      fallbackLabel={OWN_SCREEN_NAME}
+      fit="contain"
+      label={OWN_SCREEN_NAME}
       videoPublication={videoPublication}
     />
   );
@@ -122,13 +156,40 @@ const backdropVariants = {
   }),
 };
 
+function tileNameOf({ kind, participant }: MeetingTile): string {
+  if (kind === "own-screen") return OWN_SCREEN_NAME;
+  return kind === "screen" ? screenNameOf(participant) : participant.name;
+}
+
 function tileLabel(
-  participant: MeetingParticipant,
+  tile: MeetingTile,
   isExpanded: boolean,
   isFocused: boolean,
 ): string {
-  if (!isExpanded) return `Show expanded meeting view for ${participant.name}`;
-  return isFocused ? "Restore equal meeting view" : `Focus ${participant.name}`;
+  const name = tileNameOf(tile);
+  if (!isExpanded) return `Show expanded meeting view for ${name}`;
+  return isFocused ? "Restore equal meeting view" : `Focus ${name}`;
+}
+
+type TileMediaProps = Readonly<{
+  localParticipantId: MeetingParticipant["id"];
+  tile: MeetingTile;
+  videoLayer: VideoLayer;
+}>;
+
+function TileMedia({ localParticipantId, tile, videoLayer }: TileMediaProps) {
+  const { kind, participant } = tile;
+  if (kind === "own-screen") return <OwnScreenMedia />;
+  if (kind === "screen") {
+    return (
+      <ScreenShareMedia participant={participant} videoLayer={videoLayer} />
+    );
+  }
+  return participant.id === localParticipantId ? (
+    <LocalParticipantMedia participant={participant} />
+  ) : (
+    <RemoteParticipantMedia participant={participant} videoLayer={videoLayer} />
+  );
 }
 
 export function MeetingTiles({
@@ -137,8 +198,8 @@ export function MeetingTiles({
   motionConfig = DEFAULT_MEETING_TILE_MOTION,
   onShowAll,
   onTileActivate,
-  participants,
   shouldAnimate = true,
+  tiles,
 }: MeetingTilesProps) {
   const reduceMotion = Boolean(useReducedMotion());
   const motionDisabled = !shouldAnimate || reduceMotion;
@@ -147,8 +208,9 @@ export function MeetingTiles({
   const focusedTileId = isExpanded ? layout.focusedTileId : null;
   const hasFocusedTile = focusedTileId !== null;
   const { shown, remaining } = isExpanded
-    ? { shown: participants, remaining: 0 }
-    : splitAtCap(participants, COMPACT_TILE_CAP);
+    ? { shown: tiles, remaining: 0 }
+    : splitAtCap(tiles, COMPACT_TILE_CAP);
+  const peopleCount = tiles.filter(({ kind }) => kind === "person").length;
 
   return (
     <>
@@ -201,12 +263,13 @@ export function MeetingTiles({
               mode="popLayout"
               custom={reduceMotion}
             >
-              {shown.map((participant) => {
-                const isFocused = focusedTileId === participant.id;
+              {shown.map((tile) => {
+                const isFocused = focusedTileId === tile.id;
 
                 return (
                   <motion.div
-                    key={participant.id}
+                    key={tile.id}
+                    data-testid="meeting-tile"
                     layout={!motionDisabled}
                     transition={layoutTransition}
                     custom={reduceMotion}
@@ -231,25 +294,18 @@ export function MeetingTiles({
                     >
                       <button
                         type="button"
-                        aria-label={tileLabel(
-                          participant,
-                          isExpanded,
-                          isFocused,
-                        )}
+                        aria-label={tileLabel(tile, isExpanded, isFocused)}
                         aria-pressed={isExpanded ? isFocused : undefined}
                         onClick={(event) =>
-                          onTileActivate(participant.id, event.detail > 0)
+                          onTileActivate(tile, event.detail > 0)
                         }
                         className="bg-surface aspect-video size-full cursor-pointer appearance-none border-0 p-0 transition-transform duration-150 outline-none active:scale-[0.99] motion-reduce:transition-none motion-reduce:active:scale-100"
                       >
-                        {participant.id === localParticipantId ? (
-                          <LocalParticipantMedia participant={participant} />
-                        ) : (
-                          <RemoteParticipantMedia
-                            participant={participant}
-                            videoLayer={tileVideoLayer(layout, participant.id)}
-                          />
-                        )}
+                        <TileMedia
+                          localParticipantId={localParticipantId}
+                          tile={tile}
+                          videoLayer={tileVideoLayer(layout, tile.id)}
+                        />
                       </button>
                     </motion.div>
                   </motion.div>
@@ -265,7 +321,7 @@ export function MeetingTiles({
                   custom={reduceMotion}
                   variants={meetingFadeVariants}
                   {...meetingPresenceProps}
-                  aria-label={`Show all ${participants.length} participants`}
+                  aria-label={`Show all ${peopleCount} participants`}
                   onClick={(event) => onShowAll(event.detail > 0)}
                   style={{ borderRadius: 12 }}
                   className="bg-surface text-foreground-secondary focus-visible:ring-border-focus grid aspect-video w-24 shrink-0 cursor-pointer place-items-center text-sm font-medium outline-none focus-visible:ring-2"

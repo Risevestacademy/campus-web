@@ -8,12 +8,18 @@ import { createCallMediaSession } from "@/features/campus/services/call-media/ca
 import { createLivekitMeetingRoomTransport } from "@/features/campus/services/call-media/livekit-meeting-room-transport";
 import type {
   CallAudioStatus,
+  ScreenShareState,
   VideoLayer,
 } from "@/features/campus/services/media-session/contracts";
+import { createScreenShare } from "@/features/campus/services/media-session/screen-share";
 import {
   fakeLivekitRoom,
   type FakeRoom,
 } from "@/features/campus/testing/fake-livekit";
+import {
+  createTestMediaStream,
+  createTestMediaTrack,
+} from "@/features/campus/testing/media-session-test-utils";
 import { ADA, GRACE, LIN, MAYA } from "@/tests/fixtures/nearby-presence";
 import { serverFrames } from "@/tests/fixtures/world-frames";
 
@@ -41,11 +47,15 @@ export function joinedMember() {
   const presence = createPresenceStore();
   let worldRefreshes = 0;
   let tilesOnScreen: ReadonlySet<string> = new Set();
+  let sharesOnScreen: ReadonlySet<string> = new Set();
+  let cameraDemand = new Map<string, VideoLayer>();
   const session = createCallMediaSession({
     now: () => 0,
     pinMediaUrl: (url) => (url === MEDIA_URL ? url : undefined),
     recordFirstAudioMilliseconds: () => undefined,
     recordFirstVideo: () => undefined,
+    recordScreenShareEnded: () => undefined,
+    recordScreenShareReady: () => undefined,
     // World answers a rejoin with the space's call and a freshly minted token,
     // which LiveKit accepts.
     refreshCall: () => {
@@ -61,16 +71,36 @@ export function joinedMember() {
       async () => livekit.module,
     ),
   });
+  // The capture module is real too; only the browser's picker is faked.
+  const screenTrack = Object.assign(
+    createTestMediaTrack("video", "shared-screen"),
+    { clone: () => createTestMediaTrack("video", "shared-screen-copy") },
+  );
+  const screenShare = createScreenShare({
+    mediaDevices: {
+      getDisplayMedia: async () => createTestMediaStream([screenTrack]),
+    } as unknown as MediaDevices,
+    onLocalChange: (change) => session.handleLocalPublicationChange(change),
+    onStateChange: ({ outcome }) => {
+      shareOutcome = outcome;
+    },
+  });
+  let shareOutcome: ScreenShareState["outcome"] = null;
+  let othersSharing: ReadonlySet<string> = new Set();
   const statuses: CallAudioStatus[] = [];
   const heard = new Set<string>();
   const seen = new Set<string>();
-  session.connect({
+  const leaveSession = session.connect({
     onCameraPublishOutcome: () => undefined,
     onRemoteAudioGainsChange: () => undefined,
+    onRemoteScreenSharesChange: (participantIds) => {
+      othersSharing = participantIds;
+    },
+    onScreenShareEnded: (reason) => screenShare.end(reason),
     onRemotePublicationChange: (change) => {
       const { participantId, source } =
         change.type === "upserted" ? change.publication : change;
-      const shown = source === "camera" ? seen : heard;
+      const shown = source === "microphone" ? heard : seen;
       const live = change.type === "upserted" && change.publication.enabled;
       if (live) shown.add(participantId);
       else shown.delete(participantId);
@@ -98,6 +128,7 @@ export function joinedMember() {
   }) {
     if (isOutsideRoster(identity)) return true;
     const userId = parseParticipantId(identity) ?? "";
+    if (source === "screen_share") return !sharesOnScreen.has(userId);
     return source === "camera" && !tilesOnScreen.has(userId);
   }
 
@@ -131,10 +162,24 @@ export function joinedMember() {
   // What the media session forwards once the meeting tiles settle.
   function showTiles(...tiles: (readonly [Avatar, VideoLayer])[]) {
     tilesOnScreen = new Set(tiles.map(([{ userId }]) => userId));
-    session.setVideoDemand(
-      new Map(tiles.map(([{ userId }, layer]) => [userId, layer])),
-    );
+    cameraDemand = new Map(tiles.map(([{ userId }, layer]) => [userId, layer]));
+    session.setVideoDemand({ camera: cameraDemand, screen: new Map() });
     countUnauthorized();
+  }
+
+  function showShares(...shares: (readonly [Avatar, VideoLayer])[]) {
+    sharesOnScreen = new Set(shares.map(([{ userId }]) => userId));
+    session.setVideoDemand({
+      camera: cameraDemand,
+      screen: new Map(shares.map(([{ userId }, layer]) => [userId, layer])),
+    });
+    countUnauthorized();
+  }
+
+  async function startSharing() {
+    screenShare.toggle();
+    await vi.waitFor(() => expect(screenTrack.contentHint).toBe("detail"));
+    await Promise.resolve();
   }
 
   // What the world session does on a recoverable close.
@@ -175,13 +220,19 @@ export function joinedMember() {
   });
 
   return {
+    captureRunning: () => screenTrack.stop.mock.calls.length === 0,
     connected,
     heard,
+    leave: leaveSession,
     livekit,
+    othersSharing: () => othersSharing,
     participantIn,
     receive,
     seen,
+    shareOutcome: () => shareOutcome,
+    showShares,
     showTiles,
+    startSharing,
     statuses,
     subscribedIn,
     tryAgain: () => session.retry(),

@@ -24,6 +24,8 @@ export const ANALYTICS_EVENTS = {
   CAMPUS_MEETING_VIDEO_READY: "campus.meeting_video_ready",
   CAMPUS_PROXIMITY_AUDIO_READY: "campus.proximity_audio_ready",
   CAMPUS_PROXIMITY_VIEW_SHOWN: "campus.proximity_view_shown",
+  CAMPUS_SCREEN_SHARE_ENDED: "campus.screen_share_ended",
+  CAMPUS_SCREEN_SHARE_READY: "campus.screen_share_ready",
   CAMPUS_WORLD_CAMERA_ZOOMED: "campus_world.camera_zoomed",
   CAMPUS_WORLD_MAP_FAILED: "campus_world.map_failed",
   CAMPUS_WORLD_MAP_LOADED: "campus_world.map_loaded",
@@ -66,6 +68,14 @@ const connectionQualitySchema = z.enum([
   "poor",
   "lost",
   "unknown",
+]);
+const screenShareEndReasonSchema = z.enum([
+  "browser_stopped",
+  "meeting_ended",
+  "publish_failed",
+  "room_closed",
+  "session_ended",
+  "stopped",
 ]);
 const verificationTypeSchema = z.enum(["email", "invite", "phone"]);
 const campusWorldMapErrorKindSchema = z.enum([
@@ -191,6 +201,16 @@ export const analyticsEventSchemas = {
     hearing: hearingSchema,
   }),
   [ANALYTICS_EVENTS.CAMPUS_PROXIMITY_VIEW_SHOWN]: z.object({
+    hearing: hearingSchema,
+  }),
+  [ANALYTICS_EVENTS.CAMPUS_SCREEN_SHARE_ENDED]: z.object({
+    duration_ms: durationMsSchema,
+    hearing: hearingSchema,
+    reason: screenShareEndReasonSchema,
+  }),
+  [ANALYTICS_EVENTS.CAMPUS_SCREEN_SHARE_READY]: z.object({
+    connection_quality: connectionQualitySchema,
+    first_viewer_ms: durationMsSchema,
     hearing: hearingSchema,
   }),
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_LOADED]: campusWorldMapLoadedSchema,

@@ -157,6 +157,7 @@ class ConnectionError extends Error {
 
 const RoomEvent = {
   Disconnected: "disconnected",
+  LocalTrackSubscribed: "localTrackSubscribed",
   ParticipantConnected: "participantConnected",
   ParticipantDisconnected: "participantDisconnected",
   TrackMuted: "trackMuted",
@@ -172,11 +173,16 @@ const Track = {
     Camera: "camera",
     Microphone: "microphone",
     ScreenShare: "screen_share",
+    ScreenShareAudio: "screen_share_audio",
     Unknown: "unknown",
   },
 } as const;
 
 const VideoQuality = { LOW: 0, MEDIUM: 1, HIGH: 2 } as const;
+
+const ScreenSharePresets = {
+  h1080fps15: { encoding: { maxBitrate: 2_500_000, maxFramerate: 15 } },
+} as const;
 
 export type FakeTrackSource = (typeof Track.Source)[keyof typeof Track.Source];
 
@@ -430,7 +436,10 @@ export function fakeLivekitRoom() {
     deliver(participant: FakeRemoteParticipant, source: FakeTrackSource) {
       const publication = publicationOf(participant, source);
       const mediaStreamTrack = createTestMediaTrack(
-        source === Track.Source.Camera ? "video" : "audio",
+        source === Track.Source.Microphone ||
+          source === Track.Source.ScreenShareAudio
+          ? "audio"
+          : "video",
         publication.trackSid,
       );
       const track = {
@@ -468,6 +477,15 @@ export function fakeLivekitRoom() {
       this.emit(RoomEvent.TrackUnpublished, publication, participant);
     }
 
+    // Someone the SFU let through started receiving one of the member's tracks.
+    viewerSubscribes(source: FakeTrackSource) {
+      this.emit(
+        RoomEvent.LocalTrackSubscribed,
+        { source },
+        this.localParticipant,
+      );
+    }
+
     // The SDK unpublishes every track before it announces the leave, and on
     // a full reconnect it does this for every participant.
     leave(participant: FakeRemoteParticipant) {
@@ -493,6 +511,7 @@ export function fakeLivekitRoom() {
       ConnectionErrorReason,
       Room: FakeRoom,
       RoomEvent,
+      ScreenSharePresets,
       Track,
       VideoQuality,
     } as unknown as LivekitRoomModule,

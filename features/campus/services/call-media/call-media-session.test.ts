@@ -10,7 +10,9 @@ import {
 import type {
   LocalMediaPublication,
   LocalPublicationChange,
+  PublicationSource,
   RemoteMediaPublication,
+  ScreenShareEndReason,
 } from "../media-session/contracts";
 import { createCallMediaSession } from "./call-media-session";
 import {
@@ -141,16 +143,22 @@ function setup(
     onCameraPublishOutcome: vi.fn(),
     onRemoteAudioGainsChange: vi.fn(),
     onRemotePublicationChange: vi.fn(),
+    onRemoteScreenSharesChange: vi.fn(),
+    onScreenShareEnded: vi.fn(),
     onStatusChange: vi.fn(),
   };
   const recordFirstAudioMilliseconds = vi.fn();
   const recordFirstVideo = vi.fn();
+  const recordScreenShareEnded = vi.fn();
+  const recordScreenShareReady = vi.fn();
   const refreshCall = vi.fn(() => true);
   const session = createCallMediaSession({
     now: options.now ?? (() => 0),
     pinMediaUrl: options.pinMediaUrl ?? ((url) => url),
     recordFirstAudioMilliseconds,
     recordFirstVideo,
+    recordScreenShareEnded,
+    recordScreenShareReady,
     refreshCall,
     roomTransport,
   });
@@ -176,6 +184,8 @@ function setup(
     joinSignals,
     recordFirstAudioMilliseconds,
     recordFirstVideo,
+    recordScreenShareEnded,
+    recordScreenShareReady,
     refreshCall,
     roomAt,
     roomTransport,
@@ -184,11 +194,9 @@ function setup(
   };
 }
 
-function localPublication(
-  source: "camera" | "microphone",
-): LocalMediaPublication {
+function localPublication(source: PublicationSource): LocalMediaPublication {
   const track = createTestMediaTrack(
-    source === "camera" ? "video" : "audio",
+    source === "microphone" ? "audio" : "video",
     `${source}-1`,
   );
   return {
@@ -605,35 +613,48 @@ describe("createCallMediaSession", () => {
     session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
     const { connection } = await joined();
 
-    session.setVideoDemand(
-      new Map([
+    session.setVideoDemand({
+      camera: new Map([
         [NEARBY_ID, "high"],
         [STRANGER_ID, "low"],
       ]),
-    );
+      screen: new Map([
+        [NEARBY_ID, "low"],
+        [STRANGER_ID, "high"],
+      ]),
+    });
 
     expect(connection.applyAudience).toHaveBeenLastCalledWith({
       participantIds: new Set([NEARBY_ID]),
-      video: new Map([[NEARBY_ID, "high"]]),
+      video: {
+        camera: new Map([[NEARBY_ID, "high"]]),
+        screen: new Map([[NEARBY_ID, "low"]]),
+      },
     });
   });
 
   it("asks for the cameras on screen as soon as a room joins", async () => {
     const { joined, session } = setup();
-    session.setVideoDemand(new Map([[NEARBY_ID, "low"]]));
+    session.setVideoDemand({
+      camera: new Map([[NEARBY_ID, "low"]]),
+      screen: new Map(),
+    });
 
     session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
 
     const { connection } = await joined();
     expect(connection.applyAudience).toHaveBeenCalledWith({
       participantIds: new Set([NEARBY_ID]),
-      video: new Map([[NEARBY_ID, "low"]]),
+      video: { camera: new Map([[NEARBY_ID, "low"]]), screen: new Map() },
     });
   });
 
   it("drops every camera in the same task as a crossing empties the roster", async () => {
     const { joined, session } = setup();
-    session.setVideoDemand(new Map([[NEARBY_ID, "low"]]));
+    session.setVideoDemand({
+      camera: new Map([[NEARBY_ID, "low"]]),
+      screen: new Map(),
+    });
     session.applyWorldMessage(
       callWith({ hearing: "room" }),
       presenceWith([NEARBY_ID], "room"),
@@ -647,7 +668,7 @@ describe("createCallMediaSession", () => {
 
     expect(connection.applyAudience).toHaveBeenLastCalledWith({
       participantIds: new Set(),
-      video: new Map(),
+      video: { camera: new Map(), screen: new Map() },
     });
   });
 
@@ -1140,5 +1161,281 @@ describe("createCallMediaSession", () => {
     );
 
     expect(emitted).not.toContain(TOKEN);
+  });
+
+  describe("the member's screen", () => {
+    const SCREEN_ADDED = {
+      publication: localPublication("screen"),
+      type: "added",
+    } satisfies LocalPublicationChange;
+
+    function screenRemoved(endReason: ScreenShareEndReason) {
+      return {
+        endReason,
+        previousTrack: SCREEN_ADDED.publication.track,
+        publicationId: SCREEN_ADDED.publication.publicationId,
+        source: "screen",
+        type: "removed",
+      } satisfies LocalPublicationChange;
+    }
+
+    async function sharing(
+      options: Parameters<typeof setup>[0] = {},
+      hearing: Hearing = "proximity",
+    ) {
+      const context = setup(options);
+      const presence = presenceWith([NEARBY_ID], hearing);
+      context.session.applyWorldMessage(callWith({ hearing }), presence);
+      const room = await context.joined();
+      context.callbacks.onScreenShareEnded.mockClear();
+      context.session.handleLocalPublicationChange(SCREEN_ADDED);
+      return { ...context, room };
+    }
+
+    it("publishes a share to the room the member is in", async () => {
+      const { callbacks, room } = await sharing();
+
+      expect(
+        room.connection.handleLocalPublicationChange,
+      ).toHaveBeenCalledExactlyOnceWith(SCREEN_ADDED);
+      expect(callbacks.onScreenShareEnded).not.toHaveBeenCalled();
+    });
+
+    it("keeps the call when the room refuses a share, and ends the share", async () => {
+      const { callbacks, joined, session } = setup();
+      session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+      const { connection } = await joined();
+      callbacks.onScreenShareEnded.mockClear();
+      vi.mocked(connection.handleLocalPublicationChange).mockRejectedValueOnce(
+        new Error("refused"),
+      );
+
+      session.handleLocalPublicationChange(SCREEN_ADDED);
+
+      await vi.waitFor(() =>
+        expect(callbacks.onScreenShareEnded).toHaveBeenCalledExactlyOnceWith(
+          "publish_failed",
+        ),
+      );
+      expect(callbacks.onStatusChange).toHaveBeenLastCalledWith("connected");
+      expect(connection.disconnect).not.toHaveBeenCalled();
+    });
+
+    it("keeps the call when taking a share down fails", async () => {
+      const { callbacks, room, session } = await sharing();
+      vi.mocked(
+        room.connection.handleLocalPublicationChange,
+      ).mockRejectedValueOnce(new Error("negotiation failed"));
+
+      session.handleLocalPublicationChange(screenRemoved("stopped"));
+      await vi.waitFor(() =>
+        expect(
+          room.connection.handleLocalPublicationChange,
+        ).toHaveBeenCalledTimes(2),
+      );
+      await Promise.resolve();
+
+      expect(callbacks.onStatusChange).toHaveBeenLastCalledWith("connected");
+      expect(callbacks.onScreenShareEnded).not.toHaveBeenCalled();
+    });
+
+    it("never carries a share into the next room", async () => {
+      const { callbacks, joined, roomAt, session } = await sharing();
+
+      session.applyWorldMessage(
+        callWith({ token: "next-room" }),
+        presenceWith([NEARBY_ID]),
+      );
+
+      expect(callbacks.onScreenShareEnded).toHaveBeenCalledExactlyOnceWith(
+        "room_closed",
+      );
+      const next = await joined(2);
+      expect(
+        next.connection.handleLocalPublicationChange,
+      ).not.toHaveBeenCalled();
+      expect(roomAt(0).connection.disconnect).toHaveBeenCalled();
+    });
+
+    it.each<[string, (context: Awaited<ReturnType<typeof sharing>>) => void]>([
+      [
+        "World ends the call",
+        ({ session }) =>
+          session.applyWorldMessage(NO_CALL, presenceWith([NEARBY_ID])),
+      ],
+      ["the member retries the call", ({ session }) => session.retry()],
+      ["the room drops", ({ room }) => room.events.onDisconnected()],
+    ])("ends a share when %s", async (_name, act) => {
+      const context = await sharing();
+
+      act(context);
+
+      expect(context.callbacks.onScreenShareEnded).toHaveBeenCalledWith(
+        "room_closed",
+      );
+    });
+
+    it("ends a share in the same task as the roster empties", async () => {
+      const { callbacks, session } = await sharing();
+
+      session.applyWorldMessage(NOBODY_NEARBY, presenceWith([]));
+
+      expect(callbacks.onScreenShareEnded).toHaveBeenCalledExactlyOnceWith(
+        "meeting_ended",
+      );
+    });
+
+    it("reports a crossing as the call changing, not the meeting ending", async () => {
+      const { callbacks, session } = await sharing();
+
+      session.applyWorldMessage(
+        { type: "spaceChanged", userId: SELF_ID, spaceKey: "library" },
+        { ...presenceWith([]), hearing: "awaiting" },
+      );
+
+      expect(callbacks.onScreenShareEnded).toHaveBeenCalledExactlyOnceWith(
+        "room_closed",
+      );
+    });
+
+    it("takes a share off a closing room before it disconnects", async () => {
+      const { callbacks, room, session } = await sharing();
+      callbacks.onScreenShareEnded.mockImplementationOnce((reason) =>
+        session.handleLocalPublicationChange(screenRemoved(reason)),
+      );
+
+      session.applyWorldMessage(NO_CALL, presenceWith([NEARBY_ID]));
+
+      expect(
+        room.connection.handleLocalPublicationChange,
+      ).toHaveBeenLastCalledWith(screenRemoved("room_closed"));
+    });
+
+    it("does not end the next share over a refusal of the last one", async () => {
+      const { callbacks, joined, session } = setup();
+      session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+      const { connection } = await joined();
+      callbacks.onScreenShareEnded.mockClear();
+      const refusal = Promise.withResolvers<void>();
+      vi.mocked(connection.handleLocalPublicationChange).mockReturnValueOnce(
+        refusal.promise,
+      );
+      session.handleLocalPublicationChange(SCREEN_ADDED);
+      session.handleLocalPublicationChange(screenRemoved("stopped"));
+      session.handleLocalPublicationChange({
+        publication: localPublication("screen"),
+        type: "added",
+      });
+
+      refusal.reject(new Error("refused"));
+      await refusal.promise.catch(() => undefined);
+      await Promise.resolve();
+
+      expect(callbacks.onScreenShareEnded).not.toHaveBeenCalled();
+    });
+
+    it("keeps a share while the roster only changes", async () => {
+      const { callbacks, session } = await sharing();
+
+      session.applyWorldMessage(
+        { type: "nearby", userIds: [STRANGER_ID] },
+        presenceWith([STRANGER_ID]),
+      );
+
+      expect(callbacks.onScreenShareEnded).not.toHaveBeenCalled();
+    });
+
+    it("ends a share picked while no room is joined, without publishing it", async () => {
+      const { callbacks, session } = setup();
+
+      session.handleLocalPublicationChange(SCREEN_ADDED);
+
+      expect(callbacks.onScreenShareEnded).toHaveBeenCalledExactlyOnceWith(
+        "room_closed",
+      );
+    });
+
+    it("ends a share picked after the roster emptied, without publishing it", async () => {
+      const { callbacks, joined, session } = setup();
+      session.applyWorldMessage(CALL, presenceWith([]));
+      const { connection } = await joined();
+      callbacks.onScreenShareEnded.mockClear();
+
+      session.handleLocalPublicationChange(SCREEN_ADDED);
+
+      expect(callbacks.onScreenShareEnded).toHaveBeenCalledExactlyOnceWith(
+        "meeting_ended",
+      );
+      expect(connection.handleLocalPublicationChange).not.toHaveBeenCalled();
+    });
+
+    it("records how a share ended, how long it ran, and under which hearing", async () => {
+      let clock = 1_000;
+      const { recordScreenShareEnded, session } = await sharing(
+        { now: () => clock },
+        "room",
+      );
+      clock = 4_500;
+
+      session.handleLocalPublicationChange(screenRemoved("browser_stopped"));
+
+      expect(recordScreenShareEnded).toHaveBeenCalledExactlyOnceWith({
+        durationMs: 3_500,
+        hearing: "room",
+        reason: "browser_stopped",
+      });
+    });
+
+    it("records an end only for a share that reached a room", async () => {
+      const { recordScreenShareEnded, session } = setup();
+
+      session.handleLocalPublicationChange(SCREEN_ADDED);
+      session.handleLocalPublicationChange(screenRemoved("room_closed"));
+
+      expect(recordScreenShareEnded).not.toHaveBeenCalled();
+    });
+
+    it("tells the media session who else is sharing, and clears them with the room", async () => {
+      const { callbacks, joined, session } = setup();
+      session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+      const room = await joined();
+
+      room.events.onRemoteScreenSharesChange(new Set([NEARBY_ID]));
+      expect(callbacks.onRemoteScreenSharesChange).toHaveBeenLastCalledWith(
+        new Set([NEARBY_ID]),
+      );
+
+      session.applyWorldMessage(NO_CALL, presenceWith([NEARBY_ID]));
+      expect(callbacks.onRemoteScreenSharesChange).toHaveBeenLastCalledWith(
+        new Set(),
+      );
+    });
+
+    it("ignores who is sharing in a room the member already left", async () => {
+      const { callbacks, joined, session } = setup();
+      session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+      const room = await joined();
+      session.applyWorldMessage(NO_CALL, presenceWith([NEARBY_ID]));
+      callbacks.onRemoteScreenSharesChange.mockClear();
+
+      room.events.onRemoteScreenSharesChange(new Set([NEARBY_ID]));
+
+      expect(callbacks.onRemoteScreenSharesChange).not.toHaveBeenCalled();
+    });
+
+    it("records the first viewer with the call's hearing", async () => {
+      const { recordScreenShareReady, room } = await sharing({}, "room");
+
+      room.events.onFirstScreenViewer({
+        connectionQuality: "good",
+        waitedMs: 180,
+      });
+
+      expect(recordScreenShareReady).toHaveBeenCalledExactlyOnceWith({
+        connectionQuality: "good",
+        hearing: "room",
+        waitedMs: 180,
+      });
+    });
   });
 });

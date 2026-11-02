@@ -10,8 +10,8 @@ import {
   createTestMediaTrack,
 } from "../../testing/media-session-test-utils";
 import type {
-  CaptureSource,
   LocalMediaPublication,
+  PublicationSource,
   VideoLayer,
 } from "../media-session/contracts";
 import {
@@ -28,9 +28,13 @@ const ALAN = "44444444-4444-4444-8444-444444444444";
 
 function audience(
   participantIds: readonly string[],
-  video: readonly (readonly [string, VideoLayer])[] = [],
+  cameras: readonly (readonly [string, VideoLayer])[] = [],
+  screens: readonly (readonly [string, VideoLayer])[] = [],
 ): MeetingAudience {
-  return { participantIds: new Set(participantIds), video: new Map(video) };
+  return {
+    participantIds: new Set(participantIds),
+    video: { camera: new Map(cameras), screen: new Map(screens) },
+  };
 }
 
 function roomEvents() {
@@ -38,12 +42,14 @@ function roomEvents() {
     onDisconnected: vi.fn(),
     onFirstRemoteAudio: vi.fn(),
     onFirstRemoteVideo: vi.fn(),
+    onFirstScreenViewer: vi.fn(),
     onRemotePublicationChange: vi.fn(),
+    onRemoteScreenSharesChange: vi.fn(),
   } satisfies MeetingRoomEvents;
 }
 
-function localCapture(source: CaptureSource, deviceId: string) {
-  const kind = source === "camera" ? "video" : "audio";
+function localCapture(source: PublicationSource, deviceId: string) {
+  const kind = source === "microphone" ? "audio" : "video";
   const copy = createTestMediaTrack(kind, `${deviceId}-copy`);
   const track = Object.assign(createTestMediaTrack(kind, deviceId), {
     clone: vi.fn(() => copy),
@@ -411,6 +417,200 @@ describe("createLivekitMeetingRoomTransport", () => {
     });
   });
 
+  describe("someone else's screen", () => {
+    const SCREEN = `${GRACE}:tab-1-screen_share`;
+
+    function isDesired(participant: FakeRemoteParticipant, sid: string) {
+      return participant.trackPublications.get(sid)?.isDesired;
+    }
+
+    it("subscribes a screen only while its tile is on screen, apart from the camera", async () => {
+      const { connection, room } = await joinedRoom();
+      const grace = room.join(`${GRACE}:tab-1`, ["camera", "screen_share"]);
+      const camera = `${GRACE}:tab-1-camera`;
+
+      connection.applyAudience(audience([GRACE], [[GRACE, "low"]]));
+      expect([isDesired(grace, camera), isDesired(grace, SCREEN)]).toEqual([
+        true,
+        false,
+      ]);
+
+      connection.applyAudience(audience([GRACE], [], [[GRACE, "low"]]));
+      expect([isDesired(grace, camera), isDesired(grace, SCREEN)]).toEqual([
+        false,
+        true,
+      ]);
+
+      connection.applyAudience(audience([GRACE]));
+      expect([isDesired(grace, camera), isDesired(grace, SCREEN)]).toEqual([
+        false,
+        false,
+      ]);
+    });
+
+    it("never subscribes the audio of a share", async () => {
+      const { connection, livekit, room } = await joinedRoom();
+      room.join(`${GRACE}:tab-1`, ["screen_share_audio"]);
+
+      connection.applyAudience(
+        audience([GRACE], [[GRACE, "high"]], [[GRACE, "high"]]),
+      );
+
+      expect(livekit.subscriptions).toEqual([]);
+    });
+
+    it("hands a subscribed screen to the media session as a screen", async () => {
+      const { connection, events, room } = await joinedRoom();
+      const grace = room.join(`${GRACE}:tab-1`, ["screen_share"]);
+      connection.applyAudience(audience([GRACE], [], [[GRACE, "low"]]));
+
+      const track = room.deliver(grace, "screen_share");
+
+      expect(track.mediaStreamTrack.kind).toBe("video");
+      expect(events.onRemotePublicationChange).toHaveBeenCalledExactlyOnceWith({
+        publication: expect.objectContaining({
+          participantId: GRACE,
+          publicationId: SCREEN,
+          source: "screen",
+          track: track.mediaStreamTrack,
+        }),
+        type: "upserted",
+      });
+    });
+
+    it("reports neither first audio nor first video for a screen", async () => {
+      const { connection, events, room } = await joinedRoom();
+      const grace = room.join(`${GRACE}:tab-1`, ["screen_share"]);
+      connection.applyAudience(audience([GRACE], [], [[GRACE, "low"]]));
+
+      room.deliver(grace, "screen_share");
+
+      expect(events.onFirstRemoteAudio).not.toHaveBeenCalled();
+      expect(events.onFirstRemoteVideo).not.toHaveBeenCalled();
+    });
+
+    it("asks for a screen's layer as its tile changes size", async () => {
+      const { connection, livekit, room } = await joinedRoom();
+      room.join(`${GRACE}:tab-1`, ["screen_share"]);
+
+      connection.applyAudience(audience([GRACE], [], [[GRACE, "low"]]));
+      connection.applyAudience(audience([GRACE], [], [[GRACE, "high"]]));
+
+      expect(livekit.qualities).toEqual([
+        { identity: `${GRACE}:tab-1`, quality: "LOW" },
+        { identity: `${GRACE}:tab-1`, quality: "HIGH" },
+      ]);
+    });
+
+    it("tells the media session when a subscribed screen mutes", async () => {
+      const { connection, events, room } = await joinedRoom();
+      const grace = room.join(`${GRACE}:tab-1`, ["screen_share"]);
+      connection.applyAudience(audience([GRACE], [], [[GRACE, "low"]]));
+      room.deliver(grace, "screen_share");
+
+      room.mute(grace, "screen_share", true);
+
+      expect(events.onRemotePublicationChange).toHaveBeenLastCalledWith({
+        publication: expect.objectContaining({
+          enabled: false,
+          source: "screen",
+        }),
+        type: "upserted",
+      });
+    });
+
+    it("removes a screen that is unpublished", async () => {
+      const { connection, events, room } = await joinedRoom();
+      const grace = room.join(`${GRACE}:tab-1`, ["screen_share"]);
+      connection.applyAudience(audience([GRACE], [], [[GRACE, "low"]]));
+      room.deliver(grace, "screen_share");
+
+      room.unpublish(grace, "screen_share");
+
+      expect(events.onRemotePublicationChange).toHaveBeenLastCalledWith({
+        participantId: GRACE,
+        publicationId: SCREEN,
+        source: "screen",
+        type: "removed",
+      });
+    });
+
+    it("reports a share already in the room once its owner is met, before anything subscribes", async () => {
+      const { connection, events, livekit, room } = await joinedRoom();
+      room.join(`${GRACE}:tab-1`, ["screen_share"]);
+
+      connection.applyAudience(audience([GRACE]));
+
+      expect(events.onRemoteScreenSharesChange).toHaveBeenCalledExactlyOnceWith(
+        new Set([GRACE]),
+      );
+      expect(livekit.subscriptions).toEqual([]);
+    });
+
+    it("reports a share published after the member met its owner", async () => {
+      const { connection, events, room } = await joinedRoom();
+      connection.applyAudience(audience([GRACE]));
+
+      room.arrive(`${GRACE}:tab-1`, ["screen_share"]);
+
+      expect(events.onRemoteScreenSharesChange).toHaveBeenLastCalledWith(
+        new Set([GRACE]),
+      );
+    });
+
+    it("never reports the share of someone the member does not meet", async () => {
+      const { connection, events, room } = await joinedRoom();
+      connection.applyAudience(audience([GRACE]));
+
+      room.arrive(`${ALAN}:tab-1`, ["screen_share"]);
+
+      expect(events.onRemoteScreenSharesChange).not.toHaveBeenCalled();
+    });
+
+    it.each<{
+      name: string;
+      end: (
+        connection: MeetingRoomConnection,
+        room: FakeRoom,
+        grace: FakeRemoteParticipant,
+      ) => void;
+    }>([
+      {
+        name: "is unpublished",
+        end: (_connection, room, grace) =>
+          room.unpublish(grace, "screen_share"),
+      },
+      {
+        name: "leaves with its owner",
+        end: (_connection, room, grace) => room.leave(grace),
+      },
+      {
+        name: "belongs to someone the member stops meeting",
+        end: (connection) => connection.applyAudience(audience([])),
+      },
+    ])("stops reporting a share that $name", async ({ end }) => {
+      const { connection, events, room } = await joinedRoom();
+      const grace = room.join(`${GRACE}:tab-1`, ["screen_share"]);
+      connection.applyAudience(audience([GRACE]));
+
+      end(connection, room, grace);
+
+      expect(events.onRemoteScreenSharesChange).toHaveBeenLastCalledWith(
+        new Set(),
+      );
+    });
+
+    it("reports who is sharing only when it changes", async () => {
+      const { connection, events, room } = await joinedRoom();
+      room.join(`${GRACE}:tab-1`, ["microphone", "screen_share"]);
+
+      connection.applyAudience(audience([GRACE]));
+      connection.applyAudience(audience([GRACE], [[GRACE, "low"]]));
+
+      expect(events.onRemoteScreenSharesChange).toHaveBeenCalledOnce();
+    });
+  });
+
   it("reports first remote audio for a microphone, never a camera", async () => {
     const { connection, events, room } = await joinedRoom();
     const grace = room.join(`${GRACE}:tab-1`, ["camera"]);
@@ -492,6 +692,114 @@ describe("createLivekitMeetingRoomTransport", () => {
       ]);
     },
   );
+
+  it("publishes a copy of the member's screen as a screen share, encoded for 1080p at 15 fps", async () => {
+    const { connection, livekit, room } = await joinedRoom();
+    const capture = localCapture("screen", "screen-1");
+
+    await addCapture(connection, capture);
+
+    expect(room.published).toEqual([
+      expect.objectContaining({
+        options: {
+          screenShareEncoding:
+            livekit.module.ScreenSharePresets.h1080fps15.encoding,
+          source: "screen_share",
+        },
+        track: capture.copy,
+      }),
+    ]);
+  });
+
+  it("keeps a screen's content hint on the copy it publishes", async () => {
+    const { connection } = await joinedRoom();
+    const capture = localCapture("screen", "screen-1");
+    capture.track.contentHint = "detail";
+
+    await addCapture(connection, capture);
+
+    expect(capture.copy.contentHint).toBe("detail");
+  });
+
+  it("publishes a screen beside the camera, and takes down only the screen", async () => {
+    const { connection, room } = await joinedRoom();
+    const camera = localCapture("camera", "camera-1");
+    const screen = localCapture("screen", "screen-1");
+    await addCapture(connection, camera);
+    await addCapture(connection, screen);
+
+    await removeCapture(connection, screen);
+
+    expect(room.unpublished).toEqual([{ stop: false, track: screen.copy }]);
+    expect(runningCopies(camera, screen)).toEqual([camera]);
+  });
+
+  it("stops the screen's copy when the room refuses to publish it", async () => {
+    const { connection, room } = await joinedRoom();
+    const screen = localCapture("screen", "screen-1");
+    room.publishFails = true;
+
+    await expect(addCapture(connection, screen)).rejects.toThrow();
+    expect(runningCopies(screen)).toEqual([]);
+  });
+
+  it("stops the screen's copy even when taking it down fails", async () => {
+    const { connection, room } = await joinedRoom();
+    const screen = localCapture("screen", "screen-1");
+    await addCapture(connection, screen);
+    room.unpublishFails = true;
+
+    await expect(removeCapture(connection, screen)).rejects.toThrow();
+    expect(runningCopies(screen)).toEqual([]);
+  });
+
+  it("stops a screen's copy when the member leaves the room", async () => {
+    const { connection } = await joinedRoom();
+    const screen = localCapture("screen", "screen-1");
+    await addCapture(connection, screen);
+
+    await connection.disconnect();
+
+    expect(runningCopies(screen)).toEqual([]);
+  });
+
+  it("reports a share's first viewer once, timed from the publish, with the link quality", async () => {
+    let clock = 100;
+    const { connection, events, room } = await joinedRoom(() => clock);
+    room.localParticipant.connectionQuality = "good";
+    await addCapture(connection, localCapture("screen", "screen-1"));
+    clock = 340;
+
+    room.viewerSubscribes("screen_share");
+    room.viewerSubscribes("screen_share");
+
+    expect(events.onFirstScreenViewer).toHaveBeenCalledExactlyOnceWith({
+      connectionQuality: "good",
+      waitedMs: 240,
+    });
+  });
+
+  it("reports the first viewer of each new share", async () => {
+    const { connection, events, room } = await joinedRoom();
+    const first = localCapture("screen", "screen-1");
+    await addCapture(connection, first);
+    room.viewerSubscribes("screen_share");
+    await removeCapture(connection, first);
+
+    await addCapture(connection, localCapture("screen", "screen-2"));
+    room.viewerSubscribes("screen_share");
+
+    expect(events.onFirstScreenViewer).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not take a viewer of the camera for a viewer of the share", async () => {
+    const { connection, events, room } = await joinedRoom();
+    await addCapture(connection, localCapture("screen", "screen-1"));
+
+    room.viewerSubscribes("camera");
+
+    expect(events.onFirstScreenViewer).not.toHaveBeenCalled();
+  });
 
   it("turns the microphone off without touching the camera", async () => {
     const { connection, room } = await joinedRoom();

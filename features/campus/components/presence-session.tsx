@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { useCallAudioFeedback } from "../hooks/use-call-audio-feedback";
 import { useCameraPublishFeedback } from "../hooks/use-camera-publish-feedback";
+import { useScreenShareFeedback } from "../hooks/use-screen-share-feedback";
 import { PresenceSessionProvider } from "../services/presence-session/presence-session-provider";
 import { RemoteAudioOutput } from "./remote-audio-output";
 
@@ -12,6 +13,7 @@ import { RemoteAudioOutput } from "./remote-audio-output";
 export function CallMediaFeedback() {
   useCallAudioFeedback();
   useCameraPublishFeedback();
+  useScreenShareFeedback();
   return null;
 }
 

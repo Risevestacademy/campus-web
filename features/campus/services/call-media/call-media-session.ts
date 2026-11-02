@@ -7,12 +7,15 @@ import {
   type LocalMediaPublication,
   type LocalPublicationChange,
   type MeetingMediaTransportCallbacks,
+  NO_VIDEO_DEMAND,
   type RemotePublicationChange,
+  type ScreenShareEndReason,
   type VideoDemand,
 } from "../media-session/contracts";
 import {
   type CallMediaSession,
   type FirstRemoteVideo,
+  type FirstScreenViewer,
   type MeetingRoomConnection,
   type MeetingRoomEvents,
   type MeetingRoomTransport,
@@ -28,6 +31,16 @@ type CallMediaSessionOptions = Readonly<{
   ) => void;
   recordFirstVideo: (
     firstVideo: FirstRemoteVideo & Readonly<{ hearing: Hearing }>,
+  ) => void;
+  recordScreenShareEnded: (
+    ended: Readonly<{
+      durationMs: number;
+      hearing: Hearing;
+      reason: ScreenShareEndReason;
+    }>,
+  ) => void;
+  recordScreenShareReady: (
+    firstViewer: FirstScreenViewer & Readonly<{ hearing: Hearing }>,
   ) => void;
   // Asks World to send the call again with a fresh token; false when World
   // cannot be asked right now.
@@ -72,6 +85,19 @@ const POLICY_FRAMES: ReadonlySet<ServerMessage["type"]> = new Set([
   "spaceChanged",
 ]);
 
+function demandWithin(
+  demand: VideoDemand,
+  participantIds: ReadonlySet<string>,
+): VideoDemand {
+  const within = (layers: VideoDemand["camera"]) =>
+    new Map(
+      [...layers].filter(([participantId]) =>
+        participantIds.has(participantId),
+      ),
+    );
+  return { camera: within(demand.camera), screen: within(demand.screen) };
+}
+
 function remoteAudioGain(
   self: Position | undefined,
   peer: Position | undefined,
@@ -91,8 +117,15 @@ export function createCallMediaSession(
   let localPublications: LocalPublications = {};
   let latestPresence: Presence | undefined;
   let latestCall: HeardCall | undefined;
-  let latestDemand: VideoDemand = new Map();
+  let latestDemand = NO_VIDEO_DEMAND;
   let appliedAudience: AppliedAudience | undefined;
+  let liveShare:
+    | Readonly<{
+        hearing: Hearing;
+        publication: LocalMediaPublication;
+        startedAt: number;
+      }>
+    | undefined;
   const pendingRemovals = new Map<string, PublicationRemoval>();
   // Bumped whenever the current room ends; async work from an older generation
   // is stale and must not touch state or callbacks.
@@ -130,12 +163,13 @@ export function createCallMediaSession(
     const participantIds = new Set(roster);
     connection.applyAudience({
       participantIds,
-      video: new Map(
-        [...latestDemand].filter(([participantId]) =>
-          participantIds.has(participantId),
-        ),
-      ),
+      video: demandWithin(latestDemand, participantIds),
     });
+    if (roster.length === 0) {
+      callbacks.onScreenShareEnded(
+        latestPresence.hearing === "awaiting" ? "room_closed" : "meeting_ended",
+      );
+    }
   }
 
   function applyGains() {
@@ -189,12 +223,16 @@ export function createCallMediaSession(
     for (const removal of removals)
       callbacks?.onRemotePublicationChange(removal);
     callbacks?.onRemoteAudioGainsChange({});
+    callbacks?.onRemoteScreenSharesChange(new Set());
   }
 
   function closeRoom() {
     roomGeneration += 1;
     pendingJoin?.abort();
     pendingJoin = undefined;
+    // First, while the room can still take the share down: leaving it to the
+    // disconnect would keep showing the screen until that finishes.
+    callbacks?.onScreenShareEnded("room_closed");
     const connection = active?.connection;
     active = undefined;
     clearRemoteMedia();
@@ -221,7 +259,17 @@ export function createCallMediaSession(
     change: LocalPublicationChange,
     stepGeneration: number,
   ) {
-    if (localChangeSource(change) !== "camera") {
+    const source = localChangeSource(change);
+    if (source === "screen") {
+      if (
+        change.type === "added" &&
+        change.publication === liveShare?.publication
+      ) {
+        currentCallbacks(stepGeneration)?.onScreenShareEnded("publish_failed");
+      }
+      return;
+    }
+    if (source !== "camera") {
       fail(stepGeneration);
       return;
     }
@@ -273,8 +321,18 @@ export function createCallMediaSession(
           options.recordFirstVideo({ ...firstVideo, hearing });
         }
       },
+      onFirstScreenViewer: (firstViewer) => {
+        if (currentCallbacks(stepGeneration)) {
+          options.recordScreenShareReady({ ...firstViewer, hearing });
+        }
+      },
       onRemotePublicationChange: (change) => {
         if (currentCallbacks(stepGeneration)) forwardRemoteChange(change);
+      },
+      onRemoteScreenSharesChange: (participantIds) => {
+        currentCallbacks(stepGeneration)?.onRemoteScreenSharesChange(
+          participantIds,
+        );
       },
     };
   }
@@ -411,9 +469,52 @@ export function createCallMediaSession(
     applyPolicy();
   }
 
+  function startScreenShare(
+    change: Extract<LocalPublicationChange, { type: "added" }>,
+  ) {
+    if (!active) {
+      callbacks?.onScreenShareEnded("room_closed");
+      return;
+    }
+    if (!latestPresence?.meetingRoster.length) {
+      callbacks?.onScreenShareEnded("meeting_ended");
+      return;
+    }
+    liveShare = {
+      hearing: active.hearing,
+      publication: change.publication,
+      startedAt: options.now(),
+    };
+    forwardLocalChange(change);
+  }
+
+  function endScreenShare(
+    change: Extract<LocalPublicationChange, { type: "removed" }>,
+  ) {
+    if (liveShare && change.endReason) {
+      options.recordScreenShareEnded({
+        durationMs: options.now() - liveShare.startedAt,
+        hearing: liveShare.hearing,
+        reason: change.endReason,
+      });
+    }
+    liveShare = undefined;
+    forwardLocalChange(change);
+  }
+
+  // A screen is never kept for replayLocalPublications: it must not reach the
+  // audience of the next room.
+  function handleLocalScreenChange(change: LocalPublicationChange) {
+    if (change.type === "added") startScreenShare(change);
+    if (change.type === "removed") endScreenShare(change);
+  }
+
   function handleLocalPublicationChange(change: LocalPublicationChange) {
     const source = localChangeSource(change);
-    if (source === "screen") return;
+    if (source === "screen") {
+      handleLocalScreenChange(change);
+      return;
+    }
 
     const { [source]: _previous, ...others } = localPublications;
     localPublications =

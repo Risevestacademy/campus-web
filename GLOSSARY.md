@@ -59,8 +59,8 @@ _Avoid_: Campus room, main campus
 
 **Meeting view**:
 The part of the Active Campus that shows your Meeting roster: an avatar stack
-titled "Nearby" or with the room's name, and the participant tiles. It shows
-nothing while the roster is empty.
+titled "Nearby" or with the room's name, and the tiles of its people and Screen
+shares. It shows nothing while the roster is empty.
 _Avoid_: Call view, room view
 
 **Presence Session**:
@@ -147,8 +147,8 @@ The language used for browser-owned media in a campus session.
 ### Language
 
 **Capture source**:
-A browser-owned camera or microphone input. Screen capture remains a separate
-future module.
+A browser-owned camera or microphone input. A screen is captured separately,
+as a Screen share.
 _Avoid_: Participant stream, media publication
 
 **Device catalog**:
@@ -199,6 +199,17 @@ _Avoid_: Audio capture, microphone selection
 A publication whose source is `screen` and which can coexist with a camera
 publication.
 _Avoid_: Camera replacement
+
+**Screen share**:
+A member's Screen publication to their meeting, chosen in the browser's picker.
+It ends when the member stops it, when the meeting ends, or when the call's room
+closes, and it never follows the member to another room.
+_Avoid_: Presentation, screen stream
+
+**Own screen**:
+The tile that shows a member their own Screen share, so they can check what the
+meeting sees. It lasts exactly as long as the share.
+_Avoid_: Preview, self view
 
 **Transport seam**:
 The `MeetingMediaTransport` interface where publication events are translated
