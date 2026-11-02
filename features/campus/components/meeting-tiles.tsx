@@ -105,8 +105,8 @@ function ScreenShareMedia({ participant, videoLayer }: RemoteMediaProps) {
 }
 
 function OwnScreenMedia() {
-  const videoPublication = useMediaSession(
-    (state) => state.screenShare.publication,
+  const videoPublication = useMediaSession(({ screenShare }) =>
+    screenShare.status === "sharing" ? screenShare.publication : undefined,
   );
 
   return (
@@ -269,6 +269,7 @@ export function MeetingTiles({
                 return (
                   <motion.div
                     key={tile.id}
+                    data-testid="meeting-tile"
                     layout={!motionDisabled}
                     transition={layoutTransition}
                     custom={reduceMotion}

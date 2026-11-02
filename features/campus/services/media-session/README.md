@@ -34,7 +34,8 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
   from the member's click, since the browser opens the picker only then. It does
   nothing until `connect`. `screenShare` holds its `status` (`idle`, `requesting`,
   `sharing`) and how the last share went (`outcome`), cleared by the next start.
-  While sharing it also holds the `publication`, which the sharer's preview reads.
+  While sharing it also holds the `publication`, which the member's Own screen
+  tile reads, so that tile cannot outlive the share.
 - `remoteScreenShares`: who in the roster is sharing, subscribed or not, so a
   tile can mount and ask for the screen.
 
@@ -80,7 +81,9 @@ through the transport. It coexists with `camera`; it does not replace it.
 - Ending also invalidates an open picker: a screen picked after that is stopped
   and never published.
 - Dismissing and denying the picker raise the same `NotAllowedError`, so neither
-  shows anything. A block in the operating system's settings looks the same.
+  shows anything. A block in the operating system's settings raises it too, and
+  only Chromium's message tells it apart (`capture_blocked`, which says where to
+  allow it). Other browsers stay silent there.
 
 ### Rules
 

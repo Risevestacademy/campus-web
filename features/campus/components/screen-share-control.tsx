@@ -26,6 +26,11 @@ export function ScreenShareControl({
   if (!supported || !meeting) return null;
 
   const sharing = status === "sharing";
+  // Without a call there is nothing to share into, so nothing to wait for.
+  if (!sharing && (callStatus === "idle" || callStatus === "unavailable")) {
+    return null;
+  }
+
   const label = sharing ? "Stop sharing screen" : "Share screen";
 
   return (
@@ -36,7 +41,7 @@ export function ScreenShareControl({
       aria-label={label}
       aria-pressed={sharing}
       title={label}
-      disabled={callStatus !== "connected"}
+      disabled={!sharing && callStatus === "connecting"}
       onClick={toggleScreenShare}
       className={className}
     >

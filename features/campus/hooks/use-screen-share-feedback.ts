@@ -17,6 +17,12 @@ type OutcomeNotice = Readonly<{
 // Only ends the member did not choose speak. No copy claims that anyone saw the
 // screen: nobody may have been watching.
 const OUTCOME_NOTICES: Partial<Readonly<Record<Outcome, OutcomeNotice>>> = {
+  capture_blocked: {
+    description:
+      "Allow screen recording for your browser in your system settings, then share again.",
+    title: "Your browser can't record your screen",
+    type: "warning",
+  },
   capture_failed: { title: "Couldn't share your screen", type: "warning" },
   meeting_ended: {
     description: "Your meeting ended.",

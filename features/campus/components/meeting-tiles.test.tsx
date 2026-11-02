@@ -11,6 +11,7 @@ import { meetingTiles } from "../services/meeting/meeting";
 import {
   createTestMediaStream,
   createTestMediaTrack,
+  createTestSharingState,
 } from "../testing/media-session-test-utils";
 import type {
   Meeting,
@@ -237,30 +238,16 @@ describe("MeetingTiles shares", () => {
   });
 
   it("shows the member their own screen, whole and from their own capture", () => {
-    const track = createTestMediaTrack("video", "own-screen");
-    const stream = createTestMediaStream([track]);
+    const sharing = createTestSharingState();
     const tiles = renderTiles({ mode: "compact" }, [], true);
 
     act(() => {
-      tiles.store.setState({
-        screenShare: {
-          outcome: null,
-          publication: {
-            enabled: true,
-            origin: "local",
-            publicationId: "local-screen",
-            source: "screen",
-            stream,
-            track,
-          },
-          status: "sharing",
-        },
-      });
+      tiles.store.setState({ screenShare: sharing });
     });
 
     const video = screen.getByLabelText("Your screen");
     expect(video).toHaveClass("object-contain");
-    expect(video).toHaveProperty("srcObject", stream);
+    expect(video).toHaveProperty("srcObject", sharing.publication.stream);
   });
 
   it.each([
@@ -281,8 +268,9 @@ describe("MeetingTiles shares", () => {
     (_case, layout, ownScreen, person) => {
       renderTiles(layout, [], true);
       const tileClassOf = (name: string) =>
-        screen.getByRole("button", { name }).parentElement?.parentElement
-          ?.className;
+        screen
+          .getByRole("button", { name })
+          .closest("[data-testid='meeting-tile']")!.className;
 
       expect(tileClassOf(ownScreen)).toBe(tileClassOf(person));
     },

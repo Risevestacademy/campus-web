@@ -97,7 +97,11 @@ describe("screen share in the media session", () => {
 
     await share(track);
 
-    expect(store.getState().screenShare.status).toBe("sharing");
+    expect(store.getState().screenShare).toEqual({
+      outcome: null,
+      publication: expect.objectContaining({ track }),
+      status: "sharing",
+    });
     expect(track.contentHint).toBe("detail");
     expect(changes).toEqual([
       {
@@ -109,30 +113,44 @@ describe("screen share in the media session", () => {
         type: "added",
       },
     ]);
-    expect(store.getState().screenShare.publication?.track).toBe(track);
   });
 
-  it("takes the sharer's preview away when the session ends", async () => {
+  it("takes the member's own screen away when the session ends", async () => {
     const { share, store } = await connectedStore();
     await share(screenTrack());
 
     store.getState().stop();
 
-    expect(store.getState().screenShare.publication).toBeUndefined();
+    expect(store.getState().screenShare).toEqual({
+      outcome: "session_ended",
+      status: "idle",
+    });
   });
 
   it.each([
-    ["stays silent when the picker is cancelled", "NotAllowedError", null],
+    [
+      "stays silent when the picker is cancelled",
+      "NotAllowedError",
+      "Permission denied",
+      null,
+    ],
+    [
+      "reports a block in the operating system's settings",
+      "NotAllowedError",
+      "Permission denied by system",
+      "capture_blocked",
+    ],
     [
       "reports a capture that cannot start",
       "NotReadableError",
+      "Could not start video source",
       "capture_failed",
     ],
-  ] as const)("%s", async (_case, errorName, outcome) => {
+  ] as const)("%s", async (_case, errorName, message, outcome) => {
     const { changes, picker, store } = await connectedStore();
 
     store.getState().toggleScreenShare();
-    picker.reject(new DOMException("refused", errorName));
+    picker.reject(new DOMException(message, errorName));
     await flush();
 
     expect(store.getState().screenShare).toEqual({ outcome, status: "idle" });

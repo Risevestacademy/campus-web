@@ -206,6 +206,11 @@ It ends when the member stops it, when the meeting ends, or when the call's room
 closes, and it never follows the member to another room.
 _Avoid_: Presentation, screen stream
 
+**Own screen**:
+The tile that shows a member their own Screen share, so they can check what the
+meeting sees. It lasts exactly as long as the share.
+_Avoid_: Preview, self view
+
 **Transport seam**:
 The `MeetingMediaTransport` interface where publication events are translated
 by a signaling or SFU adapter. The adapter picks its own rooms and reports

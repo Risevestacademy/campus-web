@@ -31,8 +31,12 @@ export function supportsScreenCapture(mediaDevices: MediaDevices | undefined) {
 }
 
 // Dismissing the picker and denying it raise the same error, so neither speaks.
-function isPickerRefusal(error: unknown) {
-  return error instanceof DOMException && error.name === "NotAllowedError";
+// A block in the operating system's settings differs only in Chromium's wording.
+function outcomeOfCaptureError(error: unknown): ScreenShareState["outcome"] {
+  if (!(error instanceof DOMException) || error.name !== "NotAllowedError") {
+    return "capture_failed";
+  }
+  return /by system/i.test(error.message) ? "capture_blocked" : null;
 }
 
 type ScreenShareDependencies = Readonly<{
@@ -97,10 +101,7 @@ export function createScreenShare({
       accept(await mediaDevices.getDisplayMedia(SCREEN_CONSTRAINTS), version);
     } catch (error) {
       if (version !== requestVersion) return;
-      report({
-        outcome: isPickerRefusal(error) ? null : "capture_failed",
-        status: "idle",
-      });
+      report({ outcome: outcomeOfCaptureError(error), status: "idle" });
     }
   }
 

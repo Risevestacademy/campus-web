@@ -137,13 +137,38 @@ describe("ScreenShareControl", () => {
     ).not.toBeInTheDocument();
   });
 
-  it.each(["idle", "connecting", "unavailable"] as const)(
-    "waits for the call while it is %s",
+  it("waits for a call that is still joining", () => {
+    seedPresence(COHORT, GRACE);
+    renderControl(setUp({ callStatus: "connecting" }));
+
+    expect(shareButton()).toBeDisabled();
+  });
+
+  it.each(["idle", "unavailable"] as const)(
+    "does not exist with no call to share into: %s",
     (callStatus) => {
       seedPresence(COHORT, GRACE);
       renderControl(setUp({ callStatus }));
 
-      expect(shareButton()).toBeDisabled();
+      expect(
+        screen.queryByRole("button", { name: "Share screen" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(["idle", "connecting", "unavailable"] as const)(
+    "keeps Stop working whatever the call does: %s",
+    async (callStatus) => {
+      seedPresence(COHORT, GRACE);
+      const context = setUp();
+      renderControl(context);
+      await share(context);
+
+      act(() => context.callbacks().onStatusChange(callStatus));
+
+      expect(
+        screen.getByRole("button", { name: "Stop sharing screen" }),
+      ).toBeEnabled();
     },
   );
 
@@ -252,19 +277,39 @@ describe("screen share feedback", () => {
     expect(notification).toHaveTextContent(detail);
   });
 
-  it("tells the member a capture could not start", async () => {
-    const context = setUp();
-    context.getDisplayMedia.mockRejectedValueOnce(
-      new DOMException("busy", "NotReadableError"),
-    );
-    renderFeedback(context);
+  it.each([
+    [
+      "a capture could not start",
+      "NotReadableError",
+      "busy",
+      ["Couldn't share your screen"],
+    ],
+    [
+      "their system blocks screen recording",
+      "NotAllowedError",
+      "Permission denied by system",
+      [
+        "Your browser can't record your screen",
+        "Allow screen recording for your browser",
+      ],
+    ],
+  ] as const)(
+    "tells the member %s",
+    async (_case, errorName, message, notices) => {
+      const context = setUp();
+      context.getDisplayMedia.mockRejectedValueOnce(
+        new DOMException(message, errorName),
+      );
+      renderFeedback(context);
 
-    await share(context);
+      await share(context);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Couldn't share your screen",
-    );
-  });
+      const notification = await screen.findByRole("alert");
+      for (const notice of notices) {
+        expect(notification).toHaveTextContent(notice);
+      }
+    },
+  );
 
   it("says nothing when the member cancels the picker", async () => {
     const context = setUp();

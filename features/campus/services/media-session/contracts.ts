@@ -138,13 +138,15 @@ export type ScreenShareEndReason =
   | "publish_failed"
   | "session_ended";
 
-export type ScreenShareState = Readonly<{
-  // How the last share went; cleared when the member shares again.
-  outcome: ScreenShareEndReason | "capture_failed" | null;
-  // Only while sharing, for the sharer's own preview.
-  publication?: LocalMediaPublication;
-  status: "idle" | "requesting" | "sharing";
-}>;
+export type ScreenShareState = Readonly<
+  | {
+      // How the last share went; cleared when the member shares again.
+      outcome:
+        ScreenShareEndReason | "capture_blocked" | "capture_failed" | null;
+      status: "idle" | "requesting";
+    }
+  | { outcome: null; publication: LocalMediaPublication; status: "sharing" }
+>;
 
 export type LocalPublicationChange =
   | Readonly<{

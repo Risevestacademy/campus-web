@@ -252,10 +252,11 @@ describe("meetingTiles", () => {
   });
 
   it("marks the member's own share apart from the shares they receive", () => {
-    expect(tilesOf(["lin"], true).slice(0, 2)).toMatchObject([
-      { id: "screen:ada", kind: "own-screen" },
-      { id: "screen:lin", kind: "screen" },
-    ]);
+    expect(
+      tilesOf(["lin"], true)
+        .slice(0, 2)
+        .map(({ kind }) => kind),
+    ).toEqual(["own-screen", "screen"]);
   });
 });
 

@@ -95,8 +95,8 @@ export function MeetingViewControls({
     useCampusView();
   const isPresent = useIsPresent();
   const sharerIds = useMediaSession((state) => state.remoteScreenShares);
-  const isSharing = useMediaSession((state) =>
-    Boolean(state.screenShare.publication),
+  const isSharing = useMediaSession(
+    (state) => state.screenShare.status === "sharing",
   );
   const { encounter } = meeting;
   const tiles = meetingTiles(meeting, sharerIds, isSharing);

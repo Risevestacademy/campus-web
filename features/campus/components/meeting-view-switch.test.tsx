@@ -12,8 +12,7 @@ import { createMediaSessionStore } from "../services/media-session/media-session
 import { IDLE_SCREEN_SHARE } from "../services/media-session/screen-share";
 import {
   createTestMediaDevice,
-  createTestMediaStream,
-  createTestMediaTrack,
+  createTestSharingState,
   installTestMediaDevices,
 } from "../testing/media-session-test-utils";
 import type { Meeting, MeetingParticipant } from "../types/active-campus.types";
@@ -159,23 +158,9 @@ describe("MeetingViewControls", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("opens an equal grid from the member's own screen, and lets go of its focus when the share ends", async () => {
-    const track = createTestMediaTrack("video", "own-screen");
+  it("opens an equal grid from the member's own screen, where another's opens focused", () => {
     const store = createMediaSessionStore({ mediaDevices: null });
-    store.setState({
-      screenShare: {
-        outcome: null,
-        publication: {
-          enabled: true,
-          origin: "local",
-          publicationId: "local-screen",
-          source: "screen",
-          stream: createTestMediaStream([track]),
-          track,
-        },
-        status: "sharing",
-      },
-    });
+    store.setState({ screenShare: createTestSharingState() });
     renderMeetingViewControls(meeting, store);
 
     fireEvent.click(
@@ -185,14 +170,16 @@ describe("MeetingViewControls", () => {
     );
 
     expect(
-      screen.queryByRole("button", { name: "Restore equal meeting view" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Focus Your screen" }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
 
+  it("keeps the grid and lets go of the focus when the member's own share ends", async () => {
+    const store = createMediaSessionStore({ mediaDevices: null });
+    store.setState({ screenShare: createTestSharingState() });
+    renderMeetingViewControls(meeting, store);
+    fireEvent.click(screen.getByRole("switch", { name: "Use grid view" }));
     fireEvent.click(screen.getByRole("button", { name: "Focus Your screen" }));
-
-    expect(
-      screen.getByRole("button", { name: "Restore equal meeting view" }),
-    ).toHaveAttribute("aria-pressed", "true");
 
     act(() => {
       store.setState({ screenShare: IDLE_SCREEN_SHARE });
