@@ -19,11 +19,19 @@ export type Meeting = Readonly<{
   participants: readonly MeetingParticipant[];
 }>;
 
+// A person's camera tile carries their id; their share sits beside it under an
+// id of its own, so the two can be focused apart.
+export type MeetingTile = Readonly<{
+  id: string;
+  kind: "person" | "screen";
+  participant: MeetingParticipant;
+}>;
+
 export type MeetingTileLayout =
   | Readonly<{ mode: "compact" }>
   | Readonly<{
       mode: "expanded";
-      focusedTileId: MeetingParticipant["id"] | null;
+      focusedTileId: MeetingTile["id"] | null;
     }>;
 
 // The layout as the view state holds it: a grid remembers the encounter it

@@ -9,7 +9,7 @@ import {
   setSidebarOpen,
 } from "../store/sidebar-store";
 import type {
-  MeetingParticipant,
+  MeetingTile,
   OpenedMeetingLayout,
 } from "../types/active-campus.types";
 
@@ -20,18 +20,17 @@ type CampusViewState = Readonly<{
 
 type GridRequest = Readonly<{ encounter: number; shouldAnimate: boolean }>;
 
-type FocusRequest = GridRequest &
-  Readonly<{ participantId: MeetingParticipant["id"] }>;
+type FocusRequest = GridRequest & Readonly<{ tile: MeetingTile }>;
 
 type CampusViewEvent =
   | Readonly<{ type: "show-map"; shouldAnimate: boolean }>
   | (Readonly<{ type: "show-grid" }> & GridRequest)
-  | (Readonly<{ type: "focus-participant" }> & FocusRequest);
+  | (Readonly<{ type: "focus-tile" }> & FocusRequest);
 
 type CampusViewContextValue = CampusViewState &
   Readonly<{
     closeSidebar: () => void;
-    focusParticipant: (focus: FocusRequest) => void;
+    focusTile: (focus: FocusRequest) => void;
     openAdministration: () => void;
     openPanel: (panelId: SidebarPanelId) => void;
     openSidebar: () => void;
@@ -47,15 +46,16 @@ const INITIAL_CAMPUS_VIEW_STATE: CampusViewState = {
 const CampusViewContext = createContext<CampusViewContextValue | null>(null);
 
 // A grid from an earlier encounter counts as closed, so a tile pressed on the
-// map opens a fresh one instead of toggling a focus nobody can see.
+// map opens a fresh one instead of toggling a focus nobody can see. A share
+// opens focused: in an equal grid its text is too small to read.
 function nextFocus(
   layout: OpenedMeetingLayout,
-  { encounter, participantId }: FocusRequest,
-): MeetingParticipant["id"] | null {
+  { encounter, tile }: FocusRequest,
+): MeetingTile["id"] | null {
   const gridIsOpen =
     layout.mode === "expanded" && layout.encounter === encounter;
-  if (!gridIsOpen) return null;
-  return layout.focusedTileId === participantId ? null : participantId;
+  if (!gridIsOpen) return tile.kind === "screen" ? tile.id : null;
+  return layout.focusedTileId === tile.id ? null : tile.id;
 }
 
 function reduceCampusView(
@@ -77,7 +77,7 @@ function reduceCampusView(
         },
         shouldAnimate: event.shouldAnimate,
       };
-    case "focus-participant":
+    case "focus-tile":
       return {
         meetingLayout: {
           mode: "expanded",
@@ -102,8 +102,8 @@ export function CampusViewProvider({ children }: { children: ReactNode }) {
   const value: CampusViewContextValue = {
     ...state,
     closeSidebar: () => setSidebarOpen(false),
-    focusParticipant: (focus) => {
-      dispatch({ type: "focus-participant", ...focus });
+    focusTile: (focus) => {
+      dispatch({ type: "focus-tile", ...focus });
       setSidebarOpen(false);
     },
     openAdministration: () => {

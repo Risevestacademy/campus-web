@@ -123,6 +123,33 @@ describe("MeetingViewControls", () => {
     ).toHaveAttribute("aria-pressed", "false");
   });
 
+  it("opens a share straight into focus from the map, where a person's tile opens an equal grid", () => {
+    const store = createMediaSessionStore({ mediaDevices: null });
+    store.setState({ remoteScreenShares: new Set(["participant-j"]) });
+    renderMeetingViewControls(meeting, store);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Show expanded meeting view for James Baldwin's screen",
+      }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Restore equal meeting view" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("switch", { name: "Use grid view" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Show expanded meeting view for James Baldwin",
+      }),
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Restore equal meeting view" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows four tiles on the map and opens the grid for everyone from the rest", () => {
     const names = ["Ada", "Grace", "Lin", "Maya", "Toni", "Zadie"];
     const crowd: Meeting = {

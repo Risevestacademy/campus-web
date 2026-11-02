@@ -5,6 +5,7 @@ import type {
   MeetingMediaTransport,
   MeetingMediaTransportCallbacks,
   RemotePublicationChange,
+  VideoLayer,
 } from "./contracts";
 import { createMediaSessionStore } from "./media-session-store";
 
@@ -1018,22 +1019,43 @@ describe("video demand", () => {
   // The store forwards demand once its queued microtask has run.
   const settleDemand = () => new Promise<void>(queueMicrotask);
 
+  function cameraDemand(cameras: readonly (readonly [string, VideoLayer])[]) {
+    return { camera: new Map(cameras), screen: new Map() };
+  }
+
   function demandStore() {
     const { setVideoDemand, transport } = createTransport();
     const store = createMediaSessionStore({ mediaDevices: null, transport });
     return { demandVideo: store.getState().demandVideo, setVideoDemand };
   }
 
-  it("tells the transport every camera on screen in one demand", async () => {
+  it("asks for a person's screen apart from their camera", async () => {
     const { demandVideo, setVideoDemand } = demandStore();
 
-    demandVideo(GRACE, "low");
-    demandVideo(LIN, "low");
+    demandVideo(GRACE, "camera", "low");
+    demandVideo(GRACE, "screen", "high");
     await settleDemand();
 
     expect(setVideoDemand.mock.calls).toEqual([
       [
-        new Map([
+        {
+          camera: new Map([[GRACE, "low"]]),
+          screen: new Map([[GRACE, "high"]]),
+        },
+      ],
+    ]);
+  });
+
+  it("tells the transport every camera on screen in one demand", async () => {
+    const { demandVideo, setVideoDemand } = demandStore();
+
+    demandVideo(GRACE, "camera", "low");
+    demandVideo(LIN, "camera", "low");
+    await settleDemand();
+
+    expect(setVideoDemand.mock.calls).toEqual([
+      [
+        cameraDemand([
           [GRACE, "low"],
           [LIN, "low"],
         ]),
@@ -1044,23 +1066,23 @@ describe("video demand", () => {
   // React releases a tile's old ref before attaching the new one.
   it("changes a tile's layer without ever dropping its camera", async () => {
     const { demandVideo, setVideoDemand } = demandStore();
-    const release = demandVideo(GRACE, "low");
+    const release = demandVideo(GRACE, "camera", "low");
     await settleDemand();
 
     release();
-    demandVideo(GRACE, "high");
+    demandVideo(GRACE, "camera", "high");
     await settleDemand();
 
     expect(setVideoDemand.mock.calls).toEqual([
-      [new Map([[GRACE, "low"]])],
-      [new Map([[GRACE, "high"]])],
+      [cameraDemand([[GRACE, "low"]])],
+      [cameraDemand([[GRACE, "high"]])],
     ]);
   });
 
   it("keeps the largest layer any tile asks for until the last one lets go", async () => {
     const { demandVideo, setVideoDemand } = demandStore();
-    const releaseThumbnail = demandVideo(GRACE, "low");
-    const releaseFocus = demandVideo(GRACE, "high");
+    const releaseThumbnail = demandVideo(GRACE, "camera", "low");
+    const releaseFocus = demandVideo(GRACE, "camera", "high");
     await settleDemand();
 
     releaseFocus();
@@ -1069,9 +1091,9 @@ describe("video demand", () => {
     await settleDemand();
 
     expect(setVideoDemand.mock.calls).toEqual([
-      [new Map([[GRACE, "high"]])],
-      [new Map([[GRACE, "low"]])],
-      [new Map()],
+      [cameraDemand([[GRACE, "high"]])],
+      [cameraDemand([[GRACE, "low"]])],
+      [cameraDemand([])],
     ]);
   });
 });

@@ -31,15 +31,21 @@ export type FirstRemoteVideo = Readonly<{
   waitedMs: number;
 }>;
 
+// How long a share took to reach its first viewer from being published, and
+// the member's own link quality at that moment.
+export type FirstScreenViewer = FirstRemoteVideo;
+
 export type MeetingRoomEvents = Readonly<{
   onDisconnected: () => void;
   onFirstRemoteAudio: () => void;
   onFirstRemoteVideo: (firstVideo: FirstRemoteVideo) => void;
+  onFirstScreenViewer: (firstViewer: FirstScreenViewer) => void;
   onRemotePublicationChange: (change: RemotePublicationChange) => void;
+  onRemoteScreenSharesChange: (participantIds: ReadonlySet<string>) => void;
 }>;
 
 // The members you meet: you hear them, and only they may receive your tracks.
-// `video` holds the ones whose cameras are on screen.
+// `video` holds the cameras and screens on screen.
 export type MeetingAudience = Readonly<{
   participantIds: ReadonlySet<string>;
   video: VideoDemand;

@@ -2,7 +2,7 @@ import { type Participant, type Presence, spaceNameOf } from "@/core/presence";
 
 import type {
   Meeting,
-  MeetingParticipant,
+  MeetingTile,
   MeetingTileLayout,
   OpenedMeetingLayout,
 } from "../../types/active-campus.types";
@@ -57,28 +57,46 @@ export function splitAtCap<Item>(
   };
 }
 
+export function meetingTiles(
+  { localParticipantId, participants }: Meeting,
+  sharerIds: ReadonlySet<string>,
+): MeetingTile[] {
+  const screens = participants
+    .filter(({ id }) => id !== localParticipantId && sharerIds.has(id))
+    .map((participant): MeetingTile => ({
+      id: `screen:${participant.id}`,
+      kind: "screen",
+      participant,
+    }));
+  const people = participants.map((participant): MeetingTile => ({
+    id: participant.id,
+    kind: "person",
+    participant,
+  }));
+  return [...screens, ...people];
+}
+
 export function visibleMeetingLayout(
   layout: OpenedMeetingLayout,
-  meeting: Meeting,
+  encounter: number,
+  tiles: readonly MeetingTile[],
 ): MeetingTileLayout {
-  if (layout.mode === "compact" || layout.encounter !== meeting.encounter) {
+  if (layout.mode === "compact" || layout.encounter !== encounter) {
     return { mode: "compact" };
   }
 
-  const focusIsNear = meeting.participants.some(
-    ({ id }) => id === layout.focusedTileId,
-  );
+  const focusIsShown = tiles.some(({ id }) => id === layout.focusedTileId);
   return {
     mode: "expanded",
-    focusedTileId: focusIsNear ? layout.focusedTileId : null,
+    focusedTileId: focusIsShown ? layout.focusedTileId : null,
   };
 }
 
 export function tileVideoLayer(
   layout: MeetingTileLayout,
-  participantId: MeetingParticipant["id"],
+  tileId: MeetingTile["id"],
 ): VideoLayer {
   if (layout.mode === "compact") return "low";
   if (layout.focusedTileId === null) return "medium";
-  return layout.focusedTileId === participantId ? "high" : "low";
+  return layout.focusedTileId === tileId ? "high" : "low";
 }

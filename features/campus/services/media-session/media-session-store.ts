@@ -17,7 +17,9 @@ import type {
   RemoteAudioGains,
   RemotePublicationChange,
   RemotePublicationRegistry,
+  ScreenShareState,
   VideoLayer,
+  VideoSource,
 } from "./contracts";
 import { createDeviceCatalog } from "./device-discovery";
 import {
@@ -30,6 +32,7 @@ import {
   removeRemotePublication,
   upsertRemotePublication,
 } from "./publication-registry";
+import { createScreenShare, IDLE_SCREEN_SHARE } from "./screen-share";
 import { createVideoDemand } from "./video-demand";
 
 type SelectableAudioOutputMediaDevices = MediaDevices &
@@ -38,6 +41,8 @@ type SelectableAudioOutputMediaDevices = MediaDevices &
   }>;
 
 type MediaActionFailure = Promise<MediaSessionErrorCode | null>;
+
+const NOBODY_SHARING: ReadonlySet<string> = new Set();
 
 // A remembered selection may name a device that is gone or was never real, so
 // it is only preferred: `exact` would reject before the permission prompt.
@@ -54,8 +59,12 @@ export type MediaSessionState = Readonly<{
   callAudioStatus: CallAudioStatus;
   chooseAudioOutput: () => MediaActionFailure;
   connect: () => void;
-  // A tile showing a remote camera; the returned function lets it go.
-  demandVideo: (participantId: string, layer: VideoLayer) => () => void;
+  // A tile showing a remote video; the returned function lets it go.
+  demandVideo: (
+    participantId: string,
+    source: VideoSource,
+    layer: VideoLayer,
+  ) => () => void;
   deviceDiscoveryStatus: DeviceDiscoveryStatus;
   localPublications: Readonly<
     Partial<Record<PublicationSource, LocalMediaPublication>>
@@ -65,7 +74,9 @@ export type MediaSessionState = Readonly<{
   refreshDevices: () => Promise<void>;
   remoteAudioGains: RemoteAudioGains;
   remotePublications: RemotePublicationRegistry;
+  remoteScreenShares: ReadonlySet<string>;
   retryCallAudio: () => void;
+  screenShare: ScreenShareState;
   selectInputDevice: (
     source: CaptureSource,
     deviceId: string,
@@ -73,6 +84,8 @@ export type MediaSessionState = Readonly<{
   selectOutputDevice: (deviceId: string) => void;
   start: () => Promise<void>;
   stop: () => void;
+  // Call it from the member's click: the browser opens its picker only then.
+  toggleScreenShare: () => void;
   toggleSource: (source: CaptureSource) => MediaActionFailure;
 }>;
 
@@ -259,6 +272,12 @@ export function createMediaSessionStore(
       if (!disconnectTransport) return;
       transport.handleLocalPublicationChange(change);
     }
+
+    const screenShare = createScreenShare({
+      mediaDevices,
+      onLocalChange: forwardLocalChange,
+      onStateChange: (next) => set({ screenShare: next }),
+    });
 
     function applyRemotePublicationChange(change: RemotePublicationChange) {
       set((state) => ({
@@ -604,6 +623,9 @@ export function createMediaSessionStore(
           onRemoteAudioGainsChange: (remoteAudioGains) =>
             set({ remoteAudioGains }),
           onRemotePublicationChange: applyRemotePublicationChange,
+          onRemoteScreenSharesChange: (remoteScreenShares) =>
+            set({ remoteScreenShares }),
+          onScreenShareEnded: screenShare.end,
           onStatusChange: (callAudioStatus) => set({ callAudioStatus }),
         });
         for (const publication of Object.values(get().localPublications)) {
@@ -628,9 +650,11 @@ export function createMediaSessionStore(
       refreshDevices,
       remoteAudioGains: {},
       remotePublications: {},
+      remoteScreenShares: NOBODY_SHARING,
       retryCallAudio() {
         if (disconnectTransport) transport.retry();
       },
+      screenShare: IDLE_SCREEN_SHARE,
       async selectInputDevice(source, deviceId) {
         const sourceState = get()[source];
         if (!sourceState.desiredEnabled && !sourceState.track) {
@@ -687,6 +711,7 @@ export function createMediaSessionStore(
         }
       },
       stop() {
+        screenShare.end("session_ended");
         disconnectTransport?.();
         disconnectTransport = undefined;
         if (!started) return;
@@ -717,7 +742,11 @@ export function createMediaSessionStore(
           cameraPublishFailed: false,
           remoteAudioGains: {},
           remotePublications: {},
+          remoteScreenShares: NOBODY_SHARING,
         });
+      },
+      toggleScreenShare() {
+        if (disconnectTransport) screenShare.toggle();
       },
       async toggleSource(source) {
         const sourceState = get()[source];

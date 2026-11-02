@@ -8,6 +8,7 @@ import type {
   Room,
   Track,
   TrackPublication,
+  TrackPublishOptions,
 } from "livekit-client";
 
 import { parseParticipantId } from "../../schemas/livekit-participant.schema";
@@ -16,9 +17,10 @@ import {
   loadLivekitClient,
 } from "../livekit/livekit-client";
 import {
-  type CaptureSource,
   localChangeSource,
   type LocalPublicationChange,
+  NO_VIDEO_DEMAND,
+  type PublicationSource,
   type RemoteMediaPublication,
   type VideoLayer,
 } from "../media-session/contracts";
@@ -38,6 +40,7 @@ export type LivekitRoomModule = Pick<
   | "ConnectionErrorReason"
   | "Room"
   | "RoomEvent"
+  | "ScreenSharePresets"
   | "Track"
   | "VideoQuality"
 >;
@@ -51,7 +54,10 @@ function connectionQualityOf(quality: string): ConnectionQuality {
   return CONNECTION_QUALITIES.find((known) => known === quality) ?? "unknown";
 }
 
-type TrackOwner = Readonly<{ participantId: string; source: CaptureSource }>;
+type TrackOwner = Readonly<{
+  participantId: string;
+  source: PublicationSource;
+}>;
 
 function remotePublicationOf(
   { participantId, source }: TrackOwner,
@@ -72,7 +78,11 @@ function remotePublicationOf(
 // Publishes copies: LiveKit may stop a track it fails to publish, and the
 // member's own track must outlive the room. Changes run in order, and any
 // still queued at close never clone.
-function localTrackPublisher(room: Room, source: Track.Source) {
+function localTrackPublisher(
+  room: Room,
+  source: Track.Source,
+  publishOptions: Readonly<TrackPublishOptions> = {},
+) {
   const copies = new Set<MediaStreamTrack>();
   let published:
     | Readonly<{ copy: MediaStreamTrack; publication: LocalTrackPublication }>
@@ -82,6 +92,8 @@ function localTrackPublisher(room: Room, source: Track.Source) {
 
   function copyOf(track: MediaStreamTrack) {
     const copy = track.clone();
+    // A hint that did not survive the clone would soften a shared screen's text.
+    copy.contentHint = track.contentHint;
     copies.add(copy);
     return copy;
   }
@@ -108,6 +120,7 @@ function localTrackPublisher(room: Room, source: Track.Source) {
   function publish(track: MediaStreamTrack) {
     return withCopy(track, async (copy) => {
       const publication = await room.localParticipant.publishTrack(copy, {
+        ...publishOptions,
         source,
       });
       published = { copy, publication };
@@ -200,7 +213,7 @@ function connectRoom(
   events: MeetingRoomEvents,
   now: () => number,
 ) {
-  const { RoomEvent, Track, VideoQuality } = livekit;
+  const { RoomEvent, ScreenSharePresets, Track, VideoQuality } = livekit;
   const VIDEO_QUALITY: Readonly<Record<VideoLayer, number>> = {
     low: VideoQuality.LOW,
     medium: VideoQuality.MEDIUM,
@@ -208,33 +221,58 @@ function connectRoom(
   };
   let audience: MeetingAudience = {
     participantIds: new Set(),
-    video: new Map(),
+    video: NO_VIDEO_DEMAND,
   };
+  let reportedSharesKey = "";
   let heardRemoteAudio = false;
   let sawRemoteVideo = false;
   let leaving = false;
   const cameraAskedAt = new Map<string, number>();
   const grant = audienceGrant(room);
   const handedOver = new Set<string>();
+  let sharePublishedAt: number | undefined;
   const publishers: Readonly<
-    Record<CaptureSource, ReturnType<typeof localTrackPublisher>>
+    Record<PublicationSource, ReturnType<typeof localTrackPublisher>>
   > = {
     camera: localTrackPublisher(room, Track.Source.Camera),
     microphone: localTrackPublisher(room, Track.Source.Microphone),
+    screen: localTrackPublisher(room, Track.Source.ScreenShare, {
+      screenShareEncoding: ScreenSharePresets.h1080fps15.encoding,
+    }),
   };
 
   async function handleLocalPublicationChange(change: LocalPublicationChange) {
     const source = localChangeSource(change);
-    if (source !== "screen") await publishers[source].handle(change);
+    if (source === "screen") {
+      sharePublishedAt = change.type === "added" ? now() : undefined;
+    }
+    await publishers[source].handle(change);
+  }
+
+  function reportFirstScreenViewer({ source }: TrackPublication) {
+    if (source !== Track.Source.ScreenShare || sharePublishedAt === undefined) {
+      return;
+    }
+    const waitedMs = now() - sharePublishedAt;
+    sharePublishedAt = undefined;
+    events.onFirstScreenViewer({
+      connectionQuality: connectionQualityOf(
+        room.localParticipant.connectionQuality,
+      ),
+      waitedMs,
+    });
   }
 
   function grantAudience() {
     grant(audience.participantIds);
   }
 
-  function captureSourceOf({ source }: RemoteTrackPublication) {
+  function publicationSourceOf({
+    source,
+  }: RemoteTrackPublication): PublicationSource | undefined {
     if (source === Track.Source.Microphone) return "microphone";
     if (source === Track.Source.Camera) return "camera";
+    if (source === Track.Source.ScreenShare) return "screen";
     return undefined;
   }
 
@@ -242,7 +280,7 @@ function connectRoom(
     publication: RemoteTrackPublication,
     participant: RemoteParticipant,
   ): TrackOwner | undefined {
-    const source = captureSourceOf(publication);
+    const source = publicationSourceOf(publication);
     const participantId = source && parseParticipantId(participant.identity);
     return participantId && source ? { participantId, source } : undefined;
   }
@@ -250,7 +288,13 @@ function connectRoom(
   function isWanted({ participantId, source }: TrackOwner) {
     return source === "microphone"
       ? audience.participantIds.has(participantId)
-      : audience.video.has(participantId);
+      : audience.video[source].has(participantId);
+  }
+
+  function layerOf({ participantId, source }: TrackOwner) {
+    return source === "microphone"
+      ? undefined
+      : audience.video[source].get(participantId);
   }
 
   function wantedOwnerOf(
@@ -287,10 +331,8 @@ function connectRoom(
         cameraAskedAt.set(publication.trackSid, now());
       }
     }
-    const layer = owner && audience.video.get(owner.participantId);
-    if (owner?.source === "camera" && layer) {
-      requestLayer(publication, layer, asked);
-    }
+    const layer = owner && layerOf(owner);
+    if (layer) requestLayer(publication, layer, asked);
     // A track that arrived while unwanted fires no second event if the SFU
     // never got round to unsubscribing it.
     const { track, trackSid } = publication;
@@ -321,7 +363,7 @@ function connectRoom(
 
     upsert(owner, track, publication);
     if (owner.source === "camera") reportFirstVideo(publication);
-    else reportFirstAudio();
+    if (owner.source === "microphone") reportFirstAudio();
   }
 
   function reportFirstAudio() {
@@ -353,7 +395,7 @@ function connectRoom(
     const publication = participant?.trackPublications.get(trackSid);
     const owner =
       participant && publication && wantedOwnerOf(publication, participant);
-    if (owner?.source === "camera" && publication?.track)
+    if (owner && owner.source !== "microphone" && publication?.track)
       upsert(owner, publication.track, publication);
   }
 
@@ -373,8 +415,31 @@ function connectRoom(
     });
   }
 
+  function isSharing({ trackPublications }: RemoteParticipant) {
+    return [...trackPublications.values()].some(
+      ({ source }) => source === Track.Source.ScreenShare,
+    );
+  }
+
+  // Reads the room, not the event: a share already there when its owner joins
+  // the roster announces nothing.
+  function reportRemoteScreenShares() {
+    const sharing = [...room.remoteParticipants.values()]
+      .filter(isSharing)
+      .flatMap(({ identity }) => parseParticipantId(identity) ?? [])
+      .filter((participantId) => audience.participantIds.has(participantId));
+    const key = sharing.toSorted().join("\n");
+    if (key === reportedSharesKey) return;
+    reportedSharesKey = key;
+    events.onRemoteScreenSharesChange(new Set(sharing));
+  }
+
   room
     .on(RoomEvent.ParticipantConnected, grantAudience)
+    .on(RoomEvent.ParticipantDisconnected, reportRemoteScreenShares)
+    .on(RoomEvent.TrackPublished, reportRemoteScreenShares)
+    .on(RoomEvent.TrackUnpublished, reportRemoteScreenShares)
+    .on(RoomEvent.LocalTrackSubscribed, reportFirstScreenViewer)
     .on(RoomEvent.TrackPublished, updateSubscription)
     .on(RoomEvent.TrackSubscribed, forwardSubscribedTrack)
     .on(RoomEvent.TrackUnsubscribed, (_track, publication, participant) =>
@@ -396,6 +461,7 @@ function connectRoom(
           updateSubscription(publication, participant);
         }
       }
+      reportRemoteScreenShares();
     },
     async disconnect() {
       leaving = true;

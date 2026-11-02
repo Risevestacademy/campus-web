@@ -16,6 +16,7 @@ import type {
   OpenedMeetingLayout,
 } from "../../types/active-campus.types";
 import {
+  meetingTiles,
   selectMeeting,
   splitAtCap,
   tileVideoLayer,
@@ -215,29 +216,79 @@ describe("splitAtCap", () => {
   });
 });
 
+describe("meetingTiles", () => {
+  const tileIds = (sharerIds: readonly string[]) =>
+    meetingTiles(meetingWith(1, "ada", "grace", "lin"), new Set(sharerIds)).map(
+      ({ id }) => id,
+    );
+
+  it.each([
+    ["one tile per person while nobody shares", [], []],
+    ["a share first, beside its owner's own tile", ["lin"], ["screen:lin"]],
+    [
+      "a tile for everyone who shares",
+      ["lin", "grace"],
+      ["screen:grace", "screen:lin"],
+    ],
+    ["no tile for the member's own share", ["ada"], []],
+    ["no tile for a share by someone not met", ["maya"], []],
+  ])("has %s", (_case, sharers, screens) => {
+    expect(tileIds(sharers)).toEqual([...screens, "ada", "grace", "lin"]);
+  });
+});
+
 describe("visibleMeetingLayout", () => {
-  const gridFocusedOnLin: OpenedMeetingLayout = {
+  const gridFocusedOn = (focusedTileId: string): OpenedMeetingLayout => ({
     mode: "expanded",
-    focusedTileId: "lin",
+    focusedTileId,
     encounter: 1,
-  };
+  });
+
+  function layoutOf(
+    layout: OpenedMeetingLayout,
+    encounter: number,
+    people: readonly string[],
+    sharing: readonly string[] = [],
+  ) {
+    const meeting = meetingWith(encounter, ...people);
+    return visibleMeetingLayout(
+      layout,
+      encounter,
+      meetingTiles(meeting, new Set(sharing)),
+    );
+  }
 
   it("shows the map for a grid opened in an earlier encounter", () => {
-    expect(
-      visibleMeetingLayout(gridFocusedOnLin, meetingWith(2, "ada", "lin")),
-    ).toEqual({ mode: "compact" });
+    expect(layoutOf(gridFocusedOn("lin"), 2, ["ada", "lin"])).toEqual({
+      mode: "compact",
+    });
   });
 
   it("keeps the grid, and its focus while the focused person stays near", () => {
-    expect(
-      visibleMeetingLayout(gridFocusedOnLin, meetingWith(1, "ada", "lin")),
-    ).toEqual({ mode: "expanded", focusedTileId: "lin" });
+    expect(layoutOf(gridFocusedOn("lin"), 1, ["ada", "lin"])).toEqual({
+      mode: "expanded",
+      focusedTileId: "lin",
+    });
   });
 
   it("evens out the grid when the focused person walks away", () => {
+    expect(layoutOf(gridFocusedOn("lin"), 1, ["ada", "grace"])).toEqual({
+      mode: "expanded",
+      focusedTileId: null,
+    });
+  });
+
+  it("keeps the focus on a share while it runs", () => {
     expect(
-      visibleMeetingLayout(gridFocusedOnLin, meetingWith(1, "ada", "grace")),
-    ).toEqual({ mode: "expanded", focusedTileId: null });
+      layoutOf(gridFocusedOn("screen:lin"), 1, ["ada", "lin"], ["lin"]),
+    ).toEqual({ mode: "expanded", focusedTileId: "screen:lin" });
+  });
+
+  it("evens out the grid when the focused share ends", () => {
+    expect(layoutOf(gridFocusedOn("screen:lin"), 1, ["ada", "lin"])).toEqual({
+      mode: "expanded",
+      focusedTileId: null,
+    });
   });
 });
 
@@ -253,5 +304,12 @@ describe("tileVideoLayer", () => {
     ],
   ] as const)("gives %s the layer its size needs", (_case, layout, layer) => {
     expect(tileVideoLayer(layout, "grace")).toBe(layer);
+  });
+
+  it("tells a focused share from its owner's own tile", () => {
+    const layout = { mode: "expanded", focusedTileId: "screen:grace" } as const;
+
+    expect(tileVideoLayer(layout, "screen:grace")).toBe("high");
+    expect(tileVideoLayer(layout, "grace")).toBe("low");
   });
 });

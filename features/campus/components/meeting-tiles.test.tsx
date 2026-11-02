@@ -1,10 +1,19 @@
-import { render } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { MeetingMediaTransport } from "../services/media-session/contracts";
+import type {
+  MeetingMediaTransport,
+  VideoLayer,
+} from "../services/media-session/contracts";
 import { MediaSessionProvider } from "../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../services/media-session/media-session-store";
+import { meetingTiles } from "../services/meeting/meeting";
+import {
+  createTestMediaStream,
+  createTestMediaTrack,
+} from "../testing/media-session-test-utils";
 import type {
+  Meeting,
   MeetingParticipant,
   MeetingTileLayout,
 } from "../types/active-campus.types";
@@ -24,7 +33,23 @@ const PARTICIPANTS = [
   participant("joan", "Joan"),
 ];
 
-function renderTiles(layout: MeetingTileLayout) {
+const MEETING: Meeting = {
+  encounter: 1,
+  hearing: "room",
+  localParticipantId: ADA.id,
+  participants: PARTICIPANTS,
+  title: "Library",
+};
+
+const camerasOnly = (cameras: readonly (readonly [string, VideoLayer])[]) => ({
+  camera: new Map(cameras),
+  screen: new Map(),
+});
+
+function renderTiles(
+  layout: MeetingTileLayout,
+  sharing: readonly string[] = [],
+) {
   const setVideoDemand = vi.fn<MeetingMediaTransport["setVideoDemand"]>();
   const store = createMediaSessionStore({
     mediaDevices: null,
@@ -35,15 +60,16 @@ function renderTiles(layout: MeetingTileLayout) {
       setVideoDemand,
     },
   });
+  const onTileActivate = vi.fn();
   const tiles = (nextLayout: MeetingTileLayout) => (
     <MediaSessionProvider store={store}>
       <MeetingTiles
         layout={nextLayout}
         localParticipantId={ADA.id}
         onShowAll={() => undefined}
-        onTileActivate={() => undefined}
-        participants={PARTICIPANTS}
+        onTileActivate={onTileActivate}
         shouldAnimate={false}
+        tiles={meetingTiles(MEETING, new Set(sharing))}
       />
     </MediaSessionProvider>
   );
@@ -54,8 +80,10 @@ function renderTiles(layout: MeetingTileLayout) {
       await new Promise<void>(queueMicrotask);
       return setVideoDemand.mock.lastCall?.[0];
     },
+    onTileActivate,
     showLayout: (nextLayout: MeetingTileLayout) =>
       view.rerender(tiles(nextLayout)),
+    store,
     unmount: view.unmount,
   };
 }
@@ -65,7 +93,7 @@ describe("MeetingTiles video demand", () => {
     const tiles = renderTiles({ mode: "compact" });
 
     expect(await tiles.lastDemand()).toEqual(
-      new Map([
+      camerasOnly([
         ["grace", "low"],
         ["lin", "low"],
         ["maya", "low"],
@@ -79,7 +107,7 @@ describe("MeetingTiles video demand", () => {
     tiles.showLayout({ mode: "expanded", focusedTileId: "grace" });
 
     expect(await tiles.lastDemand()).toEqual(
-      new Map([
+      camerasOnly([
         ["grace", "high"],
         ["lin", "low"],
         ["maya", "low"],
@@ -95,6 +123,88 @@ describe("MeetingTiles video demand", () => {
 
     tiles.unmount();
 
-    expect(await tiles.lastDemand()).toEqual(new Map());
+    expect(await tiles.lastDemand()).toEqual(camerasOnly([]));
+  });
+
+  it("asks for a share in the strip as a thumbnail, and it takes a place in the cap", async () => {
+    const tiles = renderTiles({ mode: "compact" }, ["maya"]);
+
+    expect(await tiles.lastDemand()).toEqual({
+      camera: new Map([
+        ["grace", "low"],
+        ["lin", "low"],
+      ]),
+      screen: new Map([["maya", "low"]]),
+    });
+  });
+
+  it("asks for a focused share in full, and for its owner's camera as a thumbnail", async () => {
+    const tiles = renderTiles(
+      { mode: "expanded", focusedTileId: "screen:grace" },
+      ["grace"],
+    );
+
+    const demand = await tiles.lastDemand();
+
+    expect(demand?.screen).toEqual(new Map([["grace", "high"]]));
+    expect(demand?.camera.get("grace")).toBe("low");
+  });
+});
+
+describe("MeetingTiles shares", () => {
+  it("offers the share to focus without changing what is focused", () => {
+    const tiles = renderTiles({ mode: "expanded", focusedTileId: null }, [
+      "grace",
+    ]);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Focus Grace's screen" }),
+    );
+
+    expect(tiles.onTileActivate).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ id: "screen:grace" }),
+      false,
+    );
+    expect(screen.getByRole("button", { name: "Focus Grace" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("keeps counting people, not tiles, behind the more button", () => {
+    renderTiles({ mode: "compact" }, ["grace"]);
+
+    expect(
+      screen.getByRole("button", {
+        name: `Show all ${PARTICIPANTS.length} participants`,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the whole of a shared screen, never cropped", () => {
+    const track = createTestMediaTrack("video", "grace-screen");
+    const tiles = renderTiles({ mode: "compact" }, ["grace"]);
+
+    act(() => {
+      tiles.store.setState({
+        remotePublications: {
+          grace: {
+            screen: {
+              enabled: true,
+              origin: "remote",
+              participantId: "grace",
+              publicationId: "grace-screen",
+              source: "screen",
+              stream: createTestMediaStream([track]),
+              track,
+            },
+          },
+        },
+      });
+    });
+
+    expect(screen.getByLabelText("Grace's screen")).toHaveClass(
+      "object-contain",
+    );
   });
 });

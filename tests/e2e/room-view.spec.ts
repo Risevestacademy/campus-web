@@ -77,8 +77,10 @@ test("titles the meeting view with the room's name and hides it once you are alo
   const graceTile = page.getByRole("button", {
     name: "Show expanded meeting view for Grace Hopper",
   });
+  const shareScreen = page.getByRole("button", { name: "Share screen" });
   await expect(heading).toBeVisible();
   await expect(graceTile).toBeVisible();
+  await expect(shareScreen).toBeVisible();
 
   sendFrame(sockets[0]!, {
     type: "spaceChanged",
@@ -88,4 +90,13 @@ test("titles the meeting view with the room's name and hides it once you are alo
 
   await expect(heading).toBeHidden();
   await expect(graceTile).toBeHidden();
+  await expect(shareScreen).toBeHidden();
+
+  sendFrame(sockets[0]!, {
+    type: "spaceChanged",
+    userId: GRACE.userId,
+    spaceKey: "library",
+  });
+
+  await expect(shareScreen).toBeVisible();
 });

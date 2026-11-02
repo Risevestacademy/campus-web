@@ -34,6 +34,18 @@ export function createBrowserCallMediaSession(
           hearing,
         },
       ),
+    recordScreenShareEnded: ({ durationMs, hearing, reason }) =>
+      captureBrowserAnalyticsEvent(ANALYTICS_EVENTS.CAMPUS_SCREEN_SHARE_ENDED, {
+        duration_ms: durationMs,
+        hearing,
+        reason,
+      }),
+    recordScreenShareReady: ({ connectionQuality, hearing, waitedMs }) =>
+      captureBrowserAnalyticsEvent(ANALYTICS_EVENTS.CAMPUS_SCREEN_SHARE_READY, {
+        connection_quality: connectionQuality,
+        first_viewer_ms: waitedMs,
+        hearing,
+      }),
     refreshCall,
     roomTransport: createLivekitMeetingRoomTransport(),
   });

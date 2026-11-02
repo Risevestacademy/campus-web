@@ -11,6 +11,7 @@ type MediaPublicationOutputProps = Readonly<{
   fallbackClassName?: string;
   fallbackInitials?: string;
   fallbackLabel: string;
+  fit?: "cover" | "contain";
   label: string;
   ref?: Ref<HTMLDivElement>;
   videoPublication?: MediaPublication;
@@ -21,6 +22,7 @@ export function MediaPublicationOutput({
   fallbackClassName,
   fallbackInitials,
   fallbackLabel,
+  fit = "cover",
   label,
   ref,
   videoPublication,
@@ -47,7 +49,8 @@ export function MediaPublicationOutput({
           muted
           playsInline
           className={cn(
-            "size-full object-cover",
+            "size-full",
+            fit === "contain" ? "object-contain" : "object-cover",
             showVideo ? "opacity-100" : "absolute opacity-0",
           )}
         />

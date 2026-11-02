@@ -114,12 +114,35 @@ export type RemoteAudioGains = Readonly<Record<string, number>>;
 
 export type MediaPublication = LocalMediaPublication | RemoteMediaPublication;
 
-// How much of a remote camera a tile needs: a thumbnail, a grid cell, or the
+export type VideoSource = Exclude<PublicationSource, "microphone">;
+
+// How much of a remote video a tile needs: a thumbnail, a grid cell, or the
 // focused tile.
 export type VideoLayer = "low" | "medium" | "high";
 
-// The remote cameras on screen, by participant id.
-export type VideoDemand = ReadonlyMap<string, VideoLayer>;
+// The remote videos on screen, by source and participant id.
+export type VideoDemand = Readonly<
+  Record<VideoSource, ReadonlyMap<string, VideoLayer>>
+>;
+
+export const NO_VIDEO_DEMAND: VideoDemand = {
+  camera: new Map(),
+  screen: new Map(),
+};
+
+export type ScreenShareEndReason =
+  | "stopped"
+  | "browser_stopped"
+  | "meeting_ended"
+  | "room_closed"
+  | "publish_failed"
+  | "session_ended";
+
+export type ScreenShareState = Readonly<{
+  // How the last share went; cleared when the member shares again.
+  outcome: ScreenShareEndReason | "capture_failed" | null;
+  status: "idle" | "requesting" | "sharing";
+}>;
 
 export type LocalPublicationChange =
   | Readonly<{
@@ -132,6 +155,7 @@ export type LocalPublicationChange =
       type: "replaced";
     }>
   | Readonly<{
+      endReason?: ScreenShareEndReason;
       previousTrack: MediaStreamTrack;
       publicationId: string;
       source: PublicationSource;
@@ -162,6 +186,12 @@ export type MeetingMediaTransportCallbacks = Readonly<{
   onCameraPublishOutcome: (failed: boolean) => void;
   onRemoteAudioGainsChange: (gains: RemoteAudioGains) => void;
   onRemotePublicationChange: (change: RemotePublicationChange) => void;
+  // Who in the roster is sharing a screen, subscribed or not, so a tile can
+  // mount and ask for it.
+  onRemoteScreenSharesChange: (participantIds: ReadonlySet<string>) => void;
+  // The call can no longer carry the member's screen. Safe to report when
+  // nothing is being shared.
+  onScreenShareEnded: (reason: ScreenShareEndReason) => void;
   onStatusChange: (status: CallAudioStatus) => void;
 }>;
 
