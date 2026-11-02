@@ -21,10 +21,10 @@ export function ScreenShareStatus({
   if (status !== "sharing" || !meeting) return null;
 
   return (
-    <div className="bg-background flex items-center gap-3 rounded-full py-1 pr-1 pl-3 text-sm">
+    <div className="bg-background flex items-center gap-2 rounded-2xl py-2 pr-2 pl-2.5 text-sm">
       <p className="grid">
         <span className="font-medium">Sharing your screen</span>
-        <span className="text-foreground-secondary text-xs">
+        <span className="text-foreground-secondary -mt-px text-xs">
           {POSSIBLE_REACH[meeting.hearing]}
         </span>
       </p>
