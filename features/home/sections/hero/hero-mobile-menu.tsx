@@ -27,7 +27,7 @@ export function HeroMobileMenu() {
         aria-expanded={isOpen}
         aria-controls="hero-mobile-menu"
         onClick={() => setIsOpen((current) => !current)}
-        className="hover:bg-primary-hover active:bg-primary-active outline-background grid size-10 cursor-pointer place-items-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2"
+        className="hover:bg-primary-hover active:bg-primary-active dark:hover:bg-cobalt-700 dark:active:bg-cobalt-800 outline-primary-foreground grid size-10 cursor-pointer place-items-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2"
       >
         {isOpen ? (
           <XIcon aria-hidden size={24} weight="regular" />
