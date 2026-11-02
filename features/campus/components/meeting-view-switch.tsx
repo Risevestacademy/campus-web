@@ -95,8 +95,11 @@ export function MeetingViewControls({
     useCampusView();
   const isPresent = useIsPresent();
   const sharerIds = useMediaSession((state) => state.remoteScreenShares);
+  const isSharing = useMediaSession((state) =>
+    Boolean(state.screenShare.publication),
+  );
   const { encounter } = meeting;
-  const tiles = meetingTiles(meeting, sharerIds);
+  const tiles = meetingTiles(meeting, sharerIds, isSharing);
   // Leaving means nobody is near: collapse to the map rather than fade the
   // grid out at full size.
   const layout = isPresent

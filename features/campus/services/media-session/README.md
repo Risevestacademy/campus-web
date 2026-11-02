@@ -34,6 +34,7 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
   from the member's click, since the browser opens the picker only then. It does
   nothing until `connect`. `screenShare` holds its `status` (`idle`, `requesting`,
   `sharing`) and how the last share went (`outcome`), cleared by the next start.
+  While sharing it also holds the `publication`, which the sharer's preview reads.
 - `remoteScreenShares`: who in the roster is sharing, subscribed or not, so a
   tile can mount and ask for the screen.
 

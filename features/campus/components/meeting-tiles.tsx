@@ -49,6 +49,8 @@ type ParticipantMediaProps = Readonly<{ participant: MeetingParticipant }>;
 type RemoteMediaProps = ParticipantMediaProps &
   Readonly<{ videoLayer: VideoLayer }>;
 
+const OWN_SCREEN_NAME = "Your screen";
+
 const screenNameOf = ({ name }: MeetingParticipant) => `${name}'s screen`;
 
 function LocalParticipantMedia({ participant }: ParticipantMediaProps) {
@@ -102,6 +104,21 @@ function ScreenShareMedia({ participant, videoLayer }: RemoteMediaProps) {
   );
 }
 
+function OwnScreenMedia() {
+  const videoPublication = useMediaSession(
+    (state) => state.screenShare.publication,
+  );
+
+  return (
+    <MediaPublicationOutput
+      fallbackLabel={OWN_SCREEN_NAME}
+      fit="contain"
+      label={OWN_SCREEN_NAME}
+      videoPublication={videoPublication}
+    />
+  );
+}
+
 const OPACITY_DURATION_MS = 180;
 
 function getLayoutTransition(
@@ -139,12 +156,17 @@ const backdropVariants = {
   }),
 };
 
+function tileNameOf({ kind, participant }: MeetingTile): string {
+  if (kind === "own-screen") return OWN_SCREEN_NAME;
+  return kind === "screen" ? screenNameOf(participant) : participant.name;
+}
+
 function tileLabel(
-  { kind, participant }: MeetingTile,
+  tile: MeetingTile,
   isExpanded: boolean,
   isFocused: boolean,
 ): string {
-  const name = kind === "screen" ? screenNameOf(participant) : participant.name;
+  const name = tileNameOf(tile);
   if (!isExpanded) return `Show expanded meeting view for ${name}`;
   return isFocused ? "Restore equal meeting view" : `Focus ${name}`;
 }
@@ -157,6 +179,7 @@ type TileMediaProps = Readonly<{
 
 function TileMedia({ localParticipantId, tile, videoLayer }: TileMediaProps) {
   const { kind, participant } = tile;
+  if (kind === "own-screen") return <OwnScreenMedia />;
   if (kind === "screen") {
     return (
       <ScreenShareMedia participant={participant} videoLayer={videoLayer} />

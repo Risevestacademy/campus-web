@@ -1,4 +1,5 @@
 import type {
+  LocalMediaPublication,
   LocalPublicationChange,
   ScreenShareEndReason,
   ScreenShareState,
@@ -73,18 +74,16 @@ export function createScreenShare({
     const onEnded = () => end("browser_stopped");
     track.addEventListener("ended", onEnded);
     live = { onEnded, track };
-    report({ outcome: null, status: "sharing" });
-    onLocalChange({
-      publication: {
-        enabled: track.enabled,
-        origin: "local",
-        publicationId: SCREEN_PUBLICATION_ID,
-        source: "screen",
-        stream,
-        track,
-      },
-      type: "added",
-    });
+    const publication: LocalMediaPublication = {
+      enabled: track.enabled,
+      origin: "local",
+      publicationId: SCREEN_PUBLICATION_ID,
+      source: "screen",
+      stream,
+      track,
+    };
+    report({ outcome: null, publication, status: "sharing" });
+    onLocalChange({ publication, type: "added" });
   }
 
   // Runs up to the picker without yielding: the browser only opens it while

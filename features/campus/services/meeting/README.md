@@ -21,9 +21,10 @@ const meeting = useMeeting(cohortId); // Meeting | null
 - `meetingParticipantOf(participant)`: name (`"Campus member"` when world
   has none), initials, and a tone hashed from the user id, so a person keeps
   one colour however the list changes.
-- `meetingTiles(meeting, sharerIds)`: one tile per person, after a tile for each
-  share by someone else in the meeting. A share's id is `screen:<participant id>`,
-  so it focuses apart from its owner's camera.
+- `meetingTiles(meeting, sharerIds, isSharing)`: one tile per person, after a
+  tile for each share by someone else in the meeting, after the member's own
+  share while they have one. A share's id is `screen:<participant id>`, so it
+  focuses apart from its owner's camera.
 - `visibleMeetingLayout(layout, encounter, tiles)`: the grid only for the
   encounter it was opened in, and no focus on a tile that is gone.
 - `splitAtCap(items, cap)`: the shown items and how many more.

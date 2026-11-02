@@ -2,6 +2,7 @@ import { type Participant, type Presence, spaceNameOf } from "@/core/presence";
 
 import type {
   Meeting,
+  MeetingParticipant,
   MeetingTile,
   MeetingTileLayout,
   OpenedMeetingLayout,
@@ -57,23 +58,31 @@ export function splitAtCap<Item>(
   };
 }
 
+const screenTile =
+  (kind: "screen" | "own-screen") =>
+  (participant: MeetingParticipant): MeetingTile => ({
+    id: `screen:${participant.id}`,
+    kind,
+    participant,
+  });
+
 export function meetingTiles(
   { localParticipantId, participants }: Meeting,
   sharerIds: ReadonlySet<string>,
+  isSharing: boolean,
 ): MeetingTile[] {
+  const ownScreen = participants
+    .filter(({ id }) => isSharing && id === localParticipantId)
+    .map(screenTile("own-screen"));
   const screens = participants
     .filter(({ id }) => id !== localParticipantId && sharerIds.has(id))
-    .map((participant): MeetingTile => ({
-      id: `screen:${participant.id}`,
-      kind: "screen",
-      participant,
-    }));
+    .map(screenTile("screen"));
   const people = participants.map((participant): MeetingTile => ({
     id: participant.id,
     kind: "person",
     participant,
   }));
-  return [...screens, ...people];
+  return [...ownScreen, ...screens, ...people];
 }
 
 export function visibleMeetingLayout(

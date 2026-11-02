@@ -109,6 +109,16 @@ describe("screen share in the media session", () => {
         type: "added",
       },
     ]);
+    expect(store.getState().screenShare.publication?.track).toBe(track);
+  });
+
+  it("takes the sharer's preview away when the session ends", async () => {
+    const { share, store } = await connectedStore();
+    await share(screenTrack());
+
+    store.getState().stop();
+
+    expect(store.getState().screenShare.publication).toBeUndefined();
   });
 
   it.each([

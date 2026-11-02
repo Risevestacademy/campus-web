@@ -1,10 +1,19 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MediaSessionProvider } from "../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../services/media-session/media-session-store";
+import { IDLE_SCREEN_SHARE } from "../services/media-session/screen-share";
 import {
   createTestMediaDevice,
+  createTestMediaStream,
+  createTestMediaTrack,
   installTestMediaDevices,
 } from "../testing/media-session-test-utils";
 import type { Meeting, MeetingParticipant } from "../types/active-campus.types";
@@ -148,6 +157,58 @@ describe("MeetingViewControls", () => {
     expect(
       screen.queryByRole("button", { name: "Restore equal meeting view" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("opens an equal grid from the member's own screen, and lets go of its focus when the share ends", async () => {
+    const track = createTestMediaTrack("video", "own-screen");
+    const store = createMediaSessionStore({ mediaDevices: null });
+    store.setState({
+      screenShare: {
+        outcome: null,
+        publication: {
+          enabled: true,
+          origin: "local",
+          publicationId: "local-screen",
+          source: "screen",
+          stream: createTestMediaStream([track]),
+          track,
+        },
+        status: "sharing",
+      },
+    });
+    renderMeetingViewControls(meeting, store);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Show expanded meeting view for Your screen",
+      }),
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Restore equal meeting view" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Focus Your screen" }));
+
+    expect(
+      screen.getByRole("button", { name: "Restore equal meeting view" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    act(() => {
+      store.setState({ screenShare: IDLE_SCREEN_SHARE });
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Restore equal meeting view" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Focus Your screen" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("switch", { name: "Use grid view" }),
+    ).toHaveAttribute("aria-checked", "true");
   });
 
   it("shows four tiles on the map and opens the grid for everyone from the rest", () => {

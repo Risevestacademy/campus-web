@@ -141,6 +141,8 @@ export type ScreenShareEndReason =
 export type ScreenShareState = Readonly<{
   // How the last share went; cleared when the member shares again.
   outcome: ScreenShareEndReason | "capture_failed" | null;
+  // Only while sharing, for the sharer's own preview.
+  publication?: LocalMediaPublication;
   status: "idle" | "requesting" | "sharing";
 }>;
 

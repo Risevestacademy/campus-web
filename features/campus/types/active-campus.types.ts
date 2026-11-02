@@ -23,7 +23,7 @@ export type Meeting = Readonly<{
 // id of its own, so the two can be focused apart.
 export type MeetingTile = Readonly<{
   id: string;
-  kind: "person" | "screen";
+  kind: "person" | "screen" | "own-screen";
   participant: MeetingParticipant;
 }>;
 

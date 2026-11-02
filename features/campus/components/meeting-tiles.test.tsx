@@ -49,6 +49,7 @@ const camerasOnly = (cameras: readonly (readonly [string, VideoLayer])[]) => ({
 function renderTiles(
   layout: MeetingTileLayout,
   sharing: readonly string[] = [],
+  isSharing = false,
 ) {
   const setVideoDemand = vi.fn<MeetingMediaTransport["setVideoDemand"]>();
   const store = createMediaSessionStore({
@@ -69,7 +70,7 @@ function renderTiles(
         onShowAll={() => undefined}
         onTileActivate={onTileActivate}
         shouldAnimate={false}
-        tiles={meetingTiles(MEETING, new Set(sharing))}
+        tiles={meetingTiles(MEETING, new Set(sharing), isSharing)}
       />
     </MediaSessionProvider>
   );
@@ -149,6 +150,27 @@ describe("MeetingTiles video demand", () => {
     expect(demand?.screen).toEqual(new Map([["grace", "high"]]));
     expect(demand?.camera.get("grace")).toBe("low");
   });
+
+  it("asks for nothing to show the member's own screen, which takes a place in the cap", async () => {
+    const tiles = renderTiles({ mode: "compact" }, [], true);
+
+    expect(await tiles.lastDemand()).toEqual(
+      camerasOnly([
+        ["grace", "low"],
+        ["lin", "low"],
+      ]),
+    );
+  });
+
+  it("asks for no screen when the member focuses their own", async () => {
+    const tiles = renderTiles(
+      { mode: "expanded", focusedTileId: "screen:ada" },
+      [],
+      true,
+    );
+
+    expect((await tiles.lastDemand())?.screen).toEqual(new Map());
+  });
 });
 
 describe("MeetingTiles shares", () => {
@@ -171,15 +193,21 @@ describe("MeetingTiles shares", () => {
     );
   });
 
-  it("keeps counting people, not tiles, behind the more button", () => {
-    renderTiles({ mode: "compact" }, ["grace"]);
+  it.each([
+    ["a share they receive", ["grace"], false],
+    ["the member's own share", [], true],
+  ])(
+    "keeps counting people, not tiles, past %s",
+    (_case, sharing, isSharing) => {
+      renderTiles({ mode: "compact" }, sharing, isSharing);
 
-    expect(
-      screen.getByRole("button", {
-        name: `Show all ${PARTICIPANTS.length} participants`,
-      }),
-    ).toBeInTheDocument();
-  });
+      expect(
+        screen.getByRole("button", {
+          name: `Show all ${PARTICIPANTS.length} participants`,
+        }),
+      ).toBeInTheDocument();
+    },
+  );
 
   it("shows the whole of a shared screen, never cropped", () => {
     const track = createTestMediaTrack("video", "grace-screen");
@@ -207,4 +235,56 @@ describe("MeetingTiles shares", () => {
       "object-contain",
     );
   });
+
+  it("shows the member their own screen, whole and from their own capture", () => {
+    const track = createTestMediaTrack("video", "own-screen");
+    const stream = createTestMediaStream([track]);
+    const tiles = renderTiles({ mode: "compact" }, [], true);
+
+    act(() => {
+      tiles.store.setState({
+        screenShare: {
+          outcome: null,
+          publication: {
+            enabled: true,
+            origin: "local",
+            publicationId: "local-screen",
+            source: "screen",
+            stream,
+            track,
+          },
+          status: "sharing",
+        },
+      });
+    });
+
+    const video = screen.getByLabelText("Your screen");
+    expect(video).toHaveClass("object-contain");
+    expect(video).toHaveProperty("srcObject", stream);
+  });
+
+  it.each([
+    [
+      "the strip",
+      { mode: "compact" },
+      "Show expanded meeting view for Your screen",
+      "Show expanded meeting view for Ada",
+    ],
+    [
+      "the equal grid",
+      { mode: "expanded", focusedTileId: null },
+      "Focus Your screen",
+      "Focus Ada",
+    ],
+  ] as const)(
+    "sizes the member's own screen like a person's tile in %s",
+    (_case, layout, ownScreen, person) => {
+      renderTiles(layout, [], true);
+      const tileClassOf = (name: string) =>
+        screen.getByRole("button", { name }).parentElement?.parentElement
+          ?.className;
+
+      expect(tileClassOf(ownScreen)).toBe(tileClassOf(person));
+    },
+  );
 });

@@ -47,7 +47,8 @@ const CampusViewContext = createContext<CampusViewContextValue | null>(null);
 
 // A grid from an earlier encounter counts as closed, so a tile pressed on the
 // map opens a fresh one instead of toggling a focus nobody can see. A share
-// opens focused: in an equal grid its text is too small to read.
+// opens focused: in an equal grid its text is too small to read. The member's
+// own does not: they already have the original in front of them.
 function nextFocus(
   layout: OpenedMeetingLayout,
   { encounter, tile }: FocusRequest,

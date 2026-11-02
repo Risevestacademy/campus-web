@@ -217,10 +217,14 @@ describe("splitAtCap", () => {
 });
 
 describe("meetingTiles", () => {
-  const tileIds = (sharerIds: readonly string[]) =>
-    meetingTiles(meetingWith(1, "ada", "grace", "lin"), new Set(sharerIds)).map(
-      ({ id }) => id,
+  const tilesOf = (sharerIds: readonly string[], isSharing = false) =>
+    meetingTiles(
+      meetingWith(1, "ada", "grace", "lin"),
+      new Set(sharerIds),
+      isSharing,
     );
+  const tileIds = (sharerIds: readonly string[], isSharing = false) =>
+    tilesOf(sharerIds, isSharing).map(({ id }) => id);
 
   it.each([
     ["one tile per person while nobody shares", [], []],
@@ -230,10 +234,28 @@ describe("meetingTiles", () => {
       ["lin", "grace"],
       ["screen:grace", "screen:lin"],
     ],
-    ["no tile for the member's own share", ["ada"], []],
+    ["no tile for the member's own id among the others' shares", ["ada"], []],
     ["no tile for a share by someone not met", ["maya"], []],
   ])("has %s", (_case, sharers, screens) => {
     expect(tileIds(sharers)).toEqual([...screens, "ada", "grace", "lin"]);
+  });
+
+  it.each([
+    [
+      "ahead of everyone else's",
+      ["lin"],
+      ["screen:ada", "screen:lin", "ada", "grace", "lin"],
+    ],
+    ["only once", ["ada"], ["screen:ada", "ada", "grace", "lin"]],
+  ])("has the member's own share %s", (_case, sharers, tiles) => {
+    expect(tileIds(sharers, true)).toEqual(tiles);
+  });
+
+  it("marks the member's own share apart from the shares they receive", () => {
+    expect(tilesOf(["lin"], true).slice(0, 2)).toMatchObject([
+      { id: "screen:ada", kind: "own-screen" },
+      { id: "screen:lin", kind: "screen" },
+    ]);
   });
 });
 
@@ -254,7 +276,7 @@ describe("visibleMeetingLayout", () => {
     return visibleMeetingLayout(
       layout,
       encounter,
-      meetingTiles(meeting, new Set(sharing)),
+      meetingTiles(meeting, new Set(sharing), false),
     );
   }
 
