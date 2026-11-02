@@ -398,15 +398,15 @@ describe(`Auth redirect chain eval (threshold: 0 chains over ${MAX_REDIRECTS} re
 
   it("sends an expired invitation session through refresh exactly once before sign-in", async () => {
     const { steps } = await walk(
-      "/invitation",
+      "/preview",
       stateShaped("expired, refreshed but still signed out"),
     );
 
     expect(steps).toEqual([
-      "/invitation",
-      "/session/refresh?returnTo=%2Finvitation",
-      "/invitation",
-      "/sign-in?returnTo=%2Finvitation",
+      "/preview",
+      "/session/refresh?returnTo=%2Fpreview",
+      "/preview",
+      "/sign-in?returnTo=%2Fpreview",
       "render",
     ]);
   });
