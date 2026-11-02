@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "cn";
+import type { Ref } from "react";
 
 import { useMediaElementRef } from "../hooks/use-media-element-ref";
 import type { MediaPublication } from "../services/media-session/contracts";
@@ -10,7 +11,9 @@ type MediaPublicationOutputProps = Readonly<{
   fallbackClassName?: string;
   fallbackInitials?: string;
   fallbackLabel: string;
+  fit?: "cover" | "contain";
   label: string;
+  ref?: Ref<HTMLDivElement>;
   videoPublication?: MediaPublication;
 }>;
 
@@ -19,7 +22,9 @@ export function MediaPublicationOutput({
   fallbackClassName,
   fallbackInitials,
   fallbackLabel,
+  fit = "cover",
   label,
+  ref,
   videoPublication,
 }: MediaPublicationOutputProps) {
   const videoRef = useMediaElementRef(videoPublication);
@@ -29,6 +34,7 @@ export function MediaPublicationOutput({
 
   return (
     <div
+      ref={ref}
       data-video-state={showVideo ? "visible" : "fallback"}
       className={cn(
         "bg-surface relative grid size-full place-items-center overflow-hidden",
@@ -43,7 +49,8 @@ export function MediaPublicationOutput({
           muted
           playsInline
           className={cn(
-            "size-full object-cover",
+            "size-full",
+            fit === "contain" ? "object-contain" : "object-cover",
             showVideo ? "opacity-100" : "absolute opacity-0",
           )}
         />

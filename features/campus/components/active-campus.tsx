@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { ActiveCampusViewModel } from "../types/active-campus.types";
 import { CampusControlBar } from "./campus-control-bar";
 import { MeetingOverlay } from "./meeting-overlay";
+import { ScreenShareStatus } from "./screen-share-status";
 import { WorldConnectionStatus } from "./world-connection-status";
 
 export function ActiveCampus({
@@ -39,10 +40,12 @@ export function ActiveCampus({
             data-layout-anchor="campus-controls"
             className="absolute inset-x-0 bottom-0 p-2.5"
           >
-            <div className="absolute inset-x-0 bottom-full flex justify-center">
+            <div className="absolute inset-x-0 bottom-full flex flex-col items-center gap-1.5">
               <WorldConnectionStatus />
+              <ScreenShareStatus cohortId={cohortId} />
             </div>
             <CampusControlBar
+              cohortId={cohortId}
               initials={viewer.initials}
               status={viewer.presenceStatus}
               zoomControls={zoomControls}

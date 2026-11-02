@@ -1,7 +1,7 @@
 import { type Mock, vi } from "vitest";
 
+import type { LivekitRoomModule } from "../services/call-media/livekit-meeting-room-transport";
 import type { LivekitModule } from "../services/connection-check/livekit-probe";
-import type { LivekitRoomModule } from "../services/proximity-audio/livekit-meeting-room-transport";
 import {
   createTestMediaStream,
   createTestMediaTrack,
@@ -157,9 +157,13 @@ class ConnectionError extends Error {
 
 const RoomEvent = {
   Disconnected: "disconnected",
+  LocalTrackSubscribed: "localTrackSubscribed",
+  ParticipantConnected: "participantConnected",
   ParticipantDisconnected: "participantDisconnected",
+  TrackMuted: "trackMuted",
   TrackPublished: "trackPublished",
   TrackSubscribed: "trackSubscribed",
+  TrackUnmuted: "trackUnmuted",
   TrackUnpublished: "trackUnpublished",
   TrackUnsubscribed: "trackUnsubscribed",
 } as const;
@@ -169,18 +173,34 @@ const Track = {
     Camera: "camera",
     Microphone: "microphone",
     ScreenShare: "screen_share",
+    ScreenShareAudio: "screen_share_audio",
     Unknown: "unknown",
   },
 } as const;
 
+const VideoQuality = { LOW: 0, MEDIUM: 1, HIGH: 2 } as const;
+
+const ScreenSharePresets = {
+  h1080fps15: { encoding: { maxBitrate: 2_500_000, maxFramerate: 15 } },
+} as const;
+
 export type FakeTrackSource = (typeof Track.Source)[keyof typeof Track.Source];
+
+type FakeRemoteTrack = Readonly<{
+  mediaStream: MediaStream;
+  mediaStreamTrack: MediaStreamTrack;
+}>;
 
 export type FakeRemotePublication = {
   isDesired: boolean;
-  readonly isMuted: boolean;
+  isMuted: boolean;
   readonly source: FakeTrackSource;
+  track: FakeRemoteTrack | undefined;
   readonly trackSid: string;
+  readonly videoQuality: number;
+  emitTrackUpdate(): void;
   setSubscribed(subscribed: boolean): void;
+  setVideoQuality(quality: number): void;
 };
 
 export type FakeRemoteParticipant = Readonly<{
@@ -194,36 +214,77 @@ export type FakeLocalPublication = Readonly<{
   replaceTrack: Mock;
 }>;
 
+type FakeUnpublish = Readonly<{
+  track: MediaStreamTrack | FakeLocalPublication;
+  stop?: boolean;
+}>;
+
 export type SubscriptionRecord = Readonly<{
   identity: string;
   source: FakeTrackSource;
   subscribed: boolean;
 }>;
 
-// Mirrors the slice of livekit-client's Room the proximity-audio adapter uses.
+export type QualityRecord = Readonly<{
+  identity: string;
+  quality: keyof typeof VideoQuality;
+}>;
+
+// Who the member let subscribe to their tracks, as the SFU was told.
+export type GrantRecord = Readonly<{
+  allParticipantsAllowed: boolean;
+  identities: readonly string[];
+}>;
+
+// Mirrors the slice of livekit-client's Room the call-media adapter uses.
 // Subscribing never delivers a track by itself: tests call deliver(), as the
 // SFU answers later and may not answer at all.
 export function fakeLivekitRoom() {
   const rooms: FakeRoom[] = [];
   const subscriptions: SubscriptionRecord[] = [];
+  const grants: GrantRecord[] = [];
+  const qualities: QualityRecord[] = [];
   const timeline: string[] = [];
   const control: {
     connect: FakeConnectOutcome;
     alreadyInRoom: readonly (readonly [string, readonly FakeTrackSource[]])[];
   } = { alreadyInRoom: [], connect: "resolve" };
 
+  // `qualities` is what the SFU was told. As in the SDK, a publication stays
+  // quiet about a layer it already asked for, even across an unsubscribe.
   function remotePublication(
     identity: string,
     source: FakeTrackSource,
   ): FakeRemotePublication {
+    let requestedQuality: number | undefined;
+
+    function tellSfu(quality: number) {
+      const name = Object.entries(VideoQuality).find(
+        ([, value]) => value === quality,
+      )?.[0] as QualityRecord["quality"];
+      qualities.push({ identity, quality: name });
+    }
+
     return {
       isDesired: false,
       isMuted: false,
       source,
+      track: undefined,
       trackSid: `${identity}-${source}`,
+      get videoQuality() {
+        return requestedQuality ?? VideoQuality.HIGH;
+      },
+      emitTrackUpdate() {
+        tellSfu(this.videoQuality);
+      },
       setSubscribed(subscribed) {
         this.isDesired = subscribed;
         subscriptions.push({ identity, source, subscribed });
+      },
+      setVideoQuality(quality) {
+        if (!this.isDesired || requestedQuality === quality) return;
+        requestedQuality = quality;
+        tellSfu(quality);
       },
     };
   }
@@ -246,14 +307,17 @@ export function fakeLivekitRoom() {
       [];
     readonly disconnectCalls: (boolean | undefined)[] = [];
     readonly published: FakeLocalPublication[] = [];
-    readonly unpublished: { track: MediaStreamTrack; stop?: boolean }[] = [];
+    readonly unpublished: FakeUnpublish[] = [];
+    readonly grants: GrantRecord[] = [];
     readonly remoteParticipants = new Map<string, FakeRemoteParticipant>();
     disconnectFails = false;
     publishFails = false;
+    unpublishFails = false;
     private readonly listeners = new Map<string, Listener[]>();
     private publishing = Promise.resolve();
 
     readonly localParticipant = {
+      connectionQuality: "unknown",
       publishTrack: async (track: MediaStreamTrack, options?: unknown) => {
         await this.publishing;
         if (this.publishFails) throw new Error("publish failed");
@@ -262,9 +326,23 @@ export function fakeLivekitRoom() {
         this.published.push(publication);
         return { track: publication };
       },
-      unpublishTrack: async (track: MediaStreamTrack, stop?: boolean) => {
+      unpublishTrack: async (track: FakeUnpublish["track"], stop?: boolean) => {
         this.unpublished.push({ track, stop });
+        if (this.unpublishFails) throw new Error("negotiation failed");
         return undefined;
+      },
+      setTrackSubscriptionPermissions: (
+        allParticipantsAllowed: boolean,
+        permissions: readonly { participantIdentity?: string }[] = [],
+      ) => {
+        const grant = {
+          allParticipantsAllowed,
+          identities: permissions.map(
+            ({ participantIdentity }) => participantIdentity ?? "",
+          ),
+        };
+        this.grants.push(grant);
+        grants.push(grant);
       },
     };
 
@@ -348,6 +426,7 @@ export function fakeLivekitRoom() {
 
     arrive(identity: string, sources: readonly FakeTrackSource[]) {
       const participant = this.join(identity, sources);
+      this.emit(RoomEvent.ParticipantConnected, participant);
       for (const publication of participant.trackPublications.values()) {
         this.emit(RoomEvent.TrackPublished, publication, participant);
       }
@@ -357,26 +436,54 @@ export function fakeLivekitRoom() {
     deliver(participant: FakeRemoteParticipant, source: FakeTrackSource) {
       const publication = publicationOf(participant, source);
       const mediaStreamTrack = createTestMediaTrack(
-        "audio",
+        source === Track.Source.Microphone ||
+          source === Track.Source.ScreenShareAudio
+          ? "audio"
+          : "video",
         publication.trackSid,
       );
       const track = {
         mediaStream: createTestMediaStream([mediaStreamTrack]),
         mediaStreamTrack,
       };
+      publication.track = track;
       this.emit(RoomEvent.TrackSubscribed, track, publication, participant);
       return track;
+    }
+
+    mute(
+      participant: FakeRemoteParticipant,
+      source: FakeTrackSource,
+      muted: boolean,
+    ) {
+      const publication = publicationOf(participant, source);
+      publication.isMuted = muted;
+      this.emit(
+        muted ? RoomEvent.TrackMuted : RoomEvent.TrackUnmuted,
+        publication,
+        participant,
+      );
     }
 
     unsubscribe(participant: FakeRemoteParticipant, source: FakeTrackSource) {
       const publication = publicationOf(participant, source);
       this.emit(RoomEvent.TrackUnsubscribed, {}, publication, participant);
+      publication.track = undefined;
     }
 
     unpublish(participant: FakeRemoteParticipant, source: FakeTrackSource) {
       const publication = publicationOf(participant, source);
       participant.trackPublications.delete(publication.trackSid);
       this.emit(RoomEvent.TrackUnpublished, publication, participant);
+    }
+
+    // Someone the SFU let through started receiving one of the member's tracks.
+    viewerSubscribes(source: FakeTrackSource) {
+      this.emit(
+        RoomEvent.LocalTrackSubscribed,
+        { source },
+        this.localParticipant,
+      );
     }
 
     // The SDK unpublishes every track before it announces the leave, and on
@@ -398,13 +505,17 @@ export function fakeLivekitRoom() {
 
   return {
     control,
+    grants,
     module: {
       ConnectionError,
       ConnectionErrorReason,
       Room: FakeRoom,
       RoomEvent,
+      ScreenSharePresets,
       Track,
+      VideoQuality,
     } as unknown as LivekitRoomModule,
+    qualities,
     roomAt,
     rooms,
     subscriptions,

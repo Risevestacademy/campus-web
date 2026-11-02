@@ -9,6 +9,7 @@ import ActiveCampusLayout from "@/app/campus/[id]/(active-campus)/layout";
 import ActiveCampusMeetingPage from "@/app/campus/[id]/(active-campus)/meeting/page";
 import ActiveCampusPage from "@/app/campus/[id]/(active-campus)/page";
 import FeedbackPage from "@/app/campus/[id]/(administration)/feedback/page";
+import InvitesPage from "@/app/campus/[id]/(administration)/invites/page";
 import AdministrationLayout from "@/app/campus/[id]/(administration)/layout";
 import AdministrationOverviewPage from "@/app/campus/[id]/(administration)/overview/page";
 import PersonPage from "@/app/campus/[id]/(administration)/people/[userId]/page";
@@ -93,6 +94,11 @@ const PAGES: Record<string, ProtectedPage> = {
   },
   "app/campus/[id]/(administration)/feedback/page.tsx": {
     render: () => FeedbackPage({ params, searchParams }),
+    denial: ROUTE_DENIAL,
+    routeAccessCalls: SYSTEM_ADMIN,
+  },
+  "app/campus/[id]/(administration)/invites/page.tsx": {
+    render: () => InvitesPage({ params, searchParams }),
     denial: ROUTE_DENIAL,
     routeAccessCalls: SYSTEM_ADMIN,
   },

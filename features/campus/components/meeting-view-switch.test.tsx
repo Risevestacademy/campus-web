@@ -1,21 +1,28 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MediaSessionProvider } from "../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../services/media-session/media-session-store";
+import { IDLE_SCREEN_SHARE } from "../services/media-session/screen-share";
 import {
   createTestMediaDevice,
+  createTestSharingState,
   installTestMediaDevices,
 } from "../testing/media-session-test-utils";
-import type {
-  MeetingParticipant,
-  ProximityMeeting,
-} from "../types/active-campus.types";
+import type { Meeting, MeetingParticipant } from "../types/active-campus.types";
 import { CampusViewProvider } from "./campus-view-provider";
 import { MeetingViewControls } from "./meeting-view-switch";
 
-const meeting: ProximityMeeting = {
+const meeting: Meeting = {
   encounter: 1,
+  hearing: "proximity",
+  title: "Nearby",
   localParticipantId: "participant-a",
   participants: [
     {
@@ -34,7 +41,7 @@ const meeting: ProximityMeeting = {
 };
 
 function renderMeetingViewControls(
-  shownMeeting: ProximityMeeting = meeting,
+  shownMeeting: Meeting = meeting,
   store = createMediaSessionStore({ mediaDevices: null }),
 ) {
   return render(
@@ -124,9 +131,76 @@ describe("MeetingViewControls", () => {
     ).toHaveAttribute("aria-pressed", "false");
   });
 
+  it("opens a share straight into focus from the map, where a person's tile opens an equal grid", () => {
+    const store = createMediaSessionStore({ mediaDevices: null });
+    store.setState({ remoteScreenShares: new Set(["participant-j"]) });
+    renderMeetingViewControls(meeting, store);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Show expanded meeting view for James Baldwin's screen",
+      }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Restore equal meeting view" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("switch", { name: "Use grid view" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Show expanded meeting view for James Baldwin",
+      }),
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Restore equal meeting view" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens an equal grid from the member's own screen, where another's opens focused", () => {
+    const store = createMediaSessionStore({ mediaDevices: null });
+    store.setState({ screenShare: createTestSharingState() });
+    renderMeetingViewControls(meeting, store);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Show expanded meeting view for Your screen",
+      }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Focus Your screen" }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("keeps the grid and lets go of the focus when the member's own share ends", async () => {
+    const store = createMediaSessionStore({ mediaDevices: null });
+    store.setState({ screenShare: createTestSharingState() });
+    renderMeetingViewControls(meeting, store);
+    fireEvent.click(screen.getByRole("switch", { name: "Use grid view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Focus Your screen" }));
+
+    act(() => {
+      store.setState({ screenShare: IDLE_SCREEN_SHARE });
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Restore equal meeting view" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Focus Your screen" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("switch", { name: "Use grid view" }),
+    ).toHaveAttribute("aria-checked", "true");
+  });
+
   it("shows four tiles on the map and opens the grid for everyone from the rest", () => {
     const names = ["Ada", "Grace", "Lin", "Maya", "Toni", "Zadie"];
-    const crowd: ProximityMeeting = {
+    const crowd: Meeting = {
       ...meeting,
       localParticipantId: "Ada",
       participants: names.map((name): MeetingParticipant => ({

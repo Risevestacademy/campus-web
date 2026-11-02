@@ -216,6 +216,17 @@ network hop and complicates cookie forwarding and caching.
 The proxy preserves backend success and error documents without introducing a
 second frontend-owned response contract.
 
+### Proxy modules
+
+- `proxy.ts`: request flow and route dispatch; builds the upstream request
+  and the browser response.
+- `proxy-cookie-policy.ts`: the cookie allowlist, `Set-Cookie` scoping, the
+  refresh marker, and expiry of cookies a sign-in spends.
+- `proxy-oauth-policy.ts`: the `returnTo` cookie and the Google callback
+  destination rewrite.
+- `proxy-cache-policy.ts`: which responses get
+  `Cache-Control: private, no-store`.
+
 ### Adding a route
 
 Run `pnpm api:types` after campus-api publishes the route. `pnpm typecheck`
@@ -318,7 +329,7 @@ Ownership is split so each concern has exactly one home:
 | Concern                                                                            | Owner                                                                |
 | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | Issuing, rotating, and revoking `campus_session` and `campus_refresh`              | campus-api                                                           |
-| Cookie scoping (`Path`, `HttpOnly`, `SameSite`, `Secure`) and the cookie allowlist | browser proxy (`proxy.ts`)                                           |
+| Cookie scoping (`Path`, `HttpOnly`, `SameSite`, `Secure`) and the cookie allowlist | browser proxy (`proxy-cookie-policy.ts`)                             |
 | `campus_refresh_attempted` marker                                                  | browser proxy sets it; root `proxy.ts` and invitation routes read it |
 | Cookie-presence redirects for `/campus/**`                                         | root `proxy.ts` (`features/auth` `guardCampusRequest`)               |
 | Reading the session (`GET /v1/auth/me`), retries, route decisions                  | `features/auth` (`authorizeRoute`, server-only)                      |

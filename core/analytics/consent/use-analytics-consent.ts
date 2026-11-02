@@ -9,6 +9,7 @@ import {
   isConsentChoiceOpen,
   rejectAnalyticsConsent,
   subscribeToAnalyticsConsent,
+  toggleAnalyticsConsentChoices,
 } from "./consent-store";
 
 export function useAnalyticsConsent() {
@@ -25,5 +26,6 @@ export function useAnalyticsConsent() {
     accept: acceptAnalyticsConsent,
     reject: rejectAnalyticsConsent,
     close: closeAnalyticsConsentChoices,
+    toggle: toggleAnalyticsConsentChoices,
   };
 }

@@ -57,6 +57,12 @@ A cohort's live campus that a member enters after the Join Gate: the map or
 meeting view, the sidebar panels, and the campus controls.
 _Avoid_: Campus room, main campus
 
+**Meeting view**:
+The part of the Active Campus that shows your Meeting roster: an avatar stack
+titled "Nearby" or with the room's name, and the tiles of its people and Screen
+shares. It shows nothing while the roster is empty.
+_Avoid_: Call view, room view
+
 **Presence Session**:
 One browser document's joined, real-time presence in one Cohort. It starts at
 Join, continues across every page of that Cohort, and ends on Leave, on
@@ -131,7 +137,7 @@ _Avoid_: Admin panel, admin dashboard
 **Invitation**:
 A lifecycle record inviting a person to a Cohort. It may be pending, accepted,
 declined, expired, or revoked. Resending or revoking changes the lifecycle; it
-is not generic CRUD.
+is not generic CRUD. Admins manage them on the Invites page (`/invites`).
 _Avoid_: Invite Link, invitation token
 
 ## Campus Media
@@ -141,8 +147,8 @@ The language used for browser-owned media in a campus session.
 ### Language
 
 **Capture source**:
-A browser-owned camera or microphone input. Screen capture remains a separate
-future module.
+A browser-owned camera or microphone input. A screen is captured separately,
+as a Screen share.
 _Avoid_: Participant stream, media publication
 
 **Device catalog**:
@@ -194,6 +200,17 @@ A publication whose source is `screen` and which can coexist with a camera
 publication.
 _Avoid_: Camera replacement
 
+**Screen share**:
+A member's Screen publication to their meeting, chosen in the browser's picker.
+It ends when the member stops it, when the meeting ends, or when the call's room
+closes, and it never follows the member to another room.
+_Avoid_: Presentation, screen stream
+
+**Own screen**:
+The tile that shows a member their own Screen share, so they can check what the
+meeting sees. It lasts exactly as long as the share.
+_Avoid_: Preview, self view
+
 **Transport seam**:
 The `MeetingMediaTransport` interface where publication events are translated
 by a signaling or SFU adapter. The adapter picks its own rooms and reports
@@ -206,17 +223,30 @@ _Avoid_: Browser capture ownership, server media state
 A drawn area of the campus map, such as a classroom, pod or meeting room,
 or the corridors and grounds between them. Each member stands in one.
 World gives each space a name.
-_Avoid_: Room (a Call's audio room), zone, area
+_Avoid_: Room (a Call's media room), zone, area
 
 **Call**:
-The audio room World grants for the space a member is in, or none. Each new
-space brings a new Call while the Presence Session carries on.
+The room World grants for the space a member is in, carrying voices and
+cameras, or none. Each new space brings a new Call while the Presence
+Session carries on.
 _Avoid_: Meeting, room grant, Presence Session
 
 **Hearing**:
 How a Call decides who hears whom: `proximity` (only nearby members, louder
-when closer) or `room` (everyone in the space).
+when closer) or `room` (everyone in the space at full volume, nobody outside
+it, switching the moment a member crosses the threshold).
 _Avoid_: Audio mode
+
+**Meeting roster**:
+The members you meet right now, in the order they arrived: everyone else in
+your space under room Hearing, the members World names as nearby otherwise.
+Who you hear and who the meeting view shows are both the Meeting roster.
+_Avoid_: Nearby list, room members
+
+**Encounter**:
+A stretch during which your Meeting roster is not empty. A meeting view
+opened in one Encounter does not reopen by itself in the next.
+_Avoid_: Session, meeting
 
 **Audible radius**:
 The distance in tiles at which a nearby member fades to silence under

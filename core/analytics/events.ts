@@ -21,8 +21,11 @@ export const ANALYTICS_EVENTS = {
   CAMPUS_CONNECTION_CHECK_COMPLETED: "campus.connection_check_completed",
   CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN: "campus.presence_tab_conflict_shown",
   CAMPUS_PRESENCE_TAB_MOVED: "campus.presence_tab_moved",
+  CAMPUS_MEETING_VIDEO_READY: "campus.meeting_video_ready",
   CAMPUS_PROXIMITY_AUDIO_READY: "campus.proximity_audio_ready",
   CAMPUS_PROXIMITY_VIEW_SHOWN: "campus.proximity_view_shown",
+  CAMPUS_SCREEN_SHARE_ENDED: "campus.screen_share_ended",
+  CAMPUS_SCREEN_SHARE_READY: "campus.screen_share_ready",
   CAMPUS_WORLD_CAMERA_ZOOMED: "campus_world.camera_zoomed",
   CAMPUS_WORLD_MAP_FAILED: "campus_world.map_failed",
   CAMPUS_WORLD_MAP_LOADED: "campus_world.map_loaded",
@@ -35,6 +38,7 @@ export const ANALYTICS_EVENTS = {
   REALTIME_RECONNECTED: "realtime.reconnected",
   IDENTITY_PROFILE_SETUP_COMPLETED: "identity.profile_setup_completed",
   IDENTITY_PROFILE_SETUP_STARTED: "identity.profile_setup_started",
+  INVITATION_MISSING_LINK_SHOWN: "invitation.missing_link_shown",
 } as const;
 
 export type AnalyticsEventName =
@@ -57,6 +61,22 @@ const roleSchema = z.enum([
 const authMethodSchema = z.enum(["email", "google", "rise_sso"]);
 const platformSchema = z.enum(["mobile", "web"]);
 const presenceTabSurfaceSchema = z.enum(["pre_join", "taken_over"]);
+const hearingSchema = z.enum(["proximity", "room"]);
+const connectionQualitySchema = z.enum([
+  "excellent",
+  "good",
+  "poor",
+  "lost",
+  "unknown",
+]);
+const screenShareEndReasonSchema = z.enum([
+  "browser_stopped",
+  "meeting_ended",
+  "publish_failed",
+  "room_closed",
+  "session_ended",
+  "stopped",
+]);
 const verificationTypeSchema = z.enum(["email", "invite", "phone"]);
 const campusWorldMapErrorKindSchema = z.enum([
   "config",
@@ -171,10 +191,28 @@ export const analyticsEventSchemas = {
   [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_MOVED]: z.object({
     surface: presenceTabSurfaceSchema,
   }),
+  [ANALYTICS_EVENTS.CAMPUS_MEETING_VIDEO_READY]: z.object({
+    connection_quality: connectionQualitySchema,
+    first_video_ms: durationMsSchema,
+    hearing: hearingSchema,
+  }),
   [ANALYTICS_EVENTS.CAMPUS_PROXIMITY_AUDIO_READY]: z.object({
     first_audio_ms: durationMsSchema,
+    hearing: hearingSchema,
   }),
-  [ANALYTICS_EVENTS.CAMPUS_PROXIMITY_VIEW_SHOWN]: z.object({}),
+  [ANALYTICS_EVENTS.CAMPUS_PROXIMITY_VIEW_SHOWN]: z.object({
+    hearing: hearingSchema,
+  }),
+  [ANALYTICS_EVENTS.CAMPUS_SCREEN_SHARE_ENDED]: z.object({
+    duration_ms: durationMsSchema,
+    hearing: hearingSchema,
+    reason: screenShareEndReasonSchema,
+  }),
+  [ANALYTICS_EVENTS.CAMPUS_SCREEN_SHARE_READY]: z.object({
+    connection_quality: connectionQualitySchema,
+    first_viewer_ms: durationMsSchema,
+    hearing: hearingSchema,
+  }),
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_LOADED]: campusWorldMapLoadedSchema,
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_FAILED]: campusWorldMapFailureSchema,
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_READY]: z.object({
@@ -193,6 +231,7 @@ export const analyticsEventSchemas = {
   }),
   [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_STARTED]: placementSchema,
   [ANALYTICS_EVENTS.IDENTITY_PROFILE_SETUP_COMPLETED]: placementSchema,
+  [ANALYTICS_EVENTS.INVITATION_MISSING_LINK_SHOWN]: z.object({}),
   [ANALYTICS_EVENTS.REALTIME_CONNECTED]: z.object({
     reconnect: z.boolean(),
   }),

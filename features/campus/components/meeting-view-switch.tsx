@@ -4,11 +4,15 @@ import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 import { SquaresFourIcon } from "@phosphor-icons/react/dist/ssr/SquaresFour";
 import { motion, useIsPresent, useReducedMotion } from "motion/react";
 
-import { visibleMeetingLayout } from "../services/proximity-meeting/proximity-meeting";
+import { useMediaSession } from "../services/media-session/media-session-provider";
+import {
+  meetingTiles,
+  visibleMeetingLayout,
+} from "../services/meeting/meeting";
 import type {
-  MeetingParticipant,
+  Meeting,
+  MeetingTile,
   MeetingTileLayout,
-  ProximityMeeting,
 } from "../types/active-campus.types";
 import { useCampusView } from "./campus-view-provider";
 import { meetingGroupVariants, meetingPresenceProps } from "./meeting-motion";
@@ -25,7 +29,7 @@ interface MeetingViewSwitchControlProps {
 const COMPACT_LAYOUT: MeetingTileLayout = { mode: "compact" };
 
 interface MeetingViewControlsProps {
-  meeting: ProximityMeeting;
+  meeting: Meeting;
   motionConfig?: MeetingTileMotionConfig;
 }
 
@@ -87,16 +91,21 @@ export function MeetingViewControls({
   meeting,
   motionConfig,
 }: MeetingViewControlsProps) {
-  const { focusParticipant, meetingLayout, shouldAnimate, showGrid, showMap } =
+  const { focusTile, meetingLayout, shouldAnimate, showGrid, showMap } =
     useCampusView();
   const isPresent = useIsPresent();
+  const sharerIds = useMediaSession((state) => state.remoteScreenShares);
+  const isSharing = useMediaSession(
+    (state) => state.screenShare.status === "sharing",
+  );
+  const { encounter } = meeting;
+  const tiles = meetingTiles(meeting, sharerIds, isSharing);
   // Leaving means nobody is near: collapse to the map rather than fade the
   // grid out at full size.
   const layout = isPresent
-    ? visibleMeetingLayout(meetingLayout, meeting)
+    ? visibleMeetingLayout(meetingLayout, encounter, tiles)
     : COMPACT_LAYOUT;
   const activeView = layout.mode === "compact" ? "map" : "grid";
-  const { encounter } = meeting;
 
   function updateActiveView(nextView: MeetingView, animateViewChange: boolean) {
     if (nextView === "map") {
@@ -106,15 +115,8 @@ export function MeetingViewControls({
     }
   }
 
-  function activateParticipantTile(
-    participantId: MeetingParticipant["id"],
-    animateViewChange: boolean,
-  ) {
-    focusParticipant({
-      participantId,
-      encounter,
-      shouldAnimate: animateViewChange,
-    });
+  function activateTile(tile: MeetingTile, animateViewChange: boolean) {
+    focusTile({ tile, encounter, shouldAnimate: animateViewChange });
   }
 
   return (
@@ -126,9 +128,9 @@ export function MeetingViewControls({
         onShowAll={(animateViewChange) =>
           updateActiveView("grid", animateViewChange)
         }
-        onTileActivate={activateParticipantTile}
-        participants={meeting.participants}
+        onTileActivate={activateTile}
         shouldAnimate={shouldAnimate}
+        tiles={tiles}
       />
       <MeetingViewSwitchControl
         activeView={activeView}

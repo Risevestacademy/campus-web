@@ -1,5 +1,7 @@
 import { vi } from "vitest";
 
+import type { ScreenShareState } from "../services/media-session/contracts";
+
 export type TestMediaTrack = MediaStreamTrack &
   Readonly<{ stop: ReturnType<typeof vi.fn> }>;
 
@@ -33,6 +35,25 @@ export function createTestMediaStream(
     getTracks: () => [...tracks],
     getVideoTracks: () => tracks.filter((track) => track.kind === "video"),
   } as unknown as MediaStream;
+}
+
+export function createTestSharingState(): Extract<
+  ScreenShareState,
+  { status: "sharing" }
+> {
+  const track = createTestMediaTrack("video", "own-screen");
+  return {
+    outcome: null,
+    publication: {
+      enabled: true,
+      origin: "local",
+      publicationId: "own-screen",
+      source: "screen",
+      stream: createTestMediaStream([track]),
+      track,
+    },
+    status: "sharing",
+  };
 }
 
 export function installTestMediaDevices(devices: readonly MediaDeviceInfo[]) {

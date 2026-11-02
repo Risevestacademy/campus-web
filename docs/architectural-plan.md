@@ -424,15 +424,23 @@ spaceKey }>`.
   `spaces`. `spaceNameOf` shows the key for a space World has not named.
 - `nearby`: the user ids world says are close enough to hear you, from
   `nearby`, in the order they came near.
-- `encounter`: how many times somebody came near after nobody was, so a view
-  opened for one encounter does not reopen by itself for the next.
+- `hearing`: `room` or `proximity` from World's `call` (never its token),
+  `null` without a call you can hear, and `awaiting` between your own space
+  crossing or a `snapshot` and World's next call, when nobody is met.
+- `meetingRoster`: who you meet, in arrival order: room mates under room
+  hearing, known `nearby` otherwise. Audio subscriptions, the meeting view
+  and `encounter` all read it, so they cannot drift.
+- `encounter`: how many times somebody joined `meetingRoster` after nobody
+  was, so a view opened for one encounter does not reopen by itself for the
+  next.
 
 Two participant maps, so React subscribes to who is here without rendering
 on every `moved`. Tile positions are world's answer, not frame state: KAPLAY
 reads them each frame and keeps pixels and walking itself. A `snapshot`
 replaces the map, both maps, `spaceNames` and `nearby`, so a reconnect never
-shows anyone twice. Every recoverable close clears the remote participants and
-`nearby` (you, the map and the space names stay), so a drop never leaves
+shows anyone twice. Every recoverable close clears the remote participants,
+`nearby` and `meetingRoster` (you, the map, the space names and `hearing`
+stay), so a drop never leaves
 frozen stand-ins. `presenceFor(cohortId)`
 outlives the map's mount, so the map is populated again on the way back from
 another page.
@@ -458,7 +466,9 @@ list in `core/presence` (`nearby`, in arrival order) and computes no
 distances. The only client-side distance is the voice fade across
 `audibleRadius`, which belongs to the audio subscription.
 
-Other features read `nearby` from presence and respond to it.
+Other features read `meetingRoster` from presence and respond to it. In a
+room-hearing space World sends `nearby: []`, and the roster is everyone in
+your space instead, heard at full volume.
 
 # Audio and Video
 

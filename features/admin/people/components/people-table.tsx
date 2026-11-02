@@ -4,11 +4,11 @@ import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 
 import { avatarTone, initialOf } from "../../avatar";
+import { RoleBadge } from "../../role-badge";
 import { personName } from "../people-format";
 import { personHref } from "../people-href";
 import type { Person } from "../types/people.types";
 import { PersonStatus } from "./person-status";
-import { RoleBadge } from "./role-badge";
 
 const HEADER_CELL = "bg-[#EFFAFF] px-4 py-3 font-medium dark:bg-[#2B3B5F]";
 const BODY_CELL =

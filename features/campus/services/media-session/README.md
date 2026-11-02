@@ -21,8 +21,23 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
   per-participant `remoteAudioGains` (0 to 1) and a safe `callAudioStatus`
   (`idle`, `connecting`, `connected`, `unavailable`); no room, URL or token
   reaches the store. `handleLocalPublicationChange` is called only while
-  connected, so pre-join never publishes. Production uses
-  `noopMeetingMediaTransport` until proximity audio is wired in.
+  connected, so pre-join never publishes. `setVideoDemand(demand)` names
+  the remote cameras and screens on screen and their layer, connected or not. Production
+  uses the call-media session; `noopMeetingMediaTransport` is the default.
+- `cameraPublishFailed`: the call refused the member's latest camera change
+  (`onCameraPublishOutcome`); it follows each outcome, and `stop()` clears it.
+- `demandVideo(participantId, source, layer)`: a tile showing a remote camera
+  or screen asks for it and gets back the function that lets it go. Requests
+  settle in a microtask into one `VideoDemand` (the largest layer per source and
+  participant), so a tile changing size never drops its video on the way.
+- `toggleScreenShare()`: opens the browser's picker, or stops the share. Call it
+  from the member's click, since the browser opens the picker only then. It does
+  nothing until `connect`. `screenShare` holds its `status` (`idle`, `requesting`,
+  `sharing`) and how the last share went (`outcome`), cleared by the next start.
+  While sharing it also holds the `publication`, which the member's Own screen
+  tile reads, so that tile cannot outlive the share.
+- `remoteScreenShares`: who in the roster is sharing, subscribed or not, so a
+  tile can mount and ask for the screen.
 
 Tests inject a store through `MediaSessionProvider`.
 
@@ -36,6 +51,8 @@ Tests inject a store through `MediaSessionProvider`.
 | `device-discovery.ts`                                          | `createDeviceCatalog`: serialized, stale-safe enumeration | `enumerateDevices`       |
 | `media-device-preferences.ts`                                  | remembered device IDs                                     | `localStorage`           |
 | `publication-registry.ts`                                      | publications indexed by participant and source            | none                     |
+| `video-demand.ts`                                              | the remote videos on screen, settled into one demand      | `setVideoDemand`         |
+| `screen-share.ts`                                              | screen capture: picker, its failures, the track's end     | `getDisplayMedia`        |
 | `meeting-media-transport.ts`                                   | the transport seam and its no-op adapter                  | `MeetingMediaTransport`  |
 
 ## Contributing
@@ -52,10 +69,21 @@ owns capture or preferences. Its disconnect must close every peer connection
 (`RTCPeerConnection.close()`). Do not rely on `beforeunload`; the server must
 expire presence that stops sending heartbeats.
 
-### Adding a source (screen sharing)
+### Screen share
 
-Add a separate capture module that publishes a `screen` publication. It
-coexists with `camera`; it does not replace it.
+`screen-share.ts` captures the screen and sends one `screen` publication
+through the transport. It coexists with `camera`; it does not replace it.
+
+- Video only, at most 1080p and 15 fps, hinted `detail` so text stays sharp.
+- Every end goes through `end(reason)`, which stops the track and sends
+  `removed` with its `endReason`. It is safe to call with nothing shared, so the
+  transport reports `onScreenShareEnded` whenever the call cannot carry a share.
+- Ending also invalidates an open picker: a screen picked after that is stopped
+  and never published.
+- Dismissing and denying the picker raise the same `NotAllowedError`, so neither
+  shows anything. A block in the operating system's settings raises it too, and
+  only Chromium's message tells it apart (`capture_blocked`, which says where to
+  allow it). Other browsers stay silent there.
 
 ### Rules
 
@@ -66,6 +94,7 @@ coexists with `camera`; it does not replace it.
   schema entry before anything reads it.
 - Nothing reaches the transport before `connect`.
 - Turning a source off stops and removes its track and publication.
+- `stop()` ends a share before it disconnects, so the transport hears why.
 - Input replacement keeps the current track until the new one succeeds.
 - Camera and microphone fail independently; permission failures clear only on
   a new user action.

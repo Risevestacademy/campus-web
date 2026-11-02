@@ -7,15 +7,18 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Avatar } from "@/core/realtime";
+import type { Avatar, ServerMessage } from "@/core/realtime";
 import { activeCampusLayout } from "@/tests/fixtures/active-campus-layout";
 import {
+  ADA,
   applyFrame,
+  callFrame,
   clearPresence,
   GRACE,
   joinedFrame,
   nearbyFrame,
   seedPresence,
+  spaceChangedFrame,
 } from "@/tests/fixtures/nearby-presence";
 
 const captureBrowserAnalyticsEvent = vi.hoisted(() => vi.fn());
@@ -70,7 +73,7 @@ afterEach(() => {
   clearPresence(COHORT_ID);
 });
 
-describe("proximity view eval (required threshold: 6/6)", () => {
+describe("proximity view eval (required threshold: 7/7)", () => {
   it("shows no meeting while nobody is near", async () => {
     seedPresence(COHORT_ID);
     await renderActiveCampusLayout();
@@ -157,11 +160,39 @@ describe("proximity view eval (required threshold: 6/6)", () => {
     act(() => applyFrame(COHORT_ID, nearbyFrame(GRACE)));
     act(() => applyFrame(COHORT_ID, nearbyFrame(GRACE)));
 
-    expect(viewsShown()).toEqual([["campus.proximity_view_shown", {}]]);
+    expect(viewsShown()).toEqual([
+      ["campus.proximity_view_shown", { hearing: "proximity" }],
+    ]);
 
     act(() => applyFrame(COHORT_ID, nearbyFrame()));
     act(() => applyFrame(COHORT_ID, nearbyFrame(GRACE)));
 
     expect(viewsShown()).toHaveLength(2);
+  });
+
+  it("titles a room meeting with the space's name and hides it once you are alone", async () => {
+    seedPresence(COHORT_ID);
+    const enterEmptyLibrary: ServerMessage[] = [
+      { type: "spaces", spaces: [{ spaceKey: "library", name: "Library" }] },
+      spaceChangedFrame(ADA, "library"),
+      callFrame("room"),
+    ];
+    for (const frame of enterEmptyLibrary) applyFrame(COHORT_ID, frame);
+    await renderActiveCampusLayout();
+    const libraryHeading = () =>
+      screen.queryByRole("heading", { name: "Library" });
+    expect(libraryHeading()).not.toBeInTheDocument();
+
+    act(() => applyFrame(COHORT_ID, spaceChangedFrame(GRACE, "library")));
+
+    expect(libraryHeading()).toBeInTheDocument();
+    expect(tileFor("Grace Hopper")).toBeInTheDocument();
+    expect(viewsShown()).toEqual([
+      ["campus.proximity_view_shown", { hearing: "room" }],
+    ]);
+
+    act(() => applyFrame(COHORT_ID, spaceChangedFrame(GRACE, "_default")));
+
+    await waitFor(() => expect(libraryHeading()).not.toBeInTheDocument());
   });
 });
