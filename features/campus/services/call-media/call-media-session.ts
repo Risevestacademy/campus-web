@@ -1,26 +1,33 @@
 import { type Hearing, hearingOf, type Presence } from "@/core/presence";
 import type { Call, ServerMessage } from "@/core/realtime";
 
-import type {
-  LocalMediaPublication,
-  LocalPublicationChange,
-  MeetingMediaTransportCallbacks,
-  RemotePublicationChange,
+import {
+  type CaptureSource,
+  localChangeSource,
+  type LocalMediaPublication,
+  type LocalPublicationChange,
+  type MeetingMediaTransportCallbacks,
+  type RemotePublicationChange,
+  type VideoDemand,
 } from "../media-session/contracts";
 import {
-  type CallAudioSession,
+  type CallMediaSession,
+  type FirstRemoteVideo,
   type MeetingRoomConnection,
   type MeetingRoomEvents,
   type MeetingRoomTransport,
   RoomAccessDeniedError,
 } from "./contracts";
 
-type CallAudioSessionOptions = Readonly<{
+type CallMediaSessionOptions = Readonly<{
   now: () => number;
   pinMediaUrl: (url: string) => string | undefined;
   recordFirstAudioMilliseconds: (
     milliseconds: number,
     hearing: Hearing,
+  ) => void;
+  recordFirstVideo: (
+    firstVideo: FirstRemoteVideo & Readonly<{ hearing: Hearing }>,
   ) => void;
   // Asks World to send the call again with a fresh token; false when World
   // cannot be asked right now.
@@ -39,6 +46,17 @@ type ActiveRoom = Readonly<{
 type Position = Readonly<{ x: number; y: number }>;
 
 type PublicationRemoval = Extract<RemotePublicationChange, { type: "removed" }>;
+
+type LocalPublications = Partial<Record<CaptureSource, LocalMediaPublication>>;
+
+type AppliedAudience = Readonly<{
+  connection: MeetingRoomConnection;
+  demand: VideoDemand;
+  roster: Presence["meetingRoster"];
+}>;
+
+// The microphone joins first, so a member is heard before they are seen.
+const REPLAY_ORDER: readonly CaptureSource[] = ["microphone", "camera"];
 
 // How long to wait for World's fresh call before offering Try again again. A
 // call that arrives later still joins on World's own path.
@@ -64,15 +82,17 @@ function remoteAudioGain(
   return Math.max(0, 1 - distance / audibleRadius);
 }
 
-export function createCallAudioSession(
-  options: CallAudioSessionOptions,
-): CallAudioSession {
+export function createCallMediaSession(
+  options: CallMediaSessionOptions,
+): CallMediaSession {
   let callbacks: MeetingMediaTransportCallbacks | undefined;
   let active: ActiveRoom | undefined;
   let pendingJoin: AbortController | undefined;
-  let localMicrophone: LocalMediaPublication | undefined;
+  let localPublications: LocalPublications = {};
   let latestPresence: Presence | undefined;
   let latestCall: HeardCall | undefined;
+  let latestDemand: VideoDemand = new Map();
+  let appliedAudience: AppliedAudience | undefined;
   const pendingRemovals = new Map<string, PublicationRemoval>();
   // Bumped whenever the current room ends; async work from an older generation
   // is stale and must not touch state or callbacks.
@@ -92,13 +112,38 @@ export function createCallAudioSession(
     return stepGeneration === roomGeneration ? callbacks : undefined;
   }
 
-  function applyPolicy() {
+  // Movement frames arrive constantly and rarely change who is met. Presence
+  // and video demand both keep their reference until they really change.
+  function applyAudience() {
     if (!callbacks || !active || !latestPresence) return;
-    const { audibleRadius, connection, hearing } = active;
+    const { connection } = active;
+    const roster = latestPresence.meetingRoster;
+    if (
+      appliedAudience?.connection === connection &&
+      appliedAudience.roster === roster &&
+      appliedAudience.demand === latestDemand
+    ) {
+      return;
+    }
+    appliedAudience = { connection, demand: latestDemand, roster };
+
+    const participantIds = new Set(roster);
+    connection.applyAudience({
+      participantIds,
+      video: new Map(
+        [...latestDemand].filter(([participantId]) =>
+          participantIds.has(participantId),
+        ),
+      ),
+    });
+  }
+
+  function applyGains() {
+    if (!callbacks || !active || !latestPresence) return;
+    const { audibleRadius, hearing } = active;
     const { meetingRoster, positions, selfId } = latestPresence;
     const selfPosition = selfId ? positions.get(selfId) : undefined;
 
-    connection.setSubscribedParticipantIds(new Set(meetingRoster));
     callbacks.onRemoteAudioGainsChange(
       Object.fromEntries(
         meetingRoster.map((participantId) => [
@@ -115,23 +160,30 @@ export function createCallAudioSession(
     );
   }
 
+  function applyPolicy() {
+    applyAudience();
+    applyGains();
+  }
+
   function forwardRemoteChange(change: RemotePublicationChange) {
     const { participantId, publicationId, source } =
       change.type === "removed" ? change : change.publication;
     const key = `${participantId}:${source}`;
-    if (change.type === "removed") pendingRemovals.delete(key);
-    else {
+    if (change.type === "upserted") {
       pendingRemovals.set(key, {
         participantId,
         publicationId,
         source,
         type: "removed",
       });
+    } else if (pendingRemovals.get(key)?.publicationId === publicationId) {
+      // A member who refreshes can publish again before the old track goes.
+      pendingRemovals.delete(key);
     }
     callbacks?.onRemotePublicationChange(change);
   }
 
-  function clearRemoteAudio() {
+  function clearRemoteMedia() {
     const removals = [...pendingRemovals.values()];
     pendingRemovals.clear();
     for (const removal of removals)
@@ -145,7 +197,8 @@ export function createCallAudioSession(
     pendingJoin = undefined;
     const connection = active?.connection;
     active = undefined;
-    clearRemoteAudio();
+    clearRemoteMedia();
+    callbacks?.onCameraPublishOutcome(false);
     if (connection) {
       // The room is already detached; a failed disconnect leaves nothing to undo.
       enqueue(
@@ -162,12 +215,36 @@ export function createCallAudioSession(
     current.onStatusChange("unavailable");
   }
 
+  // Video degrades before audio: a refused camera keeps the call, and a camera
+  // that failed to turn off is still off for the member.
+  function rejectLocalChange(
+    change: LocalPublicationChange,
+    stepGeneration: number,
+  ) {
+    if (localChangeSource(change) !== "camera") {
+      fail(stepGeneration);
+      return;
+    }
+    currentCallbacks(stepGeneration)?.onCameraPublishOutcome(
+      change.type !== "removed",
+    );
+  }
+
+  function acceptLocalChange(
+    change: LocalPublicationChange,
+    stepGeneration: number,
+  ) {
+    if (localChangeSource(change) !== "camera") return;
+    currentCallbacks(stepGeneration)?.onCameraPublishOutcome(false);
+  }
+
   function forwardLocalChange(change: LocalPublicationChange) {
     if (!active) return;
     const stepGeneration = roomGeneration;
-    active.connection
-      .handleLocalPublicationChange(change)
-      .catch(() => fail(stepGeneration));
+    active.connection.handleLocalPublicationChange(change).then(
+      () => acceptLocalChange(change, stepGeneration),
+      () => rejectLocalChange(change, stepGeneration),
+    );
   }
 
   function roomEvents(
@@ -190,6 +267,11 @@ export function createCallAudioSession(
           hearing,
         );
         unmeasuredSince = undefined;
+      },
+      onFirstRemoteVideo: (firstVideo) => {
+        if (currentCallbacks(stepGeneration)) {
+          options.recordFirstVideo({ ...firstVideo, hearing });
+        }
       },
       onRemotePublicationChange: (change) => {
         if (currentCallbacks(stepGeneration)) forwardRemoteChange(change);
@@ -246,8 +328,13 @@ export function createCallAudioSession(
     };
     current.onStatusChange("connected");
     applyPolicy();
-    if (localMicrophone) {
-      forwardLocalChange({ publication: localMicrophone, type: "added" });
+    replayLocalPublications();
+  }
+
+  function replayLocalPublications() {
+    for (const source of REPLAY_ORDER) {
+      const publication = localPublications[source];
+      if (publication) forwardLocalChange({ publication, type: "added" });
     }
   }
 
@@ -325,12 +412,14 @@ export function createCallAudioSession(
   }
 
   function handleLocalPublicationChange(change: LocalPublicationChange) {
-    const source =
-      change.type === "removed" ? change.source : change.publication.source;
-    if (source !== "microphone") return;
+    const source = localChangeSource(change);
+    if (source === "screen") return;
 
-    localMicrophone =
-      change.type === "removed" ? undefined : change.publication;
+    const { [source]: _previous, ...others } = localPublications;
+    localPublications =
+      change.type === "removed"
+        ? others
+        : { ...others, [source]: change.publication };
     forwardLocalChange(change);
   }
 
@@ -345,12 +434,16 @@ export function createCallAudioSession(
       joinLatestCall();
 
       return () => {
-        localMicrophone = undefined;
+        localPublications = {};
         closeRoom();
         callbacks = undefined;
       };
     },
     handleLocalPublicationChange,
     retry,
+    setVideoDemand(demand) {
+      latestDemand = demand;
+      applyAudience();
+    },
   };
 }

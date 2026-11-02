@@ -200,6 +200,11 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "campus.connection_check_completed": ["failed_step", "result"],
   "campus.presence_tab_conflict_shown": ["surface"],
   "campus.presence_tab_moved": ["surface"],
+  "campus.meeting_video_ready": [
+    "connection_quality",
+    "first_video_ms",
+    "hearing",
+  ],
   "campus.proximity_audio_ready": ["first_audio_ms", "hearing"],
   "campus.proximity_view_shown": ["hearing"],
   "campus_world.camera_zoomed": ["level"],

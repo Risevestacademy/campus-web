@@ -9,4 +9,5 @@ export const noopMeetingMediaTransport: MeetingMediaTransport = {
   },
   handleLocalPublicationChange(_change: LocalPublicationChange) {},
   retry() {},
+  setVideoDemand() {},
 };

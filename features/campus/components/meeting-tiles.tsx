@@ -3,8 +3,10 @@
 import { cn } from "cn";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
+import { useVideoDemandRef } from "../hooks/use-video-demand-ref";
+import type { VideoLayer } from "../services/media-session/contracts";
 import { useMediaSession } from "../services/media-session/media-session-provider";
-import { splitAtCap } from "../services/meeting/meeting";
+import { splitAtCap, tileVideoLayer } from "../services/meeting/meeting";
 import type {
   MeetingParticipant,
   MeetingTileLayout,
@@ -44,24 +46,39 @@ export interface MeetingTilesProps {
   shouldAnimate?: boolean;
 }
 
-function ParticipantMedia({
-  isLocal,
-  participant,
-}: Readonly<{
-  isLocal: boolean;
-  participant: MeetingParticipant;
-}>) {
-  const videoPublication = useMediaSession((state) =>
-    isLocal
-      ? state.localPublications.camera
-      : state.remotePublications[participant.id]?.camera,
+type ParticipantMediaProps = Readonly<{ participant: MeetingParticipant }>;
+
+function LocalParticipantMedia({ participant }: ParticipantMediaProps) {
+  const videoPublication = useMediaSession(
+    (state) => state.localPublications.camera,
   );
 
   return (
     <MediaPublicationOutput
       fallbackClassName={participantToneClassNames[participant.tone]}
       fallbackInitials={participant.initials}
-      fallbackLabel={isLocal ? "You" : participant.name}
+      fallbackLabel="You"
+      label={`${participant.name} video`}
+      videoPublication={videoPublication}
+    />
+  );
+}
+
+function RemoteParticipantMedia({
+  participant,
+  videoLayer,
+}: ParticipantMediaProps & Readonly<{ videoLayer: VideoLayer }>) {
+  const videoPublication = useMediaSession(
+    (state) => state.remotePublications[participant.id]?.camera,
+  );
+  const demandRef = useVideoDemandRef(participant.id, videoLayer);
+
+  return (
+    <MediaPublicationOutput
+      ref={demandRef}
+      fallbackClassName={participantToneClassNames[participant.tone]}
+      fallbackInitials={participant.initials}
+      fallbackLabel={participant.name}
       label={`${participant.name} video`}
       videoPublication={videoPublication}
     />
@@ -225,10 +242,14 @@ export function MeetingTiles({
                         }
                         className="bg-surface aspect-video size-full cursor-pointer appearance-none border-0 p-0 transition-transform duration-150 outline-none active:scale-[0.99] motion-reduce:transition-none motion-reduce:active:scale-100"
                       >
-                        <ParticipantMedia
-                          isLocal={participant.id === localParticipantId}
-                          participant={participant}
-                        />
+                        {participant.id === localParticipantId ? (
+                          <LocalParticipantMedia participant={participant} />
+                        ) : (
+                          <RemoteParticipantMedia
+                            participant={participant}
+                            videoLayer={tileVideoLayer(layout, participant.id)}
+                          />
+                        )}
                       </button>
                     </motion.div>
                   </motion.div>
