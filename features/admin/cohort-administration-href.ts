@@ -1,7 +1,7 @@
 import type { Route } from "next";
 
 export type CohortAdministrationPage =
-  "overview" | "people" | "tracks" | "feedback";
+  "overview" | "people" | "invites" | "tracks" | "feedback";
 
 export function cohortAdministrationHref(
   cohortId: string,

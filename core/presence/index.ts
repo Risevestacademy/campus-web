@@ -1,6 +1,8 @@
 export {
   applyServerMessage,
   EMPTY_PRESENCE,
+  type Hearing,
+  hearingOf,
   type Participant,
   type Position,
   type Presence,

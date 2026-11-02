@@ -5,13 +5,12 @@ import { cn } from "cn";
 
 import { floatingControlClassName } from "@/shared/ui/floating-control";
 
-import { openAnalyticsConsentChoices } from "./consent-store";
 import { useAnalyticsConsent } from "./use-analytics-consent";
 
 // On every page above the theme toggle, so withdrawing is as easy as
 // accepting. Below the banner's layer, which covers it while open.
 export function PrivacyChoicesButton() {
-  const { canReopen } = useAnalyticsConsent();
+  const { canReopen, isOpen, toggle } = useAnalyticsConsent();
 
   if (!canReopen) return null;
 
@@ -20,7 +19,8 @@ export function PrivacyChoicesButton() {
       type="button"
       aria-label="Privacy choices"
       title="Privacy choices"
-      onClick={openAnalyticsConsentChoices}
+      aria-expanded={isOpen}
+      onClick={toggle}
       className={cn(floatingControlClassName, "bottom-16 z-30")}
     >
       <ShieldCheckIcon aria-hidden size={16} weight="regular" />

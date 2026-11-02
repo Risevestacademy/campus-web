@@ -7,15 +7,14 @@ import {
   createTestMediaDevice,
   installTestMediaDevices,
 } from "../testing/media-session-test-utils";
-import type {
-  MeetingParticipant,
-  ProximityMeeting,
-} from "../types/active-campus.types";
+import type { Meeting, MeetingParticipant } from "../types/active-campus.types";
 import { CampusViewProvider } from "./campus-view-provider";
 import { MeetingViewControls } from "./meeting-view-switch";
 
-const meeting: ProximityMeeting = {
+const meeting: Meeting = {
   encounter: 1,
+  hearing: "proximity",
+  title: "Nearby",
   localParticipantId: "participant-a",
   participants: [
     {
@@ -34,7 +33,7 @@ const meeting: ProximityMeeting = {
 };
 
 function renderMeetingViewControls(
-  shownMeeting: ProximityMeeting = meeting,
+  shownMeeting: Meeting = meeting,
   store = createMediaSessionStore({ mediaDevices: null }),
 ) {
   return render(
@@ -126,7 +125,7 @@ describe("MeetingViewControls", () => {
 
   it("shows four tiles on the map and opens the grid for everyone from the rest", () => {
     const names = ["Ada", "Grace", "Lin", "Maya", "Toni", "Zadie"];
-    const crowd: ProximityMeeting = {
+    const crowd: Meeting = {
       ...meeting,
       localParticipantId: "Ada",
       participants: names.map((name): MeetingParticipant => ({

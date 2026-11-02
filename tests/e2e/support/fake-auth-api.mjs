@@ -284,7 +284,13 @@ const server = createServer(async (request, response) => {
     return;
   }
 
-  const scripted = routeReplies[`${request.method} ${path}`];
+  const routeReply = routeReplies[`${request.method} ${path}`];
+  // A list answers in order and repeats its last reply.
+  const scripted = Array.isArray(routeReply)
+    ? routeReply.length > 1
+      ? routeReply.shift()
+      : routeReply[0]
+    : routeReply;
   if (scripted) {
     sendScripted(response, scripted);
     return;
