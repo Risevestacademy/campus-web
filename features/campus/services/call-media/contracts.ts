@@ -50,6 +50,8 @@ export interface MeetingRoomConnection {
   // Safe to call more than once, including after onDisconnected: the session
   // always calls it to release local tracks, even when the room already dropped.
   disconnect(): Promise<void>;
+  // Changes to one source settle in the order they were made, so the session
+  // can take the last outcome it hears as the latest change's.
   handleLocalPublicationChange(change: LocalPublicationChange): Promise<void>;
 }
 

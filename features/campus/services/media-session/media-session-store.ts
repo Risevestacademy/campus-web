@@ -49,7 +49,7 @@ type DeviceRequest = Readonly<{
 
 export type MediaSessionState = Readonly<{
   camera: CaptureSourceState;
-  // The call refused the member's camera; cleared when it is shared again.
+  // The call refused the member's latest camera change.
   cameraPublishFailed: boolean;
   callAudioStatus: CallAudioStatus;
   chooseAudioOutput: () => MediaActionFailure;
@@ -257,9 +257,6 @@ export function createMediaSessionStore(
 
     function forwardLocalChange(change: LocalPublicationChange) {
       if (!disconnectTransport) return;
-      if (change.type !== "removed" && change.publication.source === "camera") {
-        set({ cameraPublishFailed: false });
-      }
       transport.handleLocalPublicationChange(change);
     }
 
@@ -602,7 +599,8 @@ export function createMediaSessionStore(
         if (disconnectTransport) return;
 
         disconnectTransport = transport.connect({
-          onCameraPublishFailed: () => set({ cameraPublishFailed: true }),
+          onCameraPublishOutcome: (cameraPublishFailed) =>
+            set({ cameraPublishFailed }),
           onRemoteAudioGainsChange: (remoteAudioGains) =>
             set({ remoteAudioGains }),
           onRemotePublicationChange: applyRemotePublicationChange,

@@ -258,7 +258,7 @@ describe("media session store", () => {
     });
   });
 
-  it("remembers the room refused the camera until the camera is shared again", async () => {
+  it("keeps a refused camera refused until the call reports a new outcome", async () => {
     const mediaDevices = createMediaDevices(async () =>
       createStream([createTrack("video", "camera-1")]),
     );
@@ -272,10 +272,11 @@ describe("media session store", () => {
     store.getState().connect();
     await store.getState().toggleSource("camera");
 
-    connections[0]?.onCameraPublishFailed();
+    connections[0]?.onCameraPublishOutcome(true);
+    await store.getState().toggleSource("camera");
+    await store.getState().toggleSource("camera");
     const refused = store.getState().cameraPublishFailed;
-    await store.getState().toggleSource("camera");
-    await store.getState().toggleSource("camera");
+    connections[0]?.onCameraPublishOutcome(false);
 
     expect(refused).toBe(true);
     expect(store.getState().cameraPublishFailed).toBe(false);

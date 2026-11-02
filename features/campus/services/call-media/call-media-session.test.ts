@@ -138,7 +138,7 @@ function setup(
     }),
   };
   const callbacks = {
-    onCameraPublishFailed: vi.fn(),
+    onCameraPublishOutcome: vi.fn(),
     onRemoteAudioGainsChange: vi.fn(),
     onRemotePublicationChange: vi.fn(),
     onStatusChange: vi.fn(),
@@ -778,10 +778,194 @@ describe("createCallMediaSession", () => {
     });
 
     await vi.waitFor(() =>
-      expect(callbacks.onCameraPublishFailed).toHaveBeenCalledOnce(),
+      expect(callbacks.onCameraPublishOutcome).toHaveBeenLastCalledWith(true),
     );
     expect(callbacks.onStatusChange).toHaveBeenLastCalledWith("connected");
     expect(connection.disconnect).not.toHaveBeenCalled();
+  });
+
+  describe("the camera's latest outcome", () => {
+    const camera = localPublication("camera");
+    const CAMERA_ON: LocalPublicationChange = {
+      publication: camera,
+      type: "added",
+    };
+    const CAMERA_OFF: LocalPublicationChange = {
+      previousTrack: camera.track,
+      publicationId: camera.publicationId,
+      source: "camera",
+      type: "removed",
+    };
+
+    async function refusedCamera() {
+      const room = setup();
+      room.session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+      const { connection } = await room.joined();
+      vi.mocked(connection.handleLocalPublicationChange).mockRejectedValueOnce(
+        new Error("publish failed"),
+      );
+      room.session.handleLocalPublicationChange(CAMERA_ON);
+      await vi.waitFor(() =>
+        expect(room.callbacks.onCameraPublishOutcome).toHaveBeenLastCalledWith(
+          true,
+        ),
+      );
+      return { ...room, connection };
+    }
+
+    it("ends on a success when a quick toggle's first publish fails after the rest were made", async () => {
+      const { callbacks, joined, session } = setup();
+      session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+      const { connection } = await joined();
+      callbacks.onCameraPublishOutcome.mockClear();
+      vi.mocked(connection.handleLocalPublicationChange).mockRejectedValueOnce(
+        new Error("publish failed"),
+      );
+
+      session.handleLocalPublicationChange(CAMERA_ON);
+      session.handleLocalPublicationChange(CAMERA_OFF);
+      session.handleLocalPublicationChange(CAMERA_ON);
+
+      await vi.waitFor(() =>
+        expect(callbacks.onCameraPublishOutcome.mock.calls).toEqual([
+          [true],
+          [false],
+          [false],
+        ]),
+      );
+    });
+
+    it("is a success when the next space's room takes the replayed camera", async () => {
+      const { callbacks, joined, session } = await refusedCamera();
+
+      session.applyWorldMessage(
+        callWith({ token: "next-space-token" }),
+        presenceWith([NEARBY_ID]),
+      );
+      const { connection } = await joined(2);
+
+      await vi.waitFor(() =>
+        expect(connection.handleLocalPublicationChange).toHaveBeenCalledWith(
+          CAMERA_ON,
+        ),
+      );
+      await vi.waitFor(() =>
+        expect(callbacks.onCameraPublishOutcome).toHaveBeenLastCalledWith(
+          false,
+        ),
+      );
+    });
+
+    it("clears when the member turns the camera off", async () => {
+      const { callbacks, session } = await refusedCamera();
+
+      session.handleLocalPublicationChange(CAMERA_OFF);
+
+      await vi.waitFor(() =>
+        expect(callbacks.onCameraPublishOutcome).toHaveBeenLastCalledWith(
+          false,
+        ),
+      );
+    });
+
+    it("never calls a failed turn-off a refused camera", async () => {
+      const { callbacks, connection, session } = await refusedCamera();
+      callbacks.onCameraPublishOutcome.mockClear();
+      vi.mocked(connection.handleLocalPublicationChange).mockRejectedValueOnce(
+        new Error("negotiation failed"),
+      );
+
+      session.handleLocalPublicationChange(CAMERA_OFF);
+
+      await vi.waitFor(() =>
+        expect(
+          callbacks.onCameraPublishOutcome,
+        ).toHaveBeenCalledExactlyOnceWith(false),
+      );
+      expect(connection.disconnect).not.toHaveBeenCalled();
+    });
+
+    it("clears when the call ends", async () => {
+      const { callbacks, session } = await refusedCamera();
+
+      session.applyWorldMessage(NO_CALL, presenceWith([NEARBY_ID]));
+
+      expect(callbacks.onCameraPublishOutcome).toHaveBeenLastCalledWith(false);
+    });
+
+    it("ignores a refusal from a room it already left", async () => {
+      const refusal = Promise.withResolvers<void>();
+      const { callbacks, joined, session } = setup();
+      session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+      const { connection } = await joined();
+      vi.mocked(connection.handleLocalPublicationChange).mockReturnValueOnce(
+        refusal.promise,
+      );
+      session.handleLocalPublicationChange(CAMERA_ON);
+      session.applyWorldMessage(NO_CALL, presenceWith([NEARBY_ID]));
+
+      refusal.reject(new Error("publish failed"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(callbacks.onCameraPublishOutcome).not.toHaveBeenCalledWith(true);
+    });
+  });
+
+  it("leaves the audience alone when a frame changes neither the roster nor the cameras", async () => {
+    const { callbacks, joined, session } = setup();
+    const presence = presenceWith([NEARBY_ID]);
+    session.applyWorldMessage(CALL, presence);
+    const { connection } = await joined();
+    vi.mocked(connection.applyAudience).mockClear();
+    callbacks.onRemoteAudioGainsChange.mockClear();
+
+    session.applyWorldMessage(PEER_MOVED_AWAY, { ...presence });
+
+    expect(connection.applyAudience).not.toHaveBeenCalled();
+    expect(callbacks.onRemoteAudioGainsChange).toHaveBeenCalledOnce();
+  });
+
+  it("gives a new room the same roster the last one had", async () => {
+    const { joined, session } = setup();
+    const presence = presenceWith([NEARBY_ID]);
+    session.applyWorldMessage(CALL, presence);
+    await joined();
+
+    session.applyWorldMessage(callWith({ token: "next-token" }), presence);
+
+    const { connection } = await joined(2);
+    expect(connection.applyAudience).toHaveBeenCalledOnce();
+  });
+
+  it("still releases a track when the track it replaced is removed after it", async () => {
+    const { callbacks, joined, session } = setup();
+    session.applyWorldMessage(CALL, presenceWith([NEARBY_ID]));
+    const room = await joined();
+    const previous = remoteMicrophone();
+    const replacement = { ...previous, publicationId: "remote-microphone-2" };
+    room.events.onRemotePublicationChange({
+      publication: previous,
+      type: "upserted",
+    });
+    room.events.onRemotePublicationChange({
+      publication: replacement,
+      type: "upserted",
+    });
+    room.events.onRemotePublicationChange({
+      participantId: NEARBY_ID,
+      publicationId: previous.publicationId,
+      source: "microphone",
+      type: "removed",
+    });
+
+    session.applyWorldMessage(NO_CALL, presenceWith([NEARBY_ID]));
+
+    expect(callbacks.onRemotePublicationChange).toHaveBeenLastCalledWith({
+      participantId: NEARBY_ID,
+      publicationId: replacement.publicationId,
+      source: "microphone",
+      type: "removed",
+    });
   });
 
   it("hands every camera change to the room it joined", async () => {

@@ -1,4 +1,5 @@
 import type {
+  LocalTrack,
   LocalTrackPublication,
   Participant,
   RemoteParticipant,
@@ -118,18 +119,29 @@ function localTrackPublisher(room: Room, source: Track.Source) {
     const localTrack = current?.publication.track;
     if (!current || !localTrack) return publish(track);
     return withCopy(track, async (copy) => {
-      await localTrack.replaceTrack(copy, true);
+      try {
+        await localTrack.replaceTrack(copy, true);
+      } catch (error) {
+        // The member switched away from this device, so it must not keep
+        // sending. LiveKit finds a bare MediaStreamTrack by identity, which a
+        // partial swap can break, so name its own track.
+        await unpublish(localTrack);
+        throw error;
+      }
       stopCopy(current.copy);
       published = { ...current, copy };
     });
   }
 
-  async function unpublish() {
+  async function unpublish(localTrack?: LocalTrack) {
     if (!published) return;
     const { copy } = published;
     published = undefined;
-    await room.localParticipant.unpublishTrack(copy, false);
-    stopCopy(copy);
+    try {
+      await room.localParticipant.unpublishTrack(localTrack ?? copy, false);
+    } finally {
+      stopCopy(copy);
+    }
   }
 
   function apply(change: LocalPublicationChange) {
@@ -203,9 +215,6 @@ function connectRoom(
   let leaving = false;
   const cameraAskedAt = new Map<string, number>();
   const grant = audienceGrant(room);
-  // Per publication, not trackSid: a full reconnect rebuilds publications
-  // under their old ids, and each new one starts on the high layer.
-  const requestedLayers = new WeakMap<RemoteTrackPublication, VideoLayer>();
   const handedOver = new Set<string>();
   const publishers: Readonly<
     Record<CaptureSource, ReturnType<typeof localTrackPublisher>>
@@ -255,10 +264,14 @@ function connectRoom(
   function requestLayer(
     publication: RemoteTrackPublication,
     layer: VideoLayer,
+    resubscribed: boolean,
   ) {
-    if (requestedLayers.get(publication) === layer) return;
-    requestedLayers.set(publication, layer);
-    publication.setVideoQuality(VIDEO_QUALITY[layer]);
+    const quality = VIDEO_QUALITY[layer];
+    const repeated = resubscribed && publication.videoQuality === quality;
+    publication.setVideoQuality(quality);
+    // The SFU forgets a track's settings once it unsubscribes, and LiveKit
+    // stays quiet about a layer it already asked for.
+    if (repeated) publication.emitTrackUpdate();
   }
 
   function updateSubscription(
@@ -267,6 +280,7 @@ function connectRoom(
   ) {
     const owner = wantedOwnerOf(publication, participant);
     const wanted = owner !== undefined;
+    const asked = wanted && !publication.isDesired;
     if (publication.isDesired !== wanted) {
       publication.setSubscribed(wanted);
       if (wanted && owner.source === "camera") {
@@ -274,7 +288,15 @@ function connectRoom(
       }
     }
     const layer = owner && audience.video.get(owner.participantId);
-    if (owner?.source === "camera" && layer) requestLayer(publication, layer);
+    if (owner?.source === "camera" && layer) {
+      requestLayer(publication, layer, asked);
+    }
+    // A track that arrived while unwanted fires no second event if the SFU
+    // never got round to unsubscribing it.
+    const { track, trackSid } = publication;
+    if (wanted && track && !handedOver.has(trackSid)) {
+      forwardSubscribedTrack(track, publication, participant);
+    }
   }
 
   function upsert(
@@ -321,7 +343,8 @@ function connectRoom(
   }
 
   // Mute events carry the base publication types; the room holds the remote
-  // ones, and a member's own mutes are never in it.
+  // ones, and a member's own mutes are never in it. Only a tile needs to know:
+  // an upsert re-attaches its element, which would clip a microphone's audio.
   function forwardMute(
     { trackSid }: TrackPublication,
     { identity }: Participant,
@@ -330,7 +353,7 @@ function connectRoom(
     const publication = participant?.trackPublications.get(trackSid);
     const owner =
       participant && publication && wantedOwnerOf(publication, participant);
-    if (owner && publication?.track)
+    if (owner?.source === "camera" && publication?.track)
       upsert(owner, publication.track, publication);
   }
 

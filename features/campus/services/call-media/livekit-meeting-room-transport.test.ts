@@ -160,8 +160,7 @@ describe("createLivekitMeetingRoomTransport", () => {
     });
   });
 
-  // Every World frame reapplies the audience, and each grant is a signal
-  // message to the SFU.
+  // Each grant is a signal message to the SFU.
   it("tells the SFU only when who may subscribe changes", async () => {
     const { connection, room } = await joinedRoom();
     room.join(`${GRACE}:tab-1`, ["microphone"]);
@@ -292,6 +291,81 @@ describe("createLivekitMeetingRoomTransport", () => {
       { identity: `${GRACE}:tab-1`, quality: "LOW" },
       { identity: `${GRACE}:tab-1`, quality: "LOW" },
     ]);
+  });
+
+  // The SFU forgets a track's settings once it unsubscribes, and LiveKit stays
+  // quiet about a layer it already asked for.
+  it("asks for a camera's layer again when its tile comes back", async () => {
+    const { connection, livekit, room } = await joinedRoom();
+    room.join(`${GRACE}:tab-1`, ["camera"]);
+    connection.applyAudience(audience([GRACE], [[GRACE, "low"]]));
+    connection.applyAudience(audience([GRACE]));
+
+    connection.applyAudience(audience([GRACE], [[GRACE, "low"]]));
+
+    expect(livekit.qualities).toEqual([
+      { identity: `${GRACE}:tab-1`, quality: "LOW" },
+      { identity: `${GRACE}:tab-1`, quality: "LOW" },
+    ]);
+  });
+
+  it("asks for a new layer once when a tile comes back at another size", async () => {
+    const { connection, livekit, room } = await joinedRoom();
+    room.join(`${GRACE}:tab-1`, ["camera"]);
+    connection.applyAudience(audience([GRACE], [[GRACE, "low"]]));
+    connection.applyAudience(audience([GRACE]));
+
+    connection.applyAudience(audience([GRACE], [[GRACE, "medium"]]));
+
+    expect(livekit.qualities).toEqual([
+      { identity: `${GRACE}:tab-1`, quality: "LOW" },
+      { identity: `${GRACE}:tab-1`, quality: "MEDIUM" },
+    ]);
+  });
+
+  it.each([
+    {
+      source: "microphone",
+      wanted: audience([GRACE]),
+      firstReport: "onFirstRemoteAudio",
+    },
+    {
+      source: "camera",
+      wanted: audience([GRACE], [[GRACE, "low"]]),
+      firstReport: "onFirstRemoteVideo",
+    },
+  ] as const)(
+    "hands over a $source that arrived while briefly unwanted, once it is wanted again",
+    async ({ firstReport, source, wanted }) => {
+      const { connection, events, room } = await joinedRoom();
+      const grace = room.join(`${GRACE}:tab-1`, [source]);
+      connection.applyAudience(wanted);
+      connection.applyAudience(audience([]));
+      const track = room.deliver(grace, source);
+
+      connection.applyAudience(wanted);
+      connection.applyAudience(wanted);
+
+      expect(events.onRemotePublicationChange).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          publication: expect.objectContaining({
+            track: track.mediaStreamTrack,
+          }),
+        }),
+      );
+      expect(events[firstReport]).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("leaves a microphone's element alone when its track mutes", async () => {
+    const { connection, events, room } = await joinedRoom();
+    const grace = room.join(`${GRACE}:tab-1`, ["microphone"]);
+    connection.applyAudience(audience([GRACE]));
+    room.deliver(grace, "microphone");
+
+    room.mute(grace, "microphone", true);
+
+    expect(events.onRemotePublicationChange).toHaveBeenCalledOnce();
   });
 
   it("tells the media session when a subscribed camera mutes and unmutes", async () => {
@@ -432,26 +506,29 @@ describe("createLivekitMeetingRoomTransport", () => {
     expect(runningCopies(microphone, camera)).toEqual([camera]);
   });
 
-  it("swaps in a copy of the new microphone and stops the old copy", async () => {
-    const { connection, room } = await joinedRoom();
-    const first = localMicrophone("mic-1");
-    const second = localMicrophone("mic-2");
-    await addCapture(connection, first);
+  it.each(["microphone", "camera"] as const)(
+    "swaps in a copy of the new %s and stops the old copy",
+    async (source) => {
+      const { connection, room } = await joinedRoom();
+      const first = localCapture(source, `${source}-1`);
+      const second = localCapture(source, `${source}-2`);
+      await addCapture(connection, first);
 
-    await connection.handleLocalPublicationChange({
-      previousTrack: first.track,
-      publication: second.publication,
-      type: "replaced",
-    });
+      await connection.handleLocalPublicationChange({
+        previousTrack: first.track,
+        publication: second.publication,
+        type: "replaced",
+      });
 
-    expect(publishedAt(room, 0).replaceTrack).toHaveBeenCalledExactlyOnceWith(
-      second.copy,
-      true,
-    );
-    expect(first.copy.stop).toHaveBeenCalledOnce();
-    expect(first.track.stop).not.toHaveBeenCalled();
-    expect(second.track.stop).not.toHaveBeenCalled();
-  });
+      expect(publishedAt(room, 0).replaceTrack).toHaveBeenCalledExactlyOnceWith(
+        second.copy,
+        true,
+      );
+      expect(first.copy.stop).toHaveBeenCalledOnce();
+      expect(first.track.stop).not.toHaveBeenCalled();
+      expect(second.track.stop).not.toHaveBeenCalled();
+    },
+  );
 
   it("stops its copy when the room refuses to publish the microphone", async () => {
     const { connection, room } = await joinedRoom();
@@ -462,36 +539,58 @@ describe("createLivekitMeetingRoomTransport", () => {
     expect(runningCopies(microphone)).toEqual([]);
   });
 
-  it("keeps the old copy live and stops the new one when the swap fails", async () => {
-    const { connection, room } = await joinedRoom();
-    const first = localMicrophone("mic-1");
-    const second = localMicrophone("mic-2");
-    await addCapture(connection, first);
-    publishedAt(room, 0).replaceTrack.mockRejectedValueOnce(
-      new Error("swap failed"),
-    );
+  // The member switched away from the old device, so it must not keep sending.
+  it.each(["microphone", "camera"] as const)(
+    "takes the old %s off the call and stops both copies when the swap fails",
+    async (source) => {
+      const { connection, room } = await joinedRoom();
+      const first = localCapture(source, `${source}-1`);
+      const second = localCapture(source, `${source}-2`);
+      await addCapture(connection, first);
+      const published = publishedAt(room, 0);
+      published.replaceTrack.mockRejectedValueOnce(new Error("swap failed"));
 
-    await expect(
-      connection.handleLocalPublicationChange({
-        previousTrack: first.track,
-        publication: second.publication,
-        type: "replaced",
-      }),
-    ).rejects.toThrow();
-    expect(runningCopies(first, second)).toEqual([first]);
-  });
+      await expect(
+        connection.handleLocalPublicationChange({
+          previousTrack: first.track,
+          publication: second.publication,
+          type: "replaced",
+        }),
+      ).rejects.toThrow("swap failed");
 
-  it("unpublishes and stops the copy when the microphone turns off", async () => {
-    const { connection, room } = await joinedRoom();
-    const microphone = localMicrophone("mic-1");
-    await addCapture(connection, microphone);
+      expect(room.unpublished).toEqual([{ stop: false, track: published }]);
+      expect(runningCopies(first, second)).toEqual([]);
+    },
+  );
 
-    await removeCapture(connection, microphone);
+  it.each(["microphone", "camera"] as const)(
+    "unpublishes and stops the copy when the %s turns off",
+    async (source) => {
+      const { connection, room } = await joinedRoom();
+      const capture = localCapture(source, `${source}-1`);
+      await addCapture(connection, capture);
 
-    expect(room.unpublished).toEqual([{ stop: false, track: microphone.copy }]);
-    expect(microphone.copy.stop).toHaveBeenCalledOnce();
-    expect(microphone.track.stop).not.toHaveBeenCalled();
-  });
+      await removeCapture(connection, capture);
+
+      expect(room.unpublished).toEqual([{ stop: false, track: capture.copy }]);
+      expect(capture.copy.stop).toHaveBeenCalledOnce();
+      expect(capture.track.stop).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["microphone", "camera"] as const)(
+    "stops the copy even when turning the %s off fails",
+    async (source) => {
+      const { connection, room } = await joinedRoom();
+      const capture = localCapture(source, `${source}-1`);
+      await addCapture(connection, capture);
+      room.unpublishFails = true;
+
+      await expect(removeCapture(connection, capture)).rejects.toThrow();
+
+      expect(runningCopies(capture)).toEqual([]);
+    },
+  );
 
   it("turns the microphone off even while its publish is still in flight", async () => {
     const { connection, room } = await joinedRoom();

@@ -511,11 +511,13 @@ describe("media controls acceptance", () => {
     });
   });
 
-  it("tells the member the call refused their camera, and that they are still heard", async () => {
+  it("tells the member the call refused their camera, until a later outcome says otherwise", async () => {
+    let reportOutcome: (failed: boolean) => void = () => undefined;
     const call: MeetingMediaTransport = {
       connect(callbacks) {
         callbacks.onStatusChange("connected");
-        callbacks.onCameraPublishFailed();
+        callbacks.onCameraPublishOutcome(true);
+        reportOutcome = callbacks.onCameraPublishOutcome;
         return () => undefined;
       },
       handleLocalPublicationChange() {},
@@ -540,8 +542,15 @@ describe("media controls acceptance", () => {
       "Your camera isn't reaching the call",
     );
     expect(notification).toHaveTextContent(
-      "People nearby can still hear you. Turn your camera off and on to try again.",
+      "Turn your camera off and on to try again.",
     );
+    expect(notification).not.toHaveTextContent(/hear/i);
+
+    act(() => reportOutcome(false));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
   });
 
   it("takes the audio failure away when the Presence Session ends", async () => {

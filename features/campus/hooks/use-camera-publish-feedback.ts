@@ -17,8 +17,7 @@ function reportCameraPublish(failed: boolean) {
   }
 
   toast.add({
-    description:
-      "People nearby can still hear you. Turn your camera off and on to try again.",
+    description: "Turn your camera off and on to try again.",
     id: CAMERA_PUBLISH_TOAST_ID,
     priority: "high",
     timeout: 0,

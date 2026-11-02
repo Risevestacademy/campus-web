@@ -191,6 +191,8 @@ export type FakeRemotePublication = {
   readonly source: FakeTrackSource;
   track: FakeRemoteTrack | undefined;
   readonly trackSid: string;
+  readonly videoQuality: number;
+  emitTrackUpdate(): void;
   setSubscribed(subscribed: boolean): void;
   setVideoQuality(quality: number): void;
 };
@@ -204,6 +206,11 @@ export type FakeLocalPublication = Readonly<{
   options: unknown;
   track: MediaStreamTrack;
   replaceTrack: Mock;
+}>;
+
+type FakeUnpublish = Readonly<{
+  track: MediaStreamTrack | FakeLocalPublication;
+  stop?: boolean;
 }>;
 
 export type SubscriptionRecord = Readonly<{
@@ -237,25 +244,41 @@ export function fakeLivekitRoom() {
     alreadyInRoom: readonly (readonly [string, readonly FakeTrackSource[]])[];
   } = { alreadyInRoom: [], connect: "resolve" };
 
+  // `qualities` is what the SFU was told. As in the SDK, a publication stays
+  // quiet about a layer it already asked for, even across an unsubscribe.
   function remotePublication(
     identity: string,
     source: FakeTrackSource,
   ): FakeRemotePublication {
+    let requestedQuality: number | undefined;
+
+    function tellSfu(quality: number) {
+      const name = Object.entries(VideoQuality).find(
+        ([, value]) => value === quality,
+      )?.[0] as QualityRecord["quality"];
+      qualities.push({ identity, quality: name });
+    }
+
     return {
       isDesired: false,
       isMuted: false,
       source,
       track: undefined,
       trackSid: `${identity}-${source}`,
+      get videoQuality() {
+        return requestedQuality ?? VideoQuality.HIGH;
+      },
+      emitTrackUpdate() {
+        tellSfu(this.videoQuality);
+      },
       setSubscribed(subscribed) {
         this.isDesired = subscribed;
         subscriptions.push({ identity, source, subscribed });
       },
       setVideoQuality(quality) {
-        const name = Object.entries(VideoQuality).find(
-          ([, value]) => value === quality,
-        )?.[0] as QualityRecord["quality"];
-        qualities.push({ identity, quality: name });
+        if (!this.isDesired || requestedQuality === quality) return;
+        requestedQuality = quality;
+        tellSfu(quality);
       },
     };
   }
@@ -278,11 +301,12 @@ export function fakeLivekitRoom() {
       [];
     readonly disconnectCalls: (boolean | undefined)[] = [];
     readonly published: FakeLocalPublication[] = [];
-    readonly unpublished: { track: MediaStreamTrack; stop?: boolean }[] = [];
+    readonly unpublished: FakeUnpublish[] = [];
     readonly grants: GrantRecord[] = [];
     readonly remoteParticipants = new Map<string, FakeRemoteParticipant>();
     disconnectFails = false;
     publishFails = false;
+    unpublishFails = false;
     private readonly listeners = new Map<string, Listener[]>();
     private publishing = Promise.resolve();
 
@@ -296,8 +320,9 @@ export function fakeLivekitRoom() {
         this.published.push(publication);
         return { track: publication };
       },
-      unpublishTrack: async (track: MediaStreamTrack, stop?: boolean) => {
+      unpublishTrack: async (track: FakeUnpublish["track"], stop?: boolean) => {
         this.unpublished.push({ track, stop });
+        if (this.unpublishFails) throw new Error("negotiation failed");
         return undefined;
       },
       setTrackSubscriptionPermissions: (
@@ -434,6 +459,7 @@ export function fakeLivekitRoom() {
     unsubscribe(participant: FakeRemoteParticipant, source: FakeTrackSource) {
       const publication = publicationOf(participant, source);
       this.emit(RoomEvent.TrackUnsubscribed, {}, publication, participant);
+      publication.track = undefined;
     }
 
     unpublish(participant: FakeRemoteParticipant, source: FakeTrackSource) {

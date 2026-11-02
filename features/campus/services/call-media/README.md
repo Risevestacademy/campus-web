@@ -26,7 +26,8 @@ session.applyPresence(presence); // presence that changed without a frame
 The Presence Session uses `createBrowserCallMediaSession()`, which binds
 `pinMediaUrl` to `NEXT_PUBLIC_MEDIA_URL`, `now` to `performance.now`, first
 audio and first video to PostHog, `refreshCall` to `world.rejoin()`, and the
-LiveKit adapter as `roomTransport`.
+LiveKit adapter as `roomTransport`. `now` times first audio. The adapter times
+first video with its own clock, since only it knows when a camera was asked for.
 
 - `connect(callbacks)` / `handleLocalPublicationChange(change)`: the media
   session's transport seam. The microphone and camera reach the room, each
@@ -67,12 +68,18 @@ LiveKit adapter as `roomTransport`.
   room and tells the SFU only when the grant changes.
 - Microphones of the audience's ids subscribe, and cameras of its `video`
   ids, each asked for at its layer (`setVideoQuality`, sent only when it
-  changes). Screen and unknown sources stay unsubscribed. The first
-  subscribed microphone reports first audio, once per room.
+  changes, and again when a camera is subscribed anew, since the SFU forgets a
+  track's settings once it unsubscribes). Screen and unknown sources stay
+  unsubscribed. The first subscribed microphone reports first audio, once per
+  room.
+- A track that arrived while unwanted is handed over once it is wanted again,
+  since the SFU may never unsubscribe it and no second event would fire.
 - The room's first subscribed camera reports first video once, timed from
   the moment that camera was asked for, with the member's own link quality.
-- A subscribed track that mutes or unmutes is handed over again with
-  `enabled` flipped, so a tile never freezes on its last frame.
+- A subscribed camera that mutes or unmutes is handed over again with
+  `enabled` flipped, so a tile never freezes on its last frame. A microphone
+  is not: a handover re-attaches its element, which would clip the audio, so
+  its `enabled` holds the value from when it subscribed.
 - It publishes copies of the member's microphone and camera, each as its own
   source, never the store's track: LiveKit can stop a track it fails to
   publish. A device switch swaps the copy in place; turning off unpublishes
@@ -114,8 +121,12 @@ LiveKit adapter as `roomTransport`.
   disconnects on its own, or a microphone change fails. Remote publications
   and gains clear in every case.
 - A refused camera never fails the call: video degrades before audio. The
-  session reports `onCameraPublishFailed`, the member stays heard, and the
-  next camera publish clears it.
+  session reports `onCameraPublishOutcome` after every camera change, including
+  replays in a new room, and `false` when a room closes. Changes to one source
+  settle in order, so the last report is the latest change's. A failed turn-off
+  reports `false`: the copy is stopped either way.
+- A failed device swap takes the old copy off the call, so the device the
+  member switched away from stops sending.
 - First-audio time is measured only for calls that arrive while the roster
   is not empty, from `call` to the room's first remote microphone, and is
   reported with the call's hearing.
@@ -130,7 +141,7 @@ change never detaches the audio. A participant with no gain plays silent.
 While the status is `unavailable`, `CallMediaFeedback` (once per Presence
 Session) shows a warning toast, "Audio couldn't connect", with Try again.
 While the camera is refused it shows "Your camera isn't reaching the call",
-saying the member is still heard.
+and makes no claim about being heard: the microphone may be off too.
 `retry()` rejoins the latest call in place; if LiveKit refuses that grant
 (`RoomAccessDeniedError`, usually an expired token) it calls `refreshCall`
 (`world.rejoin()`), and World answers with a fresh call. If World is not
@@ -157,6 +168,6 @@ pnpm eval:privacy
 ```
 
 The eval drives real frames through presence, this session and the adapter
-over `testing/fake-livekit.ts`. Threshold: 7/7 scenarios, every roster
-change applied in the same task, and no subscription outside the latest
-`meetingRoster`.
+over `testing/fake-livekit.ts`. Thresholds: `proximity-audio` 8/8 and
+`meeting-video` 5/5 scenarios, every roster change applied in the same task,
+and no subscription or grant outside the latest `meetingRoster`.
