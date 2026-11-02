@@ -79,6 +79,22 @@ describe("SignInPage: anonymous visitors", () => {
       expect(googleLink()).toHaveAttribute("href", "/api/v1/auth/google");
     },
   );
+
+  it("links the Campus by Rise brand to the home page", async () => {
+    await renderVisit({});
+
+    expect(
+      screen.getByRole("link", { name: "Campus by Rise" }),
+    ).toHaveAttribute("href", "/");
+  });
+
+  it("tells the visitor which Google account to use", async () => {
+    await renderVisit({});
+
+    expect(
+      screen.getByText("Use the Google account your invite was sent to."),
+    ).toBeVisible();
+  });
 });
 
 describe("SignInPage: signed-in visitors", () => {
