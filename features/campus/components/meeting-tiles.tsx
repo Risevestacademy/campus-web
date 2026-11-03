@@ -170,6 +170,21 @@ function getOpacityTransition(motionDisabled: boolean) {
   };
 }
 
+const TRAY_REVEAL_MS = 200;
+
+// Waits for the tiles to land: the section is still grid-sized until then, so
+// a tray revealed any sooner would flash as a large panel behind them.
+function trayRevealStyle({
+  durationMs,
+}: MeetingTileMotionConfig): CSSProperties {
+  return {
+    transitionProperty: "clip-path, opacity",
+    transitionDuration: `${TRAY_REVEAL_MS}ms`,
+    transitionTimingFunction: `cubic-bezier(${EASE_OUT.join(",")})`,
+    transitionDelay: `${durationMs}ms`,
+  };
+}
+
 const backdropVariants = {
   hidden: (motionDisabled: boolean) => ({
     opacity: 0,
@@ -312,7 +327,6 @@ export function MeetingTiles({
         <motion.section
           aria-label="Meeting participant tiles"
           data-motion={motionDisabled ? "instant" : "animated"}
-          data-surface-role="background"
           layout={!motionDisabled}
           transition={layoutTransition}
           style={{ borderRadius: 18 }}
@@ -323,9 +337,24 @@ export function MeetingTiles({
                   styles.expanded,
                   "fixed inset-x-15 top-[10dvh] bottom-[max(12dvh,8.5rem)] left-30 z-20",
                 )
-              : "bg-background w-fit flex-col overflow-hidden p-1",
+              : "relative w-fit flex-col overflow-hidden p-1",
           )}
         >
+          <div
+            aria-hidden="true"
+            data-surface-role="background"
+            data-testid="meeting-strip-tray"
+            style={
+              isExpanded || motionDisabled
+                ? undefined
+                : trayRevealStyle(motionConfig)
+            }
+            className={cn(
+              "bg-background pointer-events-none absolute inset-0",
+              isExpanded ? styles.trayBehindTiles : styles.trayRevealed,
+            )}
+          />
+
           <motion.div
             layoutScroll
             style={isExpanded ? gridShapeStyle(shown.length) : undefined}

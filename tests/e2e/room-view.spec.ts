@@ -291,3 +291,71 @@ test("keeps a wide window's spare width outside the rail and the stage", async (
     expect(Math.abs(leftSpace - rightSpace)).toBeLessThanOrEqual(3);
   }).toPass();
 });
+
+function sampleTrayThroughMorph(page: Page) {
+  return page.evaluate(async (durationMs) => {
+    const section = document.querySelector(
+      "[aria-label='Meeting participant tiles']",
+    )!;
+    const tray = document.querySelector("[data-testid='meeting-strip-tray']")!;
+    const frames: {
+      sectionWidth: number;
+      sectionColor: string;
+      trayOpacity: string;
+    }[] = [];
+    const end = performance.now() + durationMs;
+    while (performance.now() < end) {
+      await new Promise(requestAnimationFrame);
+      frames.push({
+        sectionWidth: section.getBoundingClientRect().width,
+        sectionColor: getComputedStyle(section).backgroundColor,
+        trayOpacity: getComputedStyle(tray).opacity,
+      });
+    }
+    return frames;
+  }, MORPH_MS);
+}
+
+test("paints the strip's tray only after the tiles land as the view closes", async ({
+  baseURL,
+  context,
+  fakeApi,
+  page,
+  world,
+}) => {
+  const stripTile = await enterFourPersonMeeting({
+    baseURL,
+    context,
+    fakeApi,
+    page,
+    viewport: { width: 2120, height: 1040 },
+    world,
+  });
+  const section = page.getByRole("region", {
+    name: "Meeting participant tiles",
+  });
+  const compactWidth = (await section.boundingBox())!.width;
+
+  await stripTile.click();
+  await expect(
+    page.getByRole("button", { name: "Focus Grace Hopper" }),
+  ).toBeVisible();
+  await sampleTrayThroughMorph(page);
+
+  const closing = sampleTrayThroughMorph(page);
+  await page.getByRole("switch", { name: "Use grid view" }).click();
+
+  const stillLarge = (await closing).filter(
+    ({ sectionWidth }) => sectionWidth > compactWidth * 1.25,
+  );
+  expect(stillLarge.length).toBeGreaterThan(0);
+  for (const { sectionColor, trayOpacity } of stillLarge) {
+    expect(sectionColor).toBe("rgba(0, 0, 0, 0)");
+    expect(trayOpacity).toBe("0");
+  }
+
+  await expect(page.getByTestId("meeting-strip-tray")).toHaveCSS(
+    "opacity",
+    "1",
+  );
+});

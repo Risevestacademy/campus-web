@@ -7,6 +7,18 @@
   container-type: size;
 }
 
+/* The strip's rim is the section's 0.25rem padding, so this inset is the tiles'
+   outer edge: the tray starts hidden behind them and grows out. */
+.trayBehindTiles {
+  clip-path: inset(0.25rem round 12px);
+  opacity: 0;
+}
+
+.trayRevealed {
+  clip-path: inset(0 round 18px);
+  opacity: 1;
+}
+
 .equalTiles {
   display: flex;
   flex-wrap: wrap;

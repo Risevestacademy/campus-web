@@ -59,3 +59,6 @@ the stretch back.
   their video.
 - The rail and stage centre as a pair, so a wide window's spare width sits
   outside them, not between them.
+- The strip's tray is its own layer, growing out from behind the tiles once they
+  land. Painted on the section, it would flash at the grid's full size as the
+  view closes.
