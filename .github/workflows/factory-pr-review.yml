@@ -22,9 +22,9 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
-      - uses: Risevestacademy/campus-software-factory/.github/actions/factory-pr-review@0b0ee8445d94b11c0f1cc3539a0b3896fa3f1f63
+      - uses: Risevestacademy/campus-software-factory/.github/actions/factory-pr-review@e5dbc4e193a6b0bba766aeef43cc910a6dc1d76a
         with:
           repository: ${{ github.repository }}
           workflow-run-id: ${{ github.event.workflow_run.id }}
