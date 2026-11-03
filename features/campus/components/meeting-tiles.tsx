@@ -335,7 +335,7 @@ export function MeetingTiles({
             isExpanded
               ? cn(
                   styles.expanded,
-                  "fixed inset-x-15 top-[10dvh] bottom-[max(12dvh,8.5rem)] left-30 z-20",
+                  "fixed inset-x-15 top-[10dvh] bottom-[max(12dvh,10rem)] left-30 z-20",
                 )
               : "relative w-fit flex-col overflow-hidden p-1",
           )}
