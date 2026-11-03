@@ -300,7 +300,9 @@ function startPacedOwnAvatar(start: Omit<Player, "userId">) {
     ],
     spaces: [],
   };
-  movement.bind(({ direction, seq }) => {
+  movement.bind((message) => {
+    if (message.type !== "move") return false;
+    const { direction, seq } = message;
     sent.push({ direction, seq });
     return true;
   });
@@ -402,7 +404,9 @@ function startCameraWorld(refuses: (seq: number, target: Tile) => boolean) {
   const answers: unknown[] = [];
   const corrections: string[] = [];
   let at = { x: 30, y: 20 };
-  movement.bind(({ seq, direction }) => {
+  movement.bind((message) => {
+    if (message.type !== "move") return false;
+    const { seq, direction } = message;
     const target = stepFrom(at, direction);
     const refused = refuses(seq, target);
     if (!refused) at = target;

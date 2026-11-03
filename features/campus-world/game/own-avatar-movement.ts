@@ -5,6 +5,8 @@ import type {
   Direction,
   MoveCorrection,
   Player,
+  WalkEndedMessage,
+  WalkingMessage,
   WorldMovement,
   WorldMovementMessage,
 } from "@/core/realtime";
@@ -26,6 +28,9 @@ export interface MovementInput {
 export interface OwnAvatarMovement {
   readPlayer(): Player | undefined;
   stop(): void;
+  // True once for each walk world starts, so the camera returns to the avatar
+  // without taking back a drag made mid-walk.
+  takeWalkStarted(): boolean;
   update(input: MovementInput): void;
 }
 
@@ -41,6 +46,7 @@ interface StepAnimation {
   durationMs: number;
   elapsedMs: number;
   from: Player;
+  fromWorld: boolean;
   to: Player;
 }
 
@@ -64,10 +70,12 @@ export function createOwnAvatarMovement({
   let buffered: Direction | undefined;
   let displayed: Player | undefined;
   let heldOrder: Direction[] = [];
+  let onWalk = false;
   let pending: PendingMove[] = [];
   let predicted: Player | undefined;
   let refused: readonly Tile[] = [];
   let sequence = 0;
+  let walkStarted = false;
 
   function walkable(): MapLayout {
     return withRefusedTiles(layout, refused);
@@ -87,9 +95,45 @@ export function createOwnAvatarMovement({
     refused = [];
   }
 
+  function showWorldStep(player: Player) {
+    if (!predicted || samePlayer(predicted, player)) return;
+
+    const stepMs = movement.readStepMs();
+    predicted = player;
+    if (stepMs === null) {
+      displayed = player;
+      animation = undefined;
+      return;
+    }
+    animation = {
+      durationMs: stepMs,
+      elapsedMs: 0,
+      from: { ...(displayed ?? player), facing: player.facing },
+      fromWorld: true,
+      to: player,
+    };
+    advanceAnimation(0);
+  }
+
+  function followWalk(message: WalkingMessage | WalkEndedMessage) {
+    const walking = message.type === "walking";
+    if (walking && !onWalk) walkStarted = true;
+    onWalk = walking;
+
+    // A key press ended the walk. World answers it after this frame, and that
+    // moveResult is the truth, so this older position must not replace it.
+    if (pending.length === 0) showWorldStep(message.player);
+  }
+
   function receive(message: WorldMovementMessage) {
     if (message.type === "snapshot") {
+      onWalk = false;
+      walkStarted = false;
       takePresencePosition();
+      return;
+    }
+    if (message.type === "walking" || message.type === "walkEnded") {
+      followWalk(message);
       return;
     }
     if (message.type !== "moveResult" || !predicted) return;
@@ -115,6 +159,7 @@ export function createOwnAvatarMovement({
                 durationMs: remainingMs,
                 elapsedMs: 0,
                 from: reconciled.player,
+                fromWorld: false,
                 to: reconciled.player,
               };
       }
@@ -160,6 +205,7 @@ export function createOwnAvatarMovement({
       durationMs: stepMs,
       elapsedMs: 0,
       from: { ...from, facing: next.facing },
+      fromWorld: false,
       to: next,
     };
     advanceAnimation(carriedMs);
@@ -172,6 +218,11 @@ export function createOwnAvatarMovement({
   return {
     readPlayer: () => displayed,
     stop: unsubscribe,
+    takeWalkStarted() {
+      const started = walkStarted;
+      walkStarted = false;
+      return started;
+    },
     update({ deltaMs, held, pressed }) {
       if (!predicted) takePresencePosition();
 
@@ -183,9 +234,10 @@ export function createOwnAvatarMovement({
       }
 
       const carriedMs = advanceAnimation(deltaMs);
-      if (animation) return;
-
       const direction = buffered ?? pressed ?? heldOrder.at(-1);
+      // World's steps arrive back to back, so waiting for one to finish could
+      // starve the key press that ends the walk.
+      if (animation && !(animation.fromWorld && direction)) return;
       if (!direction) return;
       if (beginStep(direction, carriedMs)) buffered = undefined;
     },

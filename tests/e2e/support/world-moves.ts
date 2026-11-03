@@ -8,8 +8,17 @@ const moveMessageSchema = z.object({
   seq: z.int().nonnegative(),
 });
 
+const goToMessageSchema = z.object({
+  type: z.literal("goTo"),
+  userId: z.string(),
+});
+
 export type CapturedMove = z.output<typeof moveMessageSchema>;
 
 export function readMove(message: string | Buffer): CapturedMove | undefined {
   return parseJson(moveMessageSchema, String(message));
+}
+
+export function readGoToTarget(message: string | Buffer): string | undefined {
+  return parseJson(goToMessageSchema, String(message))?.userId;
 }

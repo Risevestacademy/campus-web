@@ -37,6 +37,8 @@ gate prepare the map again.
 Analytics: `campus_world.map_loaded` carries preparation time (`load_ms`);
 `campus_world.map_ready` carries the time from game start to the first drawn
 frame (`first_frame_ms`), once per ready start;
+`campus_world.go_to_ended` carries how a walk ended (`reason`), captured in
+`features/campus`, which outlives the map;
 `campus_world.move_corrected` carries a non-`moved` result (`outcome`), only
 when world's answer puts you somewhere other than predicted. Prediction treats
 a tile world `refused` as a wall until world moves you onto it, so a key held
@@ -159,6 +161,11 @@ initialized`. The runtime moves its one canvas between containers, clears
   `facing`, a ring for you) until character art exists. Once world has
   placed you, the camera follows your drawn, predicted position each frame,
   clamped to the map, so it never waits for world's answer.
+- A walk world takes for Go to arrives as `walking` frames, drawn over `stepMs`
+  like a `moveResult` nobody predicted, and ends with `walkEnded`. Its start
+  returns the camera to you once, so a drag made mid-walk holds. A key press
+  never waits for a walk's step: it ends the walk, and world's `moveResult`
+  then outranks any step still on its way.
 - `game/campus-camera.ts` owns the camera's frame state: zoom level, centre,
   and whether a drag or wheel zoom has set it free. Zoom levels are Whole
   map, 1x, 2x and 3x, default 2x. 1x to 3x are whole numbers, which keep

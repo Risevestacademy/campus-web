@@ -154,10 +154,11 @@ export function addAvatarLayer(
         const pressed = pressedDirection();
         ownMovement.update({ deltaMs, held, pressed });
         remoteMovement.update(deltaMs);
+        const walkStarted = ownMovement.takeWalkStarted();
         camera.update({
           deltaMs,
           self: ownMovement.readPlayer(),
-          walking: pressed !== null || held.length > 0,
+          walking: walkStarted || pressed !== null || held.length > 0,
         });
       },
       draw() {

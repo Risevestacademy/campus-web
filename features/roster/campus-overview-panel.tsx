@@ -8,6 +8,7 @@ import { presenceFor } from "@/core/presence";
 import { CampusOverview } from "./campus-overview";
 import { contextLabelFor } from "./context-label";
 import { useCohortDirectory } from "./hooks/use-cohort-directory";
+import { useGoToParticipant } from "./hooks/use-go-to-participant";
 import { toRosterParticipants } from "./presence-participants";
 import type { CohortContext } from "./types";
 
@@ -28,6 +29,7 @@ export function CampusOverviewPanel({
   // but the old snapshot is not current.
   const hasSnapshot = useStore(presence, (state) => state.synced);
   const directory = useCohortDirectory(cohortId);
+  const goToParticipant = useGoToParticipant(cohortId);
 
   const { online, offline } = useMemo(
     () =>
@@ -46,6 +48,9 @@ export function CampusOverviewPanel({
       collapseButton={collapseButton}
       contextLabel={contextLabelFor(cohort)}
       offlineParticipants={offline}
+      onParticipantAction={(action, participant) => {
+        if (action === "go-to") goToParticipant(participant.id);
+      }}
       participants={online}
     />
   );

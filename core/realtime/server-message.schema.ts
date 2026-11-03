@@ -26,9 +26,12 @@ import type {
   SpacesMessage,
   Status as PublishedStatus,
   StatusChangedMessage as PublishedStatusChangedMessage,
+  WalkEndedMessage as PublishedWalkEndedMessage,
+  WalkEndReason as PublishedWalkEndReason,
+  WalkingMessage as PublishedWalkingMessage,
   WelcomeMessage as PublishedWelcomeMessage,
 } from "./generated/world-protocol";
-import { MOVE_OUTCOMES } from "./move-outcomes";
+import { MOVE_OUTCOMES, WALK_END_REASONS } from "./move-outcomes";
 
 // A value world added after the last `pnpm world:types` reads as "unknown",
 // so the frame still arrives and the move it answers still resolves.
@@ -43,6 +46,13 @@ export type MoveResultMessage = Simplify<
 >;
 export type ErrorMessage = Simplify<
   Omit<PublishedErrorMessage, "code"> & { code: ErrorCode }
+>;
+export type WalkEndReason = OrUnknown<PublishedWalkEndReason>;
+export type WalkingMessage = Pick<PublishedWalkingMessage, "type" | "player">;
+export type WalkEndedMessage = Simplify<
+  Pick<PublishedWalkEndedMessage, "type" | "player" | "spaceKey"> & {
+    reason: WalkEndReason;
+  }
 >;
 export type Avatar = Simplify<
   Pick<
@@ -95,8 +105,6 @@ type UnreadType = Extract<
   | "entryRequested"
   | "entryRequestEnded"
   | "staffAction"
-  | "walking"
-  | "walkEnded"
 >;
 type UnreadMessage = { [Type in UnreadType]: { type: Type } }[UnreadType];
 
@@ -116,6 +124,8 @@ export type ServerMessage =
   | SpaceChangedMessage
   | SpacesMessage
   | CallMessage
+  | WalkingMessage
+  | WalkEndedMessage
   | UnreadMessage;
 
 function orUnknown<const Values extends readonly [string, ...string[]]>(
@@ -139,6 +149,9 @@ const directionSchema = z.toZod<Direction>()(
 );
 
 const moveOutcomeSchema = z.toZod<MoveOutcome>()(orUnknown(MOVE_OUTCOMES));
+const walkEndReasonSchema = z.toZod<WalkEndReason>()(
+  orUnknown(WALK_END_REASONS),
+);
 
 const errorCodeSchema = z.toZod<ErrorCode>()(
   orUnknown(["UNAUTHORIZED", "BAD_MESSAGE", "NOT_ALLOWED"]),
@@ -234,6 +247,19 @@ const moveResultMessageSchema = z.toZod<MoveResultMessage>()(
   }),
 );
 
+const walkingMessageSchema = z.toZod<WalkingMessage>()(
+  z.object({ type: z.literal("walking"), player: playerSchema }),
+);
+
+const walkEndedMessageSchema = z.toZod<WalkEndedMessage>()(
+  z.object({
+    type: z.literal("walkEnded"),
+    reason: walkEndReasonSchema,
+    player: playerSchema,
+    spaceKey: z.string().nullable(),
+  }),
+);
+
 const errorMessageSchema = z.toZod<ErrorMessage>()(
   z.object({
     type: z.literal("error"),
@@ -307,8 +333,8 @@ const serverMessageSchema = z.toZod<ServerMessage>()(
     unreadMessageSchema("entryRequested"),
     unreadMessageSchema("entryRequestEnded"),
     unreadMessageSchema("staffAction"),
-    unreadMessageSchema("walking"),
-    unreadMessageSchema("walkEnded"),
+    walkingMessageSchema,
+    walkEndedMessageSchema,
   ]),
 );
 

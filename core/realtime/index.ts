@@ -57,6 +57,9 @@ export {
   type ServerMessageResult,
   type SnapshotMessage,
   type StatusChangedMessage,
+  type WalkEndedMessage,
+  type WalkEndReason,
+  type WalkingMessage,
   type WelcomeMessage,
 } from "./server-message.schema";
 export { parseSocketClose } from "./socket-close.schema";

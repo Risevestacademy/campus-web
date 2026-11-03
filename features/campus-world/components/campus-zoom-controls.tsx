@@ -2,8 +2,8 @@
 
 import { MinusIcon } from "@phosphor-icons/react/dist/ssr/Minus";
 import { PlusIcon } from "@phosphor-icons/react/dist/ssr/Plus";
-import type { MouseEvent } from "react";
 
+import { keepFocus } from "@/shared/lib/keep-focus";
 import { Button } from "@/shared/ui/button";
 import { ButtonGroup } from "@/shared/ui/button-group";
 
@@ -14,11 +14,6 @@ import {
 
 interface CampusZoomControlsProps {
   dependencies?: Pick<CampusMapDependencies, "runtime">;
-}
-
-// Pressing a button would take focus from the canvas and stop Arrow keys.
-function keepCanvasFocus(event: MouseEvent) {
-  event.preventDefault();
 }
 
 export function CampusZoomControls({
@@ -36,7 +31,7 @@ export function CampusZoomControls({
         title="Zoom in"
         className="bg-surface-elevated"
         onClick={() => runtime.zoom(1)}
-        onMouseDown={keepCanvasFocus}
+        onMouseDown={keepFocus}
       >
         <PlusIcon aria-hidden />
       </Button>
@@ -48,7 +43,7 @@ export function CampusZoomControls({
         title="Zoom out"
         className="bg-surface-elevated"
         onClick={() => runtime.zoom(-1)}
-        onMouseDown={keepCanvasFocus}
+        onMouseDown={keepFocus}
       >
         <MinusIcon aria-hidden />
       </Button>

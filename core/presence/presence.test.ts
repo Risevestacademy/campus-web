@@ -229,7 +229,21 @@ describe("applyServerMessage", () => {
     ]);
   });
 
-  it("puts you where world's moveResult says", () => {
+  it.each<ServerMessage>([
+    {
+      type: "moveResult",
+      seq: 3,
+      outcome: "blocked",
+      player: { userId: "ada", x: 4, y: 7, facing: "up" },
+    },
+    { type: "walking", player: { userId: "ada", x: 4, y: 7, facing: "up" } },
+    {
+      type: "walkEnded",
+      reason: "arrived",
+      player: { userId: "ada", x: 4, y: 7, facing: "up" },
+      spaceKey: null,
+    },
+  ])("puts you where world's $type says", (message) => {
     const withSelf = applyServerMessage(snapshotOf(ADA), {
       type: "welcome",
       userId: "ada",
@@ -241,12 +255,7 @@ describe("applyServerMessage", () => {
       spriteKey: null,
     });
 
-    const presence = applyServerMessage(withSelf, {
-      type: "moveResult",
-      seq: 3,
-      outcome: "blocked",
-      player: { userId: "ada", x: 4, y: 7, facing: "up" },
-    });
+    const presence = applyServerMessage(withSelf, message);
 
     expect(presence.positions.get("ada")).toEqual({ x: 4, y: 7, facing: "up" });
   });
@@ -272,6 +281,7 @@ describe("applyServerMessage", () => {
       outcome: "moved",
       player: { userId: "ada", x: 5, y: 7, facing: "right" },
     },
+    { type: "walking", player: { userId: "ada", x: 5, y: 7, facing: "right" } },
     { type: "nearby", userIds: [] },
     { type: "call", call: null },
   ])(

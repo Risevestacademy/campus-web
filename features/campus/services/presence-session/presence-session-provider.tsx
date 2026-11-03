@@ -18,6 +18,7 @@ import { MediaSessionProvider } from "../media-session/media-session-provider";
 import { createMediaSessionStore } from "../media-session/media-session-store";
 import { useMediaSessionLifecycle } from "../media-session/use-media-session-lifecycle";
 import { createBrowserWorldSession } from "../world-session/browser-world-session";
+import { announceWalkEnded } from "../world-session/walk-feedback";
 import { WorldSessionProvider } from "../world-session/world-session-provider";
 import {
   type AdmissionState,
@@ -80,7 +81,10 @@ function createPresenceSession(
       presenceTab,
       browserNavigation,
     ),
-    onMessage: callMedia.applyWorldMessage,
+    onMessage(message, presence) {
+      callMedia.applyWorldMessage(message, presence);
+      announceWalkEnded(message, presence);
+    },
     onRemoteParticipantsCleared: callMedia.applyPresence,
   });
 

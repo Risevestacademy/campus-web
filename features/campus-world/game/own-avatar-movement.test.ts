@@ -5,6 +5,8 @@ import {
   createWorldMovementChannel,
   type Direction,
   type MoveResultMessage,
+  type WalkEndedMessage,
+  type WalkingMessage,
 } from "@/core/realtime";
 
 import { movementLayout } from "../testing/movement";
@@ -29,6 +31,7 @@ function startMovement(
   const movement = createWorldMovementChannel();
   const sent: Array<{ direction: Direction; seq: number }> = [];
   movement.bind((message) => {
+    if (message.type !== "move") return true;
     if (!sendMove(message.direction, message.seq)) return false;
     sent.push({ direction: message.direction, seq: message.seq });
     return true;
@@ -70,7 +73,9 @@ function startMovement(
     controller.update({ deltaMs, held, pressed });
   }
 
-  function receive(result: MoveResultMessage) {
+  function receive(
+    result: MoveResultMessage | WalkingMessage | WalkEndedMessage,
+  ) {
     presence.getState().apply(result);
     movement.apply(result);
   }
@@ -329,5 +334,108 @@ describe("createOwnAvatarMovement", () => {
     expect(sent).toHaveLength(1);
     update(1, null, ["right"]);
     expect(sent).toHaveLength(2);
+  });
+
+  describe("a walk world takes", () => {
+    const step = (x: number, y = 0): WalkingMessage => ({
+      type: "walking",
+      player: { userId: "ada", x, y, facing: "right" },
+    });
+    const ended = (
+      x: number,
+      reason: WalkEndedMessage["reason"] = "arrived",
+    ): WalkEndedMessage => ({
+      type: "walkEnded",
+      reason,
+      player: { userId: "ada", x, y: 0, facing: "right" },
+      spaceKey: null,
+    });
+
+    it("draws each step over stepMs and sends nothing", () => {
+      const { controller, receive, sent, update } = startMovement();
+
+      receive(step(1));
+      update(50);
+      expect(controller.readPlayer()?.x).toBe(0.5);
+
+      update(50);
+      expect(controller.readPlayer()?.x).toBe(1);
+      expect(sent).toEqual([]);
+    });
+
+    it("jumps each step under reduced motion", () => {
+      const { controller, receive } = startMovement(true);
+
+      receive(step(1));
+
+      expect(controller.readPlayer()?.x).toBe(1);
+    });
+
+    it("lets a key press end the walk mid-step, even with steps back to back", () => {
+      const { receive, sent, update } = startMovement();
+
+      receive(step(1));
+      update(90);
+      receive(step(2));
+      update(10, "down", ["down"]);
+
+      expect(sent).toEqual([{ direction: "down", seq: 1 }]);
+    });
+
+    it("trusts the moveResult over steps still on their way after a key press", () => {
+      const { controller, receive, update } = startMovement();
+
+      update(0, "down", ["down"]);
+      receive(step(1));
+      receive(ended(1, "stopped"));
+      expect(controller.readPlayer()?.x).toBe(0);
+
+      receive({
+        type: "moveResult",
+        seq: 1,
+        outcome: "moved",
+        player: { userId: "ada", x: 1, y: 1, facing: "down" },
+      });
+
+      expect(controller.readPlayer()).toMatchObject({ x: 1, y: 1 });
+    });
+
+    it("finishes the last step when the walk ends on that tile", () => {
+      const { controller, receive, update } = startMovement();
+
+      receive(step(1));
+      update(50);
+      receive(ended(1));
+      expect(controller.readPlayer()?.x).toBe(0.5);
+
+      update(50);
+      expect(controller.readPlayer()?.x).toBe(1);
+    });
+
+    it("goes where world says the walk ended when that is somewhere new", () => {
+      const { controller, receive, update } = startMovement();
+
+      receive(step(1));
+      receive(ended(3, "moved_by_staff"));
+      update(100);
+
+      expect(controller.readPlayer()?.x).toBe(3);
+    });
+
+    it("reports each walk's start once", () => {
+      const { controller, receive } = startMovement();
+
+      expect(controller.takeWalkStarted()).toBe(false);
+
+      receive(step(1));
+      expect(controller.takeWalkStarted()).toBe(true);
+
+      receive(step(2));
+      expect(controller.takeWalkStarted()).toBe(false);
+
+      receive(ended(2));
+      receive(step(3));
+      expect(controller.takeWalkStarted()).toBe(true);
+    });
   });
 });
