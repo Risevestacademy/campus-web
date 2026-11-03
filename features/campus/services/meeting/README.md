@@ -43,3 +43,19 @@ that built a fresh object would loop `useSyncExternalStore`.
 pnpm vitest run --project=unit features/campus/services/meeting
 pnpm eval:proximity
 ```
+
+## Layout
+
+Every tile is 16:9 in every view: the strip, the equal grid, the rail and the
+focused stage. `layout` animates with `scale`, so one ratio keeps that scale
+uniform and the content never stretches. A view that needs another ratio brings
+the stretch back.
+
+- `meetingGridShape(tileCount)`: columns and rows for the equal grid,
+  `ceil(sqrt(n))` columns. `meeting-tiles.module.css` fits the tiles to the area
+  with container units, and a short last row is centred.
+- Focus keeps the tiles flat siblings, with the rail in flow and the stage
+  absolute. A wrapper around the rail would remount its tiles and re-attach
+  their video.
+- The rail and stage centre as a pair, so a wide window's spare width sits
+  outside them, not between them.

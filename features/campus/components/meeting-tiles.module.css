@@ -1,0 +1,67 @@
+/* Every tile stays 16:9, in every view: `layout` animates with scale, so one
+   ratio makes that scale uniform and the content never stretches. */
+.expanded {
+  --tile-gap: 0.25rem;
+  --rail-width: 14rem;
+
+  container-type: size;
+}
+
+.equalTiles {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: var(--tile-gap);
+}
+
+/* The 1px keeps a rounded-up sum from wrapping a row early. */
+.equalTile {
+  width: min(
+    (100cqw - (var(--columns) - 1) * var(--tile-gap) - 1px) / var(--columns),
+    (100cqh - (var(--rows) - 1) * var(--tile-gap)) / var(--rows) * 16 / 9
+  );
+  aspect-ratio: 16 / 9;
+}
+
+/* Spans the whole section, so a tile morphing to or from the rail is never
+   clipped: a rail-wide scroller would cut it off, and dropping overflow during
+   the morph would lose the scroll position. Stays unpositioned, so the stage
+   anchors to the section and does not scroll with the rail. The padding keeps
+   a focus ring inside the clip.
+
+   A wide window leaves the height-limited stage with spare width. Centring the
+   rail and stage as a pair keeps that width outside them, not between them. */
+.focusTiles {
+  --stage-left: calc(var(--rail-width) + var(--tile-gap) * 2);
+  --stage-width: min(100cqw - var(--stage-left), 100cqh * 16 / 9);
+  --pair-inset: calc((100cqw - var(--stage-left) - var(--stage-width)) / 2);
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: safe center;
+  gap: var(--tile-gap);
+  padding: 0.125rem;
+  padding-inline-start: calc(var(--pair-inset) + 0.125rem);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.focusTiles::-webkit-scrollbar {
+  display: none;
+}
+
+.railTile {
+  flex-shrink: 0;
+  width: var(--rail-width);
+  aspect-ratio: 16 / 9;
+}
+
+.stageTile {
+  position: absolute;
+  inset: 0 auto 0 calc(var(--pair-inset) + var(--stage-left));
+  width: var(--stage-width);
+  height: calc(var(--stage-width) * 9 / 16);
+  margin-block: auto;
+}

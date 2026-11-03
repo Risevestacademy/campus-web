@@ -40,23 +40,18 @@ const everyoneNearby: readonly MeetingParticipant[] = [
 
 interface MeetingViewMotionLabProps {
   durationMs: number;
-  bounce: number;
   nearbyCount: number;
 }
 
 function MeetingViewMotionLab({
   durationMs,
-  bounce,
   nearbyCount,
 }: MeetingViewMotionLabProps) {
   const [{ isNear, encounter }, setNearness] = useState({
     isNear: true,
     encounter: 1,
   });
-  const motionConfig: MeetingTileMotionConfig = {
-    durationMs,
-    bounce,
-  };
+  const motionConfig: MeetingTileMotionConfig = { durationMs };
   const meeting: Meeting = {
     encounter,
     hearing: "proximity",
@@ -122,7 +117,6 @@ const meta = {
   tags: ["!autodocs"],
   args: {
     durationMs: DEFAULT_MEETING_TILE_MOTION.durationMs,
-    bounce: DEFAULT_MEETING_TILE_MOTION.bounce,
     nearbyCount: 1,
   },
   argTypes: {
@@ -140,14 +134,6 @@ const meta = {
         min: 180,
         max: 800,
         step: 10,
-      },
-    },
-    bounce: {
-      control: {
-        type: "range",
-        min: 0,
-        max: 0.3,
-        step: 0.01,
       },
     },
   },
@@ -271,8 +257,8 @@ export const Focused: Story = {
 // Nobody near while the grid is open: the grid collapses toward the strip as
 // it fades, instead of fading out at full size.
 export const LeavesWhileExpanded: Story = {
-  // The spring runs on time and the check samples frames: under parallel test
-  // load one frame can outlast the default spring and read as a snap.
+  // The morph runs on time and the check samples frames: under parallel test
+  // load one frame can outlast the default morph and read as a snap.
   args: { durationMs: 1_600 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
