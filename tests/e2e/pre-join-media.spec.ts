@@ -159,6 +159,10 @@ test("the analytics banner leaves the Presence dock within reach", async ({
   baseURL,
   fakeApi,
 }) => {
+  test.skip(
+    !process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
+    "A build without a PostHog token has no Privacy choices.",
+  );
   await signIn(context, baseURL);
   await fakeApi.scriptSession(sessions.admin());
   await installSanityMapStub(page);
