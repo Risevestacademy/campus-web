@@ -80,11 +80,15 @@ test("titles the meeting view with the room's name and hides it once you are alo
   const shareScreen = page.getByRole("button", { name: "Share screen" });
   await expect(heading).toBeVisible();
   await expect(graceTile).toBeVisible();
-  // This suite has no media server, so the call fails and leaves nothing to share into.
+  // This suite has no media server, so the call fails and the button says so.
   await expect(
     page.getByRole("alert").filter({ hasText: "Audio couldn't connect" }),
   ).toBeVisible();
-  await expect(shareScreen).toBeHidden();
+  await expect(shareScreen).toHaveAttribute("aria-disabled", "true");
+  await expect(shareScreen).toHaveAttribute(
+    "title",
+    "Share screen: the call isn't connected",
+  );
 
   sendFrame(sockets[0]!, {
     type: "spaceChanged",
