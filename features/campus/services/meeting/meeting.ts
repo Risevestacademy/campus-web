@@ -58,6 +58,11 @@ export function splitAtCap<Item>(
   };
 }
 
+export function meetingGridShape(tileCount: number) {
+  const columns = Math.ceil(Math.sqrt(tileCount));
+  return { columns, rows: Math.ceil(tileCount / columns) };
+}
+
 const screenTile =
   (kind: "screen" | "own-screen") =>
   (participant: MeetingParticipant): MeetingTile => ({

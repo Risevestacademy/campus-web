@@ -198,6 +198,7 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "auth.verification_completed": ["verification_type"],
   "auth.verification_sent": ["verification_type"],
   "campus.connection_check_completed": ["failed_step", "result"],
+  "campus.device_access_requested": ["outcome"],
   "campus.presence_tab_conflict_shown": ["surface"],
   "campus.presence_tab_moved": ["surface"],
   "campus.meeting_video_ready": [

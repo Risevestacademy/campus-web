@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "cn";
-import type { Ref } from "react";
+import type { ReactNode, Ref } from "react";
 
 import { useMediaElementRef } from "../hooks/use-media-element-ref";
 import type { MediaPublication } from "../services/media-session/contracts";
@@ -15,7 +15,11 @@ type MediaPublicationOutputProps = Readonly<{
   label: string;
   ref?: Ref<HTMLDivElement>;
   videoPublication?: MediaPublication;
+  // A slot, so the Join Gate's preview does not load Motion for a tile's need.
+  wrapFallback?: (fallback: ReactNode) => ReactNode;
 }>;
+
+const asIs = (fallback: ReactNode) => fallback;
 
 export function MediaPublicationOutput({
   className,
@@ -26,6 +30,7 @@ export function MediaPublicationOutput({
   label,
   ref,
   videoPublication,
+  wrapFallback = asIs,
 }: MediaPublicationOutputProps) {
   const videoRef = useMediaElementRef(videoPublication);
   const showVideo = Boolean(
@@ -56,22 +61,24 @@ export function MediaPublicationOutput({
         />
       ) : null}
 
-      {showVideo ? null : (
-        <div className="text-foreground-secondary grid place-items-center gap-2 text-center">
-          {fallbackInitials ? (
-            <span
-              aria-hidden="true"
-              className={cn(
-                "bg-muted text-foreground grid size-12 place-items-center rounded-full font-medium",
-                fallbackClassName,
-              )}
-            >
-              {fallbackInitials}
-            </span>
-          ) : null}
-          <span className="text-xs">{fallbackLabel}</span>
-        </div>
-      )}
+      {showVideo
+        ? null
+        : wrapFallback(
+            <div className="text-foreground-secondary grid place-items-center gap-2 text-center">
+              {fallbackInitials ? (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "bg-muted text-foreground grid size-12 place-items-center rounded-full font-medium",
+                    fallbackClassName,
+                  )}
+                >
+                  {fallbackInitials}
+                </span>
+              ) : null}
+              <span className="text-xs">{fallbackLabel}</span>
+            </div>,
+          )}
     </div>
   );
 }
