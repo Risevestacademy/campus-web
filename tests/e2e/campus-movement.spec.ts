@@ -23,7 +23,11 @@ import {
   test,
 } from "./support/fake-api-fixture";
 import { E2E_MAP, installSanityMapStub } from "./support/sanity-stub";
-import { type CapturedMove, readMove } from "./support/world-moves";
+import {
+  type CapturedMove,
+  readGoToTarget,
+  readMove,
+} from "./support/world-moves";
 
 test.skip(
   Boolean(process.env.PLAYWRIGHT_BASE_URL),
@@ -73,11 +77,14 @@ async function enterWorld(
   { baseURL, context, fakeApi, page, world }: Fixtures,
   { answer, players, stepMs }: WorldScript,
 ) {
+  const goToTargets: string[] = [];
   const moves: ArrivedMove[] = [];
   let connected: WebSocketRoute | undefined;
   world.replaceHandler((socket) => {
     connected = socket;
     socket.onMessage((message) => {
+      const target = readGoToTarget(message);
+      if (target) goToTargets.push(target);
       const move = readMove(message);
       if (!move) return;
       moves.push({ ...move, arrivedAt: Date.now() });
@@ -102,7 +109,7 @@ async function enterWorld(
     if (!connected) throw new Error("world never received a socket");
     return connected;
   };
-  return { canvas, moves, socket };
+  return { canvas, goToTargets, moves, socket };
 }
 
 async function holdUntil(page: Page, key: string, reached: () => boolean) {
@@ -241,4 +248,82 @@ test("walks a remote three-tile jump one orthogonal tile at a time", async ({
   expect(first).toBeGreaterThanOrEqual(0);
   expect(corner).toBeGreaterThan(first);
   expect(last).toBeGreaterThan(corner);
+});
+
+test("walks where world says after Go to, until a key press takes over", async ({
+  baseURL,
+  context,
+  fakeApi,
+  page,
+  world,
+}) => {
+  const ada = placed(ADA, { x: 1, y: 1, facing: "right" });
+  const { canvas, goToTargets, moves, socket } = await enterWorld(
+    { baseURL, context, fakeApi, page, world },
+    {
+      stepMs: 100,
+      players: [ada, placed(GRACE, { x: 3, y: 2, facing: "down" })],
+    },
+  );
+  const before = await settledDigest(canvas);
+
+  await page.getByRole("button", { name: "Go to Grace" }).click();
+  await expect.poll(() => goToTargets).toEqual([GRACE.userId]);
+  await expect(canvas).toBeFocused();
+
+  send(socket(), {
+    type: "walking",
+    player: { userId: ADA.userId, x: 2, y: 1, facing: "right" },
+  });
+  await expect.poll(() => settledDigest(canvas)).not.toBe(before);
+
+  await holdUntil(page, "ArrowDown", () => moves.length > 0);
+  expect(moves[0]?.direction).toBe("down");
+});
+
+test("says why a walk stopped at a closed space", async ({
+  baseURL,
+  context,
+  fakeApi,
+  page,
+  world,
+}) => {
+  const { socket } = await enterWorld(
+    { baseURL, context, fakeApi, page, world },
+    { stepMs: 100, players: [ADA, GRACE] },
+  );
+
+  send(socket(), {
+    type: "walkEnded",
+    reason: "refused",
+    player: { userId: ADA.userId, x: ADA.x, y: ADA.y, facing: ADA.facing },
+    spaceKey: "library",
+  });
+
+  await expect(
+    page.getByLabel("Notifications").getByText("You can't enter Library."),
+  ).toBeVisible();
+});
+
+test("shows a row's actions to a keyboard, but none on the member's own row", async ({
+  baseURL,
+  context,
+  fakeApi,
+  page,
+  world,
+}) => {
+  await enterWorld(
+    { baseURL, context, fakeApi, page, world },
+    { stepMs: 100, players: [ADA, GRACE] },
+  );
+  const goToGrace = page.getByRole("button", { name: "Go to Grace" });
+  const graceActions = goToGrace.locator("..");
+  await expect(graceActions).toHaveCSS("opacity", "0");
+
+  await goToGrace.focus();
+
+  await expect(graceActions).toHaveCSS("opacity", "1");
+  await expect(
+    page.getByRole("button", { name: `Go to ${ADA.displayName}` }),
+  ).toHaveCount(0);
 });

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { cohortRoleSchema, systemRoleSchema } from "../api/schemas";
 import { CLOSE_REASONS } from "../realtime/close-codes";
 import { CLOSE_ACTIONS } from "../realtime/close-policy";
-import { MOVE_CORRECTIONS } from "../realtime/move-outcomes";
+import { MOVE_CORRECTIONS, WALK_END_REASONS } from "../realtime/move-outcomes";
 
 export const ANALYTICS_EVENTS = {
   AUTH_LOGIN_FAILED: "auth.login_failed",
@@ -28,6 +28,7 @@ export const ANALYTICS_EVENTS = {
   CAMPUS_SCREEN_SHARE_ENDED: "campus.screen_share_ended",
   CAMPUS_SCREEN_SHARE_READY: "campus.screen_share_ready",
   CAMPUS_WORLD_CAMERA_ZOOMED: "campus_world.camera_zoomed",
+  CAMPUS_WORLD_GO_TO_ENDED: "campus_world.go_to_ended",
   CAMPUS_WORLD_MAP_FAILED: "campus_world.map_failed",
   CAMPUS_WORLD_MAP_LOADED: "campus_world.map_loaded",
   CAMPUS_WORLD_MAP_READY: "campus_world.map_ready",
@@ -226,6 +227,9 @@ export const analyticsEventSchemas = {
   }),
   [ANALYTICS_EVENTS.CAMPUS_WORLD_CAMERA_ZOOMED]: z.object({
     level: z.literal(["whole", 1, 2, 3]),
+  }),
+  [ANALYTICS_EVENTS.CAMPUS_WORLD_GO_TO_ENDED]: z.object({
+    reason: z.enum([...WALK_END_REASONS, "unknown"]),
   }),
   [ANALYTICS_EVENTS.CAMPUS_WORLD_MOVE_CORRECTED]: z.object({
     outcome: z.enum([...MOVE_CORRECTIONS, "unknown"]),

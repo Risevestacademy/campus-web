@@ -40,7 +40,10 @@ passes the panel in because Campus may not import Roster.
   coordinates: the profiles list carries no role, world has no Do Not Disturb,
   and a tile means nothing to a member.
 - Busy appears only for people whose client sends `setStatus`; the web client
-  does not yet. Wave, Go to and Message do nothing yet.
+  does not yet. Wave and Message do nothing yet.
+- Go to asks world to walk the member to somebody (`useGoToParticipant`) and
+  brings them to the map from any other page. While the socket is down it says
+  so and goes nowhere. The member's own row offers no actions.
 
 ## Modules
 
@@ -75,7 +78,8 @@ Add it to `quickTransportDestinations` in `quick-transport.ts`.
 
 ### Rules
 
-- Import only `@/core/presence`, `@/core/api` and `shared`; no other feature.
+- Import only `@/core/presence`, `@/core/api`, `@/core/realtime`,
+  `@/core/navigation` and `shared`; no other feature.
   `features/feedback` reads the same endpoint for its own picker, and each
   keeps its own copy.
 - Parse the directory where it arrives and keep only `id` and `displayName`.

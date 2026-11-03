@@ -290,6 +290,8 @@ function applyFrame(presence: Presence, message: ServerMessage): Presence {
     case "moved":
       return moveKnown(presence, message.players);
     case "moveResult":
+    case "walking":
+    case "walkEnded":
       return message.player.userId === presence.selfId
         ? moveKnown(presence, [message.player])
         : presence;

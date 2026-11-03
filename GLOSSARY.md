@@ -225,6 +225,11 @@ or the corridors and grounds between them. Each member stands in one.
 World gives each space a name.
 _Avoid_: Room (a Call's media room), zone, area
 
+**Walk**:
+World moving a member step by step to somebody they chose with Go to, stopping
+beside them. Walls and closed spaces hold, and any key press ends it.
+_Avoid_: Teleport, follow, transport
+
 **Call**:
 The room World grants for the space a member is in, carrying voices and
 cameras, or none. Each new space brings a new Call while the Presence
