@@ -300,7 +300,9 @@ test("says why a walk stopped at a closed space", async ({
     spaceKey: "library",
   });
 
-  await expect(page.getByText(/You can't enter/)).toBeVisible();
+  await expect(
+    page.getByLabel("Notifications").getByText("You can't enter Library."),
+  ).toBeVisible();
 });
 
 test("shows a row's actions to a keyboard, but none on the member's own row", async ({
