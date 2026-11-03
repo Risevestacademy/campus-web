@@ -6,7 +6,8 @@ import type { DeviceAccessOutcome } from "../services/media-session/contracts";
 import { useMediaSession } from "../services/media-session/media-session-provider";
 
 function recordPromptOutcome(outcome: DeviceAccessOutcome) {
-  if (outcome === "not_needed" || outcome === "unsupported") return;
+  if (outcome !== "granted" && outcome !== "declined" && outcome !== "failed")
+    return;
 
   captureBrowserAnalyticsEvent(
     ANALYTICS_EVENTS.CAMPUS_DEVICE_ACCESS_REQUESTED,

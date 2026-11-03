@@ -15,8 +15,11 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
   `MediaSessionErrorCode` they produced, or `null`.
 - `requestDeviceAccess()`: the Join Gate's prompt, without a click. Asks in one
   prompt for the kinds the browser still hides, then releases what it captured.
-  Resolves to `granted`, `declined`, `failed`, `not_needed` or `unsupported`.
-  `campus.device_access_requested` records the first three.
+  Resolves to `granted`, `declined`, `failed`, `not_needed`, `unsupported` or
+  `cancelled`. `campus.device_access_requested` records the first three.
+  `stop()` releases its temporary capture even while discovery is pending. A
+  stopped session neither opens a late prompt nor refreshes a late grant;
+  a restart in flight shares the prompt and refreshes the new session's catalog.
 - `connect()`: joins the transport after Admission. Idempotent; replays
   publications chosen on pre-join as `added`. `stop()` disconnects and resets
   `callAudioStatus`, `remoteAudioGains` and `remotePublications`.

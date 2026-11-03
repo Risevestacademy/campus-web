@@ -1146,6 +1146,118 @@ describe("device access request", () => {
     expect(mediaDevices.getUserMedia).not.toHaveBeenCalled();
   });
 
+  it("does not prompt after the session stops during discovery", async () => {
+    const discovery = Promise.withResolvers<MediaDeviceInfo[]>();
+    const { mediaDevices, store } = setup(createPermissionPlaceholders());
+    vi.mocked(mediaDevices.enumerateDevices).mockReturnValueOnce(
+      discovery.promise,
+    );
+    await store.getState().start();
+
+    const request = store.getState().requestDeviceAccess();
+    store.getState().stop();
+    discovery.resolve(createPermissionPlaceholders());
+
+    await expect(request).resolves.toBe("cancelled");
+    expect(mediaDevices.getUserMedia).not.toHaveBeenCalled();
+    expect(store.getState().deviceDiscoveryStatus).toBe("idle");
+
+    await store.getState().start();
+    await expect(store.getState().requestDeviceAccess()).resolves.toBe(
+      "granted",
+    );
+    expect(mediaDevices.getUserMedia).toHaveBeenCalledOnce();
+  });
+
+  it("releases a grant returned after stop without refreshing devices", async () => {
+    const capture = Promise.withResolvers<MediaStream>();
+    const tracks = [
+      createTrack("audio", "microphone-1"),
+      createTrack("video", "camera-1"),
+    ];
+    const { mediaDevices, store } = setup(
+      createPermissionPlaceholders(),
+      () => capture.promise,
+    );
+    await store.getState().start();
+    const request = store.getState().requestDeviceAccess();
+    await vi.waitFor(() =>
+      expect(mediaDevices.getUserMedia).toHaveBeenCalledOnce(),
+    );
+
+    store.getState().stop();
+    capture.resolve(createStream(tracks));
+
+    await expect(request).resolves.toBe("cancelled");
+    for (const track of tracks) expect(track.stop).toHaveBeenCalledOnce();
+    expect(mediaDevices.enumerateDevices).toHaveBeenCalledOnce();
+    expect(store.getState().deviceDiscoveryStatus).toBe("idle");
+    expect(store.getState().localPublications).toEqual({});
+  });
+
+  it.each([false, true])(
+    "releases capture while refresh is pending, with start called: %s",
+    async (startSession) => {
+      const refresh = Promise.withResolvers<MediaDeviceInfo[]>();
+      const tracks = [
+        createTrack("audio", "microphone-1"),
+        createTrack("video", "camera-1"),
+      ];
+      const { mediaDevices, store } = setup(
+        createPermissionPlaceholders(),
+        async () => createStream(tracks),
+      );
+      vi.mocked(mediaDevices.enumerateDevices)
+        .mockResolvedValueOnce(createPermissionPlaceholders())
+        .mockReturnValueOnce(refresh.promise);
+      if (startSession) await store.getState().start();
+      const request = store.getState().requestDeviceAccess();
+      await vi.waitFor(() =>
+        expect(mediaDevices.enumerateDevices).toHaveBeenCalledTimes(2),
+      );
+
+      store.getState().stop();
+      store.getState().stop();
+
+      for (const track of tracks) expect(track.stop).toHaveBeenCalledOnce();
+      refresh.resolve([NAMED_CAMERA, NAMED_MICROPHONE]);
+      await expect(request).resolves.toBe("cancelled");
+      for (const track of tracks) expect(track.stop).toHaveBeenCalledOnce();
+      expect(store.getState().localPublications).toEqual({});
+    },
+  );
+
+  it("refreshes the restarted session when a previous refresh was pending", async () => {
+    const refresh = Promise.withResolvers<MediaDeviceInfo[]>();
+    const track = createTrack("video", "camera-1");
+    const { mediaDevices, store } = setup(
+      createPermissionPlaceholders(),
+      async () => createStream([track]),
+    );
+    vi.mocked(mediaDevices.enumerateDevices)
+      .mockResolvedValueOnce(createPermissionPlaceholders())
+      .mockReturnValueOnce(refresh.promise)
+      .mockResolvedValue([NAMED_CAMERA, NAMED_MICROPHONE]);
+    await store.getState().start();
+    const first = store.getState().requestDeviceAccess();
+    await vi.waitFor(() =>
+      expect(mediaDevices.enumerateDevices).toHaveBeenCalledTimes(2),
+    );
+
+    store.getState().stop();
+    await store.getState().start();
+    const second = store.getState().requestDeviceAccess();
+    expect(second).toBe(first);
+    refresh.resolve([]);
+
+    await expect(second).resolves.toBe("granted");
+    expect(track.stop).toHaveBeenCalledOnce();
+    expect(mediaDevices.getUserMedia).toHaveBeenCalledOnce();
+    expect(store.getState().camera.devices).toEqual([
+      { id: "camera-1", isDefault: false, label: "Studio Camera" },
+    ]);
+  });
+
   it("shows one prompt across a session restart in flight", async () => {
     const { mediaDevices, store } = setup(createPermissionPlaceholders());
 
@@ -1158,6 +1270,35 @@ describe("device access request", () => {
     await expect(first).resolves.toBe("granted");
     await expect(second).resolves.toBe("granted");
     expect(mediaDevices.getUserMedia).toHaveBeenCalledOnce();
+  });
+
+  it("shares a pending browser prompt with the restarted session", async () => {
+    const capture = Promise.withResolvers<MediaStream>();
+    const track = createTrack("video", "camera-1");
+    const { mediaDevices, store } = setup(
+      createPermissionPlaceholders(),
+      () => capture.promise,
+    );
+    await store.getState().start();
+    const first = store.getState().requestDeviceAccess();
+    await vi.waitFor(() =>
+      expect(mediaDevices.getUserMedia).toHaveBeenCalledOnce(),
+    );
+
+    store.getState().stop();
+    const second = store.getState().requestDeviceAccess();
+    await store.getState().start();
+    vi.mocked(mediaDevices.enumerateDevices).mockResolvedValue([NAMED_CAMERA]);
+    capture.resolve(createStream([track]));
+
+    expect(second).toBe(first);
+    await expect(first).resolves.toBe("granted");
+    expect(mediaDevices.getUserMedia).toHaveBeenCalledOnce();
+    expect(track.stop).toHaveBeenCalledOnce();
+    expect(store.getState().camera.devices).toEqual([
+      { id: "camera-1", isDefault: false, label: "Studio Camera" },
+    ]);
+    expect(store.getState().localPublications).toEqual({});
   });
 });
 
