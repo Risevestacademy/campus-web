@@ -98,17 +98,21 @@ export function createOwnAvatarMovement({
   function showWorldStep(player: Player) {
     if (!predicted || samePlayer(predicted, player)) return;
 
+    const from = predicted;
     const stepMs = movement.readStepMs();
     predicted = player;
-    if (stepMs === null) {
+    const distance = Math.abs(from.x - player.x) + Math.abs(from.y - player.y);
+    if (stepMs === null || distance !== 1) {
       displayed = player;
       animation = undefined;
       return;
     }
+    // Catch up to the previous server tile before starting the next step.
+    // Starting at the partly drawn position would cut corners on early frames.
     animation = {
       durationMs: stepMs,
       elapsedMs: 0,
-      from: { ...(displayed ?? player), facing: player.facing },
+      from: { ...from, facing: player.facing },
       fromWorld: true,
       to: player,
     };
@@ -196,7 +200,7 @@ export function createOwnAvatarMovement({
     const nextSequence = sequence + 1;
     if (!movement.sendMove({ direction, seq: nextSequence })) return false;
 
-    const from = displayed ?? predicted;
+    const from = animation?.fromWorld ? predicted : (displayed ?? predicted);
     const next = predictStep(predicted, direction, walkable());
     sequence = nextSequence;
     pending = [...pending, { direction, seq: sequence }];

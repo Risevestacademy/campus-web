@@ -165,7 +165,10 @@ initialized`. The runtime moves its one canvas between containers, clears
   like a `moveResult` nobody predicted, and ends with `walkEnded`. Its start
   returns the camera to you once, so a drag made mid-walk holds. A key press
   never waits for a walk's step: it ends the walk, and world's `moveResult`
-  then outranks any step still on its way.
+  then outranks any step still on its way. An early or batched step finishes
+  the previous server tile before animating the next, including a manual turn
+  that cancels the walk, so corners are never drawn as diagonal shortcuts.
+  A nonadjacent end position snaps into place.
 - `game/campus-camera.ts` owns the camera's frame state: zoom level, centre,
   and whether a drag or wheel zoom has set it free. Zoom levels are Whole
   map, 1x, 2x and 3x, default 2x. 1x to 3x are whole numbers, which keep

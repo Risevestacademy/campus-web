@@ -371,6 +371,47 @@ describe("createOwnAvatarMovement", () => {
       expect(controller.readPlayer()?.x).toBe(1);
     });
 
+    it("catches up batched steps without cutting through the wall at (2, 1)", () => {
+      const { controller, receive, sent, update } = startMovement();
+
+      receive(step(1));
+      receive(step(2));
+      receive(step(3));
+      receive(step(3, 1));
+
+      expect(controller.readPlayer()).toMatchObject({ x: 3, y: 0 });
+      update(75);
+      expect(controller.readPlayer()).toMatchObject({ x: 3, y: 0.75 });
+      update(25);
+      expect(controller.readPlayer()).toMatchObject({ x: 3, y: 1 });
+      expect(sent).toEqual([]);
+    });
+
+    it("finishes an early step at its tile before animating a turn", () => {
+      const { controller, receive, update } = startMovement();
+
+      receive(step(1));
+      update(50);
+      receive(step(1, 1));
+
+      expect(controller.readPlayer()).toMatchObject({ x: 1, y: 0 });
+      update(50);
+      expect(controller.readPlayer()).toMatchObject({ x: 1, y: 0.5 });
+    });
+
+    it("starts a manual turn from the last world tile when cancelling mid-step", () => {
+      const { controller, receive, sent, update } = startMovement();
+
+      receive(step(1));
+      update(50);
+      update(0, "down");
+
+      expect(controller.readPlayer()).toMatchObject({ x: 1, y: 0 });
+      update(50);
+      expect(controller.readPlayer()).toMatchObject({ x: 1, y: 0.5 });
+      expect(sent).toEqual([{ direction: "down", seq: 1 }]);
+    });
+
     it("lets a key press end the walk mid-step, even with steps back to back", () => {
       const { receive, sent, update } = startMovement();
 
@@ -412,12 +453,11 @@ describe("createOwnAvatarMovement", () => {
       expect(controller.readPlayer()?.x).toBe(1);
     });
 
-    it("goes where world says the walk ended when that is somewhere new", () => {
-      const { controller, receive, update } = startMovement();
+    it("snaps to a nonadjacent end position without animating through intervening tiles", () => {
+      const { controller, receive } = startMovement();
 
       receive(step(1));
       receive(ended(3, "moved_by_staff"));
-      update(100);
 
       expect(controller.readPlayer()?.x).toBe(3);
     });
