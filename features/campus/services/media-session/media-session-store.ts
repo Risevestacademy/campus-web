@@ -5,6 +5,7 @@ import type {
   CallAudioStatus,
   CaptureSource,
   CaptureSourceState,
+  DeviceAccessOutcome,
   DeviceCatalogSnapshot,
   DeviceDiscoveryStatus,
   LocalMediaPublication,
@@ -21,7 +22,7 @@ import type {
   VideoLayer,
   VideoSource,
 } from "./contracts";
-import { createDeviceCatalog } from "./device-discovery";
+import { createDeviceCatalog, discoverMediaDevices } from "./device-discovery";
 import {
   DEFAULT_MEDIA_DEVICE_PREFERENCES,
   loadMediaDevicePreferences,
@@ -75,6 +76,8 @@ export type MediaSessionState = Readonly<{
   remoteAudioGains: RemoteAudioGains;
   remotePublications: RemotePublicationRegistry;
   remoteScreenShares: ReadonlySet<string>;
+  // Obtains permission only: capture stays off until the member turns it on.
+  requestDeviceAccess: () => Promise<DeviceAccessOutcome>;
   retryCallAudio: () => void;
   screenShare: ScreenShareState;
   selectInputDevice: (
@@ -247,6 +250,7 @@ export function createMediaSessionStore(
   let started = false;
   let removeDeviceChangeListener: (() => void) | undefined;
   let disconnectTransport: (() => void) | undefined;
+  let deviceAccessRequest: Promise<DeviceAccessOutcome> | undefined;
 
   const store = createStore<MediaSessionState>((set, get) => {
     function persistInputDevicePreference(
@@ -436,6 +440,34 @@ export function createMediaSessionStore(
       }
 
       await deviceCatalog.refresh();
+    }
+
+    // Reads the browser directly: `stop()` resets the catalog, so a catalog
+    // read would lose the answer to a session restart. Closing the prompt raises
+    // the same error as blocking the site and a recorded denial disables the
+    // toggle, so a failure here records nothing and the member's click still asks.
+    async function askForMissingAccess(
+      devices: MediaDevices,
+    ): Promise<DeviceAccessOutcome> {
+      const { permissionRequired } = await discoverMediaDevices(devices);
+      const { cameras: video, microphones: audio } = permissionRequired;
+      if (!audio && !video) return "not_needed";
+
+      let stream: MediaStream;
+      try {
+        stream = await devices.getUserMedia({ audio, video });
+      } catch (error) {
+        return getErrorCode(error) === "permission-denied"
+          ? "declined"
+          : "failed";
+      }
+
+      try {
+        await refreshDevices();
+      } finally {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+      return "granted";
     }
 
     async function acquireSource(
@@ -651,6 +683,16 @@ export function createMediaSessionStore(
       remoteAudioGains: {},
       remotePublications: {},
       remoteScreenShares: NOBODY_SHARING,
+      requestDeviceAccess() {
+        if (!mediaDevices) return Promise.resolve("unsupported");
+
+        deviceAccessRequest ??= askForMissingAccess(mediaDevices)
+          .catch((): DeviceAccessOutcome => "unsupported")
+          .finally(() => {
+            deviceAccessRequest = undefined;
+          });
+        return deviceAccessRequest;
+      },
       retryCallAudio() {
         if (disconnectTransport) transport.retry();
       },

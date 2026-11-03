@@ -13,6 +13,10 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
 - `useMediaSession(selector)`: selected state and commands. Commands
   (`toggleSource`, `selectInputDevice`, `chooseAudioOutput`) resolve to the
   `MediaSessionErrorCode` they produced, or `null`.
+- `requestDeviceAccess()`: the Join Gate's prompt, without a click. Asks in one
+  prompt for the kinds the browser still hides, then releases what it captured.
+  Resolves to `granted`, `declined`, `failed`, `not_needed` or `unsupported`.
+  `campus.device_access_requested` records the first three.
 - `connect()`: joins the transport after Admission. Idempotent; replays
   publications chosen on pre-join as `added`. `stop()` disconnects and resets
   `callAudioStatus`, `remoteAudioGains` and `remotePublications`.
@@ -88,7 +92,9 @@ through the transport. It coexists with `camera`; it does not replace it.
 ### Rules
 
 - Every Presence Session starts with camera and microphone off; capture
-  intent is never persisted, only device IDs.
+  intent is never persisted, only device IDs. The Join Gate's prompt does not
+  change that: its stream never reaches the session, and a refusal records no
+  error, since closing the prompt reads the same as blocking the site.
 - Stored device IDs are untrusted: `media-device-preferences.ts` reads them
   with `parseJson` and falls back to the defaults. A new stored field gets a
   schema entry before anything reads it.

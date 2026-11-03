@@ -19,6 +19,7 @@ export const ANALYTICS_EVENTS = {
   AUTH_VERIFICATION_COMPLETED: "auth.verification_completed",
   AUTH_VERIFICATION_SENT: "auth.verification_sent",
   CAMPUS_CONNECTION_CHECK_COMPLETED: "campus.connection_check_completed",
+  CAMPUS_DEVICE_ACCESS_REQUESTED: "campus.device_access_requested",
   CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN: "campus.presence_tab_conflict_shown",
   CAMPUS_PRESENCE_TAB_MOVED: "campus.presence_tab_moved",
   CAMPUS_MEETING_VIDEO_READY: "campus.meeting_video_ready",
@@ -185,6 +186,9 @@ export const analyticsEventSchemas = {
   }),
   [ANALYTICS_EVENTS.CAMPUS_CONNECTION_CHECK_COMPLETED]:
     connectionCheckCompletedSchema,
+  [ANALYTICS_EVENTS.CAMPUS_DEVICE_ACCESS_REQUESTED]: z.object({
+    outcome: z.enum(["declined", "failed", "granted"]),
+  }),
   [ANALYTICS_EVENTS.CAMPUS_PRESENCE_TAB_CONFLICT_SHOWN]: z.object({
     surface: presenceTabSurfaceSchema,
   }),

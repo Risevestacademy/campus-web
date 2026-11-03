@@ -1012,6 +1012,155 @@ describe("media session store", () => {
   });
 });
 
+describe("device access request", () => {
+  const NAMED_CAMERA = createDevice("camera-1", "videoinput", "Studio Camera");
+  const NAMED_MICROPHONE = createDevice(
+    "microphone-1",
+    "audioinput",
+    "Studio Microphone",
+  );
+
+  function setup(
+    enumerated: readonly MediaDeviceInfo[],
+    getUserMedia: () => Promise<MediaStream> = async () => createStream(),
+  ) {
+    const mediaDevices = createMediaDevices(getUserMedia);
+    vi.mocked(mediaDevices.enumerateDevices).mockResolvedValue([...enumerated]);
+    const transport = createTransport();
+    const store = createMediaSessionStore({
+      createMediaStream: () => createStream(),
+      mediaDevices,
+      transport: transport.transport,
+    });
+    return { mediaDevices, store, transport };
+  }
+
+  it.each([
+    ["both", createPermissionPlaceholders(), { audio: true, video: true }],
+    [
+      "the camera",
+      [NAMED_MICROPHONE, createDevice("", "videoinput", "")],
+      { audio: false, video: true },
+    ],
+    [
+      "the microphone",
+      [NAMED_CAMERA, createDevice("", "audioinput", "")],
+      { audio: true, video: false },
+    ],
+  ])("asks in one prompt for %s while hidden", async (_, devices, expected) => {
+    const { mediaDevices, store } = setup(devices);
+
+    await expect(store.getState().requestDeviceAccess()).resolves.toBe(
+      "granted",
+    );
+
+    expect(mediaDevices.getUserMedia).toHaveBeenCalledOnce();
+    expect(mediaDevices.getUserMedia).toHaveBeenCalledWith(expected);
+  });
+
+  it("captures nothing once every device is named", async () => {
+    const { mediaDevices, store } = setup([NAMED_CAMERA, NAMED_MICROPHONE]);
+
+    await expect(store.getState().requestDeviceAccess()).resolves.toBe(
+      "not_needed",
+    );
+
+    expect(mediaDevices.getUserMedia).not.toHaveBeenCalled();
+  });
+
+  it("releases what it captured and leaves camera and microphone off", async () => {
+    const tracks = [
+      createTrack("audio", "microphone-1"),
+      createTrack("video", "camera-1"),
+    ];
+    const { store, transport } = setup(
+      createPermissionPlaceholders(),
+      async () => createStream(tracks),
+    );
+    await store.getState().start();
+    store.getState().connect();
+
+    await store.getState().requestDeviceAccess();
+
+    for (const track of tracks) expect(track.stop).toHaveBeenCalledOnce();
+    expect(store.getState().localPublications).toEqual({});
+    expect(transport.changes).toEqual([]);
+    for (const source of ["camera", "microphone"] as const) {
+      expect(store.getState()[source]).toMatchObject({
+        desiredEnabled: false,
+        error: null,
+        status: "disabled",
+        track: null,
+      });
+    }
+  });
+
+  it("lists the devices the grant revealed", async () => {
+    const { mediaDevices, store } = setup(createPermissionPlaceholders());
+    vi.mocked(mediaDevices.getUserMedia).mockImplementation(async () => {
+      vi.mocked(mediaDevices.enumerateDevices).mockResolvedValue([
+        NAMED_CAMERA,
+      ]);
+      return createStream();
+    });
+    await store.getState().start();
+
+    await store.getState().requestDeviceAccess();
+
+    expect(store.getState().camera.devices).toEqual([
+      { id: "camera-1", isDefault: false, label: "Studio Camera" },
+    ]);
+  });
+
+  // Closing the prompt raises the same error as blocking the site, and a
+  // recorded denial disables the toggle: the member's click must still ask.
+  it.each([
+    ["NotAllowedError", "declined"],
+    ["NotReadableError", "failed"],
+  ])("records no error after %s", async (errorName, outcome) => {
+    const { mediaDevices, store } = setup(createPermissionPlaceholders(), () =>
+      Promise.reject(new DOMException("refused", errorName)),
+    );
+    await store.getState().start();
+
+    await expect(store.getState().requestDeviceAccess()).resolves.toBe(outcome);
+
+    expect(store.getState().camera).toMatchObject({
+      error: null,
+      status: "disabled",
+    });
+
+    await store.getState().toggleSource("camera");
+    expect(mediaDevices.getUserMedia).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports unsupported when the browser cannot list devices", async () => {
+    const { mediaDevices, store } = setup([]);
+    vi.mocked(mediaDevices.enumerateDevices).mockRejectedValue(
+      new Error("no enumeration"),
+    );
+
+    await expect(store.getState().requestDeviceAccess()).resolves.toBe(
+      "unsupported",
+    );
+    expect(mediaDevices.getUserMedia).not.toHaveBeenCalled();
+  });
+
+  it("shows one prompt across a session restart in flight", async () => {
+    const { mediaDevices, store } = setup(createPermissionPlaceholders());
+
+    const first = store.getState().requestDeviceAccess();
+    await store.getState().start();
+    store.getState().stop();
+    const second = store.getState().requestDeviceAccess();
+    await store.getState().start();
+
+    await expect(first).resolves.toBe("granted");
+    await expect(second).resolves.toBe("granted");
+    expect(mediaDevices.getUserMedia).toHaveBeenCalledOnce();
+  });
+});
+
 describe("video demand", () => {
   const GRACE = "participant-grace";
   const LIN = "participant-lin";

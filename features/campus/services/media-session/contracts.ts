@@ -13,6 +13,9 @@ export type CaptureStatus =
 
 export type DeviceDiscoveryStatus = "idle" | "loading" | "ready" | "failed";
 
+export type DeviceAccessOutcome =
+  "granted" | "declined" | "failed" | "not_needed" | "unsupported";
+
 export type MediaSessionErrorCode =
   | "permission-denied"
   | "device-unavailable"
