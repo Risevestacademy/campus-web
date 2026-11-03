@@ -14,7 +14,15 @@ import { MediaToggle } from "./media-toggle";
 const mediaControlGroupClassName =
   "bg-surface rounded-xl h-10.75 hover:has-enabled:ring hover:has-enabled:ring-primary hover:has-enabled:ring-offset-1 hover:has-enabled:ring-offset-background";
 
-export function MediaControls({ className }: { className?: string }) {
+type MediaControlsProps = Readonly<{
+  className?: string;
+  showCamera?: boolean;
+}>;
+
+export function MediaControls({
+  className,
+  showCamera = true,
+}: MediaControlsProps) {
   const camera = useMediaSession((state) => state.camera);
   const microphone = useMediaSession((state) => state.microphone);
   const toggleSource = useMediaSession((state) => state.toggleSource);
@@ -26,20 +34,22 @@ export function MediaControls({ className }: { className?: string }) {
   return (
     <div className="grid justify-items-center gap-1">
       <div className={cn("flex w-fit items-center gap-6", className)}>
-        <ButtonGroup
-          aria-label="Camera controls"
-          className={mediaControlGroupClassName}
-        >
-          <MediaToggle
-            error={camera.error}
-            isEnabled={camera.desiredEnabled && Boolean(camera.track)}
-            kind="video"
-            onToggle={() => handleToggle("camera")}
-            status={camera.status}
-          />
-          <ButtonGroupSeparator className="-ml-px" />
-          <CameraSettingsDropdown onRetry={() => handleToggle("camera")} />
-        </ButtonGroup>
+        {showCamera ? (
+          <ButtonGroup
+            aria-label="Camera controls"
+            className={mediaControlGroupClassName}
+          >
+            <MediaToggle
+              error={camera.error}
+              isEnabled={camera.desiredEnabled && Boolean(camera.track)}
+              kind="video"
+              onToggle={() => handleToggle("camera")}
+              status={camera.status}
+            />
+            <ButtonGroupSeparator className="-ml-px" />
+            <CameraSettingsDropdown onRetry={() => handleToggle("camera")} />
+          </ButtonGroup>
+        ) : null}
 
         <ButtonGroup
           aria-label="Microphone controls"

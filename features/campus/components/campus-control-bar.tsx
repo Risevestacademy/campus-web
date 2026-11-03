@@ -7,7 +7,7 @@ import { Separator } from "@/shared/ui/separator";
 
 import type { PresenceStatus } from "../types/active-campus.types";
 import { BackToCampusesControl } from "./back-to-campuses-control";
-import { MediaControls } from "./media-controls";
+import { MeetingMediaControls } from "./meeting-media-controls";
 import { PresenceMenuTrigger } from "./presence-menu-trigger";
 import { ScreenShareControl } from "./screen-share-control";
 
@@ -61,7 +61,7 @@ export function CampusControlBar({
       <div className="bg-background col-start-2 flex items-center gap-1.5 rounded-l-[1.25rem] rounded-r-[1.125rem] py-1.5 pr-1.75 pl-2">
         <PresenceMenuTrigger initials={initials} status={status} />
         <Separator orientation="vertical" className="mx-1.5 my-auto h-6" />
-        <MediaControls className="gap-1.5" />
+        <MeetingMediaControls className="gap-1.5" cohortId={cohortId} />
         <CampusActionControls cohortId={cohortId} />
         <Separator orientation="vertical" className="mx-1.5 my-auto h-6" />
         <BackToCampusesControl />

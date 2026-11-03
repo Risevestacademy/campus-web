@@ -94,6 +94,8 @@ through the transport. It coexists with `camera`; it does not replace it.
   schema entry before anything reads it.
 - Nothing reaches the transport before `connect`.
 - Turning a source off stops and removes its track and publication.
+- Past the Join Gate, the camera control shows only during a meeting or while
+  the camera is on, so a live camera can always be turned off.
 - `stop()` ends a share before it disconnects, so the transport hears why.
 - Input replacement keeps the current track until the new one succeeds.
 - Camera and microphone fail independently; permission failures clear only on

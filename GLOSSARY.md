@@ -60,7 +60,8 @@ _Avoid_: Campus room, main campus
 **Meeting view**:
 The part of the Active Campus that shows your Meeting roster: an avatar stack
 titled "Nearby" or with the room's name, and the tiles of its people and Screen
-shares. It shows nothing while the roster is empty.
+shares. It shows nothing while the roster is empty, and neither does the camera
+control unless the camera is on.
 _Avoid_: Call view, room view
 
 **Presence Session**:

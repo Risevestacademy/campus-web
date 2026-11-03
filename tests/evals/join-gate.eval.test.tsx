@@ -129,6 +129,8 @@ describe("Join Gate media session", () => {
     const admissionStore = createPresenceAdmissionTestStore();
     activeStore = store;
     await store.getState().start();
+    await store.getState().toggleSource("camera");
+    const cameraTrack = store.getState().camera.track;
     const { rerender } = render(
       await activeCampusLayout(
         await ActiveCampusPage({ params }),
@@ -139,11 +141,9 @@ describe("Join Gate media session", () => {
     const controls = screen.getByRole("complementary", {
       name: "Campus controls",
     });
-    fireEvent.click(
-      within(controls).getByRole("button", { name: "Turn on camera" }),
-    );
-    await waitFor(() => expect(store.getState().camera.track).not.toBeNull());
-    const cameraTrack = store.getState().camera.track;
+    expect(
+      within(controls).getByRole("button", { name: "Turn off camera" }),
+    ).toHaveAttribute("aria-pressed", "true");
 
     rerender(
       await administrationLayout(<p>Overview</p>, store, admissionStore),

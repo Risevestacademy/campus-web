@@ -18,12 +18,12 @@ function renderDock(userName: string | null = "Ada Lovelace") {
 }
 
 describe("PresenceDock", () => {
-  it("keeps the member's media controls and a way back to the map", () => {
+  it("keeps the member's microphone and a way back to the map", () => {
     const dock = renderDock();
 
     expect(
-      within(dock).getByRole("button", { name: "Turn on camera" }),
-    ).toBeInTheDocument();
+      within(dock).queryByRole("button", { name: "Turn on camera" }),
+    ).not.toBeInTheDocument();
     expect(
       within(dock).getByRole("button", { name: "Turn on microphone" }),
     ).toBeInTheDocument();
