@@ -1,5 +1,6 @@
 "use client";
 
+import { useDeviceAccessRequest } from "../hooks/use-device-access-request";
 import { useMediaSession } from "../services/media-session/media-session-provider";
 import { MediaControls } from "./media-controls";
 import { MediaPublicationOutput } from "./media-publication-output";
@@ -15,6 +16,7 @@ const cameraFallbackLabels = {
 } as const;
 
 export function VisualsDisplay() {
+  useDeviceAccessRequest();
   const cameraPublication = useMediaSession(
     (state) => state.localPublications.camera,
   );
