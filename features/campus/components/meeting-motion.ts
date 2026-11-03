@@ -3,6 +3,7 @@ import type { Variants } from "motion/react";
 type CubicBezier = [number, number, number, number];
 
 export const EASE_OUT: CubicBezier = [0.23, 1, 0.32, 1];
+export const EASE_IN_OUT: CubicBezier = [0.4, 0, 0.2, 1];
 
 const ENTER = { duration: 0.2, ease: EASE_OUT };
 const EXIT = { duration: 0.15, ease: EASE_OUT };
