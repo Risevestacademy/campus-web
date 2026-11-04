@@ -94,6 +94,9 @@ through the transport. It coexists with `camera`; it does not replace it.
 
 ### Rules
 
+- The share button exists only during a meeting. While the call is not
+  connected it stays in reach and its title says why, since a button that
+  vanishes reads as a broken feature.
 - Every Presence Session starts with camera and microphone off; capture
   intent is never persisted, only device IDs. The Join Gate's prompt does not
   change that: its stream never reaches the session, and a refusal records no
