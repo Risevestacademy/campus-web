@@ -15,7 +15,8 @@ import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
 import { presenceFor } from "@/core/presence";
-import type { ServerMessage } from "@/core/realtime";
+import { movementFor, type ServerMessage } from "@/core/realtime";
+import { toast } from "@/shared/ui/toast";
 import { TEST_ORIGIN } from "@/tests/fixtures/mock-api";
 import { withQueryClient } from "@/tests/fixtures/query-client";
 
@@ -23,6 +24,13 @@ const mockApi = await vi.hoisted(async () => {
   const { startMockApi } = await import("@/tests/fixtures/mock-api");
   return startMockApi();
 });
+
+const navigation = vi.hoisted(() => ({ pathname: "/", push: vi.fn() }));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigation.pathname,
+  useRouter: () => ({ push: navigation.push }),
+}));
 
 vi.mock("./presence-participants", async (importOriginal) => {
   const original =
@@ -90,6 +98,7 @@ afterEach(() => {
   onlineManager.setOnline(true);
   mockApi.reset();
   vi.mocked(toRosterParticipants).mockClear();
+  navigation.push.mockClear();
 });
 afterAll(() => mockApi.close());
 
@@ -600,6 +609,81 @@ describe("CampusOverviewPanel", () => {
   });
 });
 
+describe("going to somebody", () => {
+  function joined() {
+    const { apply, cohortId } = newCohort();
+    everyoneIn(cohortId, []);
+    apply(welcome("me"), snapshot(avatar("me"), avatar("ada")));
+    return { cohortId, map: `/campus/${cohortId}` };
+  }
+
+  function worldReadyFor(cohortId: string) {
+    const send = vi.fn(() => true);
+    const movement = movementFor(cohortId);
+    movement.bind(send);
+    movement.apply(welcome("me"));
+    movement.apply(snapshot(avatar("me"), avatar("ada")));
+    return send;
+  }
+
+  it("asks world to walk there and stays on the map", () => {
+    const { cohortId, map } = joined();
+    navigation.pathname = map;
+    const send = worldReadyFor(cohortId);
+    renderPanel(cohortId);
+
+    fireEvent.click(screen.getByRole("button", { name: "Go to ada" }));
+
+    expect(send).toHaveBeenCalledExactlyOnceWith({
+      type: "goTo",
+      userId: "ada",
+    });
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
+  it("brings the member to the map from any other page", () => {
+    const { cohortId, map } = joined();
+    navigation.pathname = `${map}/people`;
+    const send = worldReadyFor(cohortId);
+    renderPanel(cohortId);
+
+    fireEvent.click(screen.getByRole("button", { name: "Go to ada" }));
+
+    expect(send).toHaveBeenCalledOnce();
+    expect(navigation.push).toHaveBeenCalledExactlyOnceWith(map);
+  });
+
+  it("says so and goes nowhere while the socket is down", () => {
+    const { cohortId, map } = joined();
+    navigation.pathname = `${map}/people`;
+    const send = worldReadyFor(cohortId);
+    movementFor(cohortId).disconnect();
+    const addToast = vi.spyOn(toast, "add");
+    renderPanel(cohortId);
+
+    fireEvent.click(screen.getByRole("button", { name: "Go to ada" }));
+
+    expect(send).not.toHaveBeenCalled();
+    expect(navigation.push).not.toHaveBeenCalled();
+    expect(addToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "You're reconnecting. Try again in a moment.",
+      }),
+    );
+    addToast.mockRestore();
+  });
+
+  it("offers no actions on the member's own row", () => {
+    const { cohortId } = joined();
+    renderPanel(cohortId);
+
+    expect(
+      screen.queryByRole("button", { name: "Go to me" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Go to ada" })).toBeVisible();
+  });
+});
+
 describe("the search shortcut", () => {
   function renderOverview() {
     render(
@@ -698,6 +782,7 @@ describe("CampusOverview", () => {
     avatarClassName: "",
     status: "available",
     detail: "Available",
+    isSelf: false,
   } as const;
 
   it("renders injected participant, context, and offline state", () => {

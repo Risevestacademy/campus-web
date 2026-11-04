@@ -16,6 +16,7 @@ import type {
   OpenedMeetingLayout,
 } from "../../types/active-campus.types";
 import {
+  meetingGridShape,
   meetingTiles,
   selectMeeting,
   splitAtCap,
@@ -213,6 +214,20 @@ describe("splitAtCap", () => {
       shown: ["a", "b"],
       remaining: 0,
     });
+  });
+});
+
+describe("meetingGridShape", () => {
+  it.each([
+    [1, 1, 1],
+    [2, 2, 1],
+    [3, 2, 2],
+    [4, 2, 2],
+    [5, 3, 2],
+    [7, 3, 3],
+    [10, 4, 3],
+  ])("fits %i tiles in %i columns and %i rows", (tiles, columns, rows) => {
+    expect(meetingGridShape(tiles)).toEqual({ columns, rows });
   });
 });
 

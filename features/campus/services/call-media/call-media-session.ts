@@ -81,6 +81,8 @@ const POLICY_FRAMES: ReadonlySet<ServerMessage["type"]> = new Set([
   "left",
   "moved",
   "moveResult",
+  "walking",
+  "walkEnded",
   "nearby",
   "spaceChanged",
 ]);

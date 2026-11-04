@@ -25,6 +25,26 @@ describe("createWorldMovementChannel", () => {
     });
   });
 
+  it("sends go to only once movement is ready, and not after a disconnect", () => {
+    const channel = createWorldMovementChannel();
+    const send = vi.fn(() => true);
+    channel.bind(send);
+
+    channel.apply(serverFrames.welcome);
+    expect(channel.sendGoTo("grace")).toBe(false);
+
+    channel.apply(serverFrames.snapshot);
+    expect(channel.sendGoTo("grace")).toBe(true);
+    expect(send).toHaveBeenCalledExactlyOnceWith({
+      type: "goTo",
+      userId: "grace",
+    });
+
+    channel.disconnect();
+    expect(channel.sendGoTo("grace")).toBe(false);
+    expect(send).toHaveBeenCalledOnce();
+  });
+
   it("publishes own movement and remote avatar lifecycle frames", () => {
     const channel = createWorldMovementChannel();
     const received = vi.fn();
@@ -38,6 +58,8 @@ describe("createWorldMovementChannel", () => {
     channel.apply(serverFrames.left);
     channel.apply(serverFrames.pong);
     channel.apply(serverFrames.moveResult);
+    channel.apply(serverFrames.walking);
+    channel.apply(serverFrames.walkEnded);
 
     expect(received.mock.calls.map(([message]) => message.type)).toEqual([
       "welcome",
@@ -46,6 +68,8 @@ describe("createWorldMovementChannel", () => {
       "moved",
       "left",
       "moveResult",
+      "walking",
+      "walkEnded",
     ]);
   });
 

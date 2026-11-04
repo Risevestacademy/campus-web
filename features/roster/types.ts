@@ -11,6 +11,7 @@ export type Participant = {
   // Offline people have no presence, so they carry no status of their own.
   status: ParticipantStatus | "offline";
   detail: string;
+  isSelf: boolean;
 };
 
 export type CohortContext = {

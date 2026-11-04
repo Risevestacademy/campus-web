@@ -3,6 +3,7 @@ import { HandIcon } from "@phosphor-icons/react/dist/ssr/Hand";
 import { NavigationArrowIcon } from "@phosphor-icons/react/dist/ssr/NavigationArrow";
 import { cn } from "cn";
 
+import { keepFocus } from "@/shared/lib/keep-focus";
 import { Avatar, AvatarBadge, AvatarFallback } from "@/shared/ui/avatar";
 import { buttonVariants } from "@/shared/ui/button";
 
@@ -48,14 +49,15 @@ export function ParticipantRow({
         )}
       </div>
 
-      {participant.status !== "offline" && (
-        <div className="hidden shrink-0 items-center gap-1 group-hover/row:flex">
+      {participant.status !== "offline" && !participant.isSelf && (
+        <div className="flex shrink-0 items-center gap-1 opacity-0 group-focus-within/row:opacity-100 group-hover/row:opacity-100 pointer-coarse:opacity-100">
           {rowActions.map(({ action, label, Icon }) => (
             <button
               key={label}
               type="button"
               aria-label={`${label} ${participant.name}`}
               onClick={() => onAction?.(action, participant)}
+              onMouseDown={keepFocus}
               className={cn(
                 buttonVariants({ variant: "ghost", size: "icon-xs" }),
                 "hover:bg-background rounded-full text-[#2443B3] dark:text-[#9DADE7] dark:hover:bg-[#1F2940]",

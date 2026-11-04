@@ -65,6 +65,7 @@ function rowOf(
     avatarClassName: toneOf(id),
     status,
     detail,
+    isSelf: false,
   };
 }
 
@@ -77,12 +78,15 @@ export function toRosterParticipants(
   directory: readonly DirectoryPerson[] | undefined,
 ): { online: Participant[]; offline: Participant[] | undefined } {
   const online = [...participants.values()].map((person) => {
-    return rowOf(
-      person.userId,
-      person.displayName,
-      statusOf(person),
-      detailOf(person, selfId),
-    );
+    return {
+      ...rowOf(
+        person.userId,
+        person.displayName,
+        statusOf(person),
+        detailOf(person, selfId),
+      ),
+      isSelf: person.userId === selfId,
+    };
   });
   const self = online.findIndex(({ id }) => id === selfId);
   if (self > 0) online.unshift(...online.splice(self, 1));

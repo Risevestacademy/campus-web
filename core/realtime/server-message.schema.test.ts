@@ -41,13 +41,27 @@ const framesAsRead = {
   entryRequestEnded: { type: "entryRequestEnded" },
   said: { type: "said" },
   staffAction: { type: "staffAction" },
-  walking: { type: "walking" },
-  walkEnded: { type: "walkEnded" },
+  walking: { type: "walking", player: serverFrames.walking.player },
+  walkEnded: {
+    type: "walkEnded",
+    reason: "refused",
+    player: serverFrames.walkEnded.player,
+    spaceKey: "library",
+  },
 } satisfies {
   [Type in ServerMessage["type"]]: Extract<ServerMessage, { type: Type }>;
 };
 
 describe("parseServerMessage", () => {
+  it("keeps where a walk stopped when world adds a reason this client does not know", () => {
+    const frame = { ...serverFrames.walkEnded, reason: "fell_in_a_lake" };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: { ...framesAsRead.walkEnded, reason: "unknown" },
+    });
+  });
+
   it.each(Object.values(serverFrames))(
     "reads a $type frame keeping exactly what the client reads",
     (frame) => {
