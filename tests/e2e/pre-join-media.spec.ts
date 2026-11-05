@@ -245,7 +245,7 @@ test("one camera capture per cohort across tabs", async ({
 
     await expect(presenceTabChoice(secondPage, JOINED_ELSEWHERE)).toBeVisible();
     await expect(
-      secondPage.getByRole("button", { name: "Turn on camera" }),
+      secondPage.getByRole("button", { name: "Turn on microphone" }),
     ).toHaveCount(0);
     expect(await secondTabCaptures()).toBe(0);
 
@@ -253,7 +253,7 @@ test("one camera capture per cohort across tabs", async ({
 
     await expect(secondPage).toHaveURL(CAMPUS);
     await expect(
-      secondPage.getByRole("button", { name: "Turn on camera" }),
+      secondPage.getByRole("button", { name: "Turn on microphone" }),
     ).toBeVisible();
     await expect(presenceTabChoice(page, TAKEN_OVER)).toBeVisible();
     await expect.poll(() => liveCaptures(page)).toBe(0);

@@ -6,7 +6,7 @@ import { initialsOf } from "@/shared/lib/initials";
 import { Separator } from "@/shared/ui/separator";
 
 import { BackToCampusesControl } from "./back-to-campuses-control";
-import { MediaControls } from "./media-controls";
+import { MeetingMediaControls } from "./meeting-media-controls";
 import { PresenceMenuTrigger } from "./presence-menu-trigger";
 import { ScreenShareStatus } from "./screen-share-status";
 
@@ -33,7 +33,7 @@ export function PresenceDock({ cohortId, userName }: PresenceDockProps) {
       <div className="flex items-center gap-1.5">
         <PresenceMenuTrigger initials={initialsOf(userName)} status="active" />
         <Separator orientation="vertical" className="mx-1 my-auto h-6" />
-        <MediaControls className="gap-1.5" />
+        <MeetingMediaControls className="gap-1.5" cohortId={cohortId} />
         <Separator orientation="vertical" className="mx-1 my-auto h-6" />
         <BackToCampusesControl />
       </div>

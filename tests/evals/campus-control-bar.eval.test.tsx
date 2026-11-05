@@ -20,8 +20,8 @@ describe("campus control bar acceptance (required threshold: 1/1)", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      within(controls).getByRole("group", { name: "Camera controls" }),
-    ).toBeInTheDocument();
+      within(controls).queryByRole("group", { name: "Camera controls" }),
+    ).not.toBeInTheDocument();
     expect(
       within(controls).getByRole("group", { name: "Microphone controls" }),
     ).toBeInTheDocument();
