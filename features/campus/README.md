@@ -14,6 +14,7 @@ and the Active Campus media UI inside it. Admin catalogues and pages belong to
 ```tsx
 <CampusShell
   AccountMenu={AccountMenu}
+  LogOutAction={LogOutAction} // draws the rail's Log out item
   administrationPanel={adminSidebar}
   OverviewPanel={CampusOverviewPanel} // gets cohort, cohortId and collapseButton
   cohort={{ name: "Product Design 2026", role: "student" }} // the member's place; undefined for an administrator with none

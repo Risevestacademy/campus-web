@@ -1,6 +1,7 @@
 import { AdminSidebar } from "@/features/admin";
 import {
   AccountMenu,
+  LogOutAction,
   requireRouteAccess,
   SessionUnavailable,
 } from "@/features/auth";
@@ -43,6 +44,7 @@ export default async function AdministrationLayout({
           />
         }
         FeedbackPopup={FeedbackPopup}
+        LogOutAction={LogOutAction}
         OverviewPanel={CampusOverviewPanel}
         cohort={cohortContextOf(access.session, id)}
         cohortId={id}
