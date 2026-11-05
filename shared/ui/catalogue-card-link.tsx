@@ -27,7 +27,10 @@ export function CatalogueCardLink({
 }: CatalogueCardLinkProps) {
   return (
     <Link href={href} className={cn("group w-fit", className)}>
-      <figure className="bg-surface ring-border relative mb-2 block aspect-video w-[19.5rem] overflow-hidden rounded-2xl ring">
+      <figure
+        data-surface-role="surface"
+        className="bg-surface ring-border relative mb-2 block aspect-video w-[19.5rem] overflow-hidden rounded-2xl ring"
+      >
         <Image
           src={campusMap}
           alt=""
