@@ -13,7 +13,7 @@ export function BackToCampusesControl() {
       title="Back to campuses"
       className={cn(
         buttonVariants({ size: "icon", variant: "ghost" }),
-        "bg-surface hover:ring-primary hover:ring-offset-background hover:ring hover:ring-offset-1 [&_svg:not([class*='size-'])]:size-5",
+        "bg-surface text-error-icon hover:bg-error/10 hover:text-error-icon hover:ring-error-icon hover:ring-offset-background hover:ring hover:ring-offset-1 [&_svg:not([class*='size-'])]:size-5",
       )}
     >
       <ArrowBendUpRightIcon aria-hidden />
