@@ -7,6 +7,7 @@ import { administrationLayout } from "@/tests/fixtures/administration-layout";
 
 vi.mock("@/features/auth", () => ({
   AccountMenu: ({ children }: { children: ReactNode }) => children,
+  LogOutAction: () => null,
   requireRouteAccess: () =>
     Promise.resolve({
       kind: "allow",
