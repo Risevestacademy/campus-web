@@ -78,6 +78,35 @@ afterEach(() => {
 });
 
 describe("Join Gate media session", () => {
+  it("asks for device access without a click and leaves capture off", async () => {
+    const mediaDevices = installTestMediaDevices([
+      createTestMediaDevice("", "audioinput", ""),
+      createTestMediaDevice("", "videoinput", ""),
+    ]);
+    const store = createPresenceMediaTestStore();
+    activeStore = store;
+    await store.getState().start();
+
+    render(
+      presenceSession(
+        await JoinPage({ params, searchParams: Promise.resolve({}) }),
+        store,
+        createPresenceAdmissionTestStore(),
+      ),
+    );
+
+    await waitFor(() =>
+      expect(mediaDevices.getUserMedia).toHaveBeenCalledWith({
+        audio: true,
+        video: true,
+      }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Turn on camera" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(store.getState().localPublications).toEqual({});
+  });
+
   it("keeps the camera on from the Join Gate into Active Campus", async () => {
     installTestMediaDevices([
       createTestMediaDevice("camera-1", "videoinput", "Studio Camera"),

@@ -5,6 +5,7 @@ import type {
   CallAudioStatus,
   CaptureSource,
   CaptureSourceState,
+  DeviceAccessOutcome,
   DeviceCatalogSnapshot,
   DeviceDiscoveryStatus,
   LocalMediaPublication,
@@ -21,7 +22,7 @@ import type {
   VideoLayer,
   VideoSource,
 } from "./contracts";
-import { createDeviceCatalog } from "./device-discovery";
+import { createDeviceCatalog, discoverMediaDevices } from "./device-discovery";
 import {
   DEFAULT_MEDIA_DEVICE_PREFERENCES,
   loadMediaDevicePreferences,
@@ -75,6 +76,8 @@ export type MediaSessionState = Readonly<{
   remoteAudioGains: RemoteAudioGains;
   remotePublications: RemotePublicationRegistry;
   remoteScreenShares: ReadonlySet<string>;
+  // Obtains permission only: capture stays off until the member turns it on.
+  requestDeviceAccess: () => Promise<DeviceAccessOutcome>;
   retryCallAudio: () => void;
   screenShare: ScreenShareState;
   selectInputDevice: (
@@ -247,6 +250,11 @@ export function createMediaSessionStore(
   let started = false;
   let removeDeviceChangeListener: (() => void) | undefined;
   let disconnectTransport: (() => void) | undefined;
+  let deviceAccessRequest: Promise<DeviceAccessOutcome> | undefined;
+  let deviceAccessStream: MediaStream | undefined;
+  // The Join Gate's child effect can request before the provider calls start().
+  let deviceAccessStopped = false;
+  let deviceAccessGeneration = 0;
 
   const store = createStore<MediaSessionState>((set, get) => {
     function persistInputDevicePreference(
@@ -436,6 +444,50 @@ export function createMediaSessionStore(
       }
 
       await deviceCatalog.refresh();
+    }
+
+    function releaseDeviceAccessCapture() {
+      const stream = deviceAccessStream;
+      deviceAccessStream = undefined;
+      stream?.getTracks().forEach((track) => track.stop());
+    }
+
+    // Reads the browser directly: `stop()` resets the catalog, so a catalog
+    // read would lose the answer to a session restart. Closing the prompt raises
+    // the same error as blocking the site and a recorded denial disables the
+    // toggle, so a failure here records nothing and the member's click still asks.
+    async function askForMissingAccess(
+      devices: MediaDevices,
+    ): Promise<DeviceAccessOutcome> {
+      const { permissionRequired } = await discoverMediaDevices(devices);
+      if (deviceAccessStopped) return "cancelled";
+      const { cameras: video, microphones: audio } = permissionRequired;
+      if (!audio && !video) return "not_needed";
+
+      let stream: MediaStream;
+      try {
+        stream = await devices.getUserMedia({ audio, video });
+      } catch (error) {
+        if (deviceAccessStopped) return "cancelled";
+        return getErrorCode(error) === "permission-denied"
+          ? "declined"
+          : "failed";
+      }
+
+      deviceAccessStream = stream;
+      try {
+        if (deviceAccessStopped) return "cancelled";
+
+        while (true) {
+          const generation = deviceAccessGeneration;
+          await refreshDevices();
+          if (deviceAccessStopped) return "cancelled";
+          // A restart invalidates the old catalog refresh, but shares the grant.
+          if (generation === deviceAccessGeneration) return "granted";
+        }
+      } finally {
+        releaseDeviceAccessCapture();
+      }
     }
 
     async function acquireSource(
@@ -651,6 +703,21 @@ export function createMediaSessionStore(
       remoteAudioGains: {},
       remotePublications: {},
       remoteScreenShares: NOBODY_SHARING,
+      requestDeviceAccess() {
+        if (!mediaDevices) return Promise.resolve("unsupported");
+        if (deviceAccessStopped && !deviceAccessRequest) {
+          return Promise.resolve("cancelled");
+        }
+
+        deviceAccessRequest ??= askForMissingAccess(mediaDevices)
+          .catch((): DeviceAccessOutcome =>
+            deviceAccessStopped ? "cancelled" : "unsupported",
+          )
+          .finally(() => {
+            deviceAccessRequest = undefined;
+          });
+        return deviceAccessRequest;
+      },
       retryCallAudio() {
         if (disconnectTransport) transport.retry();
       },
@@ -684,6 +751,7 @@ export function createMediaSessionStore(
       async start() {
         if (started) return;
         started = true;
+        deviceAccessStopped = false;
         devicePreferences = loadMediaDevicePreferences();
         set((state) => ({
           camera: createInitialCaptureState(
@@ -711,6 +779,10 @@ export function createMediaSessionStore(
         }
       },
       stop() {
+        deviceAccessStopped = true;
+        deviceAccessGeneration += 1;
+        releaseDeviceAccessCapture();
+        deviceCatalog?.reset();
         screenShare.end("session_ended");
         disconnectTransport?.();
         disconnectTransport = undefined;
@@ -718,7 +790,6 @@ export function createMediaSessionStore(
         started = false;
         operationVersions.camera += 1;
         operationVersions.microphone += 1;
-        deviceCatalog?.reset();
         removeDeviceChangeListener?.();
         removeDeviceChangeListener = undefined;
 

@@ -198,6 +198,7 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "auth.verification_completed": ["verification_type"],
   "auth.verification_sent": ["verification_type"],
   "campus.connection_check_completed": ["failed_step", "result"],
+  "campus.device_access_requested": ["outcome"],
   "campus.presence_tab_conflict_shown": ["surface"],
   "campus.presence_tab_moved": ["surface"],
   "campus.meeting_video_ready": [
@@ -214,6 +215,7 @@ const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
     "hearing",
   ],
   "campus_world.camera_zoomed": ["level"],
+  "campus_world.go_to_ended": ["reason"],
   "campus_world.map_failed": ["error_kind", "map_id"],
   "campus_world.map_loaded": ["load_ms", "map_id", "tilesets", "version"],
   "campus_world.map_ready": ["first_frame_ms", "map_id", "version"],
@@ -285,8 +287,8 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   ],
   spaces: [...under("spaces[]", SPACE_NAME_PATHS), "type"],
   staffAction: ["type"],
-  walkEnded: ["type"],
-  walking: ["type"],
+  walkEnded: [...under("player", PLAYER_PATHS), "reason", "spaceKey", "type"],
+  walking: [...under("player", PLAYER_PATHS), "type"],
   welcome: [
     "connectionId",
     "displayName",

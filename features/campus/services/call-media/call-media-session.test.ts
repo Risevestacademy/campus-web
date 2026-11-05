@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Hearing, Presence } from "@/core/presence";
+import {
+  applyServerMessage,
+  type Hearing,
+  type Presence,
+} from "@/core/presence";
 import type { CallMessage, ServerMessage } from "@/core/realtime";
 
 import {
@@ -605,6 +609,41 @@ describe("createCallMediaSession", () => {
       expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith(
         gains,
       );
+    },
+  );
+
+  it.each(["walking", "walkEnded"] as const)(
+    "updates proximity gain on %s while the nearby roster stays the same",
+    async (type) => {
+      const { callbacks, joined, session } = setup();
+      let presence = presenceWith([NEARBY_ID]);
+      session.applyWorldMessage(CALL, presence);
+      const { connection } = await joined();
+      vi.mocked(connection.applyAudience).mockClear();
+
+      for (const [x, gain] of [
+        [3, 1 - 1 / 6],
+        [0, 1 - 4 / 6],
+      ] as const) {
+        const player = {
+          userId: SELF_ID,
+          x,
+          y: 1,
+          facing: "right" as const,
+        };
+        const message: ServerMessage =
+          type === "walking"
+            ? { type, player }
+            : { type, player, reason: "arrived", spaceKey: null };
+        presence = applyServerMessage(presence, message);
+
+        session.applyWorldMessage(message, presence);
+
+        expect(callbacks.onRemoteAudioGainsChange).toHaveBeenLastCalledWith({
+          [NEARBY_ID]: gain,
+        });
+      }
+      expect(connection.applyAudience).not.toHaveBeenCalled();
     },
   );
 

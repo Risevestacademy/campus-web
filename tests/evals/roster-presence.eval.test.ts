@@ -27,6 +27,7 @@ const ROW_KEYS = [
   "detail",
   "id",
   "initial",
+  "isSelf",
   "name",
   "status",
 ];

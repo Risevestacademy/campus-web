@@ -137,22 +137,25 @@ describe("ScreenShareControl", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("waits for a call that is still joining", () => {
-    seedPresence(COHORT, GRACE);
-    renderControl(setUp({ callStatus: "connecting" }));
-
-    expect(shareButton()).toBeDisabled();
-  });
-
-  it.each(["idle", "unavailable"] as const)(
-    "does not exist with no call to share into: %s",
-    (callStatus) => {
+  it.each([
+    ["idle", "Share screen: waiting for the call"],
+    ["connecting", "Share screen: connecting to the call"],
+    ["unavailable", "Share screen: the call isn't connected"],
+  ] as const)(
+    "stays in reach and says why it can't share while the call is %s",
+    async (callStatus, reason) => {
       seedPresence(COHORT, GRACE);
-      renderControl(setUp({ callStatus }));
+      const context = setUp({ callStatus });
+      renderControl(context);
 
-      expect(
-        screen.queryByRole("button", { name: "Share screen" }),
-      ).not.toBeInTheDocument();
+      expect(shareButton()).toHaveAttribute("aria-disabled", "true");
+      expect(shareButton()).toHaveAttribute("title", reason);
+
+      await act(async () => {
+        fireEvent.click(shareButton());
+      });
+
+      expect(context.getDisplayMedia).not.toHaveBeenCalled();
     },
   );
 

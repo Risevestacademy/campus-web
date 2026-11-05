@@ -1,22 +1,31 @@
-import type { MoveMessage } from "./generated/world-protocol";
+import type { GoToMessage, MoveMessage } from "./generated/world-protocol";
 import type { ServerMessage } from "./server-message.schema";
 
 export type WorldMovementMessage = Extract<
   ServerMessage,
   {
-    type: "welcome" | "snapshot" | "joined" | "left" | "moved" | "moveResult";
+    type:
+      | "welcome"
+      | "snapshot"
+      | "joined"
+      | "left"
+      | "moved"
+      | "moveResult"
+      | "walking"
+      | "walkEnded";
   }
 >;
 
 export interface WorldMovement {
   readStepMs(): number | null;
+  sendGoTo(userId: GoToMessage["userId"]): boolean;
   sendMove(move: Pick<MoveMessage, "direction" | "seq">): boolean;
   subscribe(listener: (message: WorldMovementMessage) => void): () => void;
 }
 
 export interface WorldMovementChannel extends WorldMovement {
   apply(message: ServerMessage): void;
-  bind(send: (message: MoveMessage) => boolean): () => void;
+  bind(send: (message: MoveMessage | GoToMessage) => boolean): () => void;
   disconnect(): void;
 }
 
@@ -24,7 +33,7 @@ export function createWorldMovementChannel(): WorldMovementChannel {
   const listeners = new Set<(message: WorldMovementMessage) => void>();
   let binding = 0;
   let ready = false;
-  let send: ((message: MoveMessage) => boolean) | undefined;
+  let send: ((message: MoveMessage | GoToMessage) => boolean) | undefined;
   let stepMs: number | null = null;
 
   function publish(message: WorldMovementMessage) {
@@ -44,7 +53,9 @@ export function createWorldMovementChannel(): WorldMovementChannel {
         message.type === "joined" ||
         message.type === "left" ||
         message.type === "moved" ||
-        message.type === "moveResult"
+        message.type === "moveResult" ||
+        message.type === "walking" ||
+        message.type === "walkEnded"
       ) {
         publish(message);
       }
@@ -65,6 +76,10 @@ export function createWorldMovementChannel(): WorldMovementChannel {
       ready = false;
     },
     readStepMs: () => (ready ? stepMs : null),
+    sendGoTo(userId) {
+      if (!ready || !send) return false;
+      return send({ type: "goTo", userId });
+    },
     sendMove(move) {
       if (!ready || !send) return false;
       return send({ type: "move", ...move });

@@ -97,6 +97,20 @@ describe("toRosterParticipants", () => {
     ]);
   });
 
+  it("marks only the member's own row as theirs", () => {
+    const { participants } = presenceOf("me", avatar("me"), avatar("ada"));
+
+    const { online, offline } = toRosterParticipants(participants, "me", [
+      { id: "bola", displayName: "Bola" },
+    ]);
+
+    expect(online.map(({ id, isSelf }) => [id, isSelf])).toEqual([
+      ["me", true],
+      ["ada", false],
+    ]);
+    expect(offline?.[0]?.isSelf).toBe(false);
+  });
+
   it("has no Offline group without a directory", () => {
     const { participants, selfId } = presenceOf("ada", avatar("ada"));
 
