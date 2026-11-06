@@ -10,7 +10,7 @@ import type {
   SidebarPanelId,
 } from "../../store/sidebar-preferences";
 import { CampusViewProvider } from "../campus-view-provider";
-import { CampusRail } from "./campus-rail";
+import { CampusRail, type LogOutActionComponent } from "./campus-rail";
 import { CampusSidebar } from "./campus-sidebar";
 import {
   type CampusViewer,
@@ -31,6 +31,7 @@ type CampusShellProps = Readonly<{
   AccountMenu?: ComponentType<{ children: ReactNode }>;
   administrationPanel?: ReactNode;
   FeedbackPopup?: FeedbackPopupComponent;
+  LogOutAction?: LogOutActionComponent;
   OverviewPanel: ComponentType<{
     cohort?: OverviewCohort;
     cohortId: string;
@@ -72,6 +73,7 @@ function RailAvatar() {
 
 export function CampusShell({
   AccountMenu,
+  LogOutAction,
   administrationPanel,
   FeedbackPopup,
   OverviewPanel,
@@ -101,6 +103,7 @@ export function CampusShell({
               cohortId={cohortId}
               hasAdministration={administrationPanel !== undefined}
               initialSidebarMode={initialSidebarMode}
+              LogOutAction={LogOutAction}
             />
             <CampusSidebar
               administrationPanel={administrationPanel}

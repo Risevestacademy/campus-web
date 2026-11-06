@@ -3,6 +3,8 @@ export { CohortGate } from "./components/cohort-gate";
 export { CohortSession } from "./components/cohort-session";
 export { ForgetPreviousMember } from "./components/forget-previous-member";
 export { InvitationGate } from "./components/invitation-gate";
+export { LogOutAction } from "./components/log-out-action";
+export { LogOutButton } from "./components/log-out-button";
 export { RefreshSession } from "./components/refresh-session";
 export { ResumeInvitation } from "./components/resume-invitation";
 export { SessionRefreshProvider } from "./components/session-refresh-provider";

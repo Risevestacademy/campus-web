@@ -10,6 +10,7 @@ vi.mock("@/features/admin", () => ({ AdminSidebar: () => null }));
 vi.mock("@/features/auth", () => ({
   AccountMenu: () => null,
   isSystemAdministrator: () => false,
+  LogOutAction: () => null,
   logsOutFromRail: () => true,
   requireRouteAccess: vi.fn(),
   SessionUnavailable: () => <p>Session unavailable</p>,
