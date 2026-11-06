@@ -128,6 +128,7 @@ function LogOutRailButton({
   const [isAsking, setIsAsking] = useState(false);
 
   function confirm() {
+    if (!isAsking || isPending) return;
     setIsAsking(false);
     logOut();
   }
@@ -153,7 +154,12 @@ function LogOutRailButton({
             <DialogClose render={<Button variant="outline" />}>
               Stay signed in
             </DialogClose>
-            <Button type="button" variant="destructive" onClick={confirm}>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!isAsking || isPending}
+              onClick={confirm}
+            >
               Log out
             </Button>
           </DialogFooter>

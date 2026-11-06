@@ -5,8 +5,8 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { type ReactNode, useState } from "react";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { AnalyticsConsentBanner } from "@/core/analytics/consent";
 
@@ -52,6 +52,55 @@ describe("CampusRail", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
+  });
+
+  it("sends one log out when the visitor confirms again while the prompt closes", async () => {
+    Element.prototype.getAnimations = () => [
+      { finished: new Promise(() => {}) } as unknown as Animation,
+    ];
+    onTestFinished(() => {
+      delete (Element.prototype as Partial<Element>).getAnimations;
+    });
+    const logOut = vi.fn();
+    function PendingLogOutAction({
+      children,
+    }: {
+      children: (action: {
+        logOut: () => void;
+        isPending: boolean;
+      }) => ReactNode;
+    }) {
+      const [isPending, setIsPending] = useState(false);
+      return children({
+        logOut: () => {
+          logOut();
+          setIsPending(true);
+        },
+        isPending,
+      });
+    }
+    render(
+      <CampusShell
+        LogOutAction={PendingLogOutAction}
+        OverviewPanel={OverviewPanelStub}
+        cohortId="c-1"
+      >
+        <p>Route content</p>
+      </CampusShell>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Log out of Campus?",
+    });
+    const confirm = within(dialog).getByRole("button", { name: "Log out" });
+
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+
+    expect(logOut).toHaveBeenCalledOnce();
+    expect(confirm).toBeInTheDocument();
+    expect(confirm).toBeDisabled();
   });
 
   it("stays signed in when the visitor backs out of the prompt", async () => {

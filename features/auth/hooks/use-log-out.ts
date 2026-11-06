@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { useRef } from "react";
 
 import { ANALYTICS_EVENTS } from "@/core/analytics";
 import {
@@ -37,12 +38,22 @@ function settle(outcome: SessionEnd) {
 }
 
 export function useLogOut() {
+  const isSending = useRef(false);
   // Logging out revokes the refresh token, so it is never replayed for us.
   const logout = useMutation({
     mutationFn: () => endSession(browserApi),
     retry: false,
     onSuccess: settle,
+    onSettled: () => {
+      isSending.current = false;
+    },
   });
 
-  return { logOut: () => logout.mutate(), isPending: logout.isPending };
+  function logOut() {
+    if (isSending.current) return;
+    isSending.current = true;
+    logout.mutate();
+  }
+
+  return { logOut, isPending: logout.isPending };
 }

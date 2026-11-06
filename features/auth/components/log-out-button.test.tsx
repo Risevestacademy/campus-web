@@ -14,6 +14,7 @@ import { toast, Toaster } from "@/shared/ui/toast";
 import { inOrder, type Reply, TEST_ORIGIN } from "@/tests/fixtures/mock-api";
 import { withQueryClient } from "@/tests/fixtures/query-client";
 
+import { LogOutAction } from "./log-out-action";
 import { LogOutButton } from "./log-out-button";
 
 const mockApi = await vi.hoisted(async () => {
@@ -125,5 +126,50 @@ describe("LogOutButton", () => {
     ).toBeInTheDocument();
     expect(sideEffects).toEqual([]);
     expect(logOutButton()).toBeEnabled();
+  });
+
+  it("can try again after a failure", async () => {
+    logoutReplies(status(503), status(204));
+    renderButton();
+
+    fireEvent.click(logOutButton());
+    await screen.findByText("We couldn't log you out");
+    fireEvent.click(logOutButton());
+
+    await waitFor(() => {
+      expect(sideEffects).toEqual(LOGGED_OUT_SEQUENCE);
+    });
+    expect(logoutPosts()).toHaveLength(2);
+  });
+});
+
+describe("LogOutAction", () => {
+  it("sends one request when asked twice before the in-flight state renders", async () => {
+    logoutReplies(neverAnswers);
+    render(
+      withQueryClient(
+        <LogOutAction>
+          {({ logOut }) => (
+            <button
+              type="button"
+              onClick={() => {
+                logOut();
+                logOut();
+              }}
+            >
+              Log out
+            </button>
+          )}
+        </LogOutAction>,
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+
+    await waitFor(() => {
+      expect(logoutPosts()).toHaveLength(1);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(logoutPosts()).toHaveLength(1);
   });
 });
