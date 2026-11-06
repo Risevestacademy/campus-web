@@ -2,6 +2,7 @@ import { AdminSidebar } from "@/features/admin";
 import {
   AccountMenu,
   isSystemAdministrator,
+  LogOutAction,
   logsOutFromRail,
   requireRouteAccess,
   SessionUnavailable,
@@ -59,6 +60,7 @@ export default async function ActiveCampusLayout({
           ) : undefined
         }
         FeedbackPopup={FeedbackPopup}
+        LogOutAction={LogOutAction}
         OverviewPanel={CampusOverviewPanel}
         cohort={cohortContextOf(access.session, id)}
         cohortId={id}
