@@ -1,3 +1,9 @@
+import { useId } from "react";
+
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { Textarea } from "@/shared/ui/textarea";
+
 import type { TrackFieldErrors, TrackFieldValues } from "../types/track.types";
 
 export function TrackFormFields({
@@ -7,41 +13,47 @@ export function TrackFormFields({
   values?: Partial<TrackFieldValues>;
   errors?: TrackFieldErrors;
 }) {
+  const id = useId();
+
   return (
-    <div className="grid gap-4">
-      <label className="grid gap-2">
-        Name
-        <input
+    <FieldGroup>
+      <Field data-invalid={Boolean(errors.name)}>
+        <FieldLabel htmlFor={`${id}-name`}>Name</FieldLabel>
+        <Input
+          id={`${id}-name`}
           name="name"
           defaultValue={values?.name}
+          placeholder="Frontend Development"
+          autoComplete="off"
           aria-invalid={Boolean(errors.name)}
           required
         />
-      </label>
-      <label className="grid gap-2">
-        Code
-        <input
+      </Field>
+      <Field data-invalid={Boolean(errors.code)}>
+        <FieldLabel htmlFor={`${id}-code`}>Code</FieldLabel>
+        <Input
+          id={`${id}-code`}
           name="code"
           defaultValue={values?.code}
+          placeholder="FE"
+          autoComplete="off"
           aria-invalid={Boolean(errors.code)}
           required
         />
-      </label>
-      <label className="grid gap-2">
-        Description
-        <textarea
+      </Field>
+      <Field data-invalid={Boolean(errors.description)}>
+        <FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
+        <Textarea
+          id={`${id}-description`}
           name="description"
           defaultValue={values?.description}
+          placeholder="What this track covers"
           aria-invalid={Boolean(errors.description)}
         />
-      </label>
+      </Field>
       {Object.entries(errors).map(([field, message]) =>
-        message ? (
-          <p key={field} role="alert" className="text-destructive text-sm">
-            {message}
-          </p>
-        ) : null,
+        message ? <FieldError key={field}>{message}</FieldError> : null,
       )}
-    </div>
+    </FieldGroup>
   );
 }

@@ -15,7 +15,7 @@ export function CohortAdministrationCard({
         href={campusJoinHref(cohort.id)}
         title={cohort.name}
         description={cohort.code}
-        className="block pr-10"
+        captionClassName="pr-10"
       />
       <div className="absolute right-0 bottom-0">
         <CohortAdministrationActions cohort={cohort} />

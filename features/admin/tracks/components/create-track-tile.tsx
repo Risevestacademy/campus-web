@@ -33,7 +33,7 @@ export function CreateTrackTile() {
           />
         }
       >
-        <span className="border-border text-foreground-secondary mb-2 grid aspect-video w-80 place-items-center rounded-2xl border-2 border-dashed">
+        <span className="border-border text-foreground-secondary mb-2 grid aspect-video w-[19.5rem] place-items-center rounded-2xl border-2 border-dashed">
           <PlusIcon aria-hidden="true" className="size-8" />
         </span>
         <span className="block pl-2 font-medium">Create Programme Track</span>

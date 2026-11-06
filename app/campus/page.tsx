@@ -1,5 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 
+import logoMark from "@/assets/icon-inverse.svg";
 import { AdministrationCatalogue } from "@/features/admin";
 import {
   AccountMenu,
@@ -46,10 +48,15 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
     <div data-surface-role="background" className="bg-background space-y-8">
       <header className="flex h-16 items-end justify-between px-10">
         <Link href={"/"} className="flex items-center gap-3">
-          <figure
-            data-surface-role="surface"
-            className="bg-surface ring-border size-12 rounded-xl ring"
-          ></figure>
+          <figure className="bg-primary grid size-12 place-items-center rounded-xl">
+            <Image
+              src={logoMark}
+              alt=""
+              width={30}
+              height={46}
+              className="size-10 object-contain"
+            />
+          </figure>
           <h1 className="text-xl font-medium">Campus by Rise</h1>
         </Link>
         <AccountMenu side="bottom">

@@ -37,7 +37,7 @@ export function CreateCohortTile({ page }: { page: number }) {
           />
         }
       >
-        <span className="border-border text-foreground-secondary group-hover:border-foreground-secondary group-hover:text-foreground group-focus-visible:ring-ring/50 mb-2 grid aspect-video w-80 place-items-center rounded-2xl border-2 border-dashed transition-[border-color,color,box-shadow,scale] duration-150 ease-out group-focus-visible:ring-3 group-active:scale-96 motion-reduce:group-active:scale-100">
+        <span className="border-border text-foreground-secondary group-hover:border-foreground-secondary group-hover:text-foreground group-focus-visible:ring-ring/50 mb-2 grid aspect-video w-[19.5rem] place-items-center rounded-2xl border-2 border-dashed transition-[border-color,color,box-shadow,scale] duration-150 ease-out group-focus-visible:ring-3 group-active:scale-96 motion-reduce:group-active:scale-100">
           <PlusIcon
             aria-hidden="true"
             className="size-8 transition-[scale] duration-150 ease-out group-hover:scale-105"
