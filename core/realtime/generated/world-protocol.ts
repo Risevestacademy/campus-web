@@ -1,4 +1,4 @@
-// From world's protocol.schema.json, sha256 fca7f26e1a93991cf5d13214952ff07706810c26fbbbf068166cb22779f6247e.
+// From world's protocol.schema.json, sha256 cb2de1026542d5d105b4189284e43ae078f6a75d68c86234137812cbc42d80d7.
 // Find the campus-server commit: git show <ref>:apps/world/protocol.schema.json | shasum -a 256
 
 export type paths = Record<string, never>;
@@ -80,7 +80,7 @@ export interface components {
      */
     MoveOutcome: "moved" | "blocked" | "refused" | "too_fast";
     /**
-     * @description arrived: you are one tile from them, in their space, never on their tile. stopped: you sent `stopWalking` or a `move`. refused: a space you may not enter is in the way, theirs or another, and you stopped beside the first one; `mayAsk` says whether asking to enter it would be taken. gone: they left, or were not here. elsewhere: they are online, but connected to another world server, which a walk cannot reach. no_way: no path reaches a tile beside them in their space: walls, a space with no room beside them, or a chase past the step limit. moved_by_staff: staff removed you from a space mid-walk.
+     * @description arrived: walking to somebody, you are one tile from them, in their space, never on their tile; to a space, you are on the free tile nearest its middle, or its middle when none is free; to a tile, you are on it. stopped: you sent `stopWalking` or a `move`. refused: a space you may not enter is in the way, or is where you were going, and you stopped beside the first one; `mayAsk` says whether asking to enter it would be taken. gone: they left, or were not here. elsewhere: they are online, but connected to another world server, which a walk cannot reach. gone and elsewhere end only walks to somebody. no_way: no path reaches where you were going: walls, a space with no room beside them, or a walk past the step limit. moved_by_staff: staff removed you from a space mid-walk.
      * @enum {string}
      */
     WalkEndReason:
@@ -182,7 +182,23 @@ export interface components {
       /** @description Whom to walk to: in your cohort, on this world server. */
       userId: string;
     };
-    /** @description End the walk `goTo` started, answered by `walkEnded` with `stopped`. A `move` ends it too. Counts as activity. */
+    /** @description Have the server walk you into a space, to the free tile nearest its middle, the way `goTo` walks you to somebody: a `walking` a step, then one `walkEnded`. A space closed to you ends it beside the space with `refused`. Replaces a walk already going. A key not drawn on this map, or the corridors, is a NOT_ALLOWED error. Counts as activity. */
+    GoToSpaceMessage: {
+      /** @constant */
+      type: "goToSpace";
+      /** @description A drawn space's key on this map. The corridors take `goToTile`. */
+      spaceKey: string;
+    };
+    /** @description Have the server walk you onto a tile, the way `goTo` walks you to somebody: a `walking` a step, then one `walkEnded`. A tile in a space closed to you ends it beside the space with `refused`. Replaces a walk already going. A tile off the map or inside a wall is a NOT_ALLOWED error. Counts as activity. */
+    GoToTileMessage: {
+      /** @constant */
+      type: "goToTile";
+      /** @description Tile column. */
+      x: number;
+      /** @description Tile row. */
+      y: number;
+    };
+    /** @description End the walk `goTo`, `goToSpace` or `goToTile` started, answered by `walkEnded` with `stopped`. A `move` ends it too. Counts as activity. */
     StopWalkingMessage: {
       /** @constant */
       type: "stopWalking";
@@ -201,6 +217,8 @@ export interface components {
       | components["schemas"]["MuteMessage"]
       | components["schemas"]["RemoveFromSpaceMessage"]
       | components["schemas"]["GoToMessage"]
+      | components["schemas"]["GoToSpaceMessage"]
+      | components["schemas"]["GoToTileMessage"]
       | components["schemas"]["StopWalkingMessage"];
     /** @description First frame on a socket that was let in. */
     WelcomeMessage: {
@@ -317,6 +335,11 @@ export interface components {
       type: "lockableSpaces";
       spaceKeys: string[];
     };
+    /** @description Who holds a desk in your cohort may have changed, or desks were added to or taken off the map: fetch `GET /v1/cohorts/{cohortId}/desks` from campus-api again. */
+    DesksChangedMessage: {
+      /** @constant */
+      type: "desksChanged";
+    };
     /** @description A space was renamed, or campus-api gained or lost a row for one: replaces `snapshot.spaces`. Sent to everybody. */
     SpacesMessage: {
       /** @constant */
@@ -380,20 +403,34 @@ export interface components {
       /** @description For removed: where they stand now, outside the space. Snap them there. Null for muted. */
       player: components["schemas"]["Player"] | null;
     };
-    /** @description The server took a step of your `goTo` walk: where you are now. Only to you; everybody else sees it in `moved`. */
+    /** @description The server took a step of your walk: where you are now. Only to you; everybody else sees it in `moved`. */
     WalkingMessage: {
       /** @constant */
       type: "walking";
-      /** @description Whom you are walking to. */
-      userId: string;
+      /** @description Whom you are walking to, for a `goTo` walk. */
+      userId: string | null;
+      /** @description The space you are walking into, for a `goToSpace` walk. */
+      toSpaceKey: string | null;
+      /** @description The tile you are walking onto, for a `goToTile` walk. */
+      toTile: {
+        x: number;
+        y: number;
+      } | null;
       player: components["schemas"]["Player"];
     };
-    /** @description Your `goTo` walk is over, and why. Only to you. Not sent when the socket closes. */
+    /** @description Your walk is over, and why. Only to you. Not sent when the socket closes. */
     WalkEndedMessage: {
       /** @constant */
       type: "walkEnded";
-      /** @description Whom you were walking to. */
-      userId: string;
+      /** @description Whom you are walking to, for a `goTo` walk. */
+      userId: string | null;
+      /** @description The space you are walking into, for a `goToSpace` walk. */
+      toSpaceKey: string | null;
+      /** @description The tile you are walking onto, for a `goToTile` walk. */
+      toTile: {
+        x: number;
+        y: number;
+      } | null;
       reason: components["schemas"]["WalkEndReason"];
       /** @description Where you stopped. */
       player: components["schemas"]["Player"];
@@ -444,6 +481,7 @@ export interface components {
       | components["schemas"]["NearbyMessage"]
       | components["schemas"]["LockChangedMessage"]
       | components["schemas"]["LockableSpacesMessage"]
+      | components["schemas"]["DesksChangedMessage"]
       | components["schemas"]["SpacesMessage"]
       | components["schemas"]["EntryRequestedMessage"]
       | components["schemas"]["EntryRequestEndedMessage"]
@@ -506,6 +544,8 @@ export type MuteMessage = components["schemas"]["MuteMessage"];
 export type RemoveFromSpaceMessage =
   components["schemas"]["RemoveFromSpaceMessage"];
 export type GoToMessage = components["schemas"]["GoToMessage"];
+export type GoToSpaceMessage = components["schemas"]["GoToSpaceMessage"];
+export type GoToTileMessage = components["schemas"]["GoToTileMessage"];
 export type StopWalkingMessage = components["schemas"]["StopWalkingMessage"];
 export type ClientMessage = components["schemas"]["ClientMessage"];
 export type WelcomeMessage = components["schemas"]["WelcomeMessage"];
@@ -523,6 +563,7 @@ export type NearbyMessage = components["schemas"]["NearbyMessage"];
 export type LockChangedMessage = components["schemas"]["LockChangedMessage"];
 export type LockableSpacesMessage =
   components["schemas"]["LockableSpacesMessage"];
+export type DesksChangedMessage = components["schemas"]["DesksChangedMessage"];
 export type SpacesMessage = components["schemas"]["SpacesMessage"];
 export type EntryRequestedMessage =
   components["schemas"]["EntryRequestedMessage"];

@@ -36,6 +36,7 @@ const framesAsRead = {
   nearby: serverFrames.nearby,
   lockChanged: { type: "lockChanged" },
   lockableSpaces: { type: "lockableSpaces" },
+  desksChanged: { type: "desksChanged" },
   broadcast: { type: "broadcast" },
   entryRequested: { type: "entryRequested" },
   entryRequestEnded: { type: "entryRequestEnded" },
