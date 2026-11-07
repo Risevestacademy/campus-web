@@ -212,10 +212,11 @@ export function createCampusRuntime(
         return;
       }
 
-      const { onZoomChanged, ...avatarOptions } = options;
+      const { movement, onZoomChanged, ...avatarOptions } = options;
       const camera = createCampusCamera(k, {
         canvas,
         map: prepared.map,
+        onTileDoubleClick: (tile) => movement.sendGoToTile(tile),
         onZoomChanged,
         prefersReducedMotion,
         start: spawnTarget(prepared.map, prepared.layout),
@@ -235,6 +236,7 @@ export function createCampusRuntime(
           camera,
           layout: prepared.layout,
           map: prepared.map,
+          movement,
           ...avatarOptions,
         }),
       );

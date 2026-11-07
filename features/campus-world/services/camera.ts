@@ -102,6 +102,23 @@ export function zoomToward(
   };
 }
 
+// The tile under a point on the canvas, given how far the point is from the
+// canvas's centre in screen pixels. Null off the map.
+export function tileUnderPoint(
+  offsetFromCentre: Point,
+  centre: Point,
+  zoom: number,
+  map: TileGrid,
+): Point | null {
+  const tile = {
+    x: Math.floor((centre.x + offsetFromCentre.x / zoom) / map.tilewidth),
+    y: Math.floor((centre.y + offsetFromCentre.y / zoom) / map.tileheight),
+  };
+  const onMap =
+    tile.x >= 0 && tile.y >= 0 && tile.x < map.width && tile.y < map.height;
+  return onMap ? tile : null;
+}
+
 export function dragCamera(centre: Point, drag: Point, zoom: number): Point {
   return { x: centre.x - drag.x / zoom, y: centre.y - drag.y / zoom };
 }

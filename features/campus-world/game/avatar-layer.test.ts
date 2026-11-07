@@ -68,6 +68,7 @@ function startLayerWith(
   const camera = createCampusCamera(context.k, {
     canvas,
     map: MAP,
+    onTileDoubleClick: vi.fn(),
     onZoomChanged: vi.fn(),
     prefersReducedMotion: () => reducedMotion,
     start: { x: 480, y: 320 },
