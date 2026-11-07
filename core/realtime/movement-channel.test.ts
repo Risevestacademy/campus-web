@@ -45,6 +45,45 @@ describe("createWorldMovementChannel", () => {
     expect(send).toHaveBeenCalledOnce();
   });
 
+  it("sends goToSpace once the channel is ready", () => {
+    const channel = createWorldMovementChannel();
+    const send = vi.fn(() => true);
+    channel.bind(send);
+
+    channel.apply(serverFrames.welcome);
+    expect(channel.sendGoToSpace("library")).toBe(false);
+
+    channel.apply(serverFrames.snapshot);
+    expect(channel.sendGoToSpace("library")).toBe(true);
+    expect(send).toHaveBeenCalledExactlyOnceWith({
+      type: "goToSpace",
+      spaceKey: "library",
+    });
+
+    channel.disconnect();
+    expect(channel.sendGoToSpace("library")).toBe(false);
+  });
+
+  it("sends goToTile once the channel is ready", () => {
+    const channel = createWorldMovementChannel();
+    const send = vi.fn(() => true);
+    channel.bind(send);
+
+    channel.apply(serverFrames.welcome);
+    expect(channel.sendGoToTile({ x: 4, y: 7 })).toBe(false);
+
+    channel.apply(serverFrames.snapshot);
+    expect(channel.sendGoToTile({ x: 4, y: 7, extra: 1 } as never)).toBe(true);
+    expect(send).toHaveBeenCalledExactlyOnceWith({
+      type: "goToTile",
+      x: 4,
+      y: 7,
+    });
+
+    channel.disconnect();
+    expect(channel.sendGoToTile({ x: 4, y: 7 })).toBe(false);
+  });
+
   it("publishes own movement and remote avatar lifecycle frames", () => {
     const channel = createWorldMovementChannel();
     const received = vi.fn();

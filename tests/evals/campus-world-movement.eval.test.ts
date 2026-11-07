@@ -453,6 +453,7 @@ function startCameraWorld(refuses: (seq: number, target: Tile) => boolean) {
   const camera = createCampusCamera(k, {
     canvas,
     map: CAMERA_MAP,
+    onTileDoubleClick: () => undefined,
     onZoomChanged: () => undefined,
     prefersReducedMotion: () => false,
     start: tileCentre(at, CAMERA_MAP),
@@ -789,6 +790,7 @@ function cameraRig({ reducedMotion = false } = {}) {
   const camera = createCampusCamera(context.k, {
     canvas,
     map: CAMERA_MAP,
+    onTileDoubleClick: () => undefined,
     onZoomChanged: () => undefined,
     prefersReducedMotion: () => reducedMotion,
     start: tileCentre({ x: 30, y: 20 }, CAMERA_MAP),

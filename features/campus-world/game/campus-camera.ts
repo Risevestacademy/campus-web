@@ -9,6 +9,7 @@ import {
   readWheel,
   snapToScreenPixel,
   stepZoom,
+  tileUnderPoint,
   visibleArea,
   worldSize,
   type ZoomLevel,
@@ -26,6 +27,7 @@ interface Point {
 interface CampusCameraOptions {
   canvas: HTMLCanvasElement;
   map: { height: number; tileheight: number; tilewidth: number; width: number };
+  onTileDoubleClick: (tile: Point) => void;
   onZoomChanged: (level: ZoomLevel) => void;
   prefersReducedMotion: () => boolean;
   start: Point;
@@ -60,6 +62,7 @@ export function createCampusCamera(
   {
     canvas,
     map,
+    onTileDoubleClick,
     onZoomChanged,
     prefersReducedMotion,
     start,
@@ -162,6 +165,27 @@ export function createCampusCamera(
     if (event.pointerId === drag?.id) drag = null;
   }
 
+  // The canvas can be shown at another size than KAPLAY draws it, so the
+  // point is scaled from the page's pixels to the game's before it is placed.
+  function doubleClick(event: MouseEvent) {
+    if (event.button !== 0) return;
+
+    const bounds = canvas.getBoundingClientRect();
+    if (bounds.width === 0 || bounds.height === 0) return;
+
+    const { height, width } = viewport();
+    const tile = tileUnderPoint(
+      {
+        x: ((event.clientX - bounds.left) / bounds.width) * width - width / 2,
+        y: ((event.clientY - bounds.top) / bounds.height) * height - height / 2,
+      },
+      centre,
+      scale,
+      map,
+    );
+    if (tile) onTileDoubleClick(tile);
+  }
+
   const pointerListeners = [
     ["pointerdown", startDrag],
     ["pointermove", moveDrag],
@@ -172,6 +196,7 @@ export function createCampusCamera(
   for (const [type, listener] of pointerListeners) {
     canvas.addEventListener(type, listener);
   }
+  canvas.addEventListener("dblclick", doubleClick);
   centre = onMap(start);
   draw();
 
@@ -196,6 +221,7 @@ export function createCampusCamera(
       for (const [type, listener] of pointerListeners) {
         canvas.removeEventListener(type, listener);
       }
+      canvas.removeEventListener("dblclick", doubleClick);
     },
     zoom(step) {
       changeZoom(step, ON_CENTRE);

@@ -27,10 +27,15 @@ function startCamera() {
   const canvas = document.createElement("canvas");
   canvas.setPointerCapture = vi.fn();
   const onZoomChanged = vi.fn();
+  const onTileDoubleClick = vi.fn();
+  // A canvas shown at its drawn size, which jsdom does not lay out.
+  canvas.getBoundingClientRect = () =>
+    ({ height: 480, left: 0, top: 0, width: 640 }) as DOMRect;
   let reducedMotion = false;
   const camera = createCampusCamera(context.k, {
     canvas,
     map: MAP,
+    onTileDoubleClick,
     onZoomChanged,
     prefersReducedMotion: () => reducedMotion,
     start: SPAWN,
@@ -77,6 +82,7 @@ function startCamera() {
     drag,
     frame,
     k: context.k,
+    onTileDoubleClick,
     onZoomChanged,
     pointer,
     position: () => ({ ...context.k.getCamPos() }),
@@ -206,6 +212,47 @@ describe("createCampusCamera", () => {
     expect(position()).toEqual({ x: 460, y: 335 });
   });
 
+  it("reports the tile under a double-click, at the current scale", () => {
+    const { canvas, onTileDoubleClick } = startCamera();
+
+    // The canvas centre is the spawn point, tile (30, 20) of 16 px tiles.
+    canvas.dispatchEvent(
+      new MouseEvent("dblclick", { clientX: 320, clientY: 240 }),
+    );
+    // 2x: 64 screen px right and 32 down is 32 world px, two and one tiles.
+    canvas.dispatchEvent(
+      new MouseEvent("dblclick", { clientX: 384, clientY: 272 }),
+    );
+
+    expect(onTileDoubleClick).toHaveBeenNthCalledWith(1, { x: 30, y: 20 });
+    expect(onTileDoubleClick).toHaveBeenNthCalledWith(2, { x: 32, y: 21 });
+  });
+
+  it("follows a dragged view when it reads the tile", () => {
+    const { canvas, drag, onTileDoubleClick } = startCamera();
+
+    // 64 screen px right at 2x moves the view 32 world px left: two tiles.
+    drag({ x: 100, y: 100 }, { x: 164, y: 100 });
+    canvas.dispatchEvent(
+      new MouseEvent("dblclick", { clientX: 320, clientY: 240 }),
+    );
+
+    expect(onTileDoubleClick).toHaveBeenCalledExactlyOnceWith({
+      x: 28,
+      y: 20,
+    });
+  });
+
+  it("ignores a double-click that is not the primary button", () => {
+    const { canvas, onTileDoubleClick } = startCamera();
+
+    canvas.dispatchEvent(
+      new MouseEvent("dblclick", { button: 2, clientX: 320, clientY: 240 }),
+    );
+
+    expect(onTileDoubleClick).not.toHaveBeenCalled();
+  });
+
   it("leaves the press free to focus the canvas", () => {
     const { pointer } = startCamera();
 
@@ -280,6 +327,17 @@ describe("createCampusCamera", () => {
     settle({ x: 30, y: 20 });
 
     expect(position()).toEqual({ x: 320, y: 240 });
+  });
+
+  it("stops reporting double-clicks once stopped", () => {
+    const { camera, canvas, onTileDoubleClick } = startCamera();
+
+    camera.stop();
+    canvas.dispatchEvent(
+      new MouseEvent("dblclick", { clientX: 320, clientY: 240 }),
+    );
+
+    expect(onTileDoubleClick).not.toHaveBeenCalled();
   });
 
   it("stops listening once stopped", () => {
