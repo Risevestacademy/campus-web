@@ -1,9 +1,11 @@
-import type { Participant as PresenceParticipant } from "@/core/presence";
+import {
+  DEFAULT_SPACE_KEY,
+  type Participant as PresenceParticipant,
+} from "@/core/presence";
 
 import type { DirectoryPerson } from "./schemas/directory.schema";
 import type { Participant, ParticipantStatus } from "./types";
 
-const DEFAULT_SPACE_KEY = "_default";
 const UNNAMED_MEMBER = "Campus member";
 // Not success, error or warning: those are the status dots beside the avatar.
 export const AVATAR_TONES = [

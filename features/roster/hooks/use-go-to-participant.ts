@@ -1,23 +1,8 @@
-import { usePathname, useRouter } from "next/navigation";
-
-import { campusHref } from "@/core/navigation";
-import { movementFor } from "@/core/realtime";
-import { toast } from "@/shared/ui/toast";
+import { useWalkTo } from "./use-walk-to";
 
 export function useGoToParticipant(cohortId: string) {
-  const pathname = usePathname();
-  const router = useRouter();
+  const walkTo = useWalkTo(cohortId);
 
-  return (participantId: string) => {
-    if (!movementFor(cohortId).sendGoTo(participantId)) {
-      toast.add({
-        title: "You're reconnecting. Try again in a moment.",
-        type: "warning",
-      });
-      return;
-    }
-
-    const map = campusHref(cohortId);
-    if (pathname !== map) router.push(map);
-  };
+  return (participantId: string) =>
+    walkTo((movement) => movement.sendGoTo(participantId));
 }

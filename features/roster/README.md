@@ -44,6 +44,13 @@ passes the panel in because Campus may not import Roster.
 - Go to asks world to walk the member to somebody (`useGoToParticipant`) and
   brings them to the map from any other page. While the socket is down it says
   so and goes nowhere. The member's own row offers no actions.
+- Quick transport offers Townhall, Library, Notice room and Admin room, each
+  once world names its space, and walks the member in with `goToSpace`
+  (`useGoToSpace`). It also offers Courtyard and Private room area. Those are
+  not spaces, only the corridors and grounds around drawn ones, so they walk to
+  a fixed open tile with `goToTile` (`useGoToTile`), and only on the "campus"
+  map those tiles were read from. All of it goes through Go to's `useWalkTo`:
+  the map first from any other page, and a notice while the socket is down.
 
 ## Modules
 
@@ -74,7 +81,10 @@ behind a modal or faded out with the sidebar.
 
 ### Adding a destination
 
-Add it to `quickTransportDestinations` in `quick-transport.ts`.
+Add a space (by its key on the map) to `SPACES`, or an open tile to `AREAS`,
+in `quick-transport.ts`. Read a tile from the published map with
+`readMapLayout` and `blocked`; a tile walled in, like the fountain's centre,
+ends the walk with `no_way`.
 
 ### Rules
 

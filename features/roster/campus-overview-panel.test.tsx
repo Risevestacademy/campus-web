@@ -684,6 +684,165 @@ describe("going to somebody", () => {
   });
 });
 
+describe("going to a space or an area", () => {
+  const SPACES = [
+    { spaceKey: "_default", name: "Corridors and grounds" },
+    { spaceKey: "town_hall", name: "town_hall" },
+    { spaceKey: "library", name: "library" },
+    { spaceKey: "notice_room", name: "notice_room" },
+    { spaceKey: "admin", name: "admin" },
+    { spaceKey: "room_space_1", name: "room_space_1" },
+    { spaceKey: "courtyard_space_1", name: "courtyard_space_1" },
+  ];
+
+  function inCampus(spaces = SPACES, mapId = "campus") {
+    const { apply, cohortId } = newCohort();
+    everyoneIn(cohortId, []);
+    const first = snapshot(avatar("me"));
+    apply(welcome("me"), {
+      ...first,
+      map: { ...(first as { map: object }).map, id: mapId },
+      spaces,
+    } as ServerMessage);
+    return { cohortId, map: `/campus/${cohortId}` };
+  }
+
+  function worldReadyFor(cohortId: string) {
+    const send = vi.fn(() => true);
+    const movement = movementFor(cohortId);
+    movement.bind(send);
+    movement.apply(welcome("me"));
+    movement.apply(snapshot(avatar("me")));
+    return send;
+  }
+
+  function destinations() {
+    return screen
+      .getAllByRole("button", { name: /^Go to / })
+      .map((button) => button.getAttribute("aria-label"));
+  }
+
+  it("lists the campus's main spaces and two areas, by their own names", () => {
+    const { cohortId } = inCampus();
+    renderPanel(cohortId);
+
+    expect(screen.getByText("Quick transport")).toBeVisible();
+    expect(destinations()).toEqual([
+      "Go to Townhall",
+      "Go to Library",
+      "Go to Notice room",
+      "Go to Admin room",
+      "Go to Courtyard",
+      "Go to Private room area",
+    ]);
+  });
+
+  it("leaves out a space world does not name, and the corridors", () => {
+    const { cohortId } = inCampus([
+      { spaceKey: "_default", name: "Corridors and grounds" },
+      { spaceKey: "library", name: "library" },
+    ]);
+    renderPanel(cohortId);
+
+    expect(destinations()).toEqual([
+      "Go to Library",
+      "Go to Courtyard",
+      "Go to Private room area",
+    ]);
+  });
+
+  it("offers the areas only on the map their tiles were read from", () => {
+    const { cohortId } = inCampus(SPACES, "another-map");
+    renderPanel(cohortId);
+
+    expect(destinations()).toEqual([
+      "Go to Townhall",
+      "Go to Library",
+      "Go to Notice room",
+      "Go to Admin room",
+    ]);
+  });
+
+  it("offers nothing until world has named a space or a map", () => {
+    const { apply, cohortId } = newCohort();
+    everyoneIn(cohortId, []);
+    apply(welcome("me"));
+    renderPanel(cohortId);
+
+    expect(screen.queryByText("Quick transport")).not.toBeInTheDocument();
+  });
+
+  it("asks world to walk into a space and stays on the map", () => {
+    const { cohortId, map } = inCampus();
+    navigation.pathname = map;
+    const send = worldReadyFor(cohortId);
+    renderPanel(cohortId);
+
+    fireEvent.click(screen.getByRole("button", { name: "Go to Library" }));
+
+    expect(send).toHaveBeenCalledExactlyOnceWith({
+      type: "goToSpace",
+      spaceKey: "library",
+    });
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
+  it("asks world to walk to the tile of an area", () => {
+    const { cohortId, map } = inCampus();
+    navigation.pathname = map;
+    const send = worldReadyFor(cohortId);
+    renderPanel(cohortId);
+
+    fireEvent.click(screen.getByRole("button", { name: "Go to Courtyard" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Go to Private room area" }),
+    );
+
+    expect(send).toHaveBeenNthCalledWith(1, {
+      type: "goToTile",
+      x: 75,
+      y: 60,
+    });
+    expect(send).toHaveBeenNthCalledWith(2, {
+      type: "goToTile",
+      x: 118,
+      y: 78,
+    });
+  });
+
+  it("brings the member to the map from any other page", () => {
+    const { cohortId, map } = inCampus();
+    navigation.pathname = `${map}/people`;
+    const send = worldReadyFor(cohortId);
+    renderPanel(cohortId);
+
+    fireEvent.click(screen.getByRole("button", { name: "Go to Library" }));
+
+    expect(send).toHaveBeenCalledOnce();
+    expect(navigation.push).toHaveBeenCalledExactlyOnceWith(map);
+  });
+
+  it("says so and goes nowhere while the socket is down", () => {
+    const { cohortId, map } = inCampus();
+    navigation.pathname = `${map}/people`;
+    const send = worldReadyFor(cohortId);
+    movementFor(cohortId).disconnect();
+    const addToast = vi.spyOn(toast, "add");
+    renderPanel(cohortId);
+
+    fireEvent.click(screen.getByRole("button", { name: "Go to Library" }));
+
+    expect(send).not.toHaveBeenCalled();
+    expect(navigation.push).not.toHaveBeenCalled();
+    expect(addToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "You're reconnecting. Try again in a moment.",
+      }),
+    );
+    addToast.mockRestore();
+  });
+});
+
 describe("the search shortcut", () => {
   function renderOverview() {
     render(
@@ -828,20 +987,27 @@ describe("CampusOverview", () => {
         onParticipantAction={onParticipantAction}
         onQuickTransport={onQuickTransport}
         participants={[zora]}
+        quickTransportDestinations={[
+          {
+            id: "library",
+            label: "Library",
+            to: { kind: "space", spaceKey: "library" },
+          },
+        ]}
       />,
     );
 
     fireEvent.click(
       screen.getByRole("button", { name: "Wave Zora", hidden: true }),
     );
-    fireEvent.click(screen.getByText("Now & next"));
+    fireEvent.click(screen.getByRole("button", { name: "Go to Library" }));
 
     expect(onParticipantAction).toHaveBeenCalledWith(
       "wave",
       expect.objectContaining({ id: "zora" }),
     );
     expect(onQuickTransport).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "now-next" }),
+      expect.objectContaining({ id: "library" }),
     );
   });
 
