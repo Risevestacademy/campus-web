@@ -37,6 +37,8 @@ vi.mock("@/features/campus-world", () => ({
   CampusMapPreparationGate: ({ children }: { children: ReactNode }) => children,
   CampusWorld: () => null,
   CampusZoomControls: () => null,
+  parseWalkTargetSpace: () => undefined,
+  WalkOnArrival: () => null,
 }));
 vi.mock("server-only", () => ({}));
 
@@ -136,7 +138,7 @@ describe("Join Gate media session", () => {
 
     rerender(
       await activeCampusLayout(
-        await ActiveCampusPage({ params }),
+        await ActiveCampusPage({ params, searchParams: Promise.resolve({}) }),
         store,
         admissionStore,
       ),
@@ -162,7 +164,7 @@ describe("Join Gate media session", () => {
     const cameraTrack = store.getState().camera.track;
     const { rerender } = render(
       await activeCampusLayout(
-        await ActiveCampusPage({ params }),
+        await ActiveCampusPage({ params, searchParams: Promise.resolve({}) }),
         store,
         admissionStore,
       ),
