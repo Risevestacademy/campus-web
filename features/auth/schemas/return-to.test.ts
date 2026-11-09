@@ -45,6 +45,13 @@ describe("parseReturnTo", () => {
   );
 
   it.each([
+    ["a room link", "/join/abcDEF1234", "/join/abcDEF1234"],
+    ["a room link with a query", "/join/abcDEF1234?x=1#y", "/join/abcDEF1234"],
+  ])("accepts %s, which reads nothing from its query", (_, value, expected) => {
+    expect(parseReturnTo(value)).toBe(expected);
+  });
+
+  it.each([
     [
       "non-ASCII path and query",
       "/campus/café?q=é",
@@ -78,6 +85,7 @@ describe("parseReturnTo", () => {
     ["a campus prefix lookalike", "/campusfake/42"],
     ["an invitation prefix lookalike", "/invitationfake"],
     ["a preview prefix lookalike", "/previews"],
+    ["a join prefix lookalike", "/joined/abcDEF1234"],
     ["an absolute URL", "https://attacker.example/campus"],
     ["a protocol-relative URL", "//attacker.example/campus"],
     ["a javascript URL", "javascript:alert(1)"],
@@ -97,6 +105,7 @@ describe("parseReturnTo", () => {
     ["an empty interior segment", "/campus//42"],
     ["a parent segment out of the invitation", "/invitation/../campus"],
     ["an encoded parent segment under the preview", "/preview/%2E%2E/admin"],
+    ["a parent segment out of a room link", "/join/abc/../../admin"],
   ])("rejects %s as path traversal", (_, value) => {
     expect(parseReturnTo(value)).toBeUndefined();
   });

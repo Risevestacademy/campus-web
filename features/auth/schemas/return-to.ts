@@ -1,6 +1,17 @@
 const CAMPUS_HOME_PATH = "/campus";
 const INVITE_RETURN_ROOTS = ["/invitation", "/preview"] as const;
-const RETURN_ROOTS = [CAMPUS_HOME_PATH, ...INVITE_RETURN_ROOTS] as const;
+const ROOM_LINK_RETURN_ROOT = "/join";
+const RETURN_ROOTS = [
+  CAMPUS_HOME_PATH,
+  ...INVITE_RETURN_ROOTS,
+  ROOM_LINK_RETURN_ROOT,
+] as const;
+// Pages that read nothing from the query. A stray invite token, or anything
+// else, must not ride into sign-in URLs or the OAuth return cookie.
+const QUERYLESS_RETURN_ROOTS = [
+  ...INVITE_RETURN_ROOTS,
+  ROOM_LINK_RETURN_ROOT,
+] as const;
 const PRE_JOIN_SEGMENT = "join";
 const MAX_RETURN_TO_LENGTH = 2048;
 // Only used to serialize a path that already passed validation.
@@ -52,9 +63,7 @@ export function parseReturnTo(value: string | undefined): string | undefined {
   if (!isReturnPath(path)) return undefined;
 
   const url = new URL(withoutFragment, PARSING_ORIGIN);
-  // Invite pages read nothing from the query, and a stray invite token must
-  // not ride into sign-in URLs or the OAuth return cookie.
-  return isUnderRoot(url.pathname, INVITE_RETURN_ROOTS)
+  return isUnderRoot(url.pathname, QUERYLESS_RETURN_ROOTS)
     ? url.pathname
     : `${url.pathname}${url.search}`;
 }
