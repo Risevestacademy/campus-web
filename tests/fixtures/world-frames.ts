@@ -135,16 +135,21 @@ export const serverFrames: ServerFrames = {
   walking: {
     type: "walking",
     userId: GRACE,
+    toSpaceKey: null,
+    toTile: null,
     player: { userId: ADA, x: 4, y: 6, facing: "up" },
   },
   walkEnded: {
     type: "walkEnded",
     userId: GRACE,
+    toSpaceKey: null,
+    toTile: null,
     reason: "refused",
     player: { userId: ADA, x: 4, y: 6, facing: "up" },
     spaceKey: "library",
     mayAsk: true,
   },
+  desksChanged: { type: "desksChanged" },
   replaced: { type: "replaced" },
   moved: {
     type: "moved",

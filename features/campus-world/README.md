@@ -161,6 +161,10 @@ initialized`. The runtime moves its one canvas between containers, clears
   `facing`, a ring for you) until character art exists. Once world has
   placed you, the camera follows your drawn, predicted position each frame,
   clamped to the map, so it never waits for world's answer.
+- A double-click on a tile sends `goToTile` for it, the same walk as Go to.
+  The click is placed from the camera's centre and scale, so a dragged or
+  zoomed view picks the tile under the cursor. A closed socket ignores it, as
+  it ignores a key press.
 - A walk world takes for Go to arrives as `walking` frames, drawn over `stepMs`
   like a `moveResult` nobody predicted, and ends with `walkEnded`. Its start
   returns the camera to you once, so a drag made mid-walk holds. A key press

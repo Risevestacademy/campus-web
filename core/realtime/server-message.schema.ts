@@ -105,6 +105,7 @@ type UnreadType = Extract<
   | "entryRequested"
   | "entryRequestEnded"
   | "staffAction"
+  | "desksChanged"
 >;
 type UnreadMessage = { [Type in UnreadType]: { type: Type } }[UnreadType];
 
@@ -333,6 +334,7 @@ const serverMessageSchema = z.toZod<ServerMessage>()(
     unreadMessageSchema("entryRequested"),
     unreadMessageSchema("entryRequestEnded"),
     unreadMessageSchema("staffAction"),
+    unreadMessageSchema("desksChanged"),
     walkingMessageSchema,
     walkEndedMessageSchema,
   ]),

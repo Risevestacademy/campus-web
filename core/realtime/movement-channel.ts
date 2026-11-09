@@ -1,4 +1,11 @@
-import type { GoToMessage, MoveMessage } from "./generated/world-protocol";
+import type {
+  GoToMessage,
+  GoToSpaceMessage,
+  GoToTileMessage,
+  MoveMessage,
+} from "./generated/world-protocol";
+
+type WorldWalkMessage = GoToMessage | GoToSpaceMessage | GoToTileMessage;
 import type { ServerMessage } from "./server-message.schema";
 
 export type WorldMovementMessage = Extract<
@@ -19,13 +26,15 @@ export type WorldMovementMessage = Extract<
 export interface WorldMovement {
   readStepMs(): number | null;
   sendGoTo(userId: GoToMessage["userId"]): boolean;
+  sendGoToSpace(spaceKey: GoToSpaceMessage["spaceKey"]): boolean;
+  sendGoToTile(tile: Pick<GoToTileMessage, "x" | "y">): boolean;
   sendMove(move: Pick<MoveMessage, "direction" | "seq">): boolean;
   subscribe(listener: (message: WorldMovementMessage) => void): () => void;
 }
 
 export interface WorldMovementChannel extends WorldMovement {
   apply(message: ServerMessage): void;
-  bind(send: (message: MoveMessage | GoToMessage) => boolean): () => void;
+  bind(send: (message: MoveMessage | WorldWalkMessage) => boolean): () => void;
   disconnect(): void;
 }
 
@@ -33,7 +42,7 @@ export function createWorldMovementChannel(): WorldMovementChannel {
   const listeners = new Set<(message: WorldMovementMessage) => void>();
   let binding = 0;
   let ready = false;
-  let send: ((message: MoveMessage | GoToMessage) => boolean) | undefined;
+  let send: ((message: MoveMessage | WorldWalkMessage) => boolean) | undefined;
   let stepMs: number | null = null;
 
   function publish(message: WorldMovementMessage) {
@@ -79,6 +88,14 @@ export function createWorldMovementChannel(): WorldMovementChannel {
     sendGoTo(userId) {
       if (!ready || !send) return false;
       return send({ type: "goTo", userId });
+    },
+    sendGoToSpace(spaceKey) {
+      if (!ready || !send) return false;
+      return send({ type: "goToSpace", spaceKey });
+    },
+    sendGoToTile({ x, y }) {
+      if (!ready || !send) return false;
+      return send({ type: "goToTile", x, y });
     },
     sendMove(move) {
       if (!ready || !send) return false;

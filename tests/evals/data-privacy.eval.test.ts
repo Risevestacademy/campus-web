@@ -275,6 +275,7 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   moved: [...under("players[]", PLAYER_PATHS), "type"],
   nearby: ["type", "userIds[]"],
   pong: ["type"],
+  desksChanged: ["type"],
   replaced: ["type"],
   said: ["type"],
   spaceChanged: ["spaceKey", "type", "userId"],

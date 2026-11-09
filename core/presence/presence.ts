@@ -304,6 +304,9 @@ function applyFrame(presence: Presence, message: ServerMessage): Presence {
   }
 }
 
+// The key of the corridors and grounds: every tile outside a drawn space.
+export const DEFAULT_SPACE_KEY = "_default";
+
 export function spaceNameOf(
   { spaceNames }: Pick<Presence, "spaceNames">,
   spaceKey: string,

@@ -57,6 +57,7 @@ export type CampusOverviewProps = Readonly<{
   ) => void;
   onQuickTransport?: (destination: QuickTransportDestination) => void;
   participants: readonly Participant[];
+  quickTransportDestinations?: readonly QuickTransportDestination[];
 }>;
 
 export function CampusOverview({
@@ -66,6 +67,7 @@ export function CampusOverview({
   onParticipantAction,
   onQuickTransport,
   participants,
+  quickTransportDestinations = [],
 }: CampusOverviewProps) {
   const [searchText, setSearchText] = useState("");
   const [activeFilter, setActiveFilter] = useState<ParticipantFilterId>("all");
@@ -203,9 +205,14 @@ export function CampusOverview({
           </Collapsible>
         )}
 
-        <div className="mt-6 border-t pt-4">
-          <QuickTransportList onSelect={onQuickTransport} />
-        </div>
+        {quickTransportDestinations.length > 0 && (
+          <div className="mt-6 border-t pt-4">
+            <QuickTransportList
+              destinations={quickTransportDestinations}
+              onSelect={onQuickTransport}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
