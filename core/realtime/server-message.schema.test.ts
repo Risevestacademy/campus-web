@@ -13,13 +13,29 @@ function frameText(value: unknown): string {
   return JSON.stringify(value);
 }
 
-const { awayAfterSeconds: _awayAfterSeconds, ...welcome } =
-  serverFrames.welcome;
+const {
+  awayAfterSeconds: _awayAfterSeconds,
+  mode: _mode,
+  ...welcome
+} = serverFrames.welcome;
+
+// A player as the parser hands them on: their status's end time is unread.
+function withoutStatusEnd({
+  statusUntil: _statusUntil,
+  ...player
+}: (typeof serverFrames.joined)["player"]) {
+  return player;
+}
 const {
   lockableSpaces: _lockableSpaces,
   lockedSpaces: _lockedSpaces,
-  ...snapshot
+  ...snapshotFrame
 } = serverFrames.snapshot;
+const snapshot = {
+  ...snapshotFrame,
+  players: snapshotFrame.players.map(withoutStatusEnd),
+};
+const { until: _until, ...statusChanged } = serverFrames.statusChanged;
 const {
   room: _room,
   subscribeRadius: _subscribeRadius,
@@ -32,11 +48,20 @@ const framesAsRead = {
   ...serverFrames,
   welcome,
   snapshot,
+  joined: {
+    ...serverFrames.joined,
+    player: withoutStatusEnd(serverFrames.joined.player),
+  },
+  statusChanged,
   call: { type: "call", call },
   nearby: serverFrames.nearby,
   lockChanged: { type: "lockChanged" },
   lockableSpaces: { type: "lockableSpaces" },
   desksChanged: { type: "desksChanged" },
+  mapChanged: { type: "mapChanged" },
+  watching: { type: "watching" },
+  notification: { type: "notification" },
+  positionCorrected: { type: "positionCorrected" },
   broadcast: { type: "broadcast" },
   entryRequested: { type: "entryRequested" },
   entryRequestEnded: { type: "entryRequestEnded" },
