@@ -3,7 +3,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createPresenceStore } from "@/core/presence";
-import { createWorldMovementChannel } from "@/core/realtime";
+import {
+  createWorldMovementChannel,
+  createWorldSocialChannel,
+} from "@/core/realtime";
 import {
   admit,
   closeWith,
@@ -23,12 +26,14 @@ const { closeAfterTest, serveWorld } = startMockWorld();
 function startSession(overrides: Partial<WorldSessionOptions> = {}) {
   const presence = createPresenceStore();
   const movement = overrides.movement ?? createWorldMovementChannel();
+  const social = overrides.social ?? createWorldSocialChannel();
   const captureEvent = vi.fn<WorldSessionOptions["captureEvent"]>();
   const onOutcome = vi.fn<WorldSessionOptions["onOutcome"]>();
   const session = closeAfterTest(
     createWorldSession({
       url: WORLD_SOCKET_URL,
       movement,
+      social,
       presence,
       refreshSession: async () => ({ kind: "refreshed" }),
       captureEvent,
@@ -40,7 +45,7 @@ function startSession(overrides: Partial<WorldSessionOptions> = {}) {
     }),
   );
 
-  return { captureEvent, movement, onOutcome, presence, session };
+  return { captureEvent, movement, onOutcome, presence, session, social };
 }
 
 describe("createWorldSession", () => {
@@ -67,6 +72,48 @@ describe("createWorldSession", () => {
         seq: 1,
       }),
     );
+  });
+
+  it("sends social frames through the admitted socket, once world has placed the member", async () => {
+    const received: unknown[] = [];
+    serveWorld((connection) => {
+      connection.client.addEventListener("message", ({ data }) => {
+        received.push(JSON.parse(String(data)));
+      });
+      admit(connection);
+    });
+    const { session, social } = startSession();
+    expect(social.sendSay("Hello")).toBe(false);
+
+    session.connect();
+    await vi.waitFor(() =>
+      expect(session.getStatus()).toEqual({ phase: "connected" }),
+    );
+
+    expect(social.sendSay("Hello")).toBe(true);
+    expect(social.sendSetStatus("busy", 300)).toBe(true);
+    await vi.waitFor(() => {
+      expect(received).toContainEqual({ type: "say", text: "Hello" });
+      expect(received).toContainEqual({
+        type: "setStatus",
+        status: "busy",
+        forSeconds: 300,
+      });
+    });
+  });
+
+  it("stops sending social frames when the session closes", async () => {
+    serveWorld((connection) => admit(connection));
+    const { session, social } = startSession();
+    session.connect();
+    await vi.waitFor(() =>
+      expect(session.getStatus()).toEqual({ phase: "connected" }),
+    );
+    expect(social.sendActive()).toBe(true);
+
+    session.close();
+
+    expect(social.sendActive()).toBe(false);
   });
 
   it("keeps movement on the active session when another constructed session is discarded", async () => {

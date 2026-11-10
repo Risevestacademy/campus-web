@@ -29,6 +29,8 @@ const READ_SNAPSHOT = {
     ({ statusUntil: _statusUntil, ...player }) => player,
   ),
   spaces: SNAPSHOT.spaces,
+  lockableSpaces: SNAPSHOT.lockableSpaces,
+  lockedSpaces: SNAPSHOT.lockedSpaces,
 };
 
 describe("createRealtimeClient", () => {

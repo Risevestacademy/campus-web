@@ -26,16 +26,12 @@ function withoutStatusEnd({
 }: (typeof serverFrames.joined)["player"]) {
   return player;
 }
-const {
-  lockableSpaces: _lockableSpaces,
-  lockedSpaces: _lockedSpaces,
-  ...snapshotFrame
-} = serverFrames.snapshot;
 const snapshot = {
-  ...snapshotFrame,
-  players: snapshotFrame.players.map(withoutStatusEnd),
+  ...serverFrames.snapshot,
+  players: serverFrames.snapshot.players.map(withoutStatusEnd),
 };
 const { until: _until, ...statusChanged } = serverFrames.statusChanged;
+const { userId: _lockedBy, ...lockChanged } = serverFrames.lockChanged;
 const {
   room: _room,
   subscribeRadius: _subscribeRadius,
@@ -53,20 +49,14 @@ const framesAsRead = {
     player: withoutStatusEnd(serverFrames.joined.player),
   },
   statusChanged,
+  lockChanged,
   call: { type: "call", call },
   nearby: serverFrames.nearby,
-  lockChanged: { type: "lockChanged" },
-  lockableSpaces: { type: "lockableSpaces" },
   desksChanged: { type: "desksChanged" },
   mapChanged: { type: "mapChanged" },
   watching: { type: "watching" },
   notification: { type: "notification" },
   positionCorrected: { type: "positionCorrected" },
-  broadcast: { type: "broadcast" },
-  entryRequested: { type: "entryRequested" },
-  entryRequestEnded: { type: "entryRequestEnded" },
-  said: { type: "said" },
-  staffAction: { type: "staffAction" },
   walking: { type: "walking", player: serverFrames.walking.player },
   walkEnded: {
     type: "walkEnded",

@@ -6,6 +6,14 @@ import type {
   SnapshotMessage,
 } from "@/core/realtime";
 
+import {
+  EMPTY_SOCIAL,
+  type Social,
+  socialChangeOf,
+  socialOfSnapshot,
+  withoutOpenRequests,
+} from "./social";
+
 export type Participant = Pick<
   Avatar,
   "userId" | "displayName" | "spriteKey" | "status" | "spaceKey"
@@ -17,7 +25,7 @@ export type Hearing = Exclude<Call["hearing"], "unknown">;
 // only once it has minted a token: until then the old call says nothing.
 type PresenceHearing = Hearing | "awaiting" | null;
 
-export interface Presence {
+export interface Presence extends Social {
   selfId: string | null;
   map: WorldMap | null;
   // True from a snapshot until the socket closes. The map outlives a closed
@@ -45,6 +53,7 @@ export const EMPTY_PRESENCE: Presence = {
   hearing: null,
   meetingRoster: [],
   encounter: 0,
+  ...EMPTY_SOCIAL,
 };
 
 export function hearingOf(call: Call | null): Hearing | null {
@@ -237,6 +246,9 @@ export function applyServerMessage(
 }
 
 function applyFrame(presence: Presence, message: ServerMessage): Presence {
+  const social = socialChangeOf(presence, message);
+  if (social) return { ...presence, ...social };
+
   switch (message.type) {
     case "welcome":
       return { ...presence, selfId: message.userId };
@@ -251,6 +263,7 @@ function applyFrame(presence: Presence, message: ServerMessage): Presence {
         spaceNames: namesBySpaceKey(message.spaces),
         nearby: [],
         hearing: awaitingCall(presence.hearing),
+        ...socialOfSnapshot(message),
       };
     case "spaces":
       return { ...presence, spaceNames: namesBySpaceKey(message.spaces) };
@@ -325,5 +338,6 @@ export function withoutRemoteParticipants(presence: Presence): Presence {
       selfId && participant ? new Map([[selfId, participant]]) : new Map(),
     positions: selfId && position ? new Map([[selfId, position]]) : new Map(),
     nearby: [],
+    ...withoutOpenRequests(),
   });
 }

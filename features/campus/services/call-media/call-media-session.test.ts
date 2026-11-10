@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   applyServerMessage,
+  EMPTY_PRESENCE,
   type Hearing,
   type Presence,
 } from "@/core/presence";
@@ -60,6 +61,7 @@ function presenceWith(
   hearing: Hearing = "proximity",
 ): Presence {
   return {
+    ...EMPTY_PRESENCE,
     selfId: SELF_ID,
     map: { id: "map", version: "v1", width: 10, height: 10 },
     synced: true,

@@ -5,6 +5,7 @@ import { presenceFor } from "@/core/presence";
 import {
   browserIsOnline,
   movementFor,
+  socialFor,
   subscribeToBrowserWake,
 } from "@/core/realtime";
 import { readWorldSocketUrl } from "@/core/realtime/configuration";
@@ -30,6 +31,7 @@ export function createBrowserWorldSession(
   return createWorldSession({
     url: readWorldSocketUrl(publicEnvironment, cohortId),
     movement: movementFor(cohortId),
+    social: socialFor(cohortId),
     presence: presenceFor(cohortId),
     ...ports,
     captureEvent: captureRealtimeEvent,
