@@ -17,11 +17,17 @@ import {
 
 const { startClient } = startMockWorld();
 
-const { awayAfterSeconds: _awayAfterSeconds, ...READ_WELCOME } = WELCOME;
+const {
+  awayAfterSeconds: _awayAfterSeconds,
+  mode: _mode,
+  ...READ_WELCOME
+} = WELCOME;
 const READ_SNAPSHOT = {
   type: SNAPSHOT.type,
   map: SNAPSHOT.map,
-  players: SNAPSHOT.players,
+  players: SNAPSHOT.players.map(
+    ({ statusUntil: _statusUntil, ...player }) => player,
+  ),
   spaces: SNAPSHOT.spaces,
 };
 

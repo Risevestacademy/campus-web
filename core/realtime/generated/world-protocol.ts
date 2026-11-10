@@ -1,4 +1,4 @@
-// From world's protocol.schema.json, sha256 cb2de1026542d5d105b4189284e43ae078f6a75d68c86234137812cbc42d80d7.
+// From world's protocol.schema.json, sha256 acab337c72f34c6c11e9f5efcce19f7e41bc88615ce6857ca05054f4d4cb5cb7.
 // Find the campus-server commit: git show <ref>:apps/world/protocol.schema.json | shasum -a 256
 
 export type paths = Record<string, never>;
@@ -37,6 +37,8 @@ export interface components {
       /** @description Which character to draw them as. Null when they have picked none; draw the default then, and for a key you have no sprite for. */
       spriteKey: string | null;
       status: components["schemas"]["Status"];
+      /** @description When a status chosen for a while ends, as an ISO timestamp, and goes back to the one chosen before it. Null for a status that lasts, and while they show away for being idle. */
+      statusUntil: string | null;
       /** @description The space they are standing in: a drawn space's key, or `_default` for the corridors and grounds. */
       spaceKey: string;
     };
@@ -122,6 +124,8 @@ export interface components {
       /** @constant */
       type: "setStatus";
       status: components["schemas"]["Status"];
+      /** @description Choose it for this long only: then it goes back to the last status chosen without a time. Leave it out for a status that lasts. Choosing again, with or without one, replaces the timer. */
+      forSeconds?: number;
     };
     /** @description The person did something the server cannot see — a key, a click, a word in a call. Keeps them from going away while idle, and brings them back if they had. A `move` or `setStatus` counts already; a `ping` does not. No answer. */
     ActiveMessage: {
@@ -233,6 +237,11 @@ export interface components {
       tickMs: number;
       /** @description How long you may do nothing before the server shows you away. Send `active` well within it while the person is there. 0 when this deployment never does. */
       awayAfterSeconds: number;
+      /**
+       * @description avatar: you stand for this account on the map. watcher: another connection does, or nobody does; you see the cohort, may set the status and use the chat of whoever stands for you, and are never sent a call.
+       * @enum {string}
+       */
+      mode: "avatar" | "watcher";
       /** @description The name to show beside them. Null when they have set none. */
       displayName: string | null;
       /** @description Which character to draw them as. Null when they have picked none; draw the default then, and for a key you have no sprite for. */
@@ -265,6 +274,21 @@ export interface components {
       /** @description Every space a `spaceKey` can name on this map, `_default` first. */
       spaces: components["schemas"]["SpaceName"][];
     };
+    /** @description An admin published a new version of the map while you were here. Stop enforcing the one from `snapshot`, load `map.version`, and replace everything you draw from the map with it. Sent to everybody; a connection made afterwards gets it in `snapshot` instead. */
+    MapChangedMessage: {
+      /** @constant */
+      type: "mapChanged";
+      map: {
+        /** @description Which published map this is. With `version`, what to load: the server enforces exactly that one. */
+        id: string;
+        /** @description The published version the server loaded. Load this version, not the current one: a map published since would have walls the server does not. */
+        version: string;
+        /** @description In tiles. */
+        width: number;
+        /** @description In tiles. */
+        height: number;
+      };
+    };
     /** @description Somebody arrived in your cohort. Not sent when a socket is replaced within the same cohort, because the avatar never left. */
     JoinedMessage: {
       /** @constant */
@@ -287,12 +311,14 @@ export interface components {
       type: "left";
       userId: string;
     };
-    /** @description Somebody in your cohort's status changed: chosen, or set to away while idle and back again. Sent to everybody in the cohort, you included when it is yours. */
+    /** @description Somebody in your cohort's status changed: chosen, chosen for a while and that time ended, or set to away while idle and back again. Sent to everybody in the cohort, you included when it is yours. */
     StatusChangedMessage: {
       /** @constant */
       type: "statusChanged";
       userId: string;
       status: components["schemas"]["Status"];
+      /** @description When a status chosen for a while ends, as an ISO timestamp, and goes back to the one chosen before it. Null for a status that lasts, and while they show away for being idle. */
+      until: string | null;
     };
     /** @description Somebody in your cohort stepped into another space. Sent to everybody in the cohort, you included when it is you, the moment the step is taken: it can arrive before the `moved` that shows the step. */
     SpaceChangedMessage: {
@@ -345,6 +371,26 @@ export interface components {
       /** @constant */
       type: "spaces";
       spaces: components["schemas"]["SpaceName"][];
+    };
+    /** @description Something happened that you are told about: enough to show a badge or a toast without asking campus-api. One about a cohort comes only on that cohort’s socket; one about no cohort, as a campus-wide notice, on every socket you have open. Best effort: one sent while you had no socket open, or that world missed, is in the list all the same, so fetch it on arriving. */
+    NotificationMessage: {
+      /** @constant */
+      type: "notification";
+      /** @description The notification, as `GET /v1/notifications` lists it on campus-api; mark it read with `PATCH /v1/notifications/{id}/read`. */
+      id: string;
+      /** @description What happened: `notice_posted`, `entry_request_admitted` or `entry_request_declined`. More will be added: show a plain alert for one you do not know. */
+      kind: string;
+      /** @description What `referenceId` names: `notice` or `entry_request`. Grows with `kind`. */
+      referenceType: string;
+      /** @description The notice's id, to fetch from campus-api for its text; for an entry request, the `requestId` its `entryRequestEnded` carried. */
+      referenceId: string;
+      /** @description For an entry request, the cohort and space it was for. Null for a notice. */
+      context: {
+        cohortId: string;
+        spaceKey: string;
+      } | null;
+      /** @description When it was written, as an ISO timestamp. */
+      createdAt: string;
     };
     /** @description Somebody asks to enter a space. Sent to the asker, and to each person inside who may answer, as they become able to: on the request, or on stepping in later. Every one is followed by an `entryRequestEnded` with the same `requestId`. Only answerable while you stand in that space. */
     EntryRequestedMessage: {
@@ -439,16 +485,27 @@ export interface components {
       /** @description With `refused`, whether a `requestEntry` for `spaceKey` would be taken from where you stopped. Offer to ask only when true. */
       mayAsk: boolean;
     };
-    /** @description This account opened this cohort's campus somewhere else — another device or tab — and that connection has taken its place. Being in another cohort never causes this. The socket closes immediately afterwards with 4000 `entered_elsewhere`. Do NOT reconnect: the two connections would replace each other for as long as both stayed open. Show that they are in this campus elsewhere, and reconnect only when they ask to come back here. */
+    /** @description This account opened this cohort's campus somewhere else — another device or tab — and that connection has taken its place. Being in another cohort never causes this. The socket closes immediately afterwards with 4000 `entered_elsewhere`. Do NOT reconnect: the two connections would replace each other for as long as both stayed open. Show that they are in this campus elsewhere, and reconnect only when they ask to come back here. A socket that entered with `enter=ifFree` is sent `watching` instead, and stays open. */
     ReplacedMessage: {
       /** @constant */
       type: "replaced";
     };
-    /** @description Everybody in your cohort who moved or turned since the last tick, once each, as they stand now: two steps inside one tick arrive as the second, so an entry can be more than one tile from where they were. Sent once per tick, and not at all when nobody moved. You are never in your own `moved` frame — your `moveResult` already says where you ended up. */
+    /** @description This socket entered with `enter=ifFree`, and the account has entered this cohort's campus somewhere else with `enter=take`. It is a watcher from now on, as if `welcome.mode` had said so: leave the call and the broadcast room, stop drawing yourself as walking, and offer to enter here, which is reconnecting with `enter=take`. The socket stays open. */
+    WatchingMessage: {
+      /** @constant */
+      type: "watching";
+    };
+    /** @description Everybody in your cohort who moved or turned since the last tick, once each, as they stand now: two steps inside one tick arrive as the second, so an entry can be more than one tile from where they were. Sent once per tick, and not at all when nobody moved. You are never in your own `moved` frame — your `moveResult` already says where you ended up. A map reload can also send one at once, carrying somebody the new walls moved. */
     MovedMessage: {
       /** @constant */
       type: "moved";
       players: components["schemas"]["Player"][];
+    };
+    /** @description A new map put the tile you stood on inside a wall, so the server moved you to the nearest walkable one. Snap to `player`. Only you get this; the rest of your cohort sees the move in `moved`. */
+    PositionCorrectedMessage: {
+      /** @constant */
+      type: "positionCorrected";
+      player: components["schemas"]["Player"];
     };
     /** @description The answer to one admitted `move`. `player` is where the server has them; on anything but `moved`, the client snaps back to it. */
     MoveResultMessage: {
@@ -471,6 +528,7 @@ export interface components {
       | components["schemas"]["WelcomeMessage"]
       | components["schemas"]["PongMessage"]
       | components["schemas"]["SnapshotMessage"]
+      | components["schemas"]["MapChangedMessage"]
       | components["schemas"]["JoinedMessage"]
       | components["schemas"]["AppearanceMessage"]
       | components["schemas"]["LeftMessage"]
@@ -483,6 +541,7 @@ export interface components {
       | components["schemas"]["LockableSpacesMessage"]
       | components["schemas"]["DesksChangedMessage"]
       | components["schemas"]["SpacesMessage"]
+      | components["schemas"]["NotificationMessage"]
       | components["schemas"]["EntryRequestedMessage"]
       | components["schemas"]["EntryRequestEndedMessage"]
       | components["schemas"]["SaidMessage"]
@@ -490,7 +549,9 @@ export interface components {
       | components["schemas"]["WalkingMessage"]
       | components["schemas"]["WalkEndedMessage"]
       | components["schemas"]["ReplacedMessage"]
+      | components["schemas"]["WatchingMessage"]
       | components["schemas"]["MovedMessage"]
+      | components["schemas"]["PositionCorrectedMessage"]
       | components["schemas"]["MoveResultMessage"]
       | components["schemas"]["ErrorMessage"];
     /** @description The reason world gives when it closes the socket, read from the close event. Each says which code comes with it and what to do. A 1008 reason this list does not have should be treated as "stop": never retry a refusal you do not understand. */
@@ -551,6 +612,7 @@ export type ClientMessage = components["schemas"]["ClientMessage"];
 export type WelcomeMessage = components["schemas"]["WelcomeMessage"];
 export type PongMessage = components["schemas"]["PongMessage"];
 export type SnapshotMessage = components["schemas"]["SnapshotMessage"];
+export type MapChangedMessage = components["schemas"]["MapChangedMessage"];
 export type JoinedMessage = components["schemas"]["JoinedMessage"];
 export type AppearanceMessage = components["schemas"]["AppearanceMessage"];
 export type LeftMessage = components["schemas"]["LeftMessage"];
@@ -565,6 +627,7 @@ export type LockableSpacesMessage =
   components["schemas"]["LockableSpacesMessage"];
 export type DesksChangedMessage = components["schemas"]["DesksChangedMessage"];
 export type SpacesMessage = components["schemas"]["SpacesMessage"];
+export type NotificationMessage = components["schemas"]["NotificationMessage"];
 export type EntryRequestedMessage =
   components["schemas"]["EntryRequestedMessage"];
 export type EntryRequestEndedMessage =
@@ -574,7 +637,10 @@ export type StaffActionMessage = components["schemas"]["StaffActionMessage"];
 export type WalkingMessage = components["schemas"]["WalkingMessage"];
 export type WalkEndedMessage = components["schemas"]["WalkEndedMessage"];
 export type ReplacedMessage = components["schemas"]["ReplacedMessage"];
+export type WatchingMessage = components["schemas"]["WatchingMessage"];
 export type MovedMessage = components["schemas"]["MovedMessage"];
+export type PositionCorrectedMessage =
+  components["schemas"]["PositionCorrectedMessage"];
 export type MoveResultMessage = components["schemas"]["MoveResultMessage"];
 export type ErrorMessage = components["schemas"]["ErrorMessage"];
 export type ServerMessage = components["schemas"]["ServerMessage"];
