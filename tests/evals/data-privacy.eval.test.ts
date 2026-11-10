@@ -276,7 +276,7 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   error: ["code", "message", "type"],
   joined: [...under("player", AVATAR_PATHS), "type"],
   left: ["type", "userId"],
-  lockChanged: ["locked", "spaceKey", "type", "userId"],
+  lockChanged: ["locked", "spaceKey", "type"],
   lockableSpaces: ["spaceKeys[]", "type"],
   moveResult: ["outcome", ...under("player", PLAYER_PATHS), "seq", "type"],
   moved: [...under("players[]", PLAYER_PATHS), "type"],

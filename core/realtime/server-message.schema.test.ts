@@ -31,6 +31,7 @@ const snapshot = {
   players: serverFrames.snapshot.players.map(withoutStatusEnd),
 };
 const { until: _until, ...statusChanged } = serverFrames.statusChanged;
+const { userId: _lockedBy, ...lockChanged } = serverFrames.lockChanged;
 const {
   room: _room,
   subscribeRadius: _subscribeRadius,
@@ -48,6 +49,7 @@ const framesAsRead = {
     player: withoutStatusEnd(serverFrames.joined.player),
   },
   statusChanged,
+  lockChanged,
   call: { type: "call", call },
   nearby: serverFrames.nearby,
   desksChanged: { type: "desksChanged" },

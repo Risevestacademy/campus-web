@@ -111,9 +111,10 @@ export type EntryRequestEndedMessage = Simplify<
     "type" | "requestId" | "userId" | "spaceKey" | "answeredBy"
   > & { outcome: EntryRequestOutcome }
 >;
+// Who locked it, or null when it ended on its own, is not kept: nothing shows it.
 export type LockChangedMessage = Pick<
   PublishedLockChangedMessage,
-  "type" | "spaceKey" | "locked" | "userId"
+  "type" | "spaceKey" | "locked"
 >;
 export type LockableSpacesMessage = Pick<
   PublishedLockableSpacesMessage,
@@ -411,7 +412,6 @@ const lockChangedMessageSchema = z.toZod<LockChangedMessage>()(
     type: z.literal("lockChanged"),
     spaceKey: z.string(),
     locked: z.boolean(),
-    userId: z.string().nullable(),
   }),
 );
 
