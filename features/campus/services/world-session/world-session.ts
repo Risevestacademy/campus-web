@@ -8,6 +8,7 @@ import {
   type RealtimeStatus,
   type ServerMessage,
   type WorldMovementChannel,
+  type WorldSocialChannel,
 } from "@/core/realtime";
 import type { RefreshSession } from "@/core/session";
 
@@ -16,6 +17,7 @@ import { type AnalyticsCapture, realtimeAnalytics } from "./realtime-analytics";
 export interface WorldSessionOptions {
   url: string;
   movement: WorldMovementChannel;
+  social: WorldSocialChannel;
   presence: PresenceStore;
   refreshSession: RefreshSession;
   captureEvent: (capture: AnalyticsCapture) => void;
@@ -46,6 +48,7 @@ export interface WorldSession {
 // One cohort's place on the map: world's socket feeding who is here.
 export function createWorldSession({
   movement,
+  social,
   presence,
   captureEvent,
   onOutcome,
@@ -57,6 +60,7 @@ export function createWorldSession({
   // participants go and movement waits.
   function pauseOnDisconnect() {
     movement.disconnect();
+    social.disconnect();
     presence.getState().clearRemoteParticipants();
     onRemoteParticipantsCleared?.(presence.getState());
   }
@@ -68,6 +72,7 @@ export function createWorldSession({
     if (event.type === "message") {
       presence.getState().apply(event.message);
       movement.apply(event.message);
+      social.apply(event.message);
       onMessage?.(event.message, presence.getState());
     }
     if (event.type === "closed") pauseOnDisconnect();
@@ -80,7 +85,7 @@ export function createWorldSession({
   }
 
   const client = createRealtimeClient({ ...clientOptions, onEvent });
-  let unbindMovement: (() => void) | undefined;
+  let unbindChannels: (() => void) | undefined;
 
   // Mirrors the client's connect(): any other phase ignores the call, and
   // rebinding then would clear stepMs until a welcome that never comes.
@@ -88,20 +93,27 @@ export function createWorldSession({
     return ["idle", "closed"].includes(client.getStatus().phase);
   }
 
-  function bindMovement() {
-    unbindMovement?.();
-    unbindMovement = movement.bind(client.send);
+  // Both channels send through the one socket and wait for the same welcome
+  // and snapshot, so they bind and unbind together.
+  function bindChannels() {
+    unbindChannels?.();
+    const unbindMovement = movement.bind(client.send);
+    const unbindSocial = social.bind(client.send);
+    unbindChannels = () => {
+      unbindMovement();
+      unbindSocial();
+    };
   }
 
   return {
     connect() {
       if (client.getStatus().phase !== "idle") return;
-      bindMovement();
+      bindChannels();
       client.connect();
     },
     reconnect() {
       if (!opensOnConnect()) return;
-      bindMovement();
+      bindChannels();
       client.connect();
     },
     rejoin() {
@@ -112,7 +124,7 @@ export function createWorldSession({
       return true;
     },
     close() {
-      unbindMovement?.();
+      unbindChannels?.();
       client.close();
       presence.getState().clear();
     },

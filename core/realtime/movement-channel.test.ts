@@ -84,6 +84,22 @@ describe("createWorldMovementChannel", () => {
     expect(channel.sendGoToTile({ x: 4, y: 7 })).toBe(false);
   });
 
+  it("sends stopWalking once the channel is ready", () => {
+    const channel = createWorldMovementChannel();
+    const send = vi.fn(() => true);
+    channel.bind(send);
+
+    channel.apply(serverFrames.welcome);
+    expect(channel.sendStopWalking()).toBe(false);
+
+    channel.apply(serverFrames.snapshot);
+    expect(channel.sendStopWalking()).toBe(true);
+    expect(send).toHaveBeenCalledExactlyOnceWith({ type: "stopWalking" });
+
+    channel.disconnect();
+    expect(channel.sendStopWalking()).toBe(false);
+  });
+
   it("publishes own movement and remote avatar lifecycle frames", () => {
     const channel = createWorldMovementChannel();
     const received = vi.fn();

@@ -43,7 +43,18 @@ import {
   last retry; see [Socket client](#socket-client).
 - `movementFor(cohortId)`: one cohort's `WorldMovement` port. It accepts
   movement only after `welcome` and `snapshot`, exposes world's `stepMs`, and
-  sends typed `move` frames through the current admitted socket.
+  sends typed `move`, `goTo`, `goToSpace`, `goToTile` and `stopWalking`
+  frames through the current admitted socket.
+- `socialFor(cohortId)`: the same for everything else a member says or does
+  in the campus: `WorldSocial`'s `sendSetStatus`, `sendActive`, `sendSay`,
+  `sendSetLock`, `sendRequestEntry`, `sendWithdrawEntryRequest`,
+  `sendAnswerEntryRequest`, `sendMute` and `sendRemoveFromSpace`. Each
+  returns whether the frame reached the socket: false before `welcome` and
+  `snapshot`, after a close, and for a value world would refuse (a line of
+  0 or over `SAY_MAX_LENGTH` characters, a timed status outside
+  `STATUS_DURATION_MIN_SECONDS` to `STATUS_DURATION_MAX_SECONDS`). A line is
+  trimmed before it is sent. A view checks the limits itself to tell the
+  member why; the channel only keeps a bad frame off the socket.
 - `browserIsOnline()` and `subscribeToBrowserWake(listener)` in
   `browser-lifecycle.ts`: the browser's online state and its wake signals
   (`online`, the tab becoming visible or focused, a page restored from the
@@ -220,7 +231,7 @@ client.connect();
 useSyncExternalStore(client.subscribe, client.getStatus);
 ```
 
-`WorldSession` binds the cohort's movement channel to this client. A close
+`WorldSession` binds the cohort's movement and social channels to this client. A close
 disables sending immediately. The next `welcome` and `snapshot` re-enable it,
 so reconnect state always starts from world's authoritative snapshot.
 

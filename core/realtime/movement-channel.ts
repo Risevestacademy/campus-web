@@ -3,10 +3,12 @@ import type {
   GoToSpaceMessage,
   GoToTileMessage,
   MoveMessage,
+  StopWalkingMessage,
 } from "./generated/world-protocol";
-
-type WorldWalkMessage = GoToMessage | GoToSpaceMessage | GoToTileMessage;
 import type { ServerMessage } from "./server-message.schema";
+
+type WorldWalkMessage =
+  GoToMessage | GoToSpaceMessage | GoToTileMessage | StopWalkingMessage;
 
 export type WorldMovementMessage = Extract<
   ServerMessage,
@@ -29,6 +31,7 @@ export interface WorldMovement {
   sendGoToSpace(spaceKey: GoToSpaceMessage["spaceKey"]): boolean;
   sendGoToTile(tile: Pick<GoToTileMessage, "x" | "y">): boolean;
   sendMove(move: Pick<MoveMessage, "direction" | "seq">): boolean;
+  sendStopWalking(): boolean;
   subscribe(listener: (message: WorldMovementMessage) => void): () => void;
 }
 
@@ -100,6 +103,10 @@ export function createWorldMovementChannel(): WorldMovementChannel {
     sendMove(move) {
       if (!ready || !send) return false;
       return send({ type: "move", ...move });
+    },
+    sendStopWalking() {
+      if (!ready || !send) return false;
+      return send({ type: "stopWalking" });
     },
     subscribe(listener) {
       listeners.add(listener);

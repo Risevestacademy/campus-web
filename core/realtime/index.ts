@@ -72,4 +72,14 @@ export {
   type WalkingMessage,
   type WelcomeMessage,
 } from "./server-message.schema";
+export {
+  createWorldSocialChannel,
+  SAY_MAX_LENGTH,
+  socialFor,
+  STATUS_DURATION_MAX_SECONDS,
+  STATUS_DURATION_MIN_SECONDS,
+  type WorldSocial,
+  type WorldSocialChannel,
+  type WorldSocialMessage,
+} from "./social-channel";
 export { parseSocketClose } from "./socket-close.schema";

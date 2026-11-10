@@ -6,6 +6,7 @@ import { allowAnalyticsProperties } from "@/core/analytics/events";
 import { createPresenceStore } from "@/core/presence";
 import {
   createWorldMovementChannel,
+  createWorldSocialChannel,
   type RealtimeOutcome,
   type RealtimeStatus,
 } from "@/core/realtime";
@@ -67,6 +68,7 @@ async function joinedSession(
     createWorldSession({
       url: WORLD_SOCKET_URL,
       movement,
+      social: createWorldSocialChannel(),
       presence,
       refreshSession,
       captureEvent: (capture) => captures.push(capture),
