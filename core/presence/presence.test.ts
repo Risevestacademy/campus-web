@@ -263,7 +263,6 @@ describe("applyServerMessage", () => {
   it.each<ServerMessage>([
     { type: "pong" },
     { type: "replaced" },
-    { type: "error", code: "BAD_MESSAGE", message: "Unknown type." },
     {
       type: "appearance",
       userId: "stranger",
@@ -292,6 +291,20 @@ describe("applyServerMessage", () => {
       expect(applyServerMessage(before, message)).toBe(before);
     },
   );
+
+  it("records an error without touching who is here or where", () => {
+    const before = snapshotOf(ADA, GRACE);
+
+    const after = applyServerMessage(before, {
+      type: "error",
+      code: "BAD_MESSAGE",
+      message: "Unknown type.",
+    });
+
+    expect(after.participants).toBe(before.participants);
+    expect(after.positions).toBe(before.positions);
+    expect(after.errors).toHaveLength(1);
+  });
 });
 
 describe("nearby", () => {

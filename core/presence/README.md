@@ -104,6 +104,7 @@ the map state above. `Presence` extends its `Social` fields:
 | `entryRequested`    | `entryRequests`: open, keyed by `requestId`                           |
 | `entryRequestEnded` | out of `entryRequests`, into `entryOutcomes` (newest 20)              |
 | `staffAction`       | `staffActions`: the newest 10, each with a running `seq`              |
+| `error`             | `errors`: the newest 10, each with a running `seq`                    |
 | `broadcast`         | `broadcast`: the call, or null                                        |
 | `desksChanged`      | `desksVersion` + 1: the cue to fetch the desks again                  |
 
@@ -113,6 +114,10 @@ the map state above. `Presence` extends its `Social` fields:
 - Open requests were sent to a socket, so they end with it: a `snapshot` and
   `clearRemoteParticipants()` both empty `entryRequests`, since no frame says
   so when a socket closes.
+- World's refusals carry no id of the action they answer. The campus shell
+  shows each one (`world-error-feedback.ts` in the world session). A feature
+  that sent an action and wants its own answer reads `errors` after sending,
+  and tells a new one by `seq`.
 - `broadcast` holds a media token. Read it to join the room; never log it or
   put it in an analytics event.
 

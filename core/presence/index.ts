@@ -24,6 +24,8 @@ export {
   ENTRY_OUTCOME_LIMIT,
   type EntryOutcome,
   type EntryRequest,
+  ERROR_LIMIT,
   STAFF_ACTION_LIMIT,
   type StaffActionRecord,
+  type WorldErrorRecord,
 } from "./social";

@@ -13,6 +13,7 @@ type Of<Type extends ServerMessage["type"]> = Extract<
 export const CHAT_LINE_LIMIT = 200;
 export const ENTRY_OUTCOME_LIMIT = 20;
 export const STAFF_ACTION_LIMIT = 10;
+export const ERROR_LIMIT = 10;
 
 export type ChatLine = Pick<
   Of<"said">,
@@ -33,6 +34,12 @@ export type StaffActionRecord = Pick<
   "action" | "userId" | "by" | "spaceKey" | "until" | "player"
 > & { seq: number };
 export type Broadcast = Of<"broadcast">["call"];
+// World's refusals carry no id of the action they answer, so a feature that
+// sent one reads the newest errors after it: `seq` tells a new one from one
+// already handled.
+export type WorldErrorRecord = Pick<Of<"error">, "code" | "message"> & {
+  seq: number;
+};
 
 export interface Social {
   lockableSpaces: readonly string[];
@@ -42,6 +49,7 @@ export interface Social {
   entryRequests: readonly EntryRequest[];
   entryOutcomes: readonly EntryOutcome[];
   staffActions: readonly StaffActionRecord[];
+  errors: readonly WorldErrorRecord[];
   broadcast: Broadcast;
   // Counts `desksChanged`: a change is the cue to fetch the desks again.
   desksVersion: number;
@@ -54,6 +62,7 @@ export const EMPTY_SOCIAL: Social = {
   entryRequests: [],
   entryOutcomes: [],
   staffActions: [],
+  errors: [],
   broadcast: null,
   desksVersion: 0,
 };
@@ -176,6 +185,22 @@ export function socialChangeOf(
             },
           ],
           STAFF_ACTION_LIMIT,
+        ),
+      };
+    }
+    case "error": {
+      const last = social.errors.at(-1);
+      return {
+        errors: newest(
+          [
+            ...social.errors,
+            {
+              seq: (last?.seq ?? 0) + 1,
+              code: message.code,
+              message: message.message,
+            },
+          ],
+          ERROR_LIMIT,
         ),
       };
     }

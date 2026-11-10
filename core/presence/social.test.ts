@@ -12,6 +12,7 @@ import {
 import {
   CHAT_LINE_LIMIT,
   ENTRY_OUTCOME_LIMIT,
+  ERROR_LIMIT,
   STAFF_ACTION_LIMIT,
 } from "./social";
 
@@ -236,6 +237,34 @@ describe("staff actions", () => {
 
     expect(presence.staffActions).toHaveLength(STAFF_ACTION_LIMIT);
     expect(presence.staffActions.at(-1)?.seq).toBe(STAFF_ACTION_LIMIT + 2);
+  });
+});
+
+describe("errors", () => {
+  const refused = (message: string): ServerMessage => ({
+    type: "error",
+    code: "NOT_ALLOWED",
+    message,
+  });
+
+  it("are kept, numbered, for a feature that is waiting on an answer", () => {
+    const presence = applied(refused("a"), refused("b"));
+
+    expect(presence.errors).toEqual([
+      { seq: 1, code: "NOT_ALLOWED", message: "a" },
+      { seq: 2, code: "NOT_ALLOWED", message: "b" },
+    ]);
+  });
+
+  it("keep only the newest, counting on", () => {
+    const errors = Array.from({ length: ERROR_LIMIT + 3 }, (_, index) =>
+      refused(String(index)),
+    );
+
+    const presence = applied(...errors);
+
+    expect(presence.errors).toHaveLength(ERROR_LIMIT);
+    expect(presence.errors.at(-1)?.seq).toBe(ERROR_LIMIT + 3);
   });
 });
 
