@@ -96,6 +96,11 @@ function decideFullAccess(
       return decideCampusIndex(session);
     case "cohort":
       return decideCohort(session, request.cohortId);
+    // Which cohort a link is for is only known by entering it, and campus-api
+    // refuses that, with the same 404 as a dead link, to anybody without a
+    // place there. So any full-access session may arrive.
+    case "room-link":
+      return { kind: "allow", session };
     case "system-admin":
       return isSystemAdministrator(session.user.systemRole)
         ? { kind: "allow", session }

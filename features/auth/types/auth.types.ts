@@ -25,6 +25,7 @@ export type InvitationPath = "/invitation" | "/preview";
 export type CampusRouteRequest =
   | { kind: "campus-index" }
   | { kind: "cohort"; cohortId: string }
+  | { kind: "room-link" }
   | { kind: "system-admin" };
 
 export type RouteAuthorizationRequest =
