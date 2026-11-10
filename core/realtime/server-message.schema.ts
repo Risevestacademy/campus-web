@@ -6,12 +6,19 @@ import { parseJson } from "@/shared/lib/parse-json";
 import type {
   AppearanceMessage,
   Avatar as PublishedAvatar,
+  BroadcastCall as PublishedBroadcastCall,
+  BroadcastMessage as PublishedBroadcastMessage,
   Call as PublishedCall,
   CallMessage as PublishedCallMessage,
   Direction,
+  EntryRequestedMessage as PublishedEntryRequestedMessage,
+  EntryRequestEndedMessage as PublishedEntryRequestEndedMessage,
+  EntryRequestOutcome as PublishedEntryRequestOutcome,
   ErrorMessage as PublishedErrorMessage,
   JoinedMessage as PublishedJoinedMessage,
   LeftMessage,
+  LockableSpacesMessage as PublishedLockableSpacesMessage,
+  LockChangedMessage as PublishedLockChangedMessage,
   MovedMessage,
   MoveOutcome as PublishedMoveOutcome,
   MoveResultMessage as PublishedMoveResultMessage,
@@ -19,11 +26,13 @@ import type {
   Player,
   PongMessage,
   ReplacedMessage,
+  SaidMessage as PublishedSaidMessage,
   ServerMessage as PublishedServerMessage,
   SnapshotMessage as PublishedSnapshotMessage,
   SpaceChangedMessage,
   SpaceName,
   SpacesMessage,
+  StaffActionMessage as PublishedStaffActionMessage,
   Status as PublishedStatus,
   StatusChangedMessage as PublishedStatusChangedMessage,
   WalkEndedMessage as PublishedWalkEndedMessage,
@@ -78,10 +87,50 @@ export type WelcomeMessage = Simplify<
     | "spriteKey"
   >
 >;
+// Locks arrive with the snapshot, and read as none when it names none.
 export type SnapshotMessage = Simplify<
   Pick<PublishedSnapshotMessage, "type" | "map" | "spaces"> & {
     players: Avatar[];
+    lockableSpaces?: string[];
+    lockedSpaces?: string[];
   }
+>;
+export type EntryRequestOutcome = OrUnknown<PublishedEntryRequestOutcome>;
+export type StaffAction = OrUnknown<PublishedStaffActionMessage["action"]>;
+export type SaidMessage = Pick<
+  PublishedSaidMessage,
+  "type" | "id" | "userId" | "spaceKey" | "text" | "at"
+>;
+export type EntryRequestedMessage = Pick<
+  PublishedEntryRequestedMessage,
+  "type" | "requestId" | "userId" | "spaceKey"
+>;
+export type EntryRequestEndedMessage = Simplify<
+  Pick<
+    PublishedEntryRequestEndedMessage,
+    "type" | "requestId" | "userId" | "spaceKey" | "answeredBy"
+  > & { outcome: EntryRequestOutcome }
+>;
+export type LockChangedMessage = Pick<
+  PublishedLockChangedMessage,
+  "type" | "spaceKey" | "locked" | "userId"
+>;
+export type LockableSpacesMessage = Pick<
+  PublishedLockableSpacesMessage,
+  "type" | "spaceKeys"
+>;
+export type StaffActionMessage = Simplify<
+  Pick<
+    PublishedStaffActionMessage,
+    "type" | "userId" | "by" | "spaceKey" | "until" | "player"
+  > & { action: StaffAction }
+>;
+export type BroadcastCall = Pick<
+  PublishedBroadcastCall,
+  "url" | "room" | "token" | "canSpeak"
+>;
+export type BroadcastMessage = Simplify<
+  Pick<PublishedBroadcastMessage, "type"> & { call: BroadcastCall | null }
 >;
 export type JoinedMessage = Simplify<
   Pick<PublishedJoinedMessage, "type"> & { player: Avatar }
@@ -98,13 +147,6 @@ export type CallMessage = Simplify<
 // stripped to their type, so nothing unread travels on.
 type UnreadType = Extract<
   PublishedServerMessage["type"],
-  | "lockChanged"
-  | "lockableSpaces"
-  | "broadcast"
-  | "said"
-  | "entryRequested"
-  | "entryRequestEnded"
-  | "staffAction"
   | "desksChanged"
   | "mapChanged"
   | "watching"
@@ -129,6 +171,13 @@ export type ServerMessage =
   | SpaceChangedMessage
   | SpacesMessage
   | CallMessage
+  | SaidMessage
+  | EntryRequestedMessage
+  | EntryRequestEndedMessage
+  | LockChangedMessage
+  | LockableSpacesMessage
+  | StaffActionMessage
+  | BroadcastMessage
   | WalkingMessage
   | WalkEndedMessage
   | UnreadMessage;
@@ -216,6 +265,10 @@ const snapshotMessageSchema = z.toZod<SnapshotMessage>()(
     players: z.array(avatarSchema),
     // A label must not fail the handshake: names fall back to space keys.
     spaces: z.array(spaceNameSchema).catch([]),
+    // A lock list must not fail the handshake: nothing is locked, and
+    // nothing can be, until world says otherwise.
+    lockableSpaces: z.array(z.string()).optional().catch(undefined),
+    lockedSpaces: z.array(z.string()).optional().catch(undefined),
   }),
 );
 
@@ -310,6 +363,94 @@ const callMessageSchema = z.toZod<CallMessage>()(
   z.object({ type: z.literal("call"), call: callSchema.nullable() }),
 );
 
+const entryRequestOutcomeSchema = z.toZod<EntryRequestOutcome>()(
+  orUnknown([
+    "admitted",
+    "declined",
+    "withdrawn",
+    "walked_away",
+    "nobody_inside",
+    "not_needed",
+    "cancelled",
+  ]),
+);
+
+const saidMessageSchema = z.toZod<SaidMessage>()(
+  z.object({
+    type: z.literal("said"),
+    id: z.string(),
+    userId: z.string(),
+    spaceKey: z.string(),
+    text: z.string(),
+    at: z.string(),
+  }),
+);
+
+const entryRequestedMessageSchema = z.toZod<EntryRequestedMessage>()(
+  z.object({
+    type: z.literal("entryRequested"),
+    requestId: z.string(),
+    userId: z.string(),
+    spaceKey: z.string(),
+  }),
+);
+
+const entryRequestEndedMessageSchema = z.toZod<EntryRequestEndedMessage>()(
+  z.object({
+    type: z.literal("entryRequestEnded"),
+    requestId: z.string(),
+    userId: z.string(),
+    spaceKey: z.string(),
+    outcome: entryRequestOutcomeSchema,
+    answeredBy: z.string().nullable(),
+  }),
+);
+
+const lockChangedMessageSchema = z.toZod<LockChangedMessage>()(
+  z.object({
+    type: z.literal("lockChanged"),
+    spaceKey: z.string(),
+    locked: z.boolean(),
+    userId: z.string().nullable(),
+  }),
+);
+
+const lockableSpacesMessageSchema = z.toZod<LockableSpacesMessage>()(
+  z.object({
+    type: z.literal("lockableSpaces"),
+    spaceKeys: z.array(z.string()),
+  }),
+);
+
+const staffActionMessageSchema = z.toZod<StaffActionMessage>()(
+  z.object({
+    type: z.literal("staffAction"),
+    action: orUnknown(["muted", "removed"]),
+    userId: z.string(),
+    by: z.string(),
+    spaceKey: z.string(),
+    until: z.string().nullable(),
+    player: playerSchema.nullable(),
+  }),
+);
+
+const broadcastCallSchema = z.toZod<BroadcastCall>()(
+  z.object({
+    url: z.string(),
+    room: z.string(),
+    token: z.string(),
+    canSpeak: z.boolean(),
+  }),
+);
+
+const broadcastMessageSchema = z.toZod<BroadcastMessage>()(
+  z.object({
+    type: z.literal("broadcast"),
+    // A call that cannot be read is no call: the rest of the handshake holds.
+    call: broadcastCallSchema.nullable().catch(null),
+  }),
+);
+
 function unreadMessageSchema<const Type extends UnreadType>(type: Type) {
   return z.object({ type: z.literal(type) });
 }
@@ -331,13 +472,13 @@ const serverMessageSchema = z.toZod<ServerMessage>()(
     spaceChangedMessageSchema,
     spacesMessageSchema,
     callMessageSchema,
-    unreadMessageSchema("lockChanged"),
-    unreadMessageSchema("lockableSpaces"),
-    unreadMessageSchema("broadcast"),
-    unreadMessageSchema("said"),
-    unreadMessageSchema("entryRequested"),
-    unreadMessageSchema("entryRequestEnded"),
-    unreadMessageSchema("staffAction"),
+    saidMessageSchema,
+    entryRequestedMessageSchema,
+    entryRequestEndedMessageSchema,
+    lockChangedMessageSchema,
+    lockableSpacesMessageSchema,
+    staffActionMessageSchema,
+    broadcastMessageSchema,
     unreadMessageSchema("desksChanged"),
     unreadMessageSchema("mapChanged"),
     unreadMessageSchema("watching"),

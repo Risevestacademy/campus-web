@@ -90,6 +90,32 @@ keeps anything finer (pixels, walking) itself.
 stepping out of a room would meet the whole corridor, and stepping into one
 would keep the corridor's `nearby` until World's next tick.
 
+### What the campus says and decides
+
+`social.ts` holds the frames about talking, knocking, locking and staff, beside
+the map state above. `Presence` extends its `Social` fields:
+
+| Message             | Field                                                                 |
+| ------------------- | --------------------------------------------------------------------- |
+| `snapshot`          | `lockableSpaces` and `lockedSpaces` replaced, `entryRequests` emptied |
+| `lockableSpaces`    | `lockableSpaces` replaced                                             |
+| `lockChanged`       | `lockedSpaces`: the space added or removed                            |
+| `said`              | `chat`: the newest 200 lines, a repeated `id` ignored                 |
+| `entryRequested`    | `entryRequests`: open, keyed by `requestId`                           |
+| `entryRequestEnded` | out of `entryRequests`, into `entryOutcomes` (newest 20)              |
+| `staffAction`       | `staffActions`: the newest 10, each with a running `seq`              |
+| `broadcast`         | `broadcast`: the call, or null                                        |
+| `desksChanged`      | `desksVersion` + 1: the cue to fetch the desks again                  |
+
+- World keeps no history, so a reconnect's `snapshot` keeps `chat`,
+  `entryOutcomes` and `staffActions` (what the member has already seen) and
+  replaces the locks.
+- Open requests were sent to a socket, so they end with it: a `snapshot` and
+  `clearRemoteParticipants()` both empty `entryRequests`, since no frame says
+  so when a socket closes.
+- `broadcast` holds a media token. Read it to join the room; never log it or
+  put it in an analytics event.
+
 `nearby` changes only `nearby`. It can name somebody not in `participants`
 yet; the roster skips them until `joined` arrives.
 
