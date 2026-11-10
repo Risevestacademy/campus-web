@@ -25,6 +25,7 @@ import type {
   NearbyMessage,
   Player,
   PongMessage,
+  PositionCorrectedMessage as PublishedPositionCorrectedMessage,
   ReplacedMessage,
   SaidMessage as PublishedSaidMessage,
   ServerMessage as PublishedServerMessage,
@@ -58,6 +59,10 @@ export type ErrorMessage = Simplify<
 >;
 export type WalkEndReason = OrUnknown<PublishedWalkEndReason>;
 export type WalkingMessage = Pick<PublishedWalkingMessage, "type" | "player">;
+export type PositionCorrectedMessage = Pick<
+  PublishedPositionCorrectedMessage,
+  "type" | "player"
+>;
 export type WalkEndedMessage = Simplify<
   Pick<PublishedWalkEndedMessage, "type" | "player" | "spaceKey"> & {
     reason: WalkEndReason;
@@ -148,11 +153,7 @@ export type CallMessage = Simplify<
 // stripped to their type, so nothing unread travels on.
 type UnreadType = Extract<
   PublishedServerMessage["type"],
-  | "desksChanged"
-  | "mapChanged"
-  | "watching"
-  | "notification"
-  | "positionCorrected"
+  "desksChanged" | "mapChanged" | "watching" | "notification"
 >;
 type UnreadMessage = { [Type in UnreadType]: { type: Type } }[UnreadType];
 
@@ -181,6 +182,7 @@ export type ServerMessage =
   | BroadcastMessage
   | WalkingMessage
   | WalkEndedMessage
+  | PositionCorrectedMessage
   | UnreadMessage;
 
 function orUnknown<const Values extends readonly [string, ...string[]]>(
@@ -317,6 +319,10 @@ const walkEndedMessageSchema = z.toZod<WalkEndedMessage>()(
     player: playerSchema,
     spaceKey: z.string().nullable(),
   }),
+);
+
+const positionCorrectedMessageSchema = z.toZod<PositionCorrectedMessage>()(
+  z.object({ type: z.literal("positionCorrected"), player: playerSchema }),
 );
 
 const errorMessageSchema = z.toZod<ErrorMessage>()(
@@ -483,9 +489,9 @@ const serverMessageSchema = z.toZod<ServerMessage>()(
     unreadMessageSchema("mapChanged"),
     unreadMessageSchema("watching"),
     unreadMessageSchema("notification"),
-    unreadMessageSchema("positionCorrected"),
     walkingMessageSchema,
     walkEndedMessageSchema,
+    positionCorrectedMessageSchema,
   ]),
 );
 

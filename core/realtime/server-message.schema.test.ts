@@ -56,7 +56,6 @@ const framesAsRead = {
   mapChanged: { type: "mapChanged" },
   watching: { type: "watching" },
   notification: { type: "notification" },
-  positionCorrected: { type: "positionCorrected" },
   walking: { type: "walking", player: serverFrames.walking.player },
   walkEnded: {
     type: "walkEnded",
