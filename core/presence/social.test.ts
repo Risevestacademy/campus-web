@@ -194,6 +194,17 @@ describe("entry requests", () => {
     ).toEqual([]);
   });
 
+  it("take the broadcast room with the socket, which world sends again on arrival", () => {
+    const presence = applied(
+      serverFrames.welcome,
+      serverFrames.snapshot,
+      serverFrames.broadcast,
+    );
+    expect(presence.broadcast).not.toBeNull();
+
+    expect(withoutRemoteParticipants(presence).broadcast).toBeNull();
+  });
+
   it("leave the outcomes the member has not yet seen when the socket closes", () => {
     const presence = applied(
       serverFrames.welcome,
@@ -240,10 +251,16 @@ describe("staff actions", () => {
 });
 
 describe("broadcast and desks", () => {
-  it("holds the broadcast call, and none when world says none", () => {
+  it("holds the broadcast room and whether the member may speak, never the token", () => {
+    const { call } = serverFrames.broadcast;
     const on = applied(serverFrames.broadcast);
 
-    expect(on.broadcast).toEqual(serverFrames.broadcast.call);
+    expect(on.broadcast).toEqual({
+      room: call!.room,
+      canSpeak: call!.canSpeak,
+    });
+    expect(JSON.stringify(on)).not.toContain(call!.token);
+    expect(JSON.stringify(on)).not.toContain(call!.url);
     expect(
       applyServerMessage(on, { type: "broadcast", call: null }).broadcast,
     ).toBeNull();

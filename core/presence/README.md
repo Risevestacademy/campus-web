@@ -104,7 +104,7 @@ the map state above. `Presence` extends its `Social` fields:
 | `entryRequested`    | `entryRequests`: open, keyed by `requestId`                           |
 | `entryRequestEnded` | out of `entryRequests`, into `entryOutcomes` (newest 20)              |
 | `staffAction`       | `staffActions`: the newest 10, each with a running `seq`              |
-| `broadcast`         | `broadcast`: the call, or null                                        |
+| `broadcast`         | `broadcast`: the room and whether you may speak in it, or null        |
 | `desksChanged`      | `desksVersion` + 1: the cue to fetch the desks again                  |
 
 - World keeps no history, so a reconnect's `snapshot` keeps `chat`,
@@ -113,8 +113,17 @@ the map state above. `Presence` extends its `Social` fields:
 - Open requests were sent to a socket, so they end with it: a `snapshot` and
   `clearRemoteParticipants()` both empty `entryRequests`, since no frame says
   so when a socket closes.
-- `broadcast` holds a media token. Read it to join the room; never log it or
-  put it in an analytics event.
+- `broadcast` keeps only the room and `canSpeak`. The call's url and token
+  never enter presence, as a space's call token does not: they reach the media
+  session through the world session's `onMessage`, which gets every parsed
+  frame. A frame whose call cannot be read is dropped, not read as null,
+  because null means leave the room.
+- A closed socket takes the member out of the broadcast room, so
+  `clearRemoteParticipants()` sets `broadcast` to null along with the open
+  requests. World sends the broadcast again on arrival.
+- `desksVersion` and every `seq` (`staffActions`) start again from 0 after
+  `clear()`. A view that keeps "the last one I showed" must keep it in state that
+  is cleared with presence, or it will show an old action again.
 
 `nearby` changes only `nearby`. It can name somebody not in `participants`
 yet; the roster skips them until `joined` arrives.
