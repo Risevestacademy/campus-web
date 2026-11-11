@@ -17,6 +17,7 @@ function playerWith(status: Avatar["status"]): Avatar {
     displayName: "Ada",
     spriteKey: null,
     status,
+    statusUntil: null,
     spaceKey: "_default",
   };
 }

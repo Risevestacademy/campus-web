@@ -26,6 +26,7 @@ const ADA: Avatar = {
   displayName: "Ada",
   spriteKey: null,
   status: "available",
+  statusUntil: null,
   spaceKey: "_default",
 };
 const GRACE: Avatar = {
@@ -36,6 +37,7 @@ const GRACE: Avatar = {
   displayName: "Grace",
   spriteKey: "placeholder-2",
   status: "available",
+  statusUntil: null,
   spaceKey: "_default",
 };
 

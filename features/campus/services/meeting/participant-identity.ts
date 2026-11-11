@@ -9,7 +9,7 @@ import {
 
 const UNNAMED_PARTICIPANT = "Campus member";
 
-function participantTone(userId: string): ParticipantTone {
+export function participantTone(userId: string): ParticipantTone {
   let hash = 0;
   for (const character of userId) {
     hash = (hash * 31 + (character.codePointAt(0) ?? 0)) >>> 0;

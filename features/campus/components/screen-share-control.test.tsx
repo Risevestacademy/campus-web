@@ -233,7 +233,10 @@ describe("ScreenShareStatus", () => {
     const context = setUp();
     render(
       <MediaSessionProvider store={context.store}>
-        <PresenceDock cohortId={COHORT} userName="Ada Lovelace" />
+        <PresenceDock
+          cohortId={COHORT}
+          viewer={{ id: "ada", displayName: "Ada Lovelace" }}
+        />
       </MediaSessionProvider>,
     );
     await share(context);

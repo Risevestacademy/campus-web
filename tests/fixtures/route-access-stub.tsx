@@ -8,7 +8,12 @@ export const requireRouteAccess = () =>
   Promise.resolve({
     kind: "allow",
     session: {
-      user: { systemRole: "user", email: "ada@campus.local" },
+      user: {
+        id: "ada",
+        displayName: "Ada Lovelace",
+        systemRole: "user",
+        email: "ada@campus.local",
+      },
       memberships: [],
     },
   });

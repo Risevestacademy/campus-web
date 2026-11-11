@@ -18,9 +18,7 @@ import {
 import { ActiveCampus } from "./active-campus";
 import { CampusShell } from "./campus-shell/campus-shell";
 
-const activeCampusViewModel = {
-  viewer: { initials: "AL", presenceStatus: "active" },
-} as const;
+const VIEWER = { id: "ada", displayName: "Ada Lovelace" };
 
 function OverviewPanelStub({
   cohort,
@@ -64,7 +62,7 @@ function renderActiveCampus(
         <WorldSessionProvider world={world}>
           <ActiveCampus
             cohortId="c-1"
-            viewModel={activeCampusViewModel}
+            viewer={VIEWER}
             zoomControls={<div role="group" aria-label="Zoom controls" />}
           >
             <p>Route content</p>

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-import type { ActiveCampusViewModel } from "../types/active-campus.types";
 import { CampusControlBar } from "./campus-control-bar";
+import type { CampusViewer } from "./campus-shell/feedback-layer";
 import { MeetingOverlay } from "./meeting-overlay";
 import { ScreenShareStatus } from "./screen-share-status";
 import { WorldConnectionStatus } from "./world-connection-status";
@@ -9,16 +9,14 @@ import { WorldConnectionStatus } from "./world-connection-status";
 export function ActiveCampus({
   children,
   cohortId,
-  viewModel,
+  viewer,
   zoomControls,
 }: {
   children: ReactNode;
   cohortId: string;
-  viewModel: ActiveCampusViewModel;
+  viewer: CampusViewer;
   zoomControls: ReactNode;
 }) {
-  const { viewer } = viewModel;
-
   return (
     <div className="flex min-w-0 flex-1">
       <div className="bg-cobalt-500/10 grid flex-1 grid-rows-[auto_1fr_auto] rounded-xl">
@@ -46,8 +44,7 @@ export function ActiveCampus({
             </div>
             <CampusControlBar
               cohortId={cohortId}
-              initials={viewer.initials}
-              status={viewer.presenceStatus}
+              viewer={viewer}
               zoomControls={zoomControls}
             />
           </aside>

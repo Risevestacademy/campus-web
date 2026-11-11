@@ -1,15 +1,19 @@
+import { cn } from "cn";
 import type { ComponentType, ReactNode } from "react";
 
 import type { components } from "@/core/api/client";
+import { initialsOf } from "@/shared/lib/initials";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
+import { participantTone } from "../../services/meeting/participant-identity";
 import { closeFeedbackPanel } from "../../store/feedback-panel-store";
 import type {
   SidebarMode,
   SidebarPanelId,
 } from "../../store/sidebar-preferences";
 import { CampusViewProvider } from "../campus-view-provider";
+import { participantToneClassNames } from "../participant-tone";
 import { CampusRail, type LogOutActionComponent } from "./campus-rail";
 import { CampusSidebar } from "./campus-sidebar";
 import {
@@ -44,7 +48,6 @@ type CampusShellProps = Readonly<{
   viewer?: CampusViewer;
 }>;
 
-const CURRENT_USER_INITIAL = "J";
 const collapseButton = <SidebarCollapseButton />;
 
 const comingSoonPanels = Object.fromEntries(
@@ -61,11 +64,18 @@ const comingSoonPanels = Object.fromEntries(
     ]),
 ) as Record<Exclude<SidebarPanelId, "map">, ReactNode>;
 
-function RailAvatar() {
+function RailAvatar({ viewer }: Readonly<{ viewer?: CampusViewer }>) {
   return (
     <Avatar size="lg">
-      <AvatarFallback className="bg-accent text-accent-foreground font-medium">
-        {CURRENT_USER_INITIAL}
+      <AvatarFallback
+        className={cn(
+          "text-foreground font-medium",
+          participantToneClassNames[
+            viewer ? participantTone(viewer.id) : "cobalt"
+          ],
+        )}
+      >
+        {initialsOf(viewer?.displayName)}
       </AvatarFallback>
     </Avatar>
   );
@@ -83,7 +93,7 @@ export function CampusShell({
   initialSidebarMode,
   viewer,
 }: CampusShellProps) {
-  const avatar = <RailAvatar />;
+  const avatar = <RailAvatar viewer={viewer} />;
 
   return (
     <CampusViewProvider>

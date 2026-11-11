@@ -4,6 +4,7 @@ import { type ReactNode, useMemo } from "react";
 import { useStore } from "zustand";
 
 import { presenceFor } from "@/core/presence";
+import { useNow } from "@/shared/lib/use-now";
 
 import { CampusOverview } from "./campus-overview";
 import { contextLabelFor } from "./context-label";
@@ -14,6 +15,8 @@ import { useGoToTile } from "./hooks/use-go-to-tile";
 import { toRosterParticipants } from "./presence-participants";
 import { quickTransportDestinationsOf } from "./quick-transport";
 import type { CohortContext } from "./types";
+
+const CLOCK_TICK_MS = 15_000;
 
 export function CampusOverviewPanel({
   cohort,
@@ -34,6 +37,7 @@ export function CampusOverviewPanel({
   // but the old snapshot is not current.
   const hasSnapshot = useStore(presence, (state) => state.synced);
   const directory = useCohortDirectory(cohortId);
+  const now = useNow(CLOCK_TICK_MS);
   const goToParticipant = useGoToParticipant(cohortId);
   const goToSpace = useGoToSpace(cohortId);
   const goToTile = useGoToTile(cohortId);
@@ -50,8 +54,9 @@ export function CampusOverviewPanel({
         hasSnapshot && directory?.kind === "loaded"
           ? directory.people
           : undefined,
+        now,
       ),
-    [participants, selfId, hasSnapshot, directory],
+    [participants, selfId, hasSnapshot, directory, now],
   );
 
   return (

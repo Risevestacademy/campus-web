@@ -1,0 +1,77 @@
+import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { fn } from "storybook/test";
+
+import { Separator } from "@/shared/ui/separator";
+
+import { PresenceMenuTrigger } from "./presence-menu-trigger";
+import { StatusTray } from "./status-tray";
+
+const meta = {
+  title: "Features/Campus/StatusTray",
+  component: StatusTray,
+  decorators: [
+    (Story, { args, parameters }) => (
+      <div
+        data-theme={parameters.dark ? "dark" : undefined}
+        className="bg-background flex justify-center"
+      >
+        <div className="bg-cobalt-500/10 flex w-full justify-center p-6">
+          <div className="bg-background text-foreground flex w-fit flex-col rounded-[1.25rem]">
+            <Story />
+            <Separator className="mx-3.5 w-auto data-horizontal:w-auto" />
+            <div className="flex items-center gap-1.5 py-1.5 pr-1.75 pl-2">
+              <PresenceMenuTrigger
+                aria-expanded
+                initials="AL"
+                status={args.status}
+                timeLeft={args.timeLeft}
+                tone="cobalt"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    ),
+  ],
+  args: {
+    canChoose: true,
+    durationId: "lasting",
+    onDurationChange: fn(),
+    onStatusChange: fn(),
+    refusals: {},
+    status: "available",
+    timeLeft: null,
+  },
+} satisfies Meta<typeof StatusTray>;
+
+export default meta;
+
+type Story = StoryObj<typeof meta>;
+
+export const Available: Story = {};
+
+export const BusyForAWhile: Story = {
+  args: { status: "busy", durationId: "1h", timeLeft: "52 min" },
+};
+
+export const AwayUntilChanged: Story = {
+  args: { status: "away" },
+};
+
+export const TodayTooLong: Story = {
+  args: {
+    status: "busy",
+    refusals: {
+      today: "A status lasts 12 hours at most, and today has longer left.",
+    },
+  },
+};
+
+export const Reconnecting: Story = {
+  args: { canChoose: false, status: "busy" },
+};
+
+export const Dark: Story = {
+  args: { status: "away", durationId: "2h", timeLeft: "1 h 40 min" },
+  parameters: { dark: true },
+};

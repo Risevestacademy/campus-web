@@ -5,14 +5,20 @@ import type { ServerMessage } from "@/core/realtime";
 import {
   applyServerMessage,
   EMPTY_PRESENCE,
+  type Participant,
   type Presence,
   withoutRemoteParticipants,
+  withOwnStatus,
 } from "./presence";
 
 export interface PresenceState extends Presence {
   apply: (message: ServerMessage) => void;
   clear: () => void;
   clearRemoteParticipants: () => void;
+  drawOwnStatus: (
+    status: Participant["status"],
+    statusUntil: Participant["statusUntil"],
+  ) => void;
 }
 
 export type PresenceStore = StoreApi<PresenceState>;
@@ -27,6 +33,11 @@ export function createPresenceStore(): PresenceStore {
     },
     clear: () => set(EMPTY_PRESENCE),
     clearRemoteParticipants: () => set(withoutRemoteParticipants(get())),
+    drawOwnStatus(status, statusUntil) {
+      const current = get();
+      const next = withOwnStatus(current, status, statusUntil);
+      if (next !== current) set(next);
+    },
   }));
 }
 

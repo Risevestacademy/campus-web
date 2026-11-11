@@ -2,20 +2,20 @@ import { MapPinIcon } from "@phosphor-icons/react/dist/ssr/MapPin";
 import Link from "next/link";
 
 import { campusHref } from "@/core/navigation";
-import { initialsOf } from "@/shared/lib/initials";
 import { Separator } from "@/shared/ui/separator";
 
 import { BackToCampusesControl } from "./back-to-campuses-control";
+import type { CampusViewer } from "./campus-shell/feedback-layer";
 import { MeetingMediaControls } from "./meeting-media-controls";
-import { PresenceMenuTrigger } from "./presence-menu-trigger";
 import { ScreenShareStatus } from "./screen-share-status";
+import { StatusDock } from "./status-dock";
 
 type PresenceDockProps = Readonly<{
   cohortId: string;
-  userName?: string | null;
+  viewer: CampusViewer;
 }>;
 
-export function PresenceDock({ cohortId, userName }: PresenceDockProps) {
+export function PresenceDock({ cohortId, viewer }: PresenceDockProps) {
   return (
     <aside
       aria-label="Presence dock"
@@ -30,13 +30,16 @@ export function PresenceDock({ cohortId, userName }: PresenceDockProps) {
         Campus map
       </Link>
 
-      <div className="flex items-center gap-1.5">
-        <PresenceMenuTrigger initials={initialsOf(userName)} status="active" />
+      <StatusDock
+        cohortId={cohortId}
+        rowClassName="flex items-center gap-1.5"
+        viewer={viewer}
+      >
         <Separator orientation="vertical" className="mx-1 my-auto h-6" />
         <MeetingMediaControls className="gap-1.5" cohortId={cohortId} />
         <Separator orientation="vertical" className="mx-1 my-auto h-6" />
         <BackToCampusesControl />
-      </div>
+      </StatusDock>
     </aside>
   );
 }

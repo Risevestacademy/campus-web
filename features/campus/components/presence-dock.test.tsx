@@ -10,7 +10,10 @@ function renderDock(userName: string | null = "Ada Lovelace") {
     <MediaSessionProvider
       store={createMediaSessionStore({ mediaDevices: null })}
     >
-      <PresenceDock cohortId="c-1" userName={userName} />
+      <PresenceDock
+        cohortId="c-1"
+        viewer={{ id: "ada", displayName: userName }}
+      />
     </MediaSessionProvider>,
   );
 

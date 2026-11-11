@@ -39,6 +39,7 @@ const TONI: Avatar = {
   displayName: "Toni Morrison",
   spriteKey: null,
   status: "available",
+  statusUntil: null,
   spaceKey: "_default",
 };
 

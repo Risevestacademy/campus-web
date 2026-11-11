@@ -16,7 +16,7 @@ import {
 
 export type Participant = Pick<
   Avatar,
-  "userId" | "displayName" | "spriteKey" | "status" | "spaceKey"
+  "userId" | "displayName" | "spriteKey" | "status" | "statusUntil" | "spaceKey"
 >;
 export type Position = Pick<Player, "x" | "y" | "facing">;
 export type WorldMap = SnapshotMessage["map"];
@@ -65,9 +65,10 @@ function participantOf({
   displayName,
   spriteKey,
   status,
+  statusUntil,
   spaceKey,
 }: Participant): Participant {
-  return { userId, displayName, spriteKey, status, spaceKey };
+  return { userId, displayName, spriteKey, status, statusUntil, spaceKey };
 }
 
 function positionOf({ x, y, facing }: Player, map: WorldMap): Position {
@@ -290,6 +291,7 @@ function applyFrame(presence: Presence, message: ServerMessage): Presence {
     case "statusChanged":
       return withParticipantChange(presence, message.userId, {
         status: message.status,
+        statusUntil: message.until,
       });
     case "spaceChanged":
       return withSpaceChange(presence, message.userId, message.spaceKey);
@@ -325,6 +327,20 @@ export function spaceNameOf(
   spaceKey: string,
 ): string {
   return spaceNames.get(spaceKey) ?? spaceKey;
+}
+
+// World answers a choice only when the cohort sees a change, so the member's
+// own is drawn at once and its `statusChanged`, if any, settles it.
+export function withOwnStatus(
+  presence: Presence,
+  status: Participant["status"],
+  statusUntil: Participant["statusUntil"],
+): Presence {
+  if (presence.selfId === null) return presence;
+  return withParticipantChange(presence, presence.selfId, {
+    status,
+    statusUntil,
+  });
 }
 
 export function withoutRemoteParticipants(presence: Presence): Presence {
