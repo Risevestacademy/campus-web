@@ -14,7 +14,8 @@ same cohort never starts one; see [Presence Tab](#presence-tab).
   Presence Tab, the world session and one call-media session (the media
   store's transport, fed every world frame through `onMessage` and every
   close through `onRemoteParticipantsCleared`), and follows
-  the tab's status and world's outcomes. It needs the shared refresh port (`SessionRefreshProvider` from
+  the tab's status and world's outcomes. While mounted it reports activity
+  to world (see [Activity](#activity)). It needs the shared refresh port (`SessionRefreshProvider` from
   auth, composed by the cohort layout).
 - `useAdmission(selector)`: `pendingDestination`, `admitted`, `grantEntry`,
   `completeEntry`, `clear`.
@@ -35,6 +36,7 @@ transport and world.
 | `browser-presence-tab.ts`       | Web Locks, `BroadcastChannel`, wake events      |
 | `follow-presence-tab.ts`        | ends or restarts media, Admission and world     |
 | `follow-world-outcome.ts`       | what each terminal world outcome does           |
+| `report-activity.ts`            | throttled `active` frames from browser input    |
 | `presence-session-provider.tsx` | per-cohort store creation and media composition |
 
 ## Presence Tab
@@ -85,6 +87,15 @@ Web Lock `campus-presence:<cohortId>`; tabs on other cohorts are unaffected.
   other only on a press.
 - A reload cannot loop: Admission is never persisted, so it lands on
   pre-join at worst.
+
+## Activity
+
+World shows a member as away once they have sent nothing for
+`welcome.awayAfterSeconds`, and only `move`, `setStatus` and `active` count.
+The session listens for key presses, clicks and pointer moves on the window,
+so the map, the meeting view and Cohort Administration all count, and sends
+`active` at most once a minute. Nothing is sent while the socket is not ready;
+the next input after it is tries again.
 
 ## Session Renewal
 
