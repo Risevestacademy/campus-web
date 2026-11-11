@@ -88,6 +88,7 @@ export type WelcomeMessage = Simplify<
     | "heartbeatSeconds"
     | "stepMs"
     | "tickMs"
+    | "awayAfterSeconds"
     | "displayName"
     | "spriteKey"
   >
@@ -248,6 +249,7 @@ const welcomeMessageSchema = z.toZod<WelcomeMessage>()(
     heartbeatSeconds: z.int().positive(),
     stepMs: z.int().positive(),
     tickMs: z.int().positive(),
+    awayAfterSeconds: z.int().nonnegative(),
     ...appearanceShape,
   }),
 );

@@ -32,6 +32,9 @@ export type WorldSocialMessage =
 // `WorldMovement`'s do: false while there is no admitted socket, and for a
 // value world would refuse.
 export interface WorldSocial {
+  // Null until world has welcomed and placed the member; 0 when it never
+  // shows anyone away.
+  readAwayAfterSeconds(): number | null;
   sendActive(): boolean;
   sendAnswerEntryRequest(requestId: string, admit: boolean): boolean;
   sendMute(userId: string): boolean;
@@ -62,7 +65,7 @@ function isValidDuration(seconds: number): boolean {
 
 export function createWorldSocialChannel(): WorldSocialChannel {
   let binding = 0;
-  let welcomed = false;
+  let awayAfterSeconds: number | null = null;
   let ready = false;
   let send: ((message: WorldSocialMessage) => boolean) | undefined;
 
@@ -74,10 +77,10 @@ export function createWorldSocialChannel(): WorldSocialChannel {
   return {
     apply(message) {
       if (message.type === "welcome") {
-        welcomed = true;
+        awayAfterSeconds = message.awayAfterSeconds;
         ready = false;
       } else if (message.type === "snapshot") {
-        ready = welcomed;
+        ready = awayAfterSeconds !== null;
       }
     },
     bind(nextSend) {
@@ -88,13 +91,14 @@ export function createWorldSocialChannel(): WorldSocialChannel {
       return () => {
         if (binding !== currentBinding) return;
         send = undefined;
-        welcomed = false;
+        awayAfterSeconds = null;
         ready = false;
       };
     },
     disconnect() {
       ready = false;
     },
+    readAwayAfterSeconds: () => (ready ? awayAfterSeconds : null),
     sendActive: () => sendWhenReady({ type: "active" }),
     sendAnswerEntryRequest: (requestId, admit) =>
       sendWhenReady({ type: "answerEntryRequest", requestId, admit }),

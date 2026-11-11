@@ -166,6 +166,9 @@ initialized`. The runtime moves its one canvas between containers, clears
   the old tile dropped, the refused tiles learned on the old map forgotten, and
   the camera brought back to you once, as a walk's start does. Sequence
   numbers carry on. Others see the move as `moved`.
+- A link that names a space (`?goToSpace=` on the map's URL, from a room link)
+  mounts `WalkOnArrival`: it sends `goToSpace` once world is ready, then drops
+  the parameter so a reload does not walk again.
 - A double-click on a tile sends `goToTile` for it, the same walk as Go to.
   The click is placed from the camera's centre and scale, so a dragged or
   zoomed view picks the tile under the cursor. A closed socket ignores it, as

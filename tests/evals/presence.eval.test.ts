@@ -229,6 +229,7 @@ describe("presence eval", () => {
         heartbeatSeconds: 30,
         stepMs: 100,
         tickMs: 50,
+        awayAfterSeconds: 600,
         displayName: null,
         spriteKey: null,
       },
@@ -259,6 +260,7 @@ describe("presence eval", () => {
       heartbeatSeconds: 30,
       stepMs: 100,
       tickMs: 50,
+      awayAfterSeconds: 600,
       displayName: null,
       spriteKey: null,
     });
