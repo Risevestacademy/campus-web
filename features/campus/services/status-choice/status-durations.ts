@@ -4,7 +4,6 @@ import {
 } from "@/core/realtime";
 
 export const STATUS_DURATIONS = [
-  { id: "lasting", label: "Until I change it" },
   { id: "30m", label: "30 min" },
   { id: "1h", label: "1 h" },
   { id: "2h", label: "2 h" },
@@ -27,12 +26,7 @@ function secondsUntilMidnight(now: Date): number {
   return Math.floor((midnight.getTime() - now.getTime()) / 1000);
 }
 
-// Undefined for a status that lasts until the member changes it.
-export function durationSecondsOf(
-  id: StatusDurationId,
-  now: Date,
-): number | undefined {
-  if (id === "lasting") return undefined;
+export function durationSecondsOf(id: StatusDurationId, now: Date): number {
   if (id === "today") return secondsUntilMidnight(now);
   return FIXED_SECONDS[id];
 }

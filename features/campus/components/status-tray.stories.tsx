@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { cn } from "cn";
 import { fn } from "storybook/test";
 
+import { avatarToneOf } from "@/shared/lib/avatar";
 import { Separator } from "@/shared/ui/separator";
 
 import { PresenceMenuTrigger } from "./presence-menu-trigger";
@@ -28,10 +29,10 @@ const meta = {
             >
               <PresenceMenuTrigger
                 aria-expanded
-                initials="AL"
+                avatarClassName={avatarToneOf("ada")}
+                initial="A"
                 status={args.status}
                 timeLeft={args.timeLeft}
-                tone="cobalt"
               />
             </div>
           </div>
@@ -41,7 +42,7 @@ const meta = {
   ],
   args: {
     canChoose: true,
-    durationId: "lasting",
+    durationId: null,
     onDurationChange: fn(),
     onStatusChange: fn(),
     refusals: {},
@@ -82,7 +83,7 @@ export const Dark: Story = {
   parameters: { dark: true },
 };
 
-export const NarrowDock: Story = {
+export const AdminDock: Story = {
   args: { status: "busy", durationId: "30m", timeLeft: "24 min" },
   parameters: { narrow: true },
 };

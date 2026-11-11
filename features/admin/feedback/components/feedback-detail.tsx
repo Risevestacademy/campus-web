@@ -5,15 +5,10 @@ import { UserIcon } from "@phosphor-icons/react/dist/ssr/User";
 import { cn } from "cn";
 import type { ReactNode } from "react";
 
+import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 
-import { avatarTone } from "../../avatar";
-import {
-  describeAge,
-  personInitial,
-  personName,
-  reportedNameOf,
-} from "../feedback-format";
+import { describeAge, personName, reportedNameOf } from "../feedback-format";
 import type { FeedbackRecord } from "../types/feedback.types";
 import { FeedbackStatusControl } from "./feedback-status-control";
 import { FeedbackStatusLabel } from "./feedback-status-label";
@@ -86,8 +81,8 @@ export function FeedbackDetail({
 
       <div className="flex items-center gap-3">
         <Avatar size="lg">
-          <AvatarFallback className={avatarTone(submittedBy.id)}>
-            {personInitial(submittedBy)}
+          <AvatarFallback className={avatarToneOf(submittedBy.id)}>
+            {initialOf(personName(submittedBy))}
           </AvatarFallback>
         </Avatar>
         <div className="grid min-w-0">

@@ -1,30 +1,19 @@
 import type { Participant } from "@/core/presence";
-import { initialsOf } from "@/shared/lib/initials";
+import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 
-import {
-  type MeetingParticipant,
-  PARTICIPANT_TONES,
-  type ParticipantTone,
-} from "../../types/active-campus.types";
+import type { MeetingParticipant } from "../../types/active-campus.types";
 
 const UNNAMED_PARTICIPANT = "Campus member";
-
-export function participantTone(userId: string): ParticipantTone {
-  let hash = 0;
-  for (const character of userId) {
-    hash = (hash * 31 + (character.codePointAt(0) ?? 0)) >>> 0;
-  }
-  return PARTICIPANT_TONES[hash % PARTICIPANT_TONES.length] ?? "cobalt";
-}
 
 export function meetingParticipantOf({
   userId,
   displayName,
 }: Participant): MeetingParticipant {
+  const name = displayName?.trim() || UNNAMED_PARTICIPANT;
   return {
     id: userId,
-    initials: initialsOf(displayName),
-    name: displayName ?? UNNAMED_PARTICIPANT,
-    tone: participantTone(userId),
+    initial: initialOf(name),
+    name,
+    avatarClassName: avatarToneOf(userId),
   };
 }

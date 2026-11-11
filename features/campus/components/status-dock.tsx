@@ -5,12 +5,11 @@ import { type ReactNode, useId, useRef, useState } from "react";
 
 import { presenceFor, statusTimeLeft } from "@/core/presence";
 import { socialFor } from "@/core/realtime";
-import { initialsOf } from "@/shared/lib/initials";
+import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 import { useNow } from "@/shared/lib/use-now";
 import { Separator } from "@/shared/ui/separator";
 
 import { useOwnStatus } from "../hooks/use-own-status";
-import { participantTone } from "../services/meeting/participant-identity";
 import {
   chooseStatus,
   type ChosenStatus,
@@ -57,7 +56,7 @@ export function StatusDock({
   const trayId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const [durationId, setDurationId] = useState<StatusDurationId>("lasting");
+  const [durationId, setDurationId] = useState<StatusDurationId | null>(null);
   const { status, statusUntil, synced } = useOwnStatus(cohortId);
   const now = useNow(CLOCK_TICK_MS);
   const timeLeft = statusTimeLeft(statusUntil, now);
@@ -91,26 +90,20 @@ export function StatusDock({
           <StatusTray
             id={trayId}
             canChoose={synced}
-            durationId={
-              timeLeft === null
-                ? "lasting"
-                : durationId === "lasting"
-                  ? null
-                  : durationId
-            }
+            durationId={timeLeft === null ? null : durationId}
             onDurationChange={(next) => {
-              if (choose(status, durationSecondsOf(next, new Date()))) {
-                setDurationId(next);
-              }
+              const forSeconds =
+                next === null ? undefined : durationSecondsOf(next, new Date());
+              if (choose(status, forSeconds)) setDurationId(next);
             }}
             onStatusChange={(next) => {
-              if (choose(next)) setDurationId("lasting");
+              if (choose(next)) setDurationId(null);
             }}
             refusals={refusalsAt(now)}
             status={status}
             timeLeft={timeLeft}
           />
-          <Separator className="mx-3.5 w-auto data-horizontal:w-auto" />
+          <Separator className="mx-3.5 mb-1 w-auto data-horizontal:w-auto" />
         </>
       ) : null}
       <div className={rowClassName}>
@@ -118,11 +111,11 @@ export function StatusDock({
           ref={triggerRef}
           aria-controls={open ? trayId : undefined}
           aria-expanded={open}
-          initials={initialsOf(viewer.displayName)}
+          avatarClassName={avatarToneOf(viewer.id)}
+          initial={initialOf(viewer.displayName)}
           onClick={() => setOpen((wasOpen) => !wasOpen)}
           status={status}
           timeLeft={timeLeft}
-          tone={participantTone(viewer.id)}
         />
         {children}
       </div>

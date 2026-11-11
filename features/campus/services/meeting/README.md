@@ -19,8 +19,9 @@ const meeting = useMeeting(cohortId); // Meeting | null
   `hearing` is `room` or `proximity`. `null` before `welcome` or while the
   roster is empty, so you see nothing alone in a room.
 - `meetingParticipantOf(participant)`: name (`"Campus member"` when world
-  has none), initials, and a tone hashed from the user id, so a person keeps
-  one colour however the list changes.
+  has none), its initial and the avatar tone picked from the user id
+  (`shared/lib/avatar.ts`), so a person keeps one colour however the list
+  changes, and the same one as in the roster.
 - `meetingTiles(meeting, sharerIds, isSharing)`: one tile per person, after a
   tile for each share by someone else in the meeting, after the member's own
   share while they have one. A share's id is `screen:<participant id>`, so it

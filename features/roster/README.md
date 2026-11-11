@@ -32,9 +32,11 @@ passes the panel in because Campus may not import Roster.
   until the next one) and whenever the directory is loading, being fetched
   again or unreadable, so it never shows a count it could not check. Offline
   rows have a grey dot, no detail line and no actions.
-- **Avatar colors** come from the person's ID, since the backend sends none:
-  one of four tones, the same for everyone who looks, online or off. They
-  leave out the success, error and warning colors the status dots use.
+- **Avatars** show one letter and a color from `shared/lib/avatar.ts`, which
+  every avatar in the app uses: `initialOf(name)` and `avatarToneOf(id)`, one
+  of four tones picked from the person's ID, since the backend sends none. A
+  caller may set a tone instead. They leave out the success, error and
+  warning colors the status dots use.
 - **Names** are the display name, or `Campus member` when it is null or blank.
   A user ID is never shown as a name.
 - The roster shows no role for anyone else, no Do Not Disturb state and no

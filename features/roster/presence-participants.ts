@@ -3,18 +3,12 @@ import {
   type Participant as PresenceParticipant,
   statusTimeLeft,
 } from "@/core/presence";
+import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 
 import type { DirectoryPerson } from "./schemas/directory.schema";
 import type { Participant, ParticipantStatus } from "./types";
 
 const UNNAMED_MEMBER = "Campus member";
-// Not success, error or warning: those are the status dots beside the avatar.
-export const AVATAR_TONES = [
-  "bg-info-200 text-info-900",
-  "bg-lemon-300 text-lemon-950",
-  "bg-cobalt-300 text-cobalt-950",
-  "bg-turquoise-300 text-turquoise-950",
-] as const;
 
 const STATUS_DETAILS: Record<ParticipantStatus, string> = {
   available: "Available",
@@ -22,23 +16,8 @@ const STATUS_DETAILS: Record<ParticipantStatus, string> = {
   away: "Away",
 };
 
-const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-
 function shownName(displayName: string | null): string {
   return displayName?.trim() || UNNAMED_MEMBER;
-}
-
-// The backend sends no avatar color, so a person's own ID picks theirs: the
-// same everywhere and every session, for the offline too.
-function toneOf(id: string): string {
-  let hash = 5381;
-  for (const char of id) hash = (hash * 33 + char.codePointAt(0)!) >>> 0;
-  return AVATAR_TONES[hash % AVATAR_TONES.length]!;
-}
-
-function initialOf(name: string): string {
-  const [first] = graphemes.segment(name);
-  return first?.segment.toLocaleUpperCase() ?? "?";
 }
 
 function statusOf({ status }: PresenceParticipant): ParticipantStatus {
@@ -79,7 +58,7 @@ function rowOf(
     id,
     name,
     initial: initialOf(name),
-    avatarClassName: toneOf(id),
+    avatarClassName: avatarToneOf(id),
     status,
     detail,
     isSelf: false,

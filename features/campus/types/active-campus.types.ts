@@ -1,14 +1,10 @@
 import type { Hearing } from "@/core/presence";
 
-export const PARTICIPANT_TONES = ["cobalt", "lemon", "turquoise"] as const;
-
-export type ParticipantTone = (typeof PARTICIPANT_TONES)[number];
-
 export type MeetingParticipant = Readonly<{
   id: string;
-  initials: string;
+  initial: string;
   name: string;
-  tone: ParticipantTone;
+  avatarClassName: string;
 }>;
 
 export type Meeting = Readonly<{

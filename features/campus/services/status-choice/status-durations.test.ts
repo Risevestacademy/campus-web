@@ -21,10 +21,6 @@ describe("durationSecondsOf", () => {
     expect(durationSecondsOf(id, AFTERNOON)).toBe(seconds);
   });
 
-  it("gives no time for a status that lasts", () => {
-    expect(durationSecondsOf("lasting", AFTERNOON)).toBeUndefined();
-  });
-
   it("ends today at local midnight", () => {
     expect(durationSecondsOf("today", AFTERNOON)).toBe(9 * 60 * 60);
   });

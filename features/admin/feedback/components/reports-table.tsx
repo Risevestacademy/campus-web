@@ -1,9 +1,9 @@
 import Link from "next/link";
 
+import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { buttonVariants } from "@/shared/ui/button";
 
-import { avatarTone, initialOf } from "../../avatar";
 import { describeAge, reportedNameOf } from "../feedback-format";
 import { feedbackAdministrationHref } from "../feedback-href";
 import type { FeedbackFilter, FeedbackPage } from "../types/feedback.types";
@@ -78,7 +78,7 @@ export function ReportsTable({
                     <span className="flex items-center gap-3">
                       <Avatar size="default">
                         <AvatarFallback
-                          className={avatarTone(
+                          className={avatarToneOf(
                             report.reportedUser?.id ?? reportedName,
                           )}
                         >

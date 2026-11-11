@@ -14,10 +14,6 @@ export function reportedNameOf(item: {
   return item.reportedUser ? personName(item.reportedUser) : undefined;
 }
 
-export function personInitial(person: FeedbackPerson): string {
-  return personName(person).charAt(0).toUpperCase();
-}
-
 export function describeAge(createdAt: string, now: number): string {
   const elapsed = Math.max(0, now - Date.parse(createdAt));
 
