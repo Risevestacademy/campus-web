@@ -4,19 +4,24 @@ import { createWorldSocialChannel } from "@/core/realtime";
 import { serverFrames } from "@/tests/fixtures/world-frames";
 
 import {
-  ACTIVE_REPORT_INTERVAL_MS,
+  activeIntervalMs,
+  MAX_ACTIVE_INTERVAL_MS,
   reportActivity,
   subscribeToBrowserActivity,
 } from "./report-activity";
 
-function startReporting({ ready = true }: { ready?: boolean } = {}) {
+function startReporting({
+  awayAfterSeconds = serverFrames.welcome.awayAfterSeconds,
+  ready = true,
+}: { awayAfterSeconds?: number; ready?: boolean } = {}) {
   const channel = createWorldSocialChannel();
   const send = vi.fn(() => true);
   channel.bind(send);
-  if (ready) {
-    channel.apply(serverFrames.welcome);
+  const welcome = () => {
+    channel.apply({ ...serverFrames.welcome, awayAfterSeconds });
     channel.apply(serverFrames.snapshot);
-  }
+  };
+  if (ready) welcome();
   const listeners = new Set<() => void>();
   let time = 0;
   const stop = reportActivity(channel, {
@@ -30,12 +35,23 @@ function startReporting({ ready = true }: { ready?: boolean } = {}) {
   return {
     act: () => listeners.forEach((listener) => listener()),
     advance: (ms: number) => (time += ms),
-    channel,
     listeners,
     send,
     stop,
+    welcome,
   };
 }
+
+describe("activeIntervalMs", () => {
+  it.each([
+    [600, MAX_ACTIVE_INTERVAL_MS],
+    [240, MAX_ACTIVE_INTERVAL_MS],
+    [120, 30_000],
+    [1, 250],
+  ])("sends well within %s seconds of idling", (awayAfterSeconds, expected) => {
+    expect(activeIntervalMs(awayAfterSeconds)).toBe(expected);
+  });
+});
 
 describe("reportActivity", () => {
   it("sends active on the first activity", () => {
@@ -46,27 +62,38 @@ describe("reportActivity", () => {
     expect(send).toHaveBeenCalledExactlyOnceWith({ type: "active" });
   });
 
-  it("sends at most once per interval", () => {
-    const { act, advance, send } = startReporting();
+  it.each([300, 120])(
+    "sends at most once per interval when world idles after %s seconds",
+    (awayAfterSeconds) => {
+      const { act, advance, send } = startReporting({ awayAfterSeconds });
+      const interval = activeIntervalMs(awayAfterSeconds);
+
+      act();
+      advance(interval - 1);
+      act();
+      expect(send).toHaveBeenCalledOnce();
+
+      advance(1);
+      act();
+      expect(send).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it("sends nothing when world never shows anyone away", () => {
+    const { act, send } = startReporting({ awayAfterSeconds: 0 });
 
     act();
-    advance(ACTIVE_REPORT_INTERVAL_MS - 1);
-    act();
-    expect(send).toHaveBeenCalledOnce();
 
-    advance(1);
-    act();
-    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("sends nothing before world is ready, then sends on the next activity", () => {
-    const { act, channel, send } = startReporting({ ready: false });
+    const { act, send, welcome } = startReporting({ ready: false });
 
     act();
     expect(send).not.toHaveBeenCalled();
 
-    channel.apply(serverFrames.welcome);
-    channel.apply(serverFrames.snapshot);
+    welcome();
     act();
     expect(send).toHaveBeenCalledExactlyOnceWith({ type: "active" });
   });
@@ -87,6 +114,7 @@ describe("subscribeToBrowserActivity", () => {
     ["a key press", () => new KeyboardEvent("keydown")],
     ["a click", () => new PointerEvent("pointerdown")],
     ["a pointer move", () => new PointerEvent("pointermove")],
+    ["a scroll", () => new WheelEvent("wheel")],
   ])("hears %s until unsubscribed", (_, createEvent) => {
     const listener = vi.fn();
     const unsubscribe = subscribeToBrowserActivity(listener);

@@ -92,10 +92,11 @@ Web Lock `campus-presence:<cohortId>`; tabs on other cohorts are unaffected.
 
 World shows a member as away once they have sent nothing for
 `welcome.awayAfterSeconds`, and only `move`, `setStatus` and `active` count.
-The session listens for key presses, clicks and pointer moves on the window,
-so the map, the meeting view and Cohort Administration all count, and sends
-`active` at most once a minute. Nothing is sent while the socket is not ready;
-the next input after it is tries again.
+The session listens for key presses, clicks, pointer moves and scrolling on
+the window, so the map, the meeting view and Cohort Administration all count.
+It sends `active` at most once per a quarter of that timeout, capped at a
+minute, and never when the timeout is `0`. Nothing is sent while the socket is
+not ready; the next input after it is tries again.
 
 ## Session Renewal
 

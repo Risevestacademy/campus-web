@@ -1,8 +1,17 @@
 import type { WorldSocial } from "@/core/realtime";
 
-export const ACTIVE_REPORT_INTERVAL_MS = 60_000;
+export const MAX_ACTIVE_INTERVAL_MS = 60_000;
 
-const ACTIVITY_EVENTS = ["keydown", "pointerdown", "pointermove"] as const;
+const ACTIVITY_EVENTS = [
+  "keydown",
+  "pointerdown",
+  "pointermove",
+  "wheel",
+] as const;
+
+export function activeIntervalMs(awayAfterSeconds: number): number {
+  return Math.min(MAX_ACTIVE_INTERVAL_MS, (awayAfterSeconds * 1000) / 4);
+}
 
 export interface ActivityPorts {
   now: () => number;
@@ -10,14 +19,16 @@ export interface ActivityPorts {
 }
 
 export function reportActivity(
-  social: Pick<WorldSocial, "sendActive">,
+  social: Pick<WorldSocial, "readAwayAfterSeconds" | "sendActive">,
   { now, subscribeToActivity }: ActivityPorts,
 ): () => void {
   let lastSentAt = Number.NEGATIVE_INFINITY;
 
   return subscribeToActivity(() => {
+    const awayAfterSeconds = social.readAwayAfterSeconds();
+    if (!awayAfterSeconds) return;
     const at = now();
-    if (at - lastSentAt < ACTIVE_REPORT_INTERVAL_MS) return;
+    if (at - lastSentAt < activeIntervalMs(awayAfterSeconds)) return;
     if (social.sendActive()) lastSentAt = at;
   });
 }

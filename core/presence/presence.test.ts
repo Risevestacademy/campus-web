@@ -106,6 +106,7 @@ describe("applyServerMessage", () => {
       heartbeatSeconds: 30,
       stepMs: 100,
       tickMs: 50,
+      awayAfterSeconds: 600,
       displayName: "Ada",
       spriteKey: null,
     });
@@ -251,6 +252,7 @@ describe("applyServerMessage", () => {
       heartbeatSeconds: 30,
       stepMs: 100,
       tickMs: 50,
+      awayAfterSeconds: 600,
       displayName: "Ada",
       spriteKey: null,
     });
@@ -357,6 +359,7 @@ describe("nearby", () => {
         heartbeatSeconds: 30,
         stepMs: 100,
         tickMs: 50,
+        awayAfterSeconds: 600,
         displayName: "Ada",
         spriteKey: null,
       }),
@@ -424,6 +427,7 @@ describe("meeting roster", () => {
         heartbeatSeconds: 30,
         stepMs: 100,
         tickMs: 50,
+        awayAfterSeconds: 600,
         displayName: "Ada",
         spriteKey: null,
       } satisfies ServerMessage,
