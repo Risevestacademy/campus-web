@@ -63,6 +63,8 @@ In React, `useWorldSession()` gives `status`, `connect` and `reconnect` under
 | `realtime-analytics.ts`      | the analytics events for each client event (pure)           |
 | `browser-world-session.ts`   | browser adapters: socket URL, `WebSocket`, PostHog, console |
 | `world-session-provider.tsx` | `WorldSessionProvider`, `useWorldSession`                   |
+| `walk-feedback.ts`           | the notice for a walk that ended, and its analytics event   |
+| `notification-feedback.ts`   | the toast for a new `notification` frame                    |
 
 ## Analytics
 

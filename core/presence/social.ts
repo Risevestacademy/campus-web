@@ -45,6 +45,9 @@ export interface Social {
   broadcast: Broadcast;
   // Counts `desksChanged`: a change is the cue to fetch the desks again.
   desksVersion: number;
+  // Counts `notification` frames: each is the cue to read the list again, the
+  // record of them, which world may miss.
+  notificationsVersion: number;
 }
 
 export const EMPTY_SOCIAL: Social = {
@@ -56,6 +59,7 @@ export const EMPTY_SOCIAL: Social = {
   staffActions: [],
   broadcast: null,
   desksVersion: 0,
+  notificationsVersion: 0,
 };
 
 function newest<Item>(items: readonly Item[], limit: number): readonly Item[] {
@@ -183,6 +187,8 @@ export function socialChangeOf(
       return { broadcast: message.call };
     case "desksChanged":
       return { desksVersion: social.desksVersion + 1 };
+    case "notification":
+      return { notificationsVersion: social.notificationsVersion + 1 };
     default:
       return undefined;
   }

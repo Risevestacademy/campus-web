@@ -51,7 +51,12 @@ const framesAsRead = {
   desksChanged: { type: "desksChanged" },
   mapChanged: { type: "mapChanged" },
   watching: { type: "watching" },
-  notification: { type: "notification" },
+  notification: {
+    type: "notification",
+    id: serverFrames.notification.id,
+    kind: "entry_request_admitted",
+    context: serverFrames.notification.context,
+  },
   positionCorrected: { type: "positionCorrected" },
   walking: { type: "walking", player: serverFrames.walking.player },
   walkEnded: {

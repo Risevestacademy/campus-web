@@ -106,6 +106,7 @@ the map state above. `Presence` extends its `Social` fields:
 | `staffAction`       | `staffActions`: the newest 10, each with a running `seq`              |
 | `broadcast`         | `broadcast`: the call, or null                                        |
 | `desksChanged`      | `desksVersion` + 1: the cue to fetch the desks again                  |
+| `notification`      | `notificationsVersion` + 1: the cue to read the list again            |
 
 - World keeps no history, so a reconnect's `snapshot` keeps `chat`,
   `entryOutcomes` and `staffActions` (what the member has already seen) and

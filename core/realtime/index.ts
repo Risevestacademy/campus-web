@@ -58,6 +58,8 @@ export {
   type MoveCorrection,
   type MoveOutcome,
   type MoveResultMessage,
+  type NotificationKind,
+  type NotificationMessage,
   parseServerMessage,
   type PlayerStatus,
   type SaidMessage,
