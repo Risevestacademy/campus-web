@@ -22,6 +22,9 @@ export type StatusTrayProps = Readonly<{
   onDurationChange: (durationId: StatusDurationId | null) => void;
   onStatusChange: (status: ChosenStatus) => void;
   refusals: Partial<Record<StatusDurationId, string>>;
+  // For a dock too narrow for three statuses side by side: they stack, and
+  // the tray takes the dock's width instead of widening it.
+  stacked?: boolean;
   status: ChosenStatus;
   timeLeft: string | null;
 }>;
@@ -40,6 +43,7 @@ export function StatusTray({
   onDurationChange,
   onStatusChange,
   refusals,
+  stacked = false,
   status,
   timeLeft,
 }: StatusTrayProps) {
@@ -51,9 +55,17 @@ export function StatusTray({
     <section
       id={id}
       aria-labelledby={headingId}
-      className="text-foreground flex flex-col gap-2.5 px-3.5 pt-3.5 pb-3"
+      className={cn(
+        "text-foreground flex flex-col gap-2.5 px-3.5 pt-3.5 pb-3",
+        stacked && "contain-inline-size",
+      )}
     >
-      <div className="flex items-baseline justify-between gap-6">
+      <div
+        className={cn(
+          "flex items-baseline justify-between gap-6",
+          stacked && "flex-wrap gap-y-0.5",
+        )}
+      >
         <h2 id={headingId} className="text-sm font-semibold">
           Your status
         </h2>
@@ -76,14 +88,17 @@ export function StatusTray({
           onStatusChange(chosen(values, STATUSES) ?? status)
         }
         disabled={!canChoose}
-        className="w-full"
+        className={cn("w-full", stacked && "flex-col")}
       >
         {STATUSES.map((option) => (
           <ToggleGroupItem
             key={option}
             value={option}
             variant="outline"
-            className="aria-pressed:border-primary aria-pressed:bg-surface-hover dark:aria-pressed:bg-cobalt-900 bg-background h-12 flex-1 gap-2 rounded-xl px-4 aria-pressed:border-2"
+            className={cn(
+              "aria-pressed:border-primary aria-pressed:bg-surface-hover dark:aria-pressed:bg-cobalt-900 bg-background gap-2 rounded-xl aria-pressed:border-2",
+              stacked ? "h-10 w-full justify-start px-3" : "h-12 flex-1 px-4",
+            )}
           >
             <span
               aria-hidden
@@ -118,7 +133,10 @@ export function StatusTray({
             }
             disabled={!canChoose}
             spacing={1.5}
-            className="grid w-full grid-cols-5"
+            className={cn(
+              "grid w-full",
+              stacked ? "grid-cols-3" : "grid-cols-5",
+            )}
           >
             {STATUS_DURATIONS.map((duration) => (
               <ToggleGroupItem

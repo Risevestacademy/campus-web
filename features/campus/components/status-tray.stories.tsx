@@ -84,6 +84,11 @@ export const Dark: Story = {
 };
 
 export const AdminDock: Story = {
-  args: { status: "busy", durationId: "30m", timeLeft: "24 min" },
+  args: {
+    status: "busy",
+    durationId: "30m",
+    timeLeft: "24 min",
+    stacked: true,
+  },
   parameters: { narrow: true },
 };

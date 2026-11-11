@@ -31,6 +31,7 @@ type StatusDockProps = Readonly<{
   className?: string;
   cohortId: string;
   rowClassName?: string;
+  stackedTray?: boolean;
   viewer: CampusViewer;
 }>;
 
@@ -51,6 +52,7 @@ export function StatusDock({
   className,
   cohortId,
   rowClassName,
+  stackedTray = false,
   viewer,
 }: StatusDockProps) {
   const trayId = useId();
@@ -100,6 +102,7 @@ export function StatusDock({
               if (choose(next)) setDurationId(null);
             }}
             refusals={refusalsAt(now)}
+            stacked={stackedTray}
             status={status}
             timeLeft={timeLeft}
           />

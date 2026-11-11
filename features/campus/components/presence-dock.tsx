@@ -32,7 +32,8 @@ export function PresenceDock({ cohortId, viewer }: PresenceDockProps) {
 
       <StatusDock
         cohortId={cohortId}
-        rowClassName="flex items-center gap-1.5"
+        rowClassName="flex items-center justify-center gap-1.5"
+        stackedTray
         viewer={viewer}
       >
         <Separator orientation="vertical" className="mx-1 my-auto h-6" />

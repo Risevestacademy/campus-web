@@ -59,7 +59,7 @@ export function CampusControlBar({
       <StatusDock
         className="bg-background col-start-2 rounded-l-[1.25rem] rounded-r-[1.125rem]"
         cohortId={cohortId}
-        rowClassName="flex items-center gap-1.5 py-1.5 pr-1.75 pl-2"
+        rowClassName="flex items-center justify-center gap-1.5 py-1.5 pr-1.75 pl-2"
         viewer={viewer}
       >
         <Separator orientation="vertical" className="mx-1.5 my-auto h-6" />
