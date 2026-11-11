@@ -16,6 +16,10 @@ import {
 } from "@/features/campus";
 import { CampusZoomControls } from "@/features/campus-world";
 import { FeedbackPopup } from "@/features/feedback";
+import {
+  NotificationsPanel,
+  useUnreadNotifications,
+} from "@/features/notifications";
 import { CampusOverviewPanel } from "@/features/roster";
 
 import { cohortContextOf } from "../cohort-context";
@@ -61,9 +65,11 @@ export default async function ActiveCampusLayout({
         }
         FeedbackPopup={FeedbackPopup}
         LogOutAction={LogOutAction}
+        NotificationsPanel={NotificationsPanel}
         OverviewPanel={CampusOverviewPanel}
         cohort={cohortContextOf(access.session, id)}
         cohortId={id}
+        useUnreadNotifications={useUnreadNotifications}
         viewer={{
           id: access.session.user.id,
           displayName: access.session.user.displayName,

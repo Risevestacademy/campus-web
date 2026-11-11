@@ -166,3 +166,73 @@ describe("CampusRail", () => {
     ).toHaveFocus();
   });
 });
+
+describe("CampusRail notifications", () => {
+  function NotificationsPanelStub({
+    cohortId,
+    collapseButton,
+  }: {
+    cohortId: string;
+    collapseButton: ReactNode;
+  }) {
+    return (
+      <section aria-label="Notifications panel">
+        For {cohortId}
+        {collapseButton}
+      </section>
+    );
+  }
+
+  function renderWithNotifications(unread: number) {
+    render(
+      <CampusShell
+        NotificationsPanel={NotificationsPanelStub}
+        OverviewPanel={OverviewPanelStub}
+        cohortId="c-1"
+        useUnreadNotifications={() => unread}
+      >
+        <p>Route content</p>
+      </CampusShell>,
+    );
+  }
+
+  it("badges the Notifications item with how many are unread, and says so by name", () => {
+    renderWithNotifications(3);
+
+    const item = screen.getByRole("button", {
+      name: "Notifications, 3 unread",
+    });
+    expect(within(item).getByText("3")).toBeVisible();
+  });
+
+  it("shows no badge when none are unread", () => {
+    renderWithNotifications(0);
+
+    const item = screen.getByRole("button", { name: "Notifications" });
+    expect(within(item).queryByText("0")).not.toBeInTheDocument();
+  });
+
+  it("opens the route's panel for this cohort", async () => {
+    renderWithNotifications(1);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Notifications, 1 unread" }),
+    );
+
+    expect(
+      await screen.findByRole("region", { name: "Notifications panel" }),
+    ).toHaveTextContent("For c-1");
+  });
+
+  it("has no Notifications item when the route passes no notifications", () => {
+    render(
+      <CampusShell OverviewPanel={OverviewPanelStub} cohortId="c-1">
+        <p>Route content</p>
+      </CampusShell>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /^Notifications/ }),
+    ).not.toBeInTheDocument();
+  });
+});

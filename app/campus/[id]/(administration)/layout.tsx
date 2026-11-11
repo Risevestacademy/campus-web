@@ -12,6 +12,10 @@ import {
   SidebarCollapseButton,
 } from "@/features/campus";
 import { FeedbackPopup } from "@/features/feedback";
+import {
+  NotificationsPanel,
+  useUnreadNotifications,
+} from "@/features/notifications";
 import { CampusOverviewPanel } from "@/features/roster";
 
 import { cohortContextOf } from "../cohort-context";
@@ -45,10 +49,12 @@ export default async function AdministrationLayout({
         }
         FeedbackPopup={FeedbackPopup}
         LogOutAction={LogOutAction}
+        NotificationsPanel={NotificationsPanel}
         OverviewPanel={CampusOverviewPanel}
         cohort={cohortContextOf(access.session, id)}
         cohortId={id}
         initialSidebarMode="admin"
+        useUnreadNotifications={useUnreadNotifications}
         viewer={{ id: access.session.user.id, displayName: userName }}
       >
         <div className="min-w-0 flex-1 overflow-y-auto rounded-xl border bg-[#F7F7F7] dark:border-[#2B3B5F] dark:bg-[#1F2940]">

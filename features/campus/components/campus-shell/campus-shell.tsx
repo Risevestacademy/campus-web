@@ -32,12 +32,19 @@ type CampusShellProps = Readonly<{
   administrationPanel?: ReactNode;
   FeedbackPopup?: FeedbackPopupComponent;
   LogOutAction?: LogOutActionComponent;
+  NotificationsPanel?: ComponentType<{
+    cohortId: string;
+    collapseButton: ReactNode;
+  }>;
   OverviewPanel: ComponentType<{
     cohort?: OverviewCohort;
     cohortId: string;
     collapseButton: ReactNode;
   }>;
   children: ReactNode;
+  // How many notifications are unread, for the rail. A hook, called on every
+  // render, so it must be the same one for the life of the shell.
+  useUnreadNotifications?: (cohortId: string) => number;
   cohort?: OverviewCohort;
   cohortId: string;
   initialSidebarMode?: SidebarMode;
@@ -74,6 +81,7 @@ function RailAvatar() {
 export function CampusShell({
   AccountMenu,
   LogOutAction,
+  NotificationsPanel,
   administrationPanel,
   FeedbackPopup,
   OverviewPanel,
@@ -81,6 +89,7 @@ export function CampusShell({
   cohort,
   cohortId,
   initialSidebarMode,
+  useUnreadNotifications,
   viewer,
 }: CampusShellProps) {
   const avatar = <RailAvatar />;
@@ -104,12 +113,21 @@ export function CampusShell({
               hasAdministration={administrationPanel !== undefined}
               initialSidebarMode={initialSidebarMode}
               LogOutAction={LogOutAction}
+              useUnreadNotifications={useUnreadNotifications}
             />
             <CampusSidebar
               administrationPanel={administrationPanel}
               initialMode={initialSidebarMode}
               panels={{
                 ...comingSoonPanels,
+                ...(NotificationsPanel && {
+                  notifications: (
+                    <NotificationsPanel
+                      cohortId={cohortId}
+                      collapseButton={collapseButton}
+                    />
+                  ),
+                }),
                 map: (
                   <OverviewPanel
                     cohort={cohort}
