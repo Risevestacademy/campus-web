@@ -66,11 +66,11 @@ export type WalkEndedMessage = Simplify<
 export type Avatar = Simplify<
   Pick<
     PublishedAvatar,
-    keyof Player | "displayName" | "spriteKey" | "spaceKey"
+    keyof Player | "displayName" | "spriteKey" | "spaceKey" | "statusUntil"
   > & { status: PlayerStatus }
 >;
 export type StatusChangedMessage = Simplify<
-  Pick<PublishedStatusChangedMessage, "type" | "userId"> & {
+  Pick<PublishedStatusChangedMessage, "type" | "userId" | "until"> & {
     status: PlayerStatus;
   }
 >;
@@ -217,6 +217,12 @@ const playerStatusSchema = z.toZod<PlayerStatus>()(
   orUnknown(["available", "busy", "away"]),
 );
 
+// An end time that cannot be read is no end time: the status still shows.
+const statusUntilSchema = z.iso
+  .datetime({ offset: true })
+  .nullable()
+  .catch(null);
+
 const playerSchema = z.toZod<Player>()(
   z.object({
     userId: z.string(),
@@ -231,6 +237,7 @@ const avatarSchema = z.toZod<Avatar>()(
     ...playerSchema.shape,
     ...appearanceShape,
     status: playerStatusSchema,
+    statusUntil: statusUntilSchema,
     spaceKey: z.string(),
   }),
 );
@@ -338,6 +345,7 @@ const statusChangedMessageSchema = z.toZod<StatusChangedMessage>()(
     type: z.literal("statusChanged"),
     userId: z.string(),
     status: playerStatusSchema,
+    until: statusUntilSchema,
   }),
 );
 

@@ -20,6 +20,7 @@ const ADA = {
   displayName: "Ada",
   spriteKey: null,
   status: "available" as const,
+  statusUntil: null,
   spaceKey: "_default",
 };
 

@@ -1,6 +1,7 @@
 import {
   DEFAULT_SPACE_KEY,
   type Participant as PresenceParticipant,
+  statusTimeLeft,
 } from "@/core/presence";
 
 import type { DirectoryPerson } from "./schemas/directory.schema";
@@ -44,13 +45,27 @@ function statusOf({ status }: PresenceParticipant): ParticipantStatus {
   return status === "busy" || status === "away" ? status : "available";
 }
 
+function timedStatusOf(person: PresenceParticipant, now: number): string {
+  const status = STATUS_DETAILS[statusOf(person)];
+  const timeLeft = statusTimeLeft(person.statusUntil, now);
+  return timeLeft ? `${status} · ${timeLeft}` : status;
+}
+
 // The roster does not show room names yet, so a room is only said to be one.
-function detailOf(person: PresenceParticipant, selfId: string | null): string {
-  if (person.userId === selfId) return "You";
+function detailOf(
+  person: PresenceParticipant,
+  selfId: string | null,
+  now: number,
+): string {
   const status = statusOf(person);
+  if (person.userId === selfId) {
+    return status === "available"
+      ? "You"
+      : `You · ${timedStatusOf(person, now)}`;
+  }
   return status === "available" && person.spaceKey !== DEFAULT_SPACE_KEY
     ? "In a room"
-    : STATUS_DETAILS[status];
+    : timedStatusOf(person, now);
 }
 
 function rowOf(
@@ -78,6 +93,7 @@ export function toRosterParticipants(
   participants: ReadonlyMap<string, PresenceParticipant>,
   selfId: string | null,
   directory: readonly DirectoryPerson[] | undefined,
+  now: number = Date.now(),
 ): { online: Participant[]; offline: Participant[] | undefined } {
   const online = [...participants.values()].map((person) => {
     return {
@@ -85,7 +101,7 @@ export function toRosterParticipants(
         person.userId,
         person.displayName,
         statusOf(person),
-        detailOf(person, selfId),
+        detailOf(person, selfId, now),
       ),
       isSelf: person.userId === selfId,
     };

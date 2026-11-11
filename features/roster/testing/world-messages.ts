@@ -11,6 +11,7 @@ export function avatar(userId: string, overrides: Partial<Avatar> = {}) {
     displayName: userId,
     spriteKey: null,
     status: "available",
+    statusUntil: null,
     spaceKey: "_default",
     ...overrides,
   } satisfies Avatar;

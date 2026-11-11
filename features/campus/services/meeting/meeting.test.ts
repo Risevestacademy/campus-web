@@ -37,6 +37,7 @@ function avatar(
     displayName,
     spriteKey: null,
     status: "available",
+    statusUntil: null,
     spaceKey,
   };
 }

@@ -16,7 +16,7 @@ describe("campus control bar acceptance (required threshold: 1/1)", () => {
 
     expect(
       within(controls).getByRole("button", {
-        name: "Open presence settings. Current status: Active",
+        name: "Your status: Available",
       }),
     ).toBeInTheDocument();
     expect(

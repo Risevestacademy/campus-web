@@ -23,9 +23,10 @@ passes the panel in because Campus may not import Roster.
 - **Online** is connected to the world right now. The member's own row comes
   first with the detail `You`; the others keep the order the store has.
 - **Status** is what world reports: Available (green dot), Busy (red) or Away
-  (yellow). Someone available in any space but `_default` still counts as
-  Available, and their detail line says In a room. Room names are not shown
-  yet.
+  (a yellow ring, as on the dock). A timed one adds what is left, as in
+  `Busy · 4 min`; your own row reads `You · Busy · 4 min`. Someone available
+  in any space but `_default` still counts as Available, and their detail
+  line says In a room. Room names are not shown yet.
 - **Offline** is the cohort directory minus everyone online. The group is
   hidden until a current snapshot has arrived (not after the socket closes,
   until the next one) and whenever the directory is loading, being fetched

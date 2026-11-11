@@ -77,6 +77,7 @@ describe("PersonDetail", () => {
             displayName: "Ada",
             spriteKey: null,
             status: "available",
+            statusUntil: null,
             spaceKey: "_default",
           },
         ],
@@ -86,9 +87,12 @@ describe("PersonDetail", () => {
     expect(screen.getByText("Available")).toBeVisible();
 
     act(() =>
-      presenceFor(COHORT_ID)
-        .getState()
-        .apply({ type: "statusChanged", userId: "user-1", status: "away" }),
+      presenceFor(COHORT_ID).getState().apply({
+        type: "statusChanged",
+        userId: "user-1",
+        status: "away",
+        until: null,
+      }),
     );
 
     expect(screen.getByText("Away")).toBeVisible();

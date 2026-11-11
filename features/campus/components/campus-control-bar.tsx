@@ -5,11 +5,11 @@ import type { ReactNode } from "react";
 import { Button } from "@/shared/ui/button";
 import { Separator } from "@/shared/ui/separator";
 
-import type { PresenceStatus } from "../types/active-campus.types";
 import { BackToCampusesControl } from "./back-to-campuses-control";
+import type { CampusViewer } from "./campus-shell/feedback-layer";
 import { MeetingMediaControls } from "./meeting-media-controls";
-import { PresenceMenuTrigger } from "./presence-menu-trigger";
 import { ScreenShareControl } from "./screen-share-control";
+import { StatusDock } from "./status-dock";
 
 const campusActions = [
   { Icon: ChatIcon, label: "Open chat" },
@@ -21,8 +21,7 @@ const CAMPUS_ACTION_CLASS_NAME =
 
 type CampusControlBarProps = Readonly<{
   cohortId: string;
-  initials: string;
-  status: PresenceStatus;
+  viewer: CampusViewer;
   zoomControls: ReactNode;
 }>;
 
@@ -52,20 +51,23 @@ function CampusActionControls({ cohortId }: Readonly<{ cohortId: string }>) {
 
 export function CampusControlBar({
   cohortId,
-  initials,
-  status,
+  viewer,
   zoomControls,
 }: CampusControlBarProps) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end">
-      <div className="bg-background col-start-2 flex items-center gap-1.5 rounded-l-[1.25rem] rounded-r-[1.125rem] py-1.5 pr-1.75 pl-2">
-        <PresenceMenuTrigger initials={initials} status={status} />
+      <StatusDock
+        className="bg-background col-start-2 rounded-l-[1.25rem] rounded-r-[1.125rem]"
+        cohortId={cohortId}
+        rowClassName="flex items-center gap-1.5 py-1.5 pr-1.75 pl-2"
+        viewer={viewer}
+      >
         <Separator orientation="vertical" className="mx-1.5 my-auto h-6" />
         <MeetingMediaControls className="gap-1.5" cohortId={cohortId} />
         <CampusActionControls cohortId={cohortId} />
         <Separator orientation="vertical" className="mx-1.5 my-auto h-6" />
         <BackToCampusesControl />
-      </div>
+      </StatusDock>
 
       <div className="ml-auto">{zoomControls}</div>
     </div>

@@ -139,6 +139,9 @@ result.
   `spaceKey`; whom you walked to and `mayAsk` are stripped until a feature
   reads them. A reason world adds later reads as `unknown`, so the frame still
   says where you stopped.
+- Avatars keep `statusUntil` and `statusChanged` keeps `until`: when a timed
+  status ends. An end time that is not an ISO timestamp reads as null, a
+  status that lasts.
 - `snapshot.spaces` and the `spaces` frame keep each space's `spaceKey` and
   `name`. A `snapshot` whose `spaces` is missing or malformed reads as `[]`,
   so a label never fails the handshake.

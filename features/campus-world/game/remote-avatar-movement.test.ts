@@ -19,6 +19,7 @@ const ADA: Avatar = {
   displayName: "Ada",
   spriteKey: null,
   status: "available",
+  statusUntil: null,
   spaceKey: "_default",
 };
 
@@ -30,6 +31,7 @@ const GRACE: Avatar = {
   displayName: "Grace",
   spriteKey: null,
   status: "available",
+  statusUntil: null,
   spaceKey: "_default",
 };
 
@@ -275,6 +277,7 @@ describe("createRemoteAvatarMovement", () => {
         displayName: "Linus",
         spriteKey: null,
         status: "available",
+        statusUntil: null,
         spaceKey: "_default",
       },
     });
