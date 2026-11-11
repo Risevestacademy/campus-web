@@ -51,9 +51,9 @@ export function StatusTray({
     <section
       id={id}
       aria-labelledby={headingId}
-      className="text-foreground flex flex-col gap-2.5 px-3.5 pt-3.5 pb-3"
+      className="text-foreground @container flex flex-col gap-2.5 px-3.5 pt-3.5 pb-3"
     >
-      <div className="flex items-baseline justify-between gap-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-0.5">
         <h2 id={headingId} className="text-sm font-semibold">
           Your status
         </h2>
@@ -77,14 +77,14 @@ export function StatusTray({
           if (next) onStatusChange(next);
         }}
         disabled={!canChoose}
-        className="w-full"
+        className="w-full flex-col @xs:flex-row"
       >
         {STATUSES.map((option) => (
           <ToggleGroupItem
             key={option}
             value={option}
             variant="outline"
-            className="aria-pressed:border-primary aria-pressed:bg-surface-hover dark:aria-pressed:bg-cobalt-900 bg-background h-12 flex-1 gap-2 rounded-xl px-4 aria-pressed:border-2"
+            className="aria-pressed:border-primary aria-pressed:bg-surface-hover dark:aria-pressed:bg-cobalt-900 bg-background h-10 w-full justify-start gap-2 rounded-xl px-3 aria-pressed:border-2 @xs:h-12 @xs:w-auto @xs:min-w-0 @xs:flex-1 @xs:shrink @xs:justify-center"
           >
             <span
               aria-hidden
@@ -100,41 +100,42 @@ export function StatusTray({
 
       {status === "available" ? null : (
         <div className="flex flex-col gap-1.5">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span
-              id={durationLabelId}
-              className="text-foreground-secondary mr-1 text-xs font-medium"
-            >
-              For
-            </span>
-            <ToggleGroup
-              aria-labelledby={durationLabelId}
-              value={durationId ? [durationId] : []}
-              onValueChange={(values) => {
-                const next = chosen(
-                  values,
-                  STATUS_DURATIONS.map((duration) => duration.id),
-                );
-                if (next) onDurationChange(next);
-              }}
-              disabled={!canChoose}
-              spacing={1.5}
-              className="flex-wrap"
-            >
-              {STATUS_DURATIONS.map((duration) => (
-                <ToggleGroupItem
-                  key={duration.id}
-                  value={duration.id}
-                  variant="outline"
-                  disabled={refusals[duration.id] !== undefined}
-                  title={refusals[duration.id]}
-                  className="aria-pressed:bg-primary aria-pressed:text-primary-foreground bg-background h-9 rounded-[0.625rem] px-3 text-[0.8125rem] aria-pressed:border-transparent"
-                >
-                  {duration.label}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </div>
+          <span
+            id={durationLabelId}
+            className="text-foreground-secondary text-xs font-medium"
+          >
+            For
+          </span>
+          <ToggleGroup
+            aria-labelledby={durationLabelId}
+            value={durationId ? [durationId] : []}
+            onValueChange={(values) => {
+              const next = chosen(
+                values,
+                STATUS_DURATIONS.map((duration) => duration.id),
+              );
+              if (next) onDurationChange(next);
+            }}
+            disabled={!canChoose}
+            spacing={1.5}
+            className="grid w-full grid-cols-3 @xs:grid-cols-5"
+          >
+            {STATUS_DURATIONS.map((duration) => (
+              <ToggleGroupItem
+                key={duration.id}
+                value={duration.id}
+                variant="outline"
+                disabled={refusals[duration.id] !== undefined}
+                title={refusals[duration.id]}
+                className={cn(
+                  "aria-pressed:bg-primary aria-pressed:text-primary-foreground bg-background h-9 w-full rounded-[0.625rem] px-2 text-[0.8125rem] aria-pressed:border-transparent",
+                  duration.id === "lasting" && "col-span-full",
+                )}
+              >
+                {duration.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
           {refusalNotes.map((note) => (
             <p key={note} className="text-foreground-secondary text-xs">
               {note}

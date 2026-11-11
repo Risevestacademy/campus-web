@@ -57,6 +57,7 @@ function renderActiveCampus(
       AccountMenu={AccountMenu}
       OverviewPanel={OverviewPanelStub}
       cohortId="c-1"
+      viewer={VIEWER}
     >
       <MediaSessionProvider store={store}>
         <WorldSessionProvider world={world}>
@@ -162,13 +163,13 @@ describe("ActiveCampus", () => {
       name: "Account menu",
     });
 
-    expect(within(accountMenu).getByText("J")).toBeInTheDocument();
+    expect(within(accountMenu).getByText("AL")).toBeInTheDocument();
   });
 
   it("shows a plain rail avatar without an account menu", () => {
     renderActiveCampus();
 
-    expect(within(campusRail()).getByText("J")).toBeInTheDocument();
+    expect(within(campusRail()).getByText("AL")).toBeInTheDocument();
     expect(
       within(campusRail()).queryByRole("group", { name: "Account menu" }),
     ).not.toBeInTheDocument();

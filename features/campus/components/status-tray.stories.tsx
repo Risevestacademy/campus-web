@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { cn } from "cn";
 import { fn } from "storybook/test";
 
 import { Separator } from "@/shared/ui/separator";
@@ -19,7 +20,12 @@ const meta = {
           <div className="bg-background text-foreground flex w-fit flex-col rounded-[1.25rem]">
             <Story />
             <Separator className="mx-3.5 w-auto data-horizontal:w-auto" />
-            <div className="flex items-center gap-1.5 py-1.5 pr-1.75 pl-2">
+            <div
+              className={cn(
+                "flex items-center gap-1.5 py-1.5 pr-1.75 pl-2",
+                parameters.narrow ? "w-56" : "w-96",
+              )}
+            >
               <PresenceMenuTrigger
                 aria-expanded
                 initials="AL"
@@ -74,4 +80,9 @@ export const Reconnecting: Story = {
 export const Dark: Story = {
   args: { status: "away", durationId: "2h", timeLeft: "1 h 40 min" },
   parameters: { dark: true },
+};
+
+export const NarrowDock: Story = {
+  args: { status: "busy", durationId: "30m", timeLeft: "24 min" },
+  parameters: { narrow: true },
 };
