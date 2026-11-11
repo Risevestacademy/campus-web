@@ -173,19 +173,6 @@ describe("StatusDock", () => {
     expect(within(tray).getByRole("button", { name: "Busy" })).toBeDisabled();
   });
 
-  it("refuses today while more than 12 hours of it are left, and says why", () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date(2026, 9, 30, 8, 0, 0));
-    connectSocial();
-    renderDock();
-    const tray = openTray();
-
-    fireEvent.click(within(tray).getByRole("button", { name: "Busy" }));
-
-    expect(within(tray).getByRole("button", { name: "Today" })).toBeDisabled();
-    expect(within(tray).getByText(/12 hours at most/)).toBeInTheDocument();
-  });
-
   it("closes on Escape and hands focus back to the trigger", () => {
     connectSocial();
     renderDock();

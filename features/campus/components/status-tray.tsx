@@ -21,7 +21,6 @@ export type StatusTrayProps = Readonly<{
   id?: string;
   onDurationChange: (durationId: StatusDurationId | null) => void;
   onStatusChange: (status: ChosenStatus) => void;
-  refusals: Partial<Record<StatusDurationId, string>>;
   // For a dock too narrow for three statuses side by side: they stack, and
   // the tray takes the dock's width instead of widening it.
   stacked?: boolean;
@@ -42,14 +41,12 @@ export function StatusTray({
   id,
   onDurationChange,
   onStatusChange,
-  refusals,
   stacked = false,
   status,
   timeLeft,
 }: StatusTrayProps) {
   const headingId = useId();
   const durationLabelId = useId();
-  const refusalNotes = [...new Set(Object.values(refusals))];
 
   return (
     <section
@@ -135,7 +132,7 @@ export function StatusTray({
             spacing={1.5}
             className={cn(
               "grid w-full",
-              stacked ? "grid-cols-3" : "grid-cols-5",
+              stacked ? "grid-cols-2" : "grid-cols-4",
             )}
           >
             {STATUS_DURATIONS.map((duration) => (
@@ -143,19 +140,12 @@ export function StatusTray({
                 key={duration.id}
                 value={duration.id}
                 variant="outline"
-                disabled={refusals[duration.id] !== undefined}
-                title={refusals[duration.id]}
                 className="aria-pressed:bg-primary aria-pressed:text-primary-foreground bg-background h-9 w-full rounded-[0.625rem] px-2 text-[0.8125rem] aria-pressed:border-transparent"
               >
                 {duration.label}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
-          {refusalNotes.map((note) => (
-            <p key={note} className="text-foreground-secondary text-xs">
-              {note}
-            </p>
-          ))}
         </div>
       )}
     </section>

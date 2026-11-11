@@ -15,9 +15,7 @@ import {
   type ChosenStatus,
 } from "../services/status-choice/choose-status";
 import {
-  durationRefusalOf,
   durationSecondsOf,
-  STATUS_DURATIONS,
   type StatusDurationId,
 } from "../services/status-choice/status-durations";
 import type { CampusViewer } from "./campus-shell/feedback-layer";
@@ -34,16 +32,6 @@ type StatusDockProps = Readonly<{
   stackedTray?: boolean;
   viewer: CampusViewer;
 }>;
-
-function refusalsAt(now: number): Partial<Record<StatusDurationId, string>> {
-  const at = new Date(now);
-  const refusals: Partial<Record<StatusDurationId, string>> = {};
-  for (const { id } of STATUS_DURATIONS) {
-    const refusal = durationRefusalOf(durationSecondsOf(id, at));
-    if (refusal) refusals[id] = refusal;
-  }
-  return refusals;
-}
 
 // The dock grows a tray above its row: the member's status sits with the
 // controls it belongs to instead of floating over the map.
@@ -95,13 +83,12 @@ export function StatusDock({
             durationId={timeLeft === null ? null : durationId}
             onDurationChange={(next) => {
               const forSeconds =
-                next === null ? undefined : durationSecondsOf(next, new Date());
+                next === null ? undefined : durationSecondsOf(next);
               if (choose(status, forSeconds)) setDurationId(next);
             }}
             onStatusChange={(next) => {
               if (choose(next)) setDurationId(null);
             }}
-            refusals={refusalsAt(now)}
             stacked={stackedTray}
             status={status}
             timeLeft={timeLeft}

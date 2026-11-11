@@ -45,7 +45,6 @@ const meta = {
     durationId: null,
     onDurationChange: fn(),
     onStatusChange: fn(),
-    refusals: {},
     status: "available",
     timeLeft: null,
   },
@@ -63,15 +62,6 @@ export const BusyForAWhile: Story = {
 
 export const AwayUntilChanged: Story = {
   args: { status: "away" },
-};
-
-export const TodayTooLong: Story = {
-  args: {
-    status: "busy",
-    refusals: {
-      today: "A status lasts 12 hours at most, and today has longer left.",
-    },
-  },
 };
 
 export const Reconnecting: Story = {

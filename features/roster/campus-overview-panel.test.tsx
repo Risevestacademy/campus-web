@@ -317,7 +317,7 @@ describe("CampusOverviewPanel", () => {
     it.each([
       ["Me", "bg-success"],
       ["Bola", "bg-error"],
-      ["Chi", "border-warning-icon"],
+      ["Chi", "bg-warning"],
     ])("gives %s a %s dot", (name, dotClass) => {
       renderWithEveryStatus();
 

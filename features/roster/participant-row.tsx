@@ -12,7 +12,7 @@ import type { Participant, ParticipantAction } from "./types";
 const BADGE_CLASS_NAMES = {
   available: "bg-success",
   busy: "bg-error",
-  away: "bg-background border-warning-icon border-2",
+  away: "bg-warning",
   offline: "bg-icon-muted",
 } as const;
 
