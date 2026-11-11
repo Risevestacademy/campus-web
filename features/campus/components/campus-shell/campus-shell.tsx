@@ -66,10 +66,7 @@ function RailAvatar({ viewer }: Readonly<{ viewer?: CampusViewer }>) {
   return (
     <Avatar size="lg">
       <AvatarFallback
-        className={cn(
-          "font-medium",
-          viewer ? avatarToneOf(viewer.id) : "bg-accent text-accent-foreground",
-        )}
+        className={cn("font-medium", avatarToneOf(viewer?.id ?? "", "lemon"))}
       >
         {initialOf(viewer?.displayName)}
       </AvatarFallback>
