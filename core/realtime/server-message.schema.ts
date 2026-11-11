@@ -23,6 +23,7 @@ import type {
   MoveOutcome as PublishedMoveOutcome,
   MoveResultMessage as PublishedMoveResultMessage,
   NearbyMessage,
+  NotificationMessage as PublishedNotificationMessage,
   Player,
   PongMessage,
   ReplacedMessage,
@@ -58,6 +59,17 @@ export type ErrorMessage = Simplify<
 >;
 export type WalkEndReason = OrUnknown<PublishedWalkEndReason>;
 export type WalkingMessage = Pick<PublishedWalkingMessage, "type" | "player">;
+// What a toast needs of a new notification: which one, what kind, and for an
+// entry request where. The notice reference and the time are in the list
+// campus-api keeps, which is what the member reads.
+export type NotificationKind = OrUnknown<
+  "notice_posted" | "entry_request_admitted" | "entry_request_declined"
+>;
+export type NotificationMessage = Simplify<
+  Pick<PublishedNotificationMessage, "type" | "id" | "context"> & {
+    kind: NotificationKind;
+  }
+>;
 export type WalkEndedMessage = Simplify<
   Pick<PublishedWalkEndedMessage, "type" | "player" | "spaceKey"> & {
     reason: WalkEndReason;
@@ -149,11 +161,7 @@ export type CallMessage = Simplify<
 // stripped to their type, so nothing unread travels on.
 type UnreadType = Extract<
   PublishedServerMessage["type"],
-  | "desksChanged"
-  | "mapChanged"
-  | "watching"
-  | "notification"
-  | "positionCorrected"
+  "desksChanged" | "mapChanged" | "watching" | "positionCorrected"
 >;
 type UnreadMessage = { [Type in UnreadType]: { type: Type } }[UnreadType];
 
@@ -182,6 +190,7 @@ export type ServerMessage =
   | BroadcastMessage
   | WalkingMessage
   | WalkEndedMessage
+  | NotificationMessage
   | UnreadMessage;
 
 function orUnknown<const Values extends readonly [string, ...string[]]>(
@@ -318,6 +327,25 @@ const walkEndedMessageSchema = z.toZod<WalkEndedMessage>()(
     reason: walkEndReasonSchema,
     player: playerSchema,
     spaceKey: z.string().nullable(),
+  }),
+);
+
+const notificationKindSchema = z.toZod<NotificationKind>()(
+  orUnknown([
+    "notice_posted",
+    "entry_request_admitted",
+    "entry_request_declined",
+  ]),
+);
+
+const notificationMessageSchema = z.toZod<NotificationMessage>()(
+  z.object({
+    type: z.literal("notification"),
+    id: z.string().min(1),
+    kind: notificationKindSchema,
+    context: z
+      .object({ cohortId: z.string(), spaceKey: z.string() })
+      .nullable(),
   }),
 );
 
@@ -484,10 +512,10 @@ const serverMessageSchema = z.toZod<ServerMessage>()(
     unreadMessageSchema("desksChanged"),
     unreadMessageSchema("mapChanged"),
     unreadMessageSchema("watching"),
-    unreadMessageSchema("notification"),
     unreadMessageSchema("positionCorrected"),
     walkingMessageSchema,
     walkEndedMessageSchema,
+    notificationMessageSchema,
   ]),
 );
 

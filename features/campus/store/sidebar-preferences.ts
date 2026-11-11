@@ -4,6 +4,7 @@ export const SIDEBAR_PANEL_IDS = [
   "chat",
   "tasks",
   "calendar",
+  "notifications",
 ] as const;
 export type SidebarPanelId = (typeof SIDEBAR_PANEL_IDS)[number];
 

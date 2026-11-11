@@ -239,6 +239,23 @@ describe("staff actions", () => {
   });
 });
 
+describe("notifications", () => {
+  const written = (id: string): ServerMessage => ({
+    type: "notification",
+    id,
+    kind: "notice_posted",
+    context: null,
+  });
+
+  it("count each frame, the cue to read the list again", () => {
+    expect(applied(written("a"), written("b")).notificationsVersion).toBe(2);
+  });
+
+  it("start counting again after clear()", () => {
+    expect(EMPTY_PRESENCE.notificationsVersion).toBe(0);
+  });
+});
+
 describe("broadcast and desks", () => {
   it("holds the broadcast call, and none when world says none", () => {
     const on = applied(serverFrames.broadcast);

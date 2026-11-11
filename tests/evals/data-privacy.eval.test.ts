@@ -285,7 +285,7 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   desksChanged: ["type"],
   mapChanged: ["type"],
   watching: ["type"],
-  notification: ["type"],
+  notification: ["context.cohortId", "context.spaceKey", "id", "kind", "type"],
   positionCorrected: ["type"],
   replaced: ["type"],
   said: ["at", "id", "spaceKey", "text", "type", "userId"],

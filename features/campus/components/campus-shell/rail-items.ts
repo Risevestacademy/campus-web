@@ -1,4 +1,5 @@
 import type { Icon } from "@phosphor-icons/react";
+import { BellIcon } from "@phosphor-icons/react/dist/ssr/Bell";
 import { CalendarCheckIcon } from "@phosphor-icons/react/dist/ssr/CalendarCheck";
 import { ChatCircleIcon } from "@phosphor-icons/react/dist/ssr/ChatCircle";
 import { ListChecksIcon } from "@phosphor-icons/react/dist/ssr/ListChecks";
@@ -20,4 +21,5 @@ export const railPanelItems: readonly RailPanelItem[] = [
   { id: "chat", label: "Chat", Icon: ChatCircleIcon, badgeCount: 3 },
   { id: "tasks", label: "Tasks", Icon: ListChecksIcon },
   { id: "calendar", label: "Calendar", Icon: CalendarCheckIcon },
+  { id: "notifications", label: "Notifications", Icon: BellIcon },
 ];

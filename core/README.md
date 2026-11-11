@@ -12,6 +12,8 @@ Implemented concerns:
   the generated types. See `api/schemas/README.md`.
 - `navigation`: canonical, framework-independent route construction shared
   across features.
+- `notifications`: what a notification says, in a member's words, shared by the
+  toast and the list.
 - `observability`: structured application logging. See
   `observability/README.md`.
 - `presence`: who is in a cohort's campus and where world last placed them,

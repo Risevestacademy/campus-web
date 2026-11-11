@@ -169,23 +169,35 @@ function LogOutRailButton({
   );
 }
 
+// A rail with no notifications feature behind it has no unread to count.
+const noUnreadNotifications = () => 0;
+
 export function CampusRail({
   account,
   cohortId,
   hasAdministration = false,
   initialSidebarMode,
   LogOutAction,
+  useUnreadNotifications,
 }: {
   account: ReactNode;
   cohortId: string;
   hasAdministration?: boolean;
   initialSidebarMode?: SidebarMode;
   LogOutAction?: LogOutActionComponent;
+  // Present when a notifications panel is: its count badges the rail item.
+  useUnreadNotifications?: (cohortId: string) => number;
 }) {
   const activePanel = useActivePanel();
   const sidebarMode = useSidebarMode(initialSidebarMode, hasAdministration);
   const { openAdministration, openPanel } = useCampusView();
   const mapHref = campusHref(cohortId);
+  const unreadNotifications = (useUnreadNotifications ?? noUnreadNotifications)(
+    cohortId,
+  );
+  const items = railPanelItems.filter(
+    ({ id }) => id !== "notifications" || useUnreadNotifications !== undefined,
+  );
 
   return (
     <nav
@@ -212,12 +224,20 @@ export function CampusRail({
               <SquaresFourIcon aria-hidden />
             </RailButton>
           ) : null}
-          {railPanelItems.map((item) => (
+          {items.map((item) => (
             <RailButton
               key={item.id}
-              label={item.label}
+              label={
+                item.id === "notifications" && unreadNotifications > 0
+                  ? `${item.label}, ${unreadNotifications} unread`
+                  : item.label
+              }
               isActive={sidebarMode === "campus" && activePanel === item.id}
-              badgeCount={item.badgeCount}
+              badgeCount={
+                item.id === "notifications"
+                  ? unreadNotifications
+                  : item.badgeCount
+              }
               href={item.id === "map" ? mapHref : undefined}
               onClick={() => openPanel(item.id)}
             >

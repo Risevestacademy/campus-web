@@ -15,6 +15,8 @@ and the Active Campus media UI inside it. Admin catalogues and pages belong to
 <CampusShell
   AccountMenu={AccountMenu}
   LogOutAction={LogOutAction} // draws the rail's Log out item
+  NotificationsPanel={NotificationsPanel} // the Notifications panel, gets cohortId and collapseButton
+  useUnreadNotifications={useUnreadNotifications} // badges its rail item; one hook for the shell's life
   administrationPanel={adminSidebar}
   OverviewPanel={CampusOverviewPanel} // gets cohort, cohortId and collapseButton
   cohort={{ name: "Product Design 2026", role: "student" }} // the member's place; undefined for an administrator with none
