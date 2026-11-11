@@ -70,6 +70,8 @@ vi.mock("@/features/campus-world", () => ({
   CampusWorld: ({ cohortId }: { cohortId: string }) => (
     <div aria-label="Campus map" data-cohort-id={cohortId} role="region" />
   ),
+  parseWalkTargetSpace: () => undefined,
+  WalkOnArrival: () => null,
 }));
 
 const projectRoot = path.resolve(import.meta.dirname, "../..");
@@ -617,6 +619,7 @@ describe("Campus world eval (required threshold: 22/22)", () => {
     render(
       await ActiveCampusPage({
         params: Promise.resolve({ id: "cohort-1" }),
+        searchParams: Promise.resolve({}),
       }),
     );
 

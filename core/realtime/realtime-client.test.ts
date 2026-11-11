@@ -17,11 +17,7 @@ import {
 
 const { startClient } = startMockWorld();
 
-const {
-  awayAfterSeconds: _awayAfterSeconds,
-  mode: _mode,
-  ...READ_WELCOME
-} = WELCOME;
+const { mode: _mode, ...READ_WELCOME } = WELCOME;
 const READ_SNAPSHOT = {
   type: SNAPSHOT.type,
   map: SNAPSHOT.map,

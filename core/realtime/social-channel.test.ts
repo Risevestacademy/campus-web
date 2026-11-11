@@ -117,6 +117,24 @@ describe("createWorldSocialChannel", () => {
     expect(channel.sendActive()).toBe(false);
   });
 
+  it("reads world's away timeout only while ready", () => {
+    const channel = createWorldSocialChannel();
+    const release = channel.bind(() => true);
+
+    channel.apply(serverFrames.welcome);
+    expect(channel.readAwayAfterSeconds()).toBeNull();
+    channel.apply(serverFrames.snapshot);
+    expect(channel.readAwayAfterSeconds()).toBe(
+      serverFrames.welcome.awayAfterSeconds,
+    );
+
+    channel.disconnect();
+    expect(channel.readAwayAfterSeconds()).toBeNull();
+    release();
+    channel.apply(serverFrames.snapshot);
+    expect(channel.readAwayAfterSeconds()).toBeNull();
+  });
+
   it("reports false when the socket takes nothing", () => {
     const channel = createWorldSocialChannel();
     channel.bind(() => false);

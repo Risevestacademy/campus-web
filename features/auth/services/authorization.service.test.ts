@@ -145,6 +145,7 @@ const cohort = (cohortId: string): RouteAuthorizationRequest => ({
   kind: "cohort",
   cohortId,
 });
+const roomLink: RouteAuthorizationRequest = { kind: "room-link" };
 const invitation: RouteAuthorizationRequest = {
   kind: "invitation",
   path: "/invitation",
@@ -660,6 +661,49 @@ describe("authorizeRoute: cohort membership", () => {
     await expect(authorize(cohort(COHORT_A.cohortId))).resolves.toEqual(
       UNAVAILABLE,
     );
+  });
+});
+
+describe("authorizeRoute: room links", () => {
+  it.each([
+    ["a member", fullAccess("user", [COHORT_A])],
+    ["a member of several cohorts", fullAccess("user", [COHORT_A, COHORT_B])],
+    ["an admin with no cohort place", fullAccess("admin", [])],
+  ])(
+    "lets %s arrive, since campus-api decides whether the link is theirs",
+    async (_, session) => {
+      backendReplies(ok(session));
+
+      await expect(authorize(roomLink)).resolves.toEqual({
+        kind: "allow",
+        session: seenByRoutes(session),
+      });
+    },
+  );
+
+  it("sends a provisional session to its invitation", async () => {
+    backendReplies(ok(provisionalSession));
+
+    await expect(authorize(roomLink)).resolves.toEqual({
+      kind: "redirect",
+      href: "/invitation",
+    });
+  });
+
+  it("sends an unauthenticated visitor through refresh, back to the link", async () => {
+    proxySignals({ returnTo: "/join/abcDEF1234" });
+    backendReplies(status(401));
+
+    await expect(authorize(roomLink)).resolves.toEqual({
+      kind: "redirect",
+      href: `/session/refresh?returnTo=${encodeURIComponent("/join/abcDEF1234")}`,
+    });
+  });
+
+  it("fails closed during an outage", async () => {
+    backendReplies(status(503), status(503), status(503));
+
+    await expect(authorize(roomLink)).resolves.toEqual(UNAVAILABLE);
   });
 });
 

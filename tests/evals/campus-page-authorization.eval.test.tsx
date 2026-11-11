@@ -73,7 +73,7 @@ const PAGES: Record<string, ProtectedPage> = {
     routeAccessCalls: [[{ kind: "campus-index" }]],
   },
   "app/campus/[id]/(active-campus)/page.tsx": {
-    render: () => ActiveCampusPage({ params }),
+    render: () => ActiveCampusPage({ params, searchParams }),
     denial: COHORT_DENIAL,
     routeAccessCalls: [],
   },
@@ -130,7 +130,10 @@ const INVALID_COHORT_ROUTES = [
     "cohort layout",
     () => CohortLayout({ params: invalidParams, children: null }),
   ],
-  ["active campus", () => ActiveCampusPage({ params: invalidParams })],
+  [
+    "active campus",
+    () => ActiveCampusPage({ params: invalidParams, searchParams }),
+  ],
   [
     "active campus layout",
     () => ActiveCampusLayout({ params: invalidParams, children: null }),
