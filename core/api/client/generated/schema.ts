@@ -878,6 +878,70 @@ export interface paths {
     patch: operations["NoticesController_pin"];
     trace?: never;
   };
+  "/v1/notifications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List your notifications
+     * @description Your own, newest first, paginated. `unread=true` leaves out the ones already read, which is the badge count in `meta.total`.
+     *
+     *     Each says what happened (`kind`) and what it is about (`referenceType`, `referenceId`), and not the thing itself: fetch the notice when you need its text.
+     *
+     *     New ones also arrive, while a campus socket is open, as world’s `notification` message, with the same fields.
+     */
+    get: operations["NotificationsController_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/notifications/read-all": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Mark all your notifications read
+     * @description Every one of yours not yet read, for "clear all". Answers how many that was; none is not an error.
+     */
+    post: operations["NotificationsController_markAllRead"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/notifications/{id}/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Mark one notification read
+     * @description Answers the notification as it now is. One already read is answered as it is, and changes nothing.
+     */
+    patch: operations["NotificationsController_markRead"];
+    trace?: never;
+  };
   "/v1/cohorts/{cohortId}/desks": {
     parameters: {
       query?: never;
@@ -3022,6 +3086,70 @@ export interface components {
     PinNoticeDto: {
       /** @example true */
       pinned: boolean;
+    };
+    /**
+     * @description What happened. More kinds will be added; show a plain alert for one you
+     *     do not know rather than dropping it.
+     * @enum {string}
+     */
+    NotificationKind:
+      "notice_posted" | "entry_request_admitted" | "entry_request_declined";
+    /**
+     * @description What `referenceId` names. Grows with `kind`.
+     * @enum {string}
+     */
+    NotificationReferenceType: "notice" | "entry_request";
+    EntryRequestContextDto: {
+      /** Format: uuid */
+      cohortId: string;
+      /** @example lounge */
+      spaceKey: string;
+    };
+    NotificationDto: {
+      /** Format: uuid */
+      id: string;
+      /**
+       * @description What happened. More kinds will be added; show a plain alert for one you
+       *     do not know rather than dropping it.
+       * @example notice_posted
+       */
+      kind: components["schemas"]["NotificationKind"];
+      /**
+       * @description What `referenceId` names. Grows with `kind`.
+       * @example notice
+       */
+      referenceType: components["schemas"]["NotificationReferenceType"];
+      /**
+       * @description For an entry request, the cohort and space it was for. Null for a
+       *     notice, which is fetched by `referenceId` instead.
+       */
+      context: components["schemas"]["EntryRequestContextDto"] | null;
+      /**
+       * @description The notice's id, or for an entry request world's own id for it, which
+       *     names nothing campus-api can fetch.
+       * @example 3f0e1c2a-8b4d-4e6f-9a1b-2c3d4e5f6a7b
+       */
+      referenceId: string;
+      /** @example false */
+      read: boolean;
+      /**
+       * Format: date-time
+       * @example 2026-11-05T09:30:00.000Z
+       */
+      createdAt: string;
+    };
+    PaginatedNotificationDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["NotificationDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    MarkAllReadResponseDto: {
+      /**
+       * @description How many were unread and are read now. Zero when there were none.
+       * @example 4
+       */
+      marked: number;
     };
     DeskHolderDto: {
       /** @example 22222222-2222-4222-8222-222222222222 */
@@ -6854,6 +6982,127 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  NotificationsController_list: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based, up to 10000. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+        /** @description Only the ones not yet read. */
+        unread?: boolean;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedNotificationDto"];
+        };
+      };
+      /** @description `unread` is not true or false, or a page is out of range. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  NotificationsController_markAllRead: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MarkAllReadResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  NotificationsController_markRead: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationDto"];
+        };
+      };
+      /** @description The id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No notification of yours has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
       };
     };
   };

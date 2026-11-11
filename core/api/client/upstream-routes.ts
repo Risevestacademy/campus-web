@@ -49,6 +49,9 @@ const PUBLISHED_ROUTES = {
   "/v1/audit-log": true,
   "/v1/maps/sync": true,
   "/v1/feedback": true,
+  "/v1/notifications": true,
+  "/v1/notifications/read-all": true,
+  "/v1/notifications/{id}/read": true,
   "/v1/feedback/{id}": true,
   "/v1/dashboard": true,
   // Published, but no browser code calls them yet, so the proxy does not
