@@ -43,6 +43,7 @@ function startMovement(
     heartbeatSeconds: 30,
     stepMs: 100,
     tickMs: 50,
+    awayAfterSeconds: 600,
     displayName: ADA.displayName,
     spriteKey: ADA.spriteKey,
   };
@@ -305,6 +306,7 @@ describe("createOwnAvatarMovement", () => {
       heartbeatSeconds: 30,
       stepMs: 100,
       tickMs: 50,
+      awayAfterSeconds: 600,
       displayName: ADA.displayName,
       spriteKey: ADA.spriteKey,
     };

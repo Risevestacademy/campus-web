@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useStore } from "zustand";
 
+import { socialFor } from "@/core/realtime";
 import { type RefreshSession, useRefreshSession } from "@/core/session";
 import { replaceDocument } from "@/shared/lib/document-navigation";
 import { useMountEffect } from "@/shared/lib/use-mount-effect";
@@ -32,6 +33,7 @@ import {
   followWorldOutcome,
 } from "./follow-world-outcome";
 import type { PresenceTab, PresenceTabStatus } from "./presence-tab";
+import { reportActivity, subscribeToBrowserActivity } from "./report-activity";
 
 const AdmissionContext = createContext<AdmissionStore | null>(null);
 const PresenceTabContext = createContext<PresenceTab | null>(null);
@@ -108,8 +110,13 @@ export function PresenceSessionProvider({
       session.world,
     );
     const close = session.presenceTab.open();
+    const stopReporting = reportActivity(socialFor(cohortId), {
+      now: () => performance.now(),
+      subscribeToActivity: subscribeToBrowserActivity,
+    });
 
     return () => {
+      stopReporting();
       close();
       stopFollowing();
       session.world.close();

@@ -55,6 +55,8 @@ import {
   `STATUS_DURATION_MIN_SECONDS` to `STATUS_DURATION_MAX_SECONDS`). A line is
   trimmed before it is sent. A view checks the limits itself to tell the
   member why; the channel only keeps a bad frame off the socket.
+  `readAwayAfterSeconds()` exposes world's idle timeout from `welcome` on the
+  same terms, null until then.
 - `browserIsOnline()` and `subscribeToBrowserWake(listener)` in
   `browser-lifecycle.ts`: the browser's online state and its wake signals
   (`online`, the tab becoming visible or focused, a page restored from the

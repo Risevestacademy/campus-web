@@ -13,11 +13,7 @@ function frameText(value: unknown): string {
   return JSON.stringify(value);
 }
 
-const {
-  awayAfterSeconds: _awayAfterSeconds,
-  mode: _mode,
-  ...welcome
-} = serverFrames.welcome;
+const { mode: _mode, ...welcome } = serverFrames.welcome;
 
 // A player as the parser hands them on: their status's end time is unread.
 function withoutStatusEnd({
