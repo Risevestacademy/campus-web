@@ -146,7 +146,8 @@ function startedGame() {
       }),
   );
   return {
-    finish: () => resolveGame?.({ stop: vi.fn() }),
+    finish: () =>
+      resolveGame?.({ stop: vi.fn(), stepInto: vi.fn(() => false) }),
     runtime: fakeCampusRuntime({ start }),
     start,
   };
@@ -274,11 +275,11 @@ describe("CampusWorld", () => {
 
   it("restarts on the map version a later snapshot names", async () => {
     const store = connectedPresence();
-    const firstGame = { stop: vi.fn() };
+    const firstGame = { stop: vi.fn(), stepInto: vi.fn(() => false) };
     const start = vi
       .fn<CampusRuntime["start"]>()
       .mockResolvedValueOnce(firstGame)
-      .mockResolvedValue({ stop: vi.fn() });
+      .mockResolvedValue({ stop: vi.fn(), stepInto: vi.fn(() => false) });
     renderWorld({
       fetch: stubSanityFetch(entryManifest("campus", true, "version-2")),
       loadImage: vi.fn(async () => fakeImage()),
@@ -311,7 +312,7 @@ describe("CampusWorld", () => {
 
   it("keeps the running game when a reconnect snapshot names the same map", async () => {
     const store = connectedPresence();
-    const game = { stop: vi.fn() };
+    const game = { stop: vi.fn(), stepInto: vi.fn(() => false) };
     const start = vi.fn<CampusRuntime["start"]>(async () => game);
     const { dependencies } = renderWorld({
       presence: () => store,
@@ -424,7 +425,7 @@ describe("CampusWorld", () => {
     const start = vi
       .fn<CampusRuntime["start"]>()
       .mockRejectedValueOnce(new Error("WebGL initialization failed."))
-      .mockResolvedValue({ stop: vi.fn() });
+      .mockResolvedValue({ stop: vi.fn(), stepInto: vi.fn(() => false) });
     const { dependencies } = renderWorld({
       runtime: fakeCampusRuntime({ start }),
     });
@@ -479,7 +480,9 @@ describe("CampusWorld", () => {
   it("stops its game on unmount", async () => {
     const stop = vi.fn();
     const { view } = renderWorld({
-      runtime: fakeCampusRuntime({ start: vi.fn(async () => ({ stop })) }),
+      runtime: fakeCampusRuntime({
+        start: vi.fn(async () => ({ stop, stepInto: vi.fn(() => false) })),
+      }),
     });
 
     await expectReady();

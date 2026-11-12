@@ -251,6 +251,7 @@ describe("applyServerMessage", () => {
       reason: "arrived",
       player: { userId: "ada", x: 4, y: 7, facing: "up" },
       spaceKey: null,
+      mayAsk: false,
     },
   ])("puts you where world's $type says", (message) => {
     const withSelf = applyServerMessage(snapshotOf(ADA), {

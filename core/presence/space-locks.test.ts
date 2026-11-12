@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import { EMPTY_PRESENCE, type Presence } from "./presence";
 import {
+  claimEntryRefusals,
+  entryRefusalsClaimed,
   isSpaceLocked,
   ownSpaceKeyOf,
   refusedEntryNotice,
@@ -51,10 +53,25 @@ describe("isSpaceLocked", () => {
 
 describe("refusedEntryNotice", () => {
   it.each([
-    ["room_2", "Room 2 is locked."],
-    ["library", "You can't enter library."],
-    [null, "You can't enter that space."],
+    ["room_2", "Room 2 is locked"],
+    ["library", "You can't enter library"],
+    [null, "You can't enter that space"],
   ])("words a refusal at %s as %j", (spaceKey, notice) => {
     expect(refusedEntryNotice(presence, spaceKey)).toBe(notice);
+  });
+});
+
+describe("claimEntryRefusals", () => {
+  it("holds a cohort's refusals until every claim is released", () => {
+    const first = claimEntryRefusals("c-1");
+    const second = claimEntryRefusals("c-1");
+
+    expect(entryRefusalsClaimed("c-1")).toBe(true);
+    expect(entryRefusalsClaimed("c-2")).toBe(false);
+    first();
+    first();
+    expect(entryRefusalsClaimed("c-1")).toBe(true);
+    second();
+    expect(entryRefusalsClaimed("c-1")).toBe(false);
   });
 });

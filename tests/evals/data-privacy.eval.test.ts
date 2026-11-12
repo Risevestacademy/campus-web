@@ -310,7 +310,13 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
     "until",
     "userId",
   ],
-  walkEnded: [...under("player", PLAYER_PATHS), "reason", "spaceKey", "type"],
+  walkEnded: [
+    "mayAsk",
+    ...under("player", PLAYER_PATHS),
+    "reason",
+    "spaceKey",
+    "type",
+  ],
   walking: [...under("player", PLAYER_PATHS), "type"],
   welcome: [
     "awayAfterSeconds",

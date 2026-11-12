@@ -41,6 +41,7 @@ const framesAsRead = {
     reason: "refused",
     player: serverFrames.walkEnded.player,
     spaceKey: "library",
+    mayAsk: true,
   },
 } satisfies {
   [Type in ServerMessage["type"]]: Extract<ServerMessage, { type: Type }>;

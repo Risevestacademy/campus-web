@@ -298,10 +298,11 @@ test("says why a walk stopped at a closed space", async ({
     reason: "refused",
     player: { userId: ADA.userId, x: ADA.x, y: ADA.y, facing: ADA.facing },
     spaceKey: "library",
+    mayAsk: false,
   });
 
   await expect(
-    page.getByLabel("Notifications").getByText("You can't enter Library."),
+    page.getByLabel("Notifications").getByText("You can't enter Library"),
   ).toBeVisible();
 });
 
