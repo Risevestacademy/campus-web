@@ -12,6 +12,7 @@ function avatar(userId: string, displayName: string | null): Avatar {
     displayName,
     spriteKey: null,
     status: "available",
+    statusUntil: null,
     spaceKey: "_default",
   };
 }

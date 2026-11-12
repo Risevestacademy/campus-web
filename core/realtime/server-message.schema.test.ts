@@ -15,18 +15,6 @@ function frameText(value: unknown): string {
 
 const { mode: _mode, ...welcome } = serverFrames.welcome;
 
-// A player as the parser hands them on: their status's end time is unread.
-function withoutStatusEnd({
-  statusUntil: _statusUntil,
-  ...player
-}: (typeof serverFrames.joined)["player"]) {
-  return player;
-}
-const snapshot = {
-  ...serverFrames.snapshot,
-  players: serverFrames.snapshot.players.map(withoutStatusEnd),
-};
-const { until: _until, ...statusChanged } = serverFrames.statusChanged;
 const { userId: _lockedBy, ...lockChanged } = serverFrames.lockChanged;
 const {
   room: _room,
@@ -39,12 +27,6 @@ const {
 const framesAsRead = {
   ...serverFrames,
   welcome,
-  snapshot,
-  joined: {
-    ...serverFrames.joined,
-    player: withoutStatusEnd(serverFrames.joined.player),
-  },
-  statusChanged,
   lockChanged,
   call: { type: "call", call },
   nearby: serverFrames.nearby,
@@ -164,7 +146,31 @@ describe("parseServerMessage", () => {
 
       expect(parseServerMessage(frameText(frame))).toEqual({
         ok: true,
-        message: { ...snapshot, spaces: [] },
+        message: { ...serverFrames.snapshot, spaces: [] },
+      });
+    },
+  );
+
+  it("keeps when a timed status ends", () => {
+    const frame = {
+      ...serverFrames.statusChanged,
+      until: "2026-10-30T09:30:00.000Z",
+    };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: frame,
+    });
+  });
+
+  it.each([["not a time"], [42]])(
+    "reads an end time of %j as a status that lasts",
+    (until) => {
+      const frame = { ...serverFrames.statusChanged, until };
+
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: true,
+        message: { ...serverFrames.statusChanged, until: null },
       });
     },
   );

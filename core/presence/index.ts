@@ -29,3 +29,4 @@ export {
   type StaffActionRecord,
   type WorldErrorRecord,
 } from "./social";
+export { statusTimeLeft } from "./status-time";

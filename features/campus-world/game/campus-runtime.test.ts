@@ -78,6 +78,7 @@ describe("createCampusRuntime", () => {
           displayName: "Ada",
           spriteKey: null,
           status: "available",
+          statusUntil: null,
           spaceKey: "_default",
         },
       ],

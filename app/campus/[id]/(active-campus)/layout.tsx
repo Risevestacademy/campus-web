@@ -9,7 +9,6 @@ import {
 } from "@/features/auth";
 import {
   ActiveCampus,
-  type ActiveCampusViewModel,
   CampusShell,
   PresenceSessionGate,
   SidebarCollapseButton,
@@ -20,13 +19,6 @@ import { CampusOverviewPanel } from "@/features/roster";
 
 import { cohortContextOf } from "../cohort-context";
 import { requireCohortId } from "../require-cohort-id";
-
-const PLACEHOLDER_ACTIVE_CAMPUS_VIEW_MODEL = {
-  viewer: {
-    initials: "AJ",
-    presenceStatus: "active",
-  },
-} satisfies ActiveCampusViewModel;
 
 export default async function ActiveCampusLayout({
   children,
@@ -46,6 +38,10 @@ export default async function ActiveCampusLayout({
   // the rail offers it only to members who never see that page.
   const logsOutHere = logsOutFromRail(access.session);
   const isAdministrator = isSystemAdministrator(access.session.user.systemRole);
+  const viewer = {
+    id: access.session.user.id,
+    displayName: access.session.user.displayName,
+  };
 
   return (
     <PresenceSessionGate cohortId={id}>
@@ -64,14 +60,11 @@ export default async function ActiveCampusLayout({
         OverviewPanel={CampusOverviewPanel}
         cohort={cohortContextOf(access.session, id)}
         cohortId={id}
-        viewer={{
-          id: access.session.user.id,
-          displayName: access.session.user.displayName,
-        }}
+        viewer={viewer}
       >
         <ActiveCampus
           cohortId={id}
-          viewModel={PLACEHOLDER_ACTIVE_CAMPUS_VIEW_MODEL}
+          viewer={viewer}
           zoomControls={<CampusZoomControls />}
         >
           {children}

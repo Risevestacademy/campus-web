@@ -31,7 +31,10 @@ export default async function AdministrationLayout({
     return <SessionUnavailable retryHref={access.retryHref} />;
   }
 
-  const userName = access.session.user.displayName;
+  const viewer = {
+    id: access.session.user.id,
+    displayName: access.session.user.displayName,
+  };
 
   return (
     <PresenceSessionGate cohortId={id}>
@@ -49,12 +52,12 @@ export default async function AdministrationLayout({
         cohort={cohortContextOf(access.session, id)}
         cohortId={id}
         initialSidebarMode="admin"
-        viewer={{ id: access.session.user.id, displayName: userName }}
+        viewer={viewer}
       >
         <div className="min-w-0 flex-1 overflow-y-auto rounded-xl border bg-[#F7F7F7] dark:border-[#2B3B5F] dark:bg-[#1F2940]">
           {children}
         </div>
-        <PresenceDock cohortId={id} userName={userName} />
+        <PresenceDock cohortId={id} viewer={viewer} />
       </CampusShell>
     </PresenceSessionGate>
   );

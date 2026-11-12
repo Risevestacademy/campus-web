@@ -21,9 +21,7 @@ const { mode: _mode, ...READ_WELCOME } = WELCOME;
 const READ_SNAPSHOT = {
   type: SNAPSHOT.type,
   map: SNAPSHOT.map,
-  players: SNAPSHOT.players.map(
-    ({ statusUntil: _statusUntil, ...player }) => player,
-  ),
+  players: SNAPSHOT.players,
   spaces: SNAPSHOT.spaces,
   lockableSpaces: SNAPSHOT.lockableSpaces,
   lockedSpaces: SNAPSHOT.lockedSpaces,

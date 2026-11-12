@@ -11,6 +11,7 @@ import {
   type Presence,
   spaceNameOf,
   withoutRemoteParticipants,
+  withOwnStatus,
 } from "./presence";
 
 const ADA: Avatar = {
@@ -21,6 +22,7 @@ const ADA: Avatar = {
   displayName: "Ada",
   spriteKey: "placeholder-1",
   status: "available",
+  statusUntil: null,
   spaceKey: "_default",
 };
 const GRACE: Avatar = {
@@ -31,6 +33,7 @@ const GRACE: Avatar = {
   displayName: null,
   spriteKey: null,
   status: "available",
+  statusUntil: null,
   spaceKey: "_default",
 };
 
@@ -68,6 +71,7 @@ describe("applyServerMessage", () => {
           displayName: "Ada",
           spriteKey: "placeholder-1",
           status: "available",
+          statusUntil: null,
           spaceKey: "_default",
         },
       ],
@@ -152,6 +156,7 @@ describe("applyServerMessage", () => {
       displayName: "Grace",
       spriteKey: "placeholder-2",
       status: "available",
+      statusUntil: null,
       spaceKey: "_default",
     });
   });
@@ -161,6 +166,7 @@ describe("applyServerMessage", () => {
       type: "statusChanged",
       userId: "ada",
       status: "busy",
+      until: null,
     });
 
     const presence = applyServerMessage(before, {
@@ -173,6 +179,7 @@ describe("applyServerMessage", () => {
     expect(presence.participants.get("ada")).toMatchObject({
       displayName: "Ada L.",
       status: "busy",
+      statusUntil: null,
       spaceKey: "_default",
     });
   });
@@ -184,6 +191,7 @@ describe("applyServerMessage", () => {
       type: "statusChanged",
       userId: "grace",
       status: "away",
+      until: null,
     });
 
     expect(presence.participants.get("grace")?.status).toBe("away");
@@ -204,7 +212,7 @@ describe("applyServerMessage", () => {
   });
 
   it.each<ServerMessage>([
-    { type: "statusChanged", userId: "stranger", status: "busy" },
+    { type: "statusChanged", userId: "stranger", status: "busy", until: null },
     { type: "spaceChanged", userId: "stranger", spaceKey: "library" },
   ])("ignores a $type for somebody who is not here", (message) => {
     const before = snapshotOf(ADA);
@@ -306,6 +314,87 @@ describe("applyServerMessage", () => {
     expect(after.participants).toBe(before.participants);
     expect(after.positions).toBe(before.positions);
     expect(after.errors).toHaveLength(1);
+  });
+});
+
+describe("timed status", () => {
+  const ENDS_AT = "2026-10-30T09:30:00.000Z";
+
+  it("keeps when a status chosen for a while ends", () => {
+    const presence = applyServerMessage(snapshotOf(ADA), {
+      type: "statusChanged",
+      userId: "ada",
+      status: "busy",
+      until: ENDS_AT,
+    });
+
+    expect(presence.participants.get("ada")).toMatchObject({
+      status: "busy",
+      statusUntil: ENDS_AT,
+    });
+  });
+
+  it("drops the end time once the timer ends and the last status returns", () => {
+    const timed = snapshotOf({ ...ADA, status: "busy", statusUntil: ENDS_AT });
+
+    const presence = applyServerMessage(timed, {
+      type: "statusChanged",
+      userId: "ada",
+      status: "available",
+      until: null,
+    });
+
+    expect(presence.participants.get("ada")).toMatchObject({
+      status: "available",
+      statusUntil: null,
+    });
+  });
+});
+
+describe("withOwnStatus", () => {
+  const welcomed = applyServerMessage(snapshotOf(ADA, GRACE), {
+    type: "welcome",
+    userId: "ada",
+    connectionId: "connection",
+    heartbeatSeconds: 25,
+    stepMs: 150,
+    tickMs: 50,
+    awayAfterSeconds: 600,
+    displayName: "Ada",
+    spriteKey: "placeholder-1",
+  });
+
+  it("draws the member's own choice before world answers", () => {
+    const presence = withOwnStatus(
+      welcomed,
+      "busy",
+      "2026-10-30T09:30:00.000Z",
+    );
+
+    expect(presence.participants.get("ada")).toMatchObject({
+      status: "busy",
+      statusUntil: "2026-10-30T09:30:00.000Z",
+    });
+    expect(presence.participants.get("grace")).toBe(
+      welcomed.participants.get("grace"),
+    );
+  });
+
+  it("replaces a timed choice with one that lasts", () => {
+    const timed = withOwnStatus(welcomed, "away", "2026-10-30T09:30:00.000Z");
+
+    const presence = withOwnStatus(timed, "away", null);
+
+    expect(presence.participants.get("ada")).toMatchObject({
+      status: "away",
+      statusUntil: null,
+    });
+  });
+
+  it("changes nothing before world has said who the member is", () => {
+    const before = snapshotOf(ADA);
+
+    expect(withOwnStatus(before, "busy", null)).toBe(before);
   });
 });
 

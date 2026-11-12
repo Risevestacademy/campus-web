@@ -33,9 +33,11 @@ presence.getState().clear(); // when the Presence Session ends
   closed socket so the scene stays drawn, so read `synced`, not `map`, to
   know whether who is online is current.
 - `participants`: who is here, `Map<userId, { userId, displayName, spriteKey,
-status, spaceKey }>`. `status` is `available`, `busy`, `away` (or `unknown`
-  for a value world adds later) and `spaceKey` names the space they stand in,
-  `_default` for the corridors and grounds.
+status, statusUntil, spaceKey }>`. `status` is `available`, `busy`, `away` (or `unknown`
+  for a value world adds later); `statusUntil` is when a status chosen for a
+  while ends, or null; `spaceKey` names the space they stand in,
+  `_default` for the corridors and grounds. `statusTimeLeft(statusUntil, now)`
+  words what is left, to the nearest minute.
 - `positions`: where they stand, `Map<userId, { x, y, facing }>` in tiles,
   clamped into the map's bounds.
 - `spaceNames`: what each space is called, `Map<spaceKey, name>`, from
@@ -75,7 +77,7 @@ keeps anything finer (pixels, walking) itself.
 | `snapshot`      | replaced, with `spaceNames` | replaced, with the map      |
 | `joined`        | set, replacing any entry    | set                         |
 | `appearance`    | name and sprite updated     |                             |
-| `statusChanged` | status updated if present   |                             |
+| `statusChanged` | status and end updated ²    |                             |
 | `spaceChanged`  | space updated if present ¹  |                             |
 | `left`          | removed                     | removed                     |
 | `moved`         |                             | updated for known ids       |
@@ -89,6 +91,10 @@ keeps anything finer (pixels, walking) itself.
 `awaiting`, and the roster is empty until World's next `call`. Otherwise
 stepping out of a room would meet the whole corridor, and stepping into one
 would keep the corridor's `nearby` until World's next tick.
+
+² World answers your own `setStatus` only when the cohort sees a change, so
+`drawOwnStatus(status, statusUntil)` on the store draws your choice at once,
+and the `statusChanged` that follows, if any, settles it.
 
 ### What the campus says and decides
 

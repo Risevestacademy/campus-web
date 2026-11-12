@@ -18,9 +18,7 @@ import {
 import { ActiveCampus } from "./active-campus";
 import { CampusShell } from "./campus-shell/campus-shell";
 
-const activeCampusViewModel = {
-  viewer: { initials: "AL", presenceStatus: "active" },
-} as const;
+const VIEWER = { id: "ada", displayName: "Ada Lovelace" };
 
 function OverviewPanelStub({
   cohort,
@@ -59,12 +57,13 @@ function renderActiveCampus(
       AccountMenu={AccountMenu}
       OverviewPanel={OverviewPanelStub}
       cohortId="c-1"
+      viewer={VIEWER}
     >
       <MediaSessionProvider store={store}>
         <WorldSessionProvider world={world}>
           <ActiveCampus
             cohortId="c-1"
-            viewModel={activeCampusViewModel}
+            viewer={VIEWER}
             zoomControls={<div role="group" aria-label="Zoom controls" />}
           >
             <p>Route content</p>
@@ -164,13 +163,13 @@ describe("ActiveCampus", () => {
       name: "Account menu",
     });
 
-    expect(within(accountMenu).getByText("J")).toBeInTheDocument();
+    expect(within(accountMenu).getByText("AL")).toBeInTheDocument();
   });
 
   it("shows a plain rail avatar without an account menu", () => {
     renderActiveCampus();
 
-    expect(within(campusRail()).getByText("J")).toBeInTheDocument();
+    expect(within(campusRail()).getByText("AL")).toBeInTheDocument();
     expect(
       within(campusRail()).queryByRole("group", { name: "Account menu" }),
     ).not.toBeInTheDocument();
