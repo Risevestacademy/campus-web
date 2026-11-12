@@ -262,6 +262,36 @@ describe("parseServerMessage", () => {
     });
   });
 
+  it("reads a null broadcast call, which tells the member to leave the room", () => {
+    const frame = { type: "broadcast", call: null } as const;
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: frame,
+    });
+  });
+
+  it.each([
+    ["no token", { token: undefined }],
+    ["a numeric token", { token: 7 }],
+    ["no room", { room: undefined }],
+    ["a canSpeak that is not a boolean", { canSpeak: "yes" }],
+  ])(
+    "drops a broadcast with %s instead of reading it as leave-the-room",
+    (_case, overrides) => {
+      const frame = {
+        ...serverFrames.broadcast,
+        call: { ...serverFrames.broadcast.call, ...overrides },
+      };
+
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: false,
+        reason: "invalid",
+        type: "broadcast",
+      });
+    },
+  );
+
   it.each([
     ["a negative audible radius", { audibleRadius: -1 }],
     ["an empty token", { token: "" }],
