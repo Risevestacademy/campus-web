@@ -36,12 +36,15 @@ const expectedColors: Record<Theme, Record<SurfaceRole, string>> = {
 const routeCases: ReadonlyArray<{
   path: string;
   roles: readonly SurfaceRole[];
+  // Open sidebar, the elevated surface here, shows only while it is collapsed.
+  collapseSidebar?: boolean;
 }> = [
   { path: "/", roles: ["background"] },
   { path: "/campus", roles: ["background", "surface"] },
   {
     path: "/campus/c-1",
     roles: ["background", "surface-elevated"],
+    collapseSidebar: true,
   },
   { path: "/invitation", roles: ["background"] },
 ];
@@ -144,11 +147,14 @@ test.describe("protected routes", () => {
   });
 
   for (const theme of ["light", "dark"] as const) {
-    for (const { path, roles } of protectedCases) {
+    for (const { path, roles, collapseSidebar } of protectedCases) {
       test(`${path} resolves the ${theme} surface hierarchy`, async ({
         page,
       }) => {
         await openWithTheme(page, path, theme);
+        if (collapseSidebar) {
+          await page.getByRole("button", { name: "Collapse sidebar" }).click();
+        }
         await expectSurfaceHierarchy(page, roles, theme);
       });
     }

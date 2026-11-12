@@ -40,6 +40,9 @@ In React, `useWorldSession()` gives `status`, `connect` and `reconnect` under
   Presence Session passes call media's `applyWorldMessage`, so a
   `nearby` frame reaches subscriptions in the same task, and its
   `applyPresence` as `onRemoteParticipantsCleared`.
+  Secrets travel only this way: a `broadcast` frame's url and token are not
+  kept in presence, so the media session that joins the broadcast room reads
+  them from `onMessage` and nothing else can.
 - `connect()` and `reconnect()` bind movement and social to the active
   client's sender, only when they open a socket: `reconnect()` on a live or
   retrying session does nothing, so movement keeps its `stepMs`. Both channels
@@ -63,6 +66,8 @@ In React, `useWorldSession()` gives `status`, `connect` and `reconnect` under
 | `realtime-analytics.ts`      | the analytics events for each client event (pure)           |
 | `browser-world-session.ts`   | browser adapters: socket URL, `WebSocket`, PostHog, console |
 | `world-session-provider.tsx` | `WorldSessionProvider`, `useWorldSession`                   |
+| `walk-feedback.ts`           | the notice for a walk that ended, and its analytics event   |
+| `world-error-feedback.ts`    | the notice for a world `error` frame, in the member's words |
 
 ## Analytics
 

@@ -12,6 +12,7 @@ import {
 import {
   CHAT_LINE_LIMIT,
   ENTRY_OUTCOME_LIMIT,
+  ERROR_LIMIT,
   STAFF_ACTION_LIMIT,
 } from "./social";
 
@@ -194,6 +195,17 @@ describe("entry requests", () => {
     ).toEqual([]);
   });
 
+  it("take the broadcast room with the socket, which world sends again on arrival", () => {
+    const presence = applied(
+      serverFrames.welcome,
+      serverFrames.snapshot,
+      serverFrames.broadcast,
+    );
+    expect(presence.broadcast).not.toBeNull();
+
+    expect(withoutRemoteParticipants(presence).broadcast).toBeNull();
+  });
+
   it("leave the outcomes the member has not yet seen when the socket closes", () => {
     const presence = applied(
       serverFrames.welcome,
@@ -239,11 +251,45 @@ describe("staff actions", () => {
   });
 });
 
+describe("errors", () => {
+  const refused = (message: string): ServerMessage => ({
+    type: "error",
+    code: "NOT_ALLOWED",
+    message,
+  });
+
+  it("are kept, numbered, for a feature that is waiting on an answer", () => {
+    const presence = applied(refused("a"), refused("b"));
+
+    expect(presence.errors).toEqual([
+      { seq: 1, code: "NOT_ALLOWED", message: "a" },
+      { seq: 2, code: "NOT_ALLOWED", message: "b" },
+    ]);
+  });
+
+  it("keep only the newest, counting on", () => {
+    const errors = Array.from({ length: ERROR_LIMIT + 3 }, (_, index) =>
+      refused(String(index)),
+    );
+
+    const presence = applied(...errors);
+
+    expect(presence.errors).toHaveLength(ERROR_LIMIT);
+    expect(presence.errors.at(-1)?.seq).toBe(ERROR_LIMIT + 3);
+  });
+});
+
 describe("broadcast and desks", () => {
-  it("holds the broadcast call, and none when world says none", () => {
+  it("holds the broadcast room and whether the member may speak, never the token", () => {
+    const { call } = serverFrames.broadcast;
     const on = applied(serverFrames.broadcast);
 
-    expect(on.broadcast).toEqual(serverFrames.broadcast.call);
+    expect(on.broadcast).toEqual({
+      room: call!.room,
+      canSpeak: call!.canSpeak,
+    });
+    expect(JSON.stringify(on)).not.toContain(call!.token);
+    expect(JSON.stringify(on)).not.toContain(call!.url);
     expect(
       applyServerMessage(on, { type: "broadcast", call: null }).broadcast,
     ).toBeNull();

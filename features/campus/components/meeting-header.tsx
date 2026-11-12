@@ -94,11 +94,14 @@ function MeetingParticipantStack({
 }
 
 function SpaceLockButton({ lock }: Readonly<{ lock: SpaceLock }>) {
-  const label = `${lock.locked ? "Unlock" : "Lock"} ${lock.spaceName}`;
+  // A toggle: the name stays put and aria-pressed says whether it is locked.
+  const label = `Lock ${lock.spaceName}`;
 
   return (
     <Button
       type="button"
+      // Locked, it turns red, so it is the elevated surface only while open.
+      data-surface-role={lock.locked ? undefined : "surface-elevated"}
       size="icon-xs"
       variant="ghost"
       aria-label={label}
