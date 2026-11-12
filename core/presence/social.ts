@@ -13,6 +13,7 @@ type Of<Type extends ServerMessage["type"]> = Extract<
 export const CHAT_LINE_LIMIT = 200;
 export const ENTRY_OUTCOME_LIMIT = 20;
 export const STAFF_ACTION_LIMIT = 10;
+export const ERROR_LIMIT = 10;
 
 export type ChatLine = Pick<
   Of<"said">,
@@ -32,7 +33,22 @@ export type StaffActionRecord = Pick<
   Of<"staffAction">,
   "action" | "userId" | "by" | "spaceKey" | "until" | "player"
 > & { seq: number };
-export type Broadcast = Of<"broadcast">["call"];
+
+// What views read of the broadcast room: that there is one, and whether the
+// member may speak in it. The call's url and token are not kept: they reach
+// the media session through the world session's `onMessage`, like a space's
+// call, so no view can read, log or outlive them.
+export type Broadcast = Pick<
+  NonNullable<Of<"broadcast">["call"]>,
+  "room" | "canSpeak"
+> | null;
+
+// World's refusals carry no id of the action they answer, so a feature that
+// sent one reads the newest errors after it: `seq` tells a new one from one
+// already handled.
+export type WorldErrorRecord = Pick<Of<"error">, "code" | "message"> & {
+  seq: number;
+};
 
 export interface Social {
   lockableSpaces: readonly string[];
@@ -42,6 +58,7 @@ export interface Social {
   entryRequests: readonly EntryRequest[];
   entryOutcomes: readonly EntryOutcome[];
   staffActions: readonly StaffActionRecord[];
+  errors: readonly WorldErrorRecord[];
   broadcast: Broadcast;
   // Counts `desksChanged`: a change is the cue to fetch the desks again.
   desksVersion: number;
@@ -54,6 +71,7 @@ export const EMPTY_SOCIAL: Social = {
   entryRequests: [],
   entryOutcomes: [],
   staffActions: [],
+  errors: [],
   broadcast: null,
   desksVersion: 0,
 };
@@ -84,9 +102,17 @@ export function socialOfSnapshot(
   };
 }
 
-// A closed socket ends every request it was sent, without a frame to say so.
-export function withoutOpenRequests(): Pick<Social, "entryRequests"> {
-  return { entryRequests: EMPTY_SOCIAL.entryRequests };
+// What a closed socket ends without a frame to say so: every request it was
+// sent, and the member's place in the broadcast room. World sends the
+// broadcast again on the next arrival.
+export function withoutSocketState(): Pick<
+  Social,
+  "entryRequests" | "broadcast"
+> {
+  return {
+    entryRequests: EMPTY_SOCIAL.entryRequests,
+    broadcast: EMPTY_SOCIAL.broadcast,
+  };
 }
 
 // What a frame changes in the social state, or nothing when it changes none.
@@ -179,8 +205,29 @@ export function socialChangeOf(
         ),
       };
     }
+    case "error": {
+      const last = social.errors.at(-1);
+      return {
+        errors: newest(
+          [
+            ...social.errors,
+            {
+              seq: (last?.seq ?? 0) + 1,
+              code: message.code,
+              message: message.message,
+            },
+          ],
+          ERROR_LIMIT,
+        ),
+      };
+    }
     case "broadcast":
-      return { broadcast: message.call };
+      return {
+        broadcast: message.call && {
+          room: message.call.room,
+          canSpeak: message.call.canSpeak,
+        },
+      };
     case "desksChanged":
       return { desksVersion: social.desksVersion + 1 };
     default:
