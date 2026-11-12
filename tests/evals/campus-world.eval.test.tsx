@@ -93,8 +93,9 @@ function connectedPresence() {
   return store;
 }
 
-// The lower band, the avatar layer and the upper band.
-const OBJECTS_PER_MAP = 3;
+// The lower band, the lock floor, the avatar layer, the upper band and the
+// lock plates.
+const OBJECTS_PER_MAP = 5;
 function sourceFiles(directory: string): string[] {
   return readdirSync(path.join(projectRoot, directory), {
     recursive: true,

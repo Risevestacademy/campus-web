@@ -62,6 +62,17 @@ describe("walkEndedNotice", () => {
     );
   });
 
+  it("says a refusing space is locked when it is", () => {
+    const presence = {
+      ...presenceWith([{ spaceKey: "library", name: "Library" }]),
+      lockedSpaces: ["library"],
+    };
+
+    expect(walkEndedNotice(ended("refused", "library"), presence)).toBe(
+      "Library is locked.",
+    );
+  });
+
   it("still reads when world names no space", () => {
     expect(walkEndedNotice(ended("refused"), presenceWith())).toBe(
       "You can't enter that space.",

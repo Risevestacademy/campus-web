@@ -1,6 +1,6 @@
 import { ANALYTICS_EVENTS } from "@/core/analytics";
 import { captureBrowserAnalyticsEvent } from "@/core/analytics/client";
-import { type Presence, spaceNameOf } from "@/core/presence";
+import { type Presence, refusedEntryNotice } from "@/core/presence";
 import type { ServerMessage, WalkEndedMessage } from "@/core/realtime";
 import { toast } from "@/shared/ui/toast";
 
@@ -8,11 +8,11 @@ const WALK_ENDED_TOAST_ID = "walk-ended";
 
 export function walkEndedNotice(
   { reason, spaceKey }: WalkEndedMessage,
-  presence: Pick<Presence, "spaceNames">,
+  presence: Parameters<typeof refusedEntryNotice>[0],
 ): string | null {
   switch (reason) {
     case "refused":
-      return `You can't enter ${spaceKey === null ? "that space" : spaceNameOf(presence, spaceKey)}.`;
+      return refusedEntryNotice(presence, spaceKey);
     case "gone":
       return "They've left the campus.";
     case "elsewhere":

@@ -17,7 +17,7 @@ import {
   learnRefusedTiles,
   withRefusedTiles,
 } from "../services/movement/refused-tiles";
-import { predictStep } from "../services/movement/step";
+import { predictStep, stepFrom } from "../services/movement/step";
 
 export interface MovementInput {
   deltaMs: number;
@@ -38,6 +38,8 @@ interface OwnAvatarMovementOptions {
   layout: MapLayout;
   movement: WorldMovement;
   onMoveCorrected: (outcome: MoveCorrection) => void;
+  // Every refused step, with the tile world kept the member off.
+  onStepRefused?: (tile: Tile) => void;
   prefersReducedMotion: () => boolean;
   readPresence: () => Presence;
 }
@@ -63,6 +65,7 @@ export function createOwnAvatarMovement({
   layout,
   movement,
   onMoveCorrected,
+  onStepRefused,
   prefersReducedMotion,
   readPresence,
 }: OwnAvatarMovementOptions): OwnAvatarMovement {
@@ -142,6 +145,9 @@ export function createOwnAvatarMovement({
     }
     if (message.type !== "moveResult" || !predicted) return;
 
+    if (message.outcome === "refused") {
+      onStepRefused?.(stepFrom(message.player, message.player.facing));
+    }
     refused = learnRefusedTiles(refused, message);
     const before = predicted;
     const reconciled = reconcile(pending, message, walkable());

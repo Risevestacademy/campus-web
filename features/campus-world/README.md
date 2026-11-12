@@ -45,6 +45,12 @@ a tile world `refused` as a wall until world moves you onto it, so a key held
 against a locked space reports once instead of every step; and
 `campus_world.camera_zoomed` carries each new zoom level (`level`).
 
+Locks: everyone outside a locked space sees its floor hatched, with a plate
+naming it on its bottom edge; whoever stands inside sees it as usual.
+`game/lock-layer.ts` draws the hatch under avatars and the plate above the
+furniture, from `services/space-locks/`. A refused step shows one toast
+naming the space it faced, worded by `refusedEntryNotice`.
+
 ## Modules
 
 | Module        | Owns                                                                                        |

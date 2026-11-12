@@ -11,6 +11,7 @@ import type { CampusGame } from "../game/campus-runtime";
 import { failureEventProperties } from "../services/map/campus-map-error";
 import { mapSourceFromSnapshot } from "../services/map/load-campus-map";
 import type { PreparedCampusMap } from "../services/map/prepare-campus-map";
+import { announceRefusedStep } from "../services/space-locks/refused-step";
 import { startTimer } from "../services/timer";
 import {
   type CampusWorldStatus,
@@ -58,6 +59,9 @@ function mountCampusGame(
         );
       },
       onRenderError: failRender,
+      onStepRefused(tile) {
+        announceRefusedStep(prepared.layout.spaces, presence.getState(), tile);
+      },
       onZoomChanged(level) {
         dependencies.captureEvent?.(
           ANALYTICS_EVENTS.CAMPUS_WORLD_CAMERA_ZOOMED,
