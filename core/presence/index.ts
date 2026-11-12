@@ -29,4 +29,9 @@ export {
   type StaffActionRecord,
   type WorldErrorRecord,
 } from "./social";
+export {
+  isSpaceLocked,
+  ownSpaceKeyOf,
+  refusedEntryNotice,
+} from "./space-locks";
 export { statusTimeLeft } from "./status-time";

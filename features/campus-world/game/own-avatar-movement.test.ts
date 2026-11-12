@@ -59,10 +59,12 @@ function startMovement(
   movement.apply(welcome);
   movement.apply(snapshot);
   const onMoveCorrected = vi.fn();
+  const onStepRefused = vi.fn();
   const controller = createOwnAvatarMovement({
     layout: movementLayout,
     movement,
     onMoveCorrected,
+    onStepRefused,
     prefersReducedMotion: () => reducedMotion,
     readPresence: presence.getState,
   });
@@ -86,6 +88,7 @@ function startMovement(
     controller,
     movement,
     onMoveCorrected,
+    onStepRefused,
     presence,
     receive,
     sent,
@@ -247,6 +250,20 @@ describe("createOwnAvatarMovement", () => {
 
     expect(sent).toHaveLength(5);
     expect(onMoveCorrected).toHaveBeenCalledExactlyOnceWith("refused");
+  });
+
+  it("names the tile each refused step faced", () => {
+    const { onStepRefused, receive, sent, update } = startMovement();
+    update(0, "right", ["right"]);
+
+    receive({
+      type: "moveResult",
+      seq: sent.length,
+      outcome: "refused",
+      player: { userId: "ada", x: 0, y: 0, facing: "right" },
+    });
+
+    expect(onStepRefused).toHaveBeenCalledExactlyOnceWith({ x: 1, y: 0 });
   });
 
   it("walks into a refused tile again once world lets them in", () => {

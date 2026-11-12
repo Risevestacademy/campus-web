@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { fn } from "storybook/test";
 
 import type { Meeting } from "../types/active-campus.types";
 import { CampusViewProvider } from "./campus-view-provider";
@@ -73,4 +74,29 @@ export const Room: Story = {
 
 export const Alone: Story = {
   args: { meeting: null },
+};
+
+const roomLock = {
+  canChange: true,
+  locked: false,
+  spaceName: "Room 1",
+  toggle: fn(),
+};
+
+export const LockableRoom: Story = {
+  args: {
+    meeting: { ...nearbyMeeting, hearing: "room", title: "Room 1" },
+    lock: roomLock,
+  },
+};
+
+export const LockedRoom: Story = {
+  args: {
+    meeting: { ...nearbyMeeting, hearing: "room", title: "Room 1" },
+    lock: { ...roomLock, locked: true },
+  },
+};
+
+export const AloneInLockableRoom: Story = {
+  args: { meeting: null, lock: roomLock },
 };

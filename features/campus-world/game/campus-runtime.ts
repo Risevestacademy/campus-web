@@ -1,3 +1,4 @@
+import type { Tile } from "campus-world-map";
 import type { GameObj, KAPLAYCtx } from "kaplay";
 
 import type { Presence } from "@/core/presence";
@@ -14,6 +15,7 @@ import { prefersReducedMotion } from "../services/reduced-motion";
 import { campusBackground } from "../services/theme-background";
 import { addAvatarLayer } from "./avatar-layer";
 import { type CampusCamera, createCampusCamera } from "./campus-camera";
+import { addLockLayers } from "./lock-layer";
 import { addMapBand, type RenderTileset } from "./map-renderer";
 import { uploadTilesetSprites } from "./tileset-sprites";
 
@@ -25,6 +27,7 @@ export interface CampusGameOptions {
   movement: WorldMovement;
   onMoveCorrected: (outcome: MoveCorrection) => void;
   onRenderError: () => void;
+  onStepRefused?: (tile: Tile) => void;
   onZoomChanged: (level: ZoomLevel) => void;
   readPresence: () => Presence;
   signal: AbortSignal;
@@ -202,7 +205,11 @@ export function createCampusRuntime(
     tilesets: RenderTileset[],
     options: Pick<
       CampusGameOptions,
-      "movement" | "onMoveCorrected" | "onZoomChanged" | "readPresence"
+      | "movement"
+      | "onMoveCorrected"
+      | "onStepRefused"
+      | "onZoomChanged"
+      | "readPresence"
     >,
   ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
@@ -231,6 +238,12 @@ export function createCampusRuntime(
           layers: prepared.bands.below,
         }),
       );
+      const locks = addLockLayers(k, {
+        map: prepared.map,
+        readPresence: avatarOptions.readPresence,
+        spaces: prepared.layout.spaces,
+      });
+      mount.objects.push(locks.floor);
       mount.objects.push(
         addAvatarLayer(k, {
           camera,
@@ -248,6 +261,7 @@ export function createCampusRuntime(
           onDraw: () => resolve(),
         }),
       );
+      mount.objects.push(locks.plates);
     });
   }
 

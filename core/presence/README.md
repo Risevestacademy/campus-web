@@ -44,6 +44,11 @@ status, statusUntil, spaceKey }>`. `status` is `available`, `busy`, `away` (or `
   `snapshot` and replaced whole by `spaces` when one is renamed. Read it with
   `spaceNameOf(presence, spaceKey)`, which shows the key for a space World has
   not named, as World does.
+- Locks: `ownSpaceKeyOf(presence)` is the space you stand in,
+  `isSpaceLocked(presence, spaceKey)` reads `lockedSpaces`, and
+  `refusedEntryNotice(presence, spaceKey)` words a refusal ("Room 1 is
+  locked." or "You can't enter Room 1."), since a refused step looks the same
+  for a locked space and a listed one.
 - `nearby`: the `userId`s world says are close enough to hear you, once each,
   in the order they came near. World sends its list sorted; keeping arrival order
   means a newcomer never reshuffles whoever was already there.

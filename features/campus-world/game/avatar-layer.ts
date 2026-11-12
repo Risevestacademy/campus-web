@@ -1,4 +1,4 @@
-import type { MapLayout } from "campus-world-map";
+import type { MapLayout, Tile } from "campus-world-map";
 import type { FormattedText, GameObj, KAPLAYCtx, Key } from "kaplay";
 
 import type { Presence } from "@/core/presence";
@@ -19,6 +19,7 @@ interface AvatarLayerOptions {
   map: { height: number; tileheight: number; tilewidth: number; width: number };
   movement: WorldMovement;
   onMoveCorrected: (outcome: MoveCorrection) => void;
+  onStepRefused?: (tile: Tile) => void;
   readPresence: () => Presence;
 }
 
@@ -53,6 +54,7 @@ export function addAvatarLayer(
     map,
     movement,
     onMoveCorrected,
+    onStepRefused,
     readPresence,
   }: AvatarLayerOptions,
 ): GameObj {
@@ -69,6 +71,7 @@ export function addAvatarLayer(
     layout,
     movement,
     onMoveCorrected,
+    onStepRefused,
     prefersReducedMotion,
     readPresence,
   });
