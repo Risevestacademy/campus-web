@@ -54,7 +54,7 @@ function sendFrame(socket: WebSocketRoute, frame: ServerMessage) {
   socket.send(JSON.stringify(frame));
 }
 
-test("titles the meeting view with the room's name and hides it once you are alone in the room", async ({
+test("titles the meeting view with the room's name and hides it once you are alone in the room, keeping the room's lock", async ({
   baseURL,
   context,
   fakeApi,
@@ -109,8 +109,12 @@ test("titles the meeting view with the room's name and hides it once you are alo
     spaceKey: "_default",
   });
 
-  await expect(heading).toBeHidden();
+  // Library is lockable, so its name and lock stay in the header when alone.
   await expect(graceTile).toBeHidden();
+  await expect(heading).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Lock Library" }),
+  ).toBeVisible();
 });
 
 const TILE_RATIO = 16 / 9;
