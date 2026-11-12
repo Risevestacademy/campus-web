@@ -458,8 +458,10 @@ const broadcastCallSchema = z.toZod<BroadcastCall>()(
 const broadcastMessageSchema = z.toZod<BroadcastMessage>()(
   z.object({
     type: z.literal("broadcast"),
-    // A call that cannot be read is no call: the rest of the handshake holds.
-    call: broadcastCallSchema.nullable().catch(null),
+    // Not caught: a call that cannot be read must not read as null, which
+    // means leave the broadcast room. The frame is dropped and world sends
+    // the next one within a heartbeat.
+    call: broadcastCallSchema.nullable(),
   }),
 );
 

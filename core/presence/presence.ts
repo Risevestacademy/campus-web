@@ -11,7 +11,7 @@ import {
   type Social,
   socialChangeOf,
   socialOfSnapshot,
-  withoutOpenRequests,
+  withoutSocketState,
 } from "./social";
 
 export type Participant = Pick<
@@ -354,6 +354,6 @@ export function withoutRemoteParticipants(presence: Presence): Presence {
       selfId && participant ? new Map([[selfId, participant]]) : new Map(),
     positions: selfId && position ? new Map([[selfId, position]]) : new Map(),
     nearby: [],
-    ...withoutOpenRequests(),
+    ...withoutSocketState(),
   });
 }

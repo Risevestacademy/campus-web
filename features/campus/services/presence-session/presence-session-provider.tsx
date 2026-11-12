@@ -23,6 +23,7 @@ import { createMediaSessionStore } from "../media-session/media-session-store";
 import { useMediaSessionLifecycle } from "../media-session/use-media-session-lifecycle";
 import { createBrowserWorldSession } from "../world-session/browser-world-session";
 import { announceWalkEnded } from "../world-session/walk-feedback";
+import { announceWorldError } from "../world-session/world-error-feedback";
 import { WorldSessionProvider } from "../world-session/world-session-provider";
 import {
   type AdmissionState,
@@ -90,6 +91,7 @@ function createPresenceSession(
     onMessage(message, presence) {
       callMedia.applyWorldMessage(message, presence);
       announceWalkEnded(message);
+      announceWorldError(message);
     },
     onRemoteParticipantsCleared: callMedia.applyPresence,
   });
