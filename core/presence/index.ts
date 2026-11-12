@@ -30,6 +30,8 @@ export {
   type WorldErrorRecord,
 } from "./social";
 export {
+  claimEntryRefusals,
+  entryRefusalsClaimed,
   isSpaceLocked,
   ownSpaceKeyOf,
   refusedEntryNotice,
