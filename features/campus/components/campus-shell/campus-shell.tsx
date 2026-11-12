@@ -2,18 +2,16 @@ import { cn } from "cn";
 import type { ComponentType, ReactNode } from "react";
 
 import type { components } from "@/core/api/client";
-import { initialsOf } from "@/shared/lib/initials";
+import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
-import { participantTone } from "../../services/meeting/participant-identity";
 import { closeFeedbackPanel } from "../../store/feedback-panel-store";
 import type {
   SidebarMode,
   SidebarPanelId,
 } from "../../store/sidebar-preferences";
 import { CampusViewProvider } from "../campus-view-provider";
-import { participantToneClassNames } from "../participant-tone";
 import { CampusRail, type LogOutActionComponent } from "./campus-rail";
 import { CampusSidebar } from "./campus-sidebar";
 import {
@@ -68,14 +66,9 @@ function RailAvatar({ viewer }: Readonly<{ viewer?: CampusViewer }>) {
   return (
     <Avatar size="lg">
       <AvatarFallback
-        className={cn(
-          "text-foreground font-medium",
-          participantToneClassNames[
-            viewer ? participantTone(viewer.id) : "cobalt"
-          ],
-        )}
+        className={cn("font-medium", avatarToneOf(viewer?.id ?? "", "lemon"))}
       >
-        {initialsOf(viewer?.displayName)}
+        {initialOf(viewer?.displayName)}
       </AvatarFallback>
     </Avatar>
   );

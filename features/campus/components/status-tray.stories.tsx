@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { cn } from "cn";
 import { fn } from "storybook/test";
 
+import { avatarToneOf } from "@/shared/lib/avatar";
 import { Separator } from "@/shared/ui/separator";
 
 import { PresenceMenuTrigger } from "./presence-menu-trigger";
@@ -28,10 +29,10 @@ const meta = {
             >
               <PresenceMenuTrigger
                 aria-expanded
-                initials="AL"
+                avatarClassName={avatarToneOf("ada")}
+                initial="A"
                 status={args.status}
                 timeLeft={args.timeLeft}
-                tone="cobalt"
               />
             </div>
           </div>
@@ -41,10 +42,9 @@ const meta = {
   ],
   args: {
     canChoose: true,
-    durationId: "lasting",
+    durationId: null,
     onDurationChange: fn(),
     onStatusChange: fn(),
-    refusals: {},
     status: "available",
     timeLeft: null,
   },
@@ -64,15 +64,6 @@ export const AwayUntilChanged: Story = {
   args: { status: "away" },
 };
 
-export const TodayTooLong: Story = {
-  args: {
-    status: "busy",
-    refusals: {
-      today: "A status lasts 12 hours at most, and today has longer left.",
-    },
-  },
-};
-
 export const Reconnecting: Story = {
   args: { canChoose: false, status: "busy" },
 };
@@ -82,7 +73,12 @@ export const Dark: Story = {
   parameters: { dark: true },
 };
 
-export const NarrowDock: Story = {
-  args: { status: "busy", durationId: "30m", timeLeft: "24 min" },
+export const AdminDock: Story = {
+  args: {
+    status: "busy",
+    durationId: "30m",
+    timeLeft: "24 min",
+    stacked: true,
+  },
   parameters: { narrow: true },
 };

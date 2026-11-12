@@ -68,7 +68,7 @@ describe("administration Campus layout", () => {
     expect(
       within(dock).getByRole("link", { name: "Campus map" }),
     ).toHaveAttribute("href", "/campus/c-1");
-    expect(within(dock).getByText("AA")).toBeInTheDocument();
+    expect(within(dock).getByText("A")).toBeInTheDocument();
   });
 
   it.each(["Search", "Chat", "Tasks", "Calendar"])(

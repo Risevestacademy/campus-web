@@ -3,10 +3,10 @@ import { EnvelopeSimpleIcon } from "@phosphor-icons/react/dist/ssr/EnvelopeSimpl
 import { cn } from "cn";
 import Link from "next/link";
 
+import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { Button, buttonVariants } from "@/shared/ui/button";
 
-import { avatarTone, initialOf } from "../../avatar";
 import { RoleBadge } from "../../role-badge";
 import { ROLE_LABELS } from "../../role-labels";
 import { firstNameOf, personName } from "../people-format";
@@ -83,7 +83,7 @@ export function PersonDetail({
 
       <div className={cn(PANEL, "flex flex-wrap items-center gap-5")}>
         <Avatar className="size-20">
-          <AvatarFallback className={cn(avatarTone(person.id), "text-3xl")}>
+          <AvatarFallback className={cn(avatarToneOf(person.id), "text-3xl")}>
             {initialOf(name)}
           </AvatarFallback>
         </Avatar>

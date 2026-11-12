@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -10,14 +11,9 @@ import {
   SessionUnavailable,
 } from "@/features/auth";
 import { CohortChooser } from "@/features/campus";
+import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 import { firstSearchParameter } from "@/shared/lib/search-params";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
-
-type Viewer = Readonly<{ displayName?: string | null; email: string }>;
-
-function initialOf({ displayName, email }: Viewer): string {
-  return (displayName || email).charAt(0).toUpperCase();
-}
 
 interface CampusPageProps {
   searchParams: Promise<{ view?: string | string[]; page?: string | string[] }>;
@@ -61,8 +57,15 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
         </Link>
         <AccountMenu side="bottom">
           <Avatar size="lg">
-            <AvatarFallback className="bg-accent text-accent-foreground font-medium">
-              {initialOf(access.session.user)}
+            <AvatarFallback
+              className={cn(
+                "font-medium",
+                avatarToneOf(access.session.user.id),
+              )}
+            >
+              {initialOf(
+                access.session.user.displayName || access.session.user.email,
+              )}
             </AvatarFallback>
           </Avatar>
         </AccountMenu>

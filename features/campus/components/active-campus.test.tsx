@@ -163,13 +163,13 @@ describe("ActiveCampus", () => {
       name: "Account menu",
     });
 
-    expect(within(accountMenu).getByText("AL")).toBeInTheDocument();
+    expect(within(accountMenu).getByText("A")).toBeInTheDocument();
   });
 
   it("shows a plain rail avatar without an account menu", () => {
     renderActiveCampus();
 
-    expect(within(campusRail()).getByText("AL")).toBeInTheDocument();
+    expect(within(campusRail()).getByText("A")).toBeInTheDocument();
     expect(
       within(campusRail()).queryByRole("group", { name: "Account menu" }),
     ).not.toBeInTheDocument();

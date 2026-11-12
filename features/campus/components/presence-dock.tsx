@@ -6,9 +6,14 @@ import { Separator } from "@/shared/ui/separator";
 
 import { BackToCampusesControl } from "./back-to-campuses-control";
 import type { CampusViewer } from "./campus-shell/feedback-layer";
+import { SIDEBAR_WIDTH } from "./campus-shell/sidebar-width";
 import { MeetingMediaControls } from "./meeting-media-controls";
 import { ScreenShareStatus } from "./screen-share-status";
 import { StatusDock } from "./status-dock";
+
+// Centred over the sidebar, which starts at left-19, as far in from its sides
+// as bottom-3 is from the bottom.
+const DOCK_INSET_PX = 12;
 
 type PresenceDockProps = Readonly<{
   cohortId: string;
@@ -19,7 +24,8 @@ export function PresenceDock({ cohortId, viewer }: PresenceDockProps) {
   return (
     <aside
       aria-label="Presence dock"
-      className="bg-background fixed bottom-3 left-20 z-40 grid gap-1 rounded-[1.25rem] border p-1.5 shadow-lg"
+      style={{ width: SIDEBAR_WIDTH - 2 * DOCK_INSET_PX }}
+      className="bg-background fixed bottom-3 left-22 z-40 grid gap-1 rounded-[1.25rem] border p-1.5 shadow-lg"
     >
       <ScreenShareStatus cohortId={cohortId} />
       <Link
@@ -32,7 +38,8 @@ export function PresenceDock({ cohortId, viewer }: PresenceDockProps) {
 
       <StatusDock
         cohortId={cohortId}
-        rowClassName="flex items-center gap-1.5"
+        rowClassName="flex items-center justify-center gap-1.5"
+        stackedTray
         viewer={viewer}
       >
         <Separator orientation="vertical" className="mx-1 my-auto h-6" />

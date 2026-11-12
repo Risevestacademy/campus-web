@@ -33,7 +33,7 @@ describe("meeting header UI (required threshold: 3/3)", () => {
 
     expect(screen.getByRole("heading", { name: "Nearby" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Ada Lovelace" })).toHaveTextContent(
-      "AL",
+      "A",
     );
     expect(
       screen.getByRole("img", { name: "1 more participant" }),

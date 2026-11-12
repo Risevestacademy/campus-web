@@ -3,8 +3,9 @@
 import { describe, expect, it } from "vitest";
 
 import { createPresenceStore } from "@/core/presence";
+import { AVATAR_TONES } from "@/shared/lib/avatar";
 
-import { AVATAR_TONES, toRosterParticipants } from "./presence-participants";
+import { toRosterParticipants } from "./presence-participants";
 import { avatar, snapshot, welcome } from "./testing/world-messages";
 
 function presenceOf(selfId: string, ...players: ReturnType<typeof avatar>[]) {

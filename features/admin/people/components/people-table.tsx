@@ -1,9 +1,9 @@
 import { cn } from "cn";
 import Link from "next/link";
 
+import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 
-import { avatarTone, initialOf } from "../../avatar";
 import { RoleBadge } from "../../role-badge";
 import { personName } from "../people-format";
 import { personHref } from "../people-href";
@@ -58,7 +58,7 @@ export function PeopleTable({
                 <td className={BODY_CELL}>
                   <div className="flex items-center gap-3">
                     <Avatar size="lg">
-                      <AvatarFallback className={avatarTone(person.id)}>
+                      <AvatarFallback className={avatarToneOf(person.id)}>
                         {initialOf(name)}
                       </AvatarFallback>
                     </Avatar>

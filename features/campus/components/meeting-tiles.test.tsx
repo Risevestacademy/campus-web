@@ -21,7 +21,12 @@ import type {
 import { MeetingTiles } from "./meeting-tiles";
 
 function participant(id: string, name: string): MeetingParticipant {
-  return { id, initials: name.slice(0, 2), name, tone: "cobalt" };
+  return {
+    id,
+    initial: name.slice(0, 1),
+    name,
+    avatarClassName: "bg-cobalt-300 text-cobalt-950",
+  };
 }
 
 const ADA = participant("ada", "Ada");

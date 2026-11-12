@@ -23,7 +23,7 @@ passes the panel in because Campus may not import Roster.
 - **Online** is connected to the world right now. The member's own row comes
   first with the detail `You`; the others keep the order the store has.
 - **Status** is what world reports: Available (green dot), Busy (red) or Away
-  (a yellow ring, as on the dock). A timed one adds what is left, as in
+  (solid orange, as on the dock). A timed one adds what is left, as in
   `Busy · 4 min`; your own row reads `You · Busy · 4 min`. Someone available
   in any space but `_default` still counts as Available, and their detail
   line says In a room. Room names are not shown yet.
@@ -32,9 +32,11 @@ passes the panel in because Campus may not import Roster.
   until the next one) and whenever the directory is loading, being fetched
   again or unreadable, so it never shows a count it could not check. Offline
   rows have a grey dot, no detail line and no actions.
-- **Avatar colors** come from the person's ID, since the backend sends none:
-  one of four tones, the same for everyone who looks, online or off. They
-  leave out the success, error and warning colors the status dots use.
+- **Avatars** show one letter and a color from `shared/lib/avatar.ts`, which
+  every avatar in the app uses: `initialOf(name)` and `avatarToneOf(id)`, one
+  of four tones picked from the person's ID, since the backend sends none. A
+  caller may set a tone instead. They leave out the success, error and
+  warning colors the status dots use.
 - **Names** are the display name, or `Campus member` when it is null or blank.
   A user ID is never shown as a name.
 - The roster shows no role for anyone else, no Do Not Disturb state and no

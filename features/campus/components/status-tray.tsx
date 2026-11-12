@@ -16,12 +16,14 @@ const STATUSES = ["available", "busy", "away"] as const;
 
 export type StatusTrayProps = Readonly<{
   canChoose: boolean;
-  // Null while a timer runs that this tray did not set, after a reload.
+  // Null for a status without a time, and for a timer set before a reload.
   durationId: StatusDurationId | null;
   id?: string;
-  onDurationChange: (durationId: StatusDurationId) => void;
+  onDurationChange: (durationId: StatusDurationId | null) => void;
   onStatusChange: (status: ChosenStatus) => void;
-  refusals: Partial<Record<StatusDurationId, string>>;
+  // For a dock too narrow for three statuses side by side: they stack, and
+  // the tray takes the dock's width instead of widening it.
+  stacked?: boolean;
   status: ChosenStatus;
   timeLeft: string | null;
 }>;
@@ -39,21 +41,28 @@ export function StatusTray({
   id,
   onDurationChange,
   onStatusChange,
-  refusals,
+  stacked = false,
   status,
   timeLeft,
 }: StatusTrayProps) {
   const headingId = useId();
   const durationLabelId = useId();
-  const refusalNotes = [...new Set(Object.values(refusals))];
 
   return (
     <section
       id={id}
       aria-labelledby={headingId}
-      className="text-foreground @container flex flex-col gap-2.5 px-3.5 pt-3.5 pb-3"
+      className={cn(
+        "text-foreground flex flex-col gap-2.5 px-3.5 pt-3.5 pb-3",
+        stacked && "contain-inline-size",
+      )}
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-0.5">
+      <div
+        className={cn(
+          "flex items-baseline justify-between gap-6",
+          stacked && "flex-wrap gap-y-0.5",
+        )}
+      >
         <h2 id={headingId} className="text-sm font-semibold">
           Your status
         </h2>
@@ -72,24 +81,26 @@ export function StatusTray({
       <ToggleGroup
         aria-label="Status"
         value={[status]}
-        onValueChange={(values) => {
-          const next = chosen(values, STATUSES);
-          if (next) onStatusChange(next);
-        }}
+        onValueChange={(values) =>
+          onStatusChange(chosen(values, STATUSES) ?? status)
+        }
         disabled={!canChoose}
-        className="w-full flex-col @xs:flex-row"
+        className={cn("w-full", stacked && "flex-col")}
       >
         {STATUSES.map((option) => (
           <ToggleGroupItem
             key={option}
             value={option}
             variant="outline"
-            className="aria-pressed:border-primary aria-pressed:bg-surface-hover dark:aria-pressed:bg-cobalt-900 bg-background h-10 w-full justify-start gap-2 rounded-xl px-3 aria-pressed:border-2 @xs:h-12 @xs:w-auto @xs:min-w-0 @xs:flex-1 @xs:shrink @xs:justify-center"
+            className={cn(
+              "aria-pressed:border-primary aria-pressed:bg-surface-hover dark:aria-pressed:bg-cobalt-900 bg-background gap-2 rounded-xl aria-pressed:border-2",
+              stacked ? "h-10 w-full justify-start px-3" : "h-12 flex-1 px-4",
+            )}
           >
             <span
               aria-hidden
               className={cn(
-                "size-2.5 rounded-full",
+                "size-2.5 shrink-0 rounded-full",
                 STATUS_BADGE_CLASS_NAMES[option],
               )}
             />
@@ -109,38 +120,32 @@ export function StatusTray({
           <ToggleGroup
             aria-labelledby={durationLabelId}
             value={durationId ? [durationId] : []}
-            onValueChange={(values) => {
-              const next = chosen(
-                values,
-                STATUS_DURATIONS.map((duration) => duration.id),
-              );
-              if (next) onDurationChange(next);
-            }}
+            onValueChange={(values) =>
+              onDurationChange(
+                chosen(
+                  values,
+                  STATUS_DURATIONS.map((duration) => duration.id),
+                ) ?? null,
+              )
+            }
             disabled={!canChoose}
             spacing={1.5}
-            className="grid w-full grid-cols-3 @xs:grid-cols-5"
+            className={cn(
+              "grid w-full",
+              stacked ? "grid-cols-2" : "grid-cols-4",
+            )}
           >
             {STATUS_DURATIONS.map((duration) => (
               <ToggleGroupItem
                 key={duration.id}
                 value={duration.id}
                 variant="outline"
-                disabled={refusals[duration.id] !== undefined}
-                title={refusals[duration.id]}
-                className={cn(
-                  "aria-pressed:bg-primary aria-pressed:text-primary-foreground bg-background h-9 w-full rounded-[0.625rem] px-2 text-[0.8125rem] aria-pressed:border-transparent",
-                  duration.id === "lasting" && "col-span-full",
-                )}
+                className="aria-pressed:bg-primary aria-pressed:text-primary-foreground bg-background h-9 w-full rounded-[0.625rem] px-2 text-[0.8125rem] aria-pressed:border-transparent"
               >
                 {duration.label}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
-          {refusalNotes.map((note) => (
-            <p key={note} className="text-foreground-secondary text-xs">
-              {note}
-            </p>
-          ))}
         </div>
       )}
     </section>

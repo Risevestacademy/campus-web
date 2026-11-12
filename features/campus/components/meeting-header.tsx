@@ -15,7 +15,6 @@ import {
   meetingPresenceProps,
   meetingScaleVariants,
 } from "./meeting-motion";
-import { participantToneClassNames } from "./participant-tone";
 
 const STACK_CAP = 3;
 const AVATAR_CLASS_NAME =
@@ -67,9 +66,9 @@ function MeetingParticipantStack({
         {shown.map((participant, index) => (
           <StackAvatar
             key={participant.id}
-            className={participantToneClassNames[participant.tone]}
+            className={participant.avatarClassName}
             index={index}
-            initials={participant.initials}
+            initials={participant.initial}
             label={participant.name}
             reduceMotion={reduceMotion}
           />

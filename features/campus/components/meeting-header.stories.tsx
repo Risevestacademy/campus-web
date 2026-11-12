@@ -12,15 +12,15 @@ const nearbyMeeting: Meeting = {
   participants: [
     {
       id: "participant-a",
-      initials: "AL",
+      initial: "A",
       name: "Ada Lovelace",
-      tone: "cobalt",
+      avatarClassName: "bg-cobalt-300 text-cobalt-950",
     },
     {
       id: "participant-g",
-      initials: "GH",
+      initial: "G",
       name: "Grace Hopper",
-      tone: "turquoise",
+      avatarClassName: "bg-turquoise-300 text-turquoise-950",
     },
   ],
 };
@@ -54,12 +54,17 @@ export const Room: Story = {
       title: "Library",
       participants: [
         ...nearbyMeeting.participants,
-        { id: "participant-l", initials: "LW", name: "Lin Wei", tone: "lemon" },
+        {
+          id: "participant-l",
+          initial: "L",
+          name: "Lin Wei",
+          avatarClassName: "bg-lemon-300 text-lemon-950",
+        },
         {
           id: "participant-m",
-          initials: "MA",
+          initial: "M",
           name: "Maya Angelou",
-          tone: "cobalt",
+          avatarClassName: "bg-cobalt-300 text-cobalt-950",
         },
       ],
     },

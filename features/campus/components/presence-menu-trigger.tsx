@@ -5,25 +5,23 @@ import { Avatar, AvatarBadge, AvatarFallback } from "@/shared/ui/avatar";
 import { Button } from "@/shared/ui/button";
 
 import type { ChosenStatus } from "../services/status-choice/choose-status";
-import type { ParticipantTone } from "../types/active-campus.types";
-import { participantToneClassNames } from "./participant-tone";
 import { STATUS_BADGE_CLASS_NAMES, STATUS_LABELS } from "./status-appearance";
 
 type PresenceMenuTriggerProps = Readonly<
   Omit<ComponentProps<typeof Button>, "children"> & {
-    initials: string;
+    avatarClassName: string;
+    initial: string;
     status: ChosenStatus;
     timeLeft?: string | null;
-    tone: ParticipantTone;
   }
 >;
 
 export function PresenceMenuTrigger({
+  avatarClassName,
   className,
-  initials,
+  initial,
   status,
   timeLeft = null,
-  tone,
   ...props
 }: PresenceMenuTriggerProps) {
   const label = timeLeft
@@ -44,13 +42,8 @@ export function PresenceMenuTrigger({
       {...props}
     >
       <Avatar size="lg" className="dark:after:border-transparent">
-        <AvatarFallback
-          className={cn(
-            "text-foreground font-medium",
-            participantToneClassNames[tone],
-          )}
-        >
-          {initials}
+        <AvatarFallback className={cn("font-medium", avatarClassName)}>
+          {initial}
         </AvatarFallback>
         <AvatarBadge className={STATUS_BADGE_CLASS_NAMES[status]} />
       </Avatar>

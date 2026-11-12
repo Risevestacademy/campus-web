@@ -52,12 +52,12 @@ afterEach(() => {
 });
 
 describe("StatusDock", () => {
-  it("shows the member's initials and status on the trigger, tray closed", () => {
+  it("shows the member's initial and status on the trigger, tray closed", () => {
     renderDock();
 
     expect(trigger()).toHaveAccessibleName("Your status: Available");
     expect(trigger()).toHaveAttribute("aria-expanded", "false");
-    expect(within(trigger()).getByText("AL")).toBeInTheDocument();
+    expect(within(trigger()).getByText("A")).toBeInTheDocument();
     expect(
       screen.queryByRole("region", { name: "Your status" }),
     ).not.toBeInTheDocument();
@@ -90,8 +90,10 @@ describe("StatusDock", () => {
     expect(send).toHaveBeenCalledWith({ type: "setStatus", status: "busy" });
     expect(trigger()).toHaveAccessibleName("Your status: Busy");
     expect(
-      within(tray).getByRole("button", { name: "Until I change it" }),
-    ).toHaveAttribute("aria-pressed", "true");
+      within(tray)
+        .getAllByRole("button", { pressed: true })
+        .map((button) => button.textContent),
+    ).toEqual(["Busy"]);
   });
 
   it("times a status and counts down what is left", () => {
@@ -115,23 +117,27 @@ describe("StatusDock", () => {
     );
   });
 
-  it("replaces a timed status with one that lasts", () => {
-    const send = connectSocial();
-    renderDock();
-    const tray = openTray();
-    fireEvent.click(within(tray).getByRole("button", { name: "Busy" }));
-    fireEvent.click(within(tray).getByRole("button", { name: "30 min" }));
+  it.each(["30 min", "Busy"])(
+    "drops the timer when %s is pressed again",
+    (pressedAgain) => {
+      const send = connectSocial();
+      renderDock();
+      const tray = openTray();
+      fireEvent.click(within(tray).getByRole("button", { name: "Busy" }));
+      fireEvent.click(within(tray).getByRole("button", { name: "30 min" }));
 
-    fireEvent.click(
-      within(tray).getByRole("button", { name: "Until I change it" }),
-    );
+      fireEvent.click(within(tray).getByRole("button", { name: pressedAgain }));
 
-    expect(send).toHaveBeenLastCalledWith({
-      type: "setStatus",
-      status: "busy",
-    });
-    expect(trigger()).toHaveAccessibleName("Your status: Busy");
-  });
+      expect(send).toHaveBeenLastCalledWith({
+        type: "setStatus",
+        status: "busy",
+      });
+      expect(trigger()).toHaveAccessibleName("Your status: Busy");
+      expect(
+        within(tray).getByRole("button", { name: "30 min" }),
+      ).toHaveAttribute("aria-pressed", "false");
+    },
+  );
 
   it("shows the status world returns to when a timer ends", () => {
     connectSocial();
@@ -165,19 +171,6 @@ describe("StatusDock", () => {
       within(tray).getByText(/once you're back on the campus/),
     ).toBeInTheDocument();
     expect(within(tray).getByRole("button", { name: "Busy" })).toBeDisabled();
-  });
-
-  it("refuses today while more than 12 hours of it are left, and says why", () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date(2026, 9, 30, 8, 0, 0));
-    connectSocial();
-    renderDock();
-    const tray = openTray();
-
-    fireEvent.click(within(tray).getByRole("button", { name: "Busy" }));
-
-    expect(within(tray).getByRole("button", { name: "Today" })).toBeDisabled();
-    expect(within(tray).getByText(/12 hours at most/)).toBeInTheDocument();
   });
 
   it("closes on Escape and hands focus back to the trigger", () => {

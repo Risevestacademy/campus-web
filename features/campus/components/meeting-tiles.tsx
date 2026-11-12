@@ -27,7 +27,6 @@ import {
   meetingStripVariants,
 } from "./meeting-motion";
 import styles from "./meeting-tiles.module.css";
-import { participantToneClassNames } from "./participant-tone";
 
 export type MeetingTileMotionConfig = Readonly<{
   durationMs: number;
@@ -77,8 +76,8 @@ function LocalParticipantMedia({
 
   return (
     <MediaPublicationOutput
-      fallbackClassName={participantToneClassNames[participant.tone]}
-      fallbackInitials={participant.initials}
+      fallbackClassName={participant.avatarClassName}
+      fallbackInitials={participant.initial}
       fallbackLabel="You"
       wrapFallback={wrapFallback}
       label={`${participant.name} video`}
@@ -100,8 +99,8 @@ function RemoteParticipantMedia({
   return (
     <MediaPublicationOutput
       ref={demandRef}
-      fallbackClassName={participantToneClassNames[participant.tone]}
-      fallbackInitials={participant.initials}
+      fallbackClassName={participant.avatarClassName}
+      fallbackInitials={participant.initial}
       fallbackLabel={participant.name}
       wrapFallback={wrapFallback}
       label={`${participant.name} video`}

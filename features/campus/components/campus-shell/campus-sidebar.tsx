@@ -13,8 +13,8 @@ import type {
   SidebarMode,
   SidebarPanelId,
 } from "../../store/sidebar-preferences";
+import { SIDEBAR_WIDTH } from "./sidebar-width";
 
-const SIDEBAR_WIDTH = 312;
 const SIDEBAR_TRANSITION = {
   type: "spring",
   stiffness: 420,
