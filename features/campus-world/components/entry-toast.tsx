@@ -3,6 +3,7 @@ import { ArrowUUpLeftIcon } from "@phosphor-icons/react/dist/ssr/ArrowUUpLeft";
 import { CheckIcon } from "@phosphor-icons/react/dist/ssr/Check";
 import { CircleNotchIcon } from "@phosphor-icons/react/dist/ssr/CircleNotch";
 import { ClockIcon } from "@phosphor-icons/react/dist/ssr/Clock";
+import { DoorIcon } from "@phosphor-icons/react/dist/ssr/Door";
 import { InfoIcon } from "@phosphor-icons/react/dist/ssr/Info";
 import { LockSimpleIcon } from "@phosphor-icons/react/dist/ssr/LockSimple";
 import { LockSimpleOpenIcon } from "@phosphor-icons/react/dist/ssr/LockSimpleOpen";
@@ -21,6 +22,7 @@ import type {
 
 const LOOKS: Record<EntryLook, { Icon: Icon; tone: ToastTileTone }> = {
   locked: { Icon: LockSimpleIcon, tone: "locked" },
+  private: { Icon: DoorIcon, tone: "locked" },
   refused: { Icon: ProhibitIcon, tone: "warning" },
   asking: { Icon: CircleNotchIcon, tone: "progress" },
   admitted: { Icon: CheckIcon, tone: "success" },

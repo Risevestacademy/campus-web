@@ -33,7 +33,7 @@ map's page reads `goToSpace` and walks the member there once world is ready
   server when somebody opens the page, never from a link prefetch.
 - **Only the cohort and the space are kept.** The title, window and `admitted`
   are for campus-api and world. A door still closed when the walk gets there
-  ends it with world's "You can't enter" notice.
+  ends it with the refusal notice ("Room 1 is private").
 - **The target travels in the URL.** Pre-join starts a new session and a
   reload forgets anything in memory.
 
