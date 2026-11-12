@@ -148,28 +148,42 @@ describe("createAskToEnter", () => {
     expect(session.lastToast().timeout).toBeUndefined();
   });
 
-  it("only tells the member at a room that a step was refused but no lock keeps", () => {
+  it("calls a room no lock keeps private, and still offers to ask", () => {
     const session = start();
 
     session.flow.refused({ mayAsk: null, spaceKey: "library" });
 
     expect(session.lastToast()).toMatchObject({
-      look: "refused",
-      title: "You can't enter library",
+      look: "private",
+      title: "library is private",
+      description: "Someone inside can let you in",
+      timeout: 0,
+      actions: [{ label: "Ask to enter" }],
     });
-    expect(session.lastToast().actions).toBeUndefined();
-    expect(session.lastToast().timeout).toBeUndefined();
   });
 
-  it("offers to ask at an unlocked room when world says asking would be taken", () => {
+  it("only tells the member at a private room when world says asking would not be taken", () => {
     const session = start();
 
-    session.flow.refused({ mayAsk: true, spaceKey: "library" });
+    session.flow.refused({ mayAsk: false, spaceKey: "library" });
+
+    expect(session.lastToast()).toMatchObject({
+      look: "private",
+      title: "library is private",
+    });
+    expect(session.lastToast().actions).toBeUndefined();
+  });
+
+  it("only tells the member when the refused space is unknown", () => {
+    const session = start();
+
+    session.flow.refused({ mayAsk: null, spaceKey: null });
 
     expect(session.lastToast()).toMatchObject({
       look: "refused",
-      actions: [{ label: "Ask to enter" }],
+      title: "You can't enter that space",
     });
+    expect(session.lastToast().actions).toBeUndefined();
   });
 
   it("asks, and waits to be let in", () => {

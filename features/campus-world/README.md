@@ -54,9 +54,9 @@ Asking to enter: own movement reports every refused step (the space at the
 tile it faced) and refused walk (world's `spaceKey` and `mayAsk`), and
 `services/space-locks/ask-to-enter.ts` carries the whole ask in one tile toast (drawn by `components/entry-toast.tsx`)
 that stays until it ends and can be closed: the refusal, worded by
-`refusedEntryNotice`, with Ask to enter where world said asking would be
-taken, or, after a key step where world says nothing, where the space is
-locked; the wait ("Waiting to be let in") with Withdraw; then how it
+`refusedEntryNotice` ("Room 1 is locked", or "Room 1 is private" for a
+designated space), with Ask to enter unless world said asking would not be
+taken, since world refuses a step only into a space that can be asked; the wait ("Waiting to be let in") with Withdraw; then how it
 ended. A yes steps you in through `stepInto`, since world lets only the next
 step through. Without world's error frames a request world never echoes is
 given up after `ANSWER_WAIT_MS`. When the map unmounts, `stop()` closes a
