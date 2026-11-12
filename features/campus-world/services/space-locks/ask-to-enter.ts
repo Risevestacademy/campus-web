@@ -1,5 +1,6 @@
 import {
   type EntryOutcome,
+  isSpaceLocked,
   type Presence,
   type PresenceStore,
   refusedEntryNotice,
@@ -13,9 +14,13 @@ import type { EntryRefusal } from "./entry-refusal";
 // request world has not echoed by then is taken as refused.
 export const ANSWER_WAIT_MS = 8_000;
 export const ENTRY_TOAST_ID = "entry-request";
+// World's protocol: "After a no, the same space can be asked again 30 seconds
+// later." No frame carries it, so it is kept here.
+export const ASK_AGAIN_AFTER_S = 30;
 
 export type EntryLook =
   | "locked"
+  | "refused"
   | "asking"
   | "admitted"
   | "declined"
@@ -45,6 +50,7 @@ export interface EntryToast {
 }
 
 export interface AskToEnterPorts {
+  close: (id: string) => void;
   presence: Pick<PresenceStore, "getState" | "subscribe">;
   setTimer: (run: () => void, ms: number) => () => void;
   social: Pick<WorldSocial, "sendRequestEntry" | "sendWithdrawEntryRequest">;
@@ -60,10 +66,19 @@ type State =
       spaceKey: string;
       requestId: string | null;
       withdrawWanted: boolean;
-    };
+    }
+  // The map went while world had not yet confirmed a request: it is
+  // withdrawn once world does.
+  | { kind: "leaving"; spaceKey: string };
 
 type Ending = EntryOutcome["outcome"] | "dropped";
 type Shown = Omit<EntryToast, "id" | "onClose">;
+
+function ownRequest(current: Presence, spaceKey: string) {
+  return current.entryRequests.find(
+    (open) => open.userId === current.selfId && open.spaceKey === spaceKey,
+  );
+}
 
 function nameOfPerson(presence: Presence, userId: string | null) {
   if (userId === null) return null;
@@ -90,7 +105,7 @@ function endingToast(
       return {
         look: "declined",
         title: `Not let into ${name}`,
-        description: "You can ask again in 30 s",
+        description: `You can ask again in ${ASK_AGAIN_AFTER_S} s`,
       };
     case "withdrawn":
       return {
@@ -137,6 +152,7 @@ function endingToast(
 // with Withdraw, then how it ended. Closing it hides it; a request it was
 // showing goes on, and its outcome shows when it ends.
 export function createAskToEnter({
+  close,
   presence,
   setTimer,
   show: showToast,
@@ -145,6 +161,8 @@ export function createAskToEnter({
 }: AskToEnterPorts) {
   let state: State = { kind: "idle" };
   let shown = 0;
+  // Whether a toast that waits on the member (no timeout) is on screen.
+  let waiting = false;
   let cancelWait = () => {};
 
   function nameOf(spaceKey: string) {
@@ -154,13 +172,14 @@ export function createAskToEnter({
   function show(toast: Shown) {
     shown += 1;
     const version = shown;
+    waiting = toast.timeout === 0;
     showToast({
       ...toast,
       id: ENTRY_TOAST_ID,
       onClose: () => {
-        if (version === shown && state.kind === "offered") {
-          state = { kind: "idle" };
-        }
+        if (version !== shown) return;
+        waiting = false;
+        if (state.kind === "offered") state = { kind: "idle" };
       },
     });
   }
@@ -199,11 +218,11 @@ export function createAskToEnter({
 
   function withdraw() {
     if (state.kind !== "asking") return;
-    if (state.requestId === null) {
-      state = { ...state, withdrawWanted: true };
-      return;
+    if (state.withdrawWanted) return;
+    state = { ...state, withdrawWanted: true };
+    if (state.requestId !== null) {
+      social.sendWithdrawEntryRequest(state.requestId);
     }
-    social.sendWithdrawEntryRequest(state.requestId);
   }
 
   function ask(spaceKey: string) {
@@ -232,16 +251,25 @@ export function createAskToEnter({
   }
 
   function follow(current: Presence) {
+    if (state.kind === "leaving") {
+      const request = ownRequest(current, state.spaceKey);
+      if (request) {
+        social.sendWithdrawEntryRequest(request.requestId);
+        end();
+      }
+      return;
+    }
     if (state.kind !== "asking") return;
     if (state.requestId === null) {
-      const { spaceKey } = state;
-      const request = current.entryRequests.find(
-        (open) => open.userId === current.selfId && open.spaceKey === spaceKey,
-      );
+      const request = ownRequest(current, state.spaceKey);
       if (!request) return;
       cancelWait();
       const withdrawWanted = state.withdrawWanted;
-      state = { ...state, requestId: request.requestId };
+      state = {
+        ...state,
+        requestId: request.requestId,
+        withdrawWanted: false,
+      };
       if (withdrawWanted) withdraw();
       return;
     }
@@ -261,18 +289,27 @@ export function createAskToEnter({
 
   const unsubscribe = presence.subscribe(follow);
 
+  function end() {
+    state = { kind: "idle" };
+    cancelWait();
+    unsubscribe();
+  }
+
   return {
     refused({ mayAsk, spaceKey }: EntryRefusal) {
-      if (state.kind === "asking") return;
-      const title = refusedEntryNotice(presence.getState(), spaceKey);
-      if (spaceKey === null || mayAsk === false) {
+      if (state.kind === "asking" || state.kind === "leaving") return;
+      const current = presence.getState();
+      const title = refusedEntryNotice(current, spaceKey);
+      const locked = spaceKey !== null && isSpaceLocked(current, spaceKey);
+      // A refused step says nothing about asking, so only a lock offers it.
+      if (spaceKey === null || !(mayAsk ?? locked)) {
         state = { kind: "idle" };
-        show({ look: "locked", title, priority: "high" });
+        show({ look: locked ? "locked" : "refused", title, priority: "high" });
         return;
       }
       state = { kind: "offered", spaceKey };
       show({
-        look: "locked",
+        look: locked ? "locked" : "refused",
         title,
         description: "Someone inside can let you in",
         priority: "high",
@@ -280,9 +317,23 @@ export function createAskToEnter({
         actions: [{ label: "Ask to enter", onClick: () => ask(spaceKey) }],
       });
     },
+    // The map is going, and nothing would follow a request after it: a
+    // waiting toast closes and an open request is withdrawn.
     stop() {
-      unsubscribe();
+      if (waiting) close(ENTRY_TOAST_ID);
+      waiting = false;
+      if (state.kind !== "asking") {
+        end();
+        return;
+      }
+      if (state.requestId !== null) {
+        withdraw();
+        end();
+        return;
+      }
+      state = { kind: "leaving", spaceKey: state.spaceKey };
       cancelWait();
+      cancelWait = setTimer(end, ANSWER_WAIT_MS);
     },
   };
 }

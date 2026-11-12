@@ -4,10 +4,10 @@ import { useCallback, useState } from "react";
 import { useStore } from "zustand";
 
 import { ANALYTICS_EVENTS } from "@/core/analytics/events";
-import type { PresenceStore } from "@/core/presence";
+import { claimEntryRefusals, type PresenceStore } from "@/core/presence";
 import type { WorldMovement } from "@/core/realtime";
 
-import { showEntryToast } from "../components/entry-toast";
+import { closeEntryToast, showEntryToast } from "../components/entry-toast";
 import type { CampusGame } from "../game/campus-runtime";
 import { failureEventProperties } from "../services/map/campus-map-error";
 import { mapSourceFromSnapshot } from "../services/map/load-campus-map";
@@ -48,8 +48,11 @@ function mountCampusGame(
   const timer = startTimer(dependencies.now);
   const lifetime = new AbortController();
   let game: CampusGame | undefined;
+  // Once the map can offer to ask to enter, refused walks are its to tell.
+  let releaseRefusals = () => {};
   const askToEnter = dependencies.social
     ? createAskToEnter({
+        close: closeEntryToast,
         presence,
         setTimer: (run, ms) => {
           const timer = setTimeout(run, ms);
@@ -98,6 +101,7 @@ function mountCampusGame(
         }
 
         game = startedGame;
+        if (askToEnter) releaseRefusals = claimEntryRefusals(cohortId);
         store.getState().ready(attempt, mapId);
         dependencies.captureEvent?.(ANALYTICS_EVENTS.CAMPUS_WORLD_MAP_READY, {
           first_frame_ms: timer.elapsedMs(),
@@ -112,6 +116,7 @@ function mountCampusGame(
 
   return () => {
     lifetime.abort();
+    releaseRefusals();
     askToEnter?.stop();
     game?.stop();
   };
