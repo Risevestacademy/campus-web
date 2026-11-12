@@ -48,8 +48,18 @@ against a locked space reports once instead of every step; and
 Locks: everyone outside a locked space sees its floor hatched, with a plate
 naming it on its bottom edge; whoever stands inside sees it as usual.
 `game/lock-layer.ts` draws the hatch under avatars and the plate above the
-furniture, from `services/space-locks/`. A refused step shows one toast
-naming the space it faced, worded by `refusedEntryNotice`.
+furniture, from `services/space-locks/`.
+
+Asking to enter: own movement reports every refused step (the space at the
+tile it faced) and refused walk (world's `spaceKey` and `mayAsk`), and
+`services/space-locks/ask-to-enter.ts` carries the whole ask in one tile toast (drawn by `components/entry-toast.tsx`)
+that stays until it ends and can be closed: the refusal, worded by
+`refusedEntryNotice`, with Ask to enter unless world said asking would not be
+taken; the wait ("Waiting to be let in") with Withdraw; then how it
+ended. A yes steps you in through `stepInto`, since world lets only the next
+step through. Without world's error frames a request world never echoes is
+given up after `ANSWER_WAIT_MS`. The map owns refused walks, so on pages
+without it they pass unannounced.
 
 ## Modules
 

@@ -25,9 +25,9 @@ export function refusedEntryNotice(
   presence: LockView,
   spaceKey: string | null,
 ): string {
-  if (spaceKey === null) return "You can't enter that space.";
+  if (spaceKey === null) return "You can't enter that space";
   const name = spaceNameOf(presence, spaceKey);
   return isSpaceLocked(presence, spaceKey)
-    ? `${name} is locked.`
-    : `You can't enter ${name}.`;
+    ? `${name} is locked`
+    : `You can't enter ${name}`;
 }

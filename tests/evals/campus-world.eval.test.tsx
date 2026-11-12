@@ -448,7 +448,7 @@ describe("Campus world eval (required threshold: 22/22)", () => {
       const start = vi.fn<CampusRuntime["start"]>(
         async (_container, prepared) => {
           await consumeImages(prepared);
-          return { stop };
+          return { stop, stepInto: vi.fn(() => false) };
         },
       );
       const prepared = {
@@ -515,7 +515,11 @@ describe("Campus world eval (required threshold: 22/22)", () => {
       [];
     const start = vi.fn<CampusRuntime["start"]>(
       async (_container, prepared) => {
-        const game = { stop: vi.fn(), version: prepared.manifest.version };
+        const game = {
+          stop: vi.fn(),
+          stepInto: vi.fn(() => false),
+          version: prepared.manifest.version,
+        };
         games.push(game);
         return game;
       },

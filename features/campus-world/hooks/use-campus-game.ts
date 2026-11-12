@@ -7,11 +7,12 @@ import { ANALYTICS_EVENTS } from "@/core/analytics/events";
 import type { PresenceStore } from "@/core/presence";
 import type { WorldMovement } from "@/core/realtime";
 
+import { showEntryToast } from "../components/entry-toast";
 import type { CampusGame } from "../game/campus-runtime";
 import { failureEventProperties } from "../services/map/campus-map-error";
 import { mapSourceFromSnapshot } from "../services/map/load-campus-map";
 import type { PreparedCampusMap } from "../services/map/prepare-campus-map";
-import { announceRefusedStep } from "../services/space-locks/refused-step";
+import { createAskToEnter } from "../services/space-locks/ask-to-enter";
 import { startTimer } from "../services/timer";
 import {
   type CampusWorldStatus,
@@ -23,6 +24,7 @@ import { useCachedCampusMap } from "./use-campus-map-preparation";
 import { useCampusWorldStatus } from "./use-campus-world-status";
 
 interface CampusGameMount {
+  cohortId: string;
   dependencies: CampusWorldDependencies;
   movement: WorldMovement;
   presence: PresenceStore;
@@ -32,13 +34,32 @@ interface CampusGameMount {
 
 function mountCampusGame(
   container: HTMLElement,
-  { dependencies, movement, presence, prepared, store }: CampusGameMount,
+  {
+    cohortId,
+    dependencies,
+    movement,
+    presence,
+    prepared,
+    store,
+  }: CampusGameMount,
 ): () => void {
   const { mapId, version } = prepared.manifest;
   const attempt = store.getState().begin();
   const timer = startTimer(dependencies.now);
   const lifetime = new AbortController();
   let game: CampusGame | undefined;
+  const askToEnter = dependencies.social
+    ? createAskToEnter({
+        presence,
+        setTimer: (run, ms) => {
+          const timer = setTimeout(run, ms);
+          return () => clearTimeout(timer);
+        },
+        social: dependencies.social(cohortId),
+        show: showEntryToast,
+        stepInto: (spaceKey) => game?.stepInto(spaceKey) ?? false,
+      })
+    : undefined;
 
   function failRender() {
     if (!store.getState().fail(attempt, mapId)) return;
@@ -59,9 +80,7 @@ function mountCampusGame(
         );
       },
       onRenderError: failRender,
-      onStepRefused(tile) {
-        announceRefusedStep(prepared.layout.spaces, presence.getState(), tile);
-      },
+      onEntryRefused: (refusal) => askToEnter?.refused(refusal),
       onZoomChanged(level) {
         dependencies.captureEvent?.(
           ANALYTICS_EVENTS.CAMPUS_WORLD_CAMERA_ZOOMED,
@@ -93,6 +112,7 @@ function mountCampusGame(
 
   return () => {
     lifetime.abort();
+    askToEnter?.stop();
     game?.stop();
   };
 }
@@ -115,6 +135,7 @@ export function useCampusGame(
     (container: HTMLDivElement | null) => {
       if (!container || !prepared) return;
       return mountCampusGame(container, {
+        cohortId,
         dependencies,
         movement,
         presence,
@@ -122,7 +143,7 @@ export function useCampusGame(
         store,
       });
     },
-    [dependencies, movement, presence, prepared, store],
+    [cohortId, dependencies, movement, presence, prepared, store],
   );
 
   function retry() {

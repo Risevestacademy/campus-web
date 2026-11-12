@@ -1,4 +1,3 @@
-import type { Tile } from "campus-world-map";
 import type { GameObj, KAPLAYCtx } from "kaplay";
 
 import type { Presence } from "@/core/presence";
@@ -12,6 +11,7 @@ import {
   takePreparedTilesetImages,
 } from "../services/map/prepare-campus-map";
 import { prefersReducedMotion } from "../services/reduced-motion";
+import type { EntryRefusal } from "../services/space-locks/entry-refusal";
 import { campusBackground } from "../services/theme-background";
 import { addAvatarLayer } from "./avatar-layer";
 import { type CampusCamera, createCampusCamera } from "./campus-camera";
@@ -21,13 +21,14 @@ import { uploadTilesetSprites } from "./tileset-sprites";
 
 export interface CampusGame {
   stop: () => void;
+  stepInto: (spaceKey: string) => boolean;
 }
 
 export interface CampusGameOptions {
   movement: WorldMovement;
   onMoveCorrected: (outcome: MoveCorrection) => void;
   onRenderError: () => void;
-  onStepRefused?: (tile: Tile) => void;
+  onEntryRefused?: (refusal: EntryRefusal) => void;
   onZoomChanged: (level: ZoomLevel) => void;
   readPresence: () => Presence;
   signal: AbortSignal;
@@ -53,6 +54,7 @@ interface RuntimeContext {
 
 interface Mount {
   camera?: CampusCamera;
+  stepInto?: (spaceKey: string) => boolean;
   objects: GameObj[];
   onRenderError: () => void;
   ready: boolean;
@@ -207,7 +209,7 @@ export function createCampusRuntime(
       CampusGameOptions,
       | "movement"
       | "onMoveCorrected"
-      | "onStepRefused"
+      | "onEntryRefused"
       | "onZoomChanged"
       | "readPresence"
     >,
@@ -250,6 +252,9 @@ export function createCampusRuntime(
           layout: prepared.layout,
           map: prepared.map,
           movement,
+          onOwnMovement: (own) => {
+            mount.stepInto = own.stepInto;
+          },
           ...avatarOptions,
         }),
       );
@@ -311,7 +316,10 @@ export function createCampusRuntime(
         await drawMap(runtimeContext, mount, prepared, tilesets, options);
         if (mount.renderError) throw mount.renderError;
         mount.ready = true;
-        return { stop: () => stop(mount) };
+        return {
+          stop: () => stop(mount),
+          stepInto: (spaceKey) => mount.stepInto?.(spaceKey) ?? false,
+        };
       } catch (error) {
         closeImages(images);
         stop(mount);

@@ -59,7 +59,7 @@ export type ErrorMessage = Simplify<
 export type WalkEndReason = OrUnknown<PublishedWalkEndReason>;
 export type WalkingMessage = Pick<PublishedWalkingMessage, "type" | "player">;
 export type WalkEndedMessage = Simplify<
-  Pick<PublishedWalkEndedMessage, "type" | "player" | "spaceKey"> & {
+  Pick<PublishedWalkEndedMessage, "type" | "player" | "spaceKey" | "mayAsk"> & {
     reason: WalkEndReason;
   }
 >;
@@ -325,6 +325,8 @@ const walkEndedMessageSchema = z.toZod<WalkEndedMessage>()(
     reason: walkEndReasonSchema,
     player: playerSchema,
     spaceKey: z.string().nullable(),
+    // A walk ended before world said whether asking would be taken offers none.
+    mayAsk: z.boolean().catch(false),
   }),
 );
 

@@ -3,7 +3,7 @@
 import type { Space } from "campus-world-map";
 import { describe, expect, it } from "vitest";
 
-import { spaceAt } from "./refused-step";
+import { spaceAt } from "./entry-refusal";
 
 const SPACES: Space[] = [
   {

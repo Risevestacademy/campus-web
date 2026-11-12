@@ -51,9 +51,9 @@ describe("isSpaceLocked", () => {
 
 describe("refusedEntryNotice", () => {
   it.each([
-    ["room_2", "Room 2 is locked."],
-    ["library", "You can't enter library."],
-    [null, "You can't enter that space."],
+    ["room_2", "Room 2 is locked"],
+    ["library", "You can't enter library"],
+    [null, "You can't enter that space"],
   ])("words a refusal at %s as %j", (spaceKey, notice) => {
     expect(refusedEntryNotice(presence, spaceKey)).toBe(notice);
   });

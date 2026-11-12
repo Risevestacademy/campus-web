@@ -638,7 +638,13 @@ describe("createCallMediaSession", () => {
         const message: ServerMessage =
           type === "walking"
             ? { type, player }
-            : { type, player, reason: "arrived", spaceKey: null };
+            : {
+                type,
+                player,
+                reason: "arrived",
+                spaceKey: null,
+                mayAsk: false,
+              };
         presence = applyServerMessage(presence, message);
 
         session.applyWorldMessage(message, presence);
