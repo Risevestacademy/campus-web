@@ -120,7 +120,7 @@ the map state above. `Presence` extends its `Social` fields:
 - Open requests were sent to a socket, so they end with it: a `snapshot` and
   `clearRemoteParticipants()` both empty `entryRequests`, since no frame says
   so when a socket closes.
-  
+
 - World's refusals carry no id of the action they answer. The campus shell
   shows each one (`world-error-feedback.ts` in the world session). A feature
   that sent an action and wants its own answer reads `errors` after sending,
