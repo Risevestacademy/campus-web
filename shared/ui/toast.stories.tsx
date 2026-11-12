@@ -179,10 +179,10 @@ export const TileWithActions: Story = {
                 tone: "locked",
               },
             },
-            description: "Room 1",
             id: "story-tile",
             timeout: 0,
-            title: "Ada wants to come in",
+            description: "is asking to enter",
+            title: "Ada",
           })
         }
       >
@@ -197,7 +197,7 @@ export const TileWithActions: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Knock" }));
 
     await expect(
-      await page.findByText("Ada wants to come in"),
+      await page.findByText("is asking to enter"),
     ).toBeInTheDocument();
     await expect(page.getByRole("button", { name: "Let in" })).toBeVisible();
     await expect(
