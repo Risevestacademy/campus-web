@@ -2,7 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ANALYTICS_EVENTS } from "@/core/analytics";
 import { captureBrowserAnalyticsEvent } from "@/core/analytics/client";
-import { createPresenceStore } from "@/core/presence";
+import {
+  claimEntryRefusals,
+  EMPTY_PRESENCE,
+  type Presence,
+} from "@/core/presence";
 import type { WalkEndedMessage } from "@/core/realtime";
 import { toast } from "@/shared/ui/toast";
 import { serverFrames } from "@/tests/fixtures/world-frames";
@@ -22,19 +26,15 @@ function ended(
     reason,
     player: { userId: "ada", x: 1, y: 1, facing: "down" },
     spaceKey,
+    mayAsk: false,
   };
 }
 
-function presenceWith(spaces: Array<{ spaceKey: string; name: string }> = []) {
-  const store = createPresenceStore();
-  store.getState().apply({
-    type: "snapshot",
-    map: { id: "campus", version: "v1", width: 5, height: 4 },
-    players: [],
-    spaces,
-  });
-  return store.getState();
-}
+const presence: Presence = {
+  ...EMPTY_PRESENCE,
+  lockedSpaces: ["library"],
+  spaceNames: new Map([["library", "Library"]]),
+};
 
 afterEach(() => {
   vi.mocked(captureBrowserAnalyticsEvent).mockClear();
@@ -51,20 +51,18 @@ describe("walkEndedNotice", () => {
     ["no_way", "Couldn't find a way to them."],
     ["moved_by_staff", "A staff member moved you out of that space."],
   ] as const)("says for %s: %j", (reason, notice) => {
-    expect(walkEndedNotice(ended(reason), presenceWith())).toBe(notice);
+    expect(walkEndedNotice(ended(reason), presence, false)).toBe(notice);
   });
 
-  it("names the space that refused the member", () => {
-    const presence = presenceWith([{ spaceKey: "library", name: "Library" }]);
-
-    expect(walkEndedNotice(ended("refused", "library"), presence)).toBe(
-      "You can't enter Library.",
-    );
+  it("leaves a refused walk to a mounted map, which offers to ask", () => {
+    expect(
+      walkEndedNotice(ended("refused", "library"), presence, true),
+    ).toBeNull();
   });
 
-  it("still reads when world names no space", () => {
-    expect(walkEndedNotice(ended("refused"), presenceWith())).toBe(
-      "You can't enter that space.",
+  it("says a refused walk itself while no map is mounted", () => {
+    expect(walkEndedNotice(ended("refused", "library"), presence, false)).toBe(
+      "Library is locked",
     );
   });
 });
@@ -73,7 +71,7 @@ describe("announceWalkEnded", () => {
   it("records only the reason, and stays quiet when the member arrived", () => {
     const addToast = vi.spyOn(toast, "add");
 
-    announceWalkEnded(ended("arrived"), presenceWith());
+    announceWalkEnded(ended("arrived"), presence, "c-1");
 
     expect(captureBrowserAnalyticsEvent).toHaveBeenCalledExactlyOnceWith(
       ANALYTICS_EVENTS.CAMPUS_WORLD_GO_TO_ENDED,
@@ -85,17 +83,31 @@ describe("announceWalkEnded", () => {
   it("tells the member why the walk stopped", () => {
     const addToast = vi.spyOn(toast, "add");
 
-    announceWalkEnded(ended("gone"), presenceWith());
+    announceWalkEnded(ended("gone"), presence, "c-1");
 
     expect(addToast).toHaveBeenCalledWith(
       expect.objectContaining({ title: "They've left the campus." }),
     );
   });
 
+  it("says a refused walk only while the cohort's map is not mounted", () => {
+    const addToast = vi.spyOn(toast, "add");
+    const release = claimEntryRefusals("c-1");
+
+    announceWalkEnded(ended("refused", "library"), presence, "c-1");
+    expect(addToast).not.toHaveBeenCalled();
+
+    release();
+    announceWalkEnded(ended("refused", "library"), presence, "c-1");
+    expect(addToast).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ title: "Library is locked" }),
+    );
+  });
+
   it("ignores every other frame", () => {
     const addToast = vi.spyOn(toast, "add");
 
-    announceWalkEnded(serverFrames.pong, presenceWith());
+    announceWalkEnded(serverFrames.pong, presence, "c-1");
 
     expect(captureBrowserAnalyticsEvent).not.toHaveBeenCalled();
     expect(addToast).not.toHaveBeenCalled();

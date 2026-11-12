@@ -1,3 +1,4 @@
+import type { MapLayout } from "campus-world-map";
 import { describe, expect, it, vi } from "vitest";
 
 import { createPresenceStore } from "@/core/presence";
@@ -21,12 +22,28 @@ const ADA = {
   displayName: "Ada",
   spriteKey: null,
   status: "available" as const,
+  statusUntil: null,
   spaceKey: "_default",
+};
+
+// A one-tile room just right of where Ada starts.
+const ROOM_LAYOUT: MapLayout = {
+  ...movementLayout,
+  spaces: [
+    {
+      key: "room",
+      name: "room",
+      kind: "meeting_room",
+      bounds: { shape: "rect", x: 1, y: 0, width: 1, height: 1 },
+      properties: {},
+    },
+  ],
 };
 
 function startMovement(
   reducedMotion = false,
   sendMove: (direction: Direction, seq: number) => boolean = () => true,
+  layout: MapLayout = movementLayout,
 ) {
   const presence = createPresenceStore();
   const movement = createWorldMovementChannel();
@@ -59,10 +76,12 @@ function startMovement(
   movement.apply(welcome);
   movement.apply(snapshot);
   const onMoveCorrected = vi.fn();
+  const onEntryRefused = vi.fn();
   const controller = createOwnAvatarMovement({
-    layout: movementLayout,
+    layout,
     movement,
     onMoveCorrected,
+    onEntryRefused,
     prefersReducedMotion: () => reducedMotion,
     readPresence: presence.getState,
   });
@@ -90,6 +109,7 @@ function startMovement(
     controller,
     movement,
     onMoveCorrected,
+    onEntryRefused,
     presence,
     receive,
     sent,
@@ -253,6 +273,70 @@ describe("createOwnAvatarMovement", () => {
     expect(onMoveCorrected).toHaveBeenCalledExactlyOnceWith("refused");
   });
 
+  it("names the space a refused step faced, without knowing about asking", () => {
+    const { onEntryRefused, receive, sent, update } = startMovement(
+      false,
+      () => true,
+      ROOM_LAYOUT,
+    );
+    update(0, "right", ["right"]);
+
+    receive({
+      type: "moveResult",
+      seq: sent.length,
+      outcome: "refused",
+      player: { userId: "ada", x: 0, y: 0, facing: "right" },
+    });
+
+    expect(onEntryRefused).toHaveBeenCalledExactlyOnceWith({
+      mayAsk: null,
+      spaceKey: "room",
+    });
+  });
+
+  it("passes on a refused walk's space and whether asking would be taken", () => {
+    const { onEntryRefused, receive } = startMovement();
+
+    receive({
+      type: "walkEnded",
+      reason: "refused",
+      player: { userId: "ada", x: 0, y: 0, facing: "right" },
+      spaceKey: "room",
+      mayAsk: true,
+    });
+
+    expect(onEntryRefused).toHaveBeenCalledExactlyOnceWith({
+      mayAsk: true,
+      spaceKey: "room",
+    });
+  });
+
+  it("steps once into a space beside the member, as a yes allows", () => {
+    const { controller, sent, update } = startMovement(
+      false,
+      () => true,
+      ROOM_LAYOUT,
+    );
+
+    expect(controller.stepInto("room")).toBe(true);
+    update(16);
+
+    expect(sent).toEqual([{ direction: "right", seq: 1 }]);
+  });
+
+  it("does not step into a space the member is not beside", () => {
+    const { controller, sent, update } = startMovement(
+      false,
+      () => true,
+      ROOM_LAYOUT,
+    );
+
+    expect(controller.stepInto("library")).toBe(false);
+    update(16);
+
+    expect(sent).toEqual([]);
+  });
+
   it("walks into a refused tile again once world lets them in", () => {
     const { controller, onMoveCorrected, receive, sent, update } =
       startMovement();
@@ -356,6 +440,7 @@ describe("createOwnAvatarMovement", () => {
       reason,
       player: { userId: "ada", x, y: 0, facing: "right" },
       spaceKey: null,
+      mayAsk: false,
     });
 
     it("draws each step over stepMs and sends nothing", () => {

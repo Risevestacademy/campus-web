@@ -64,18 +64,18 @@ export type PositionCorrectedMessage = Pick<
   "type" | "player"
 >;
 export type WalkEndedMessage = Simplify<
-  Pick<PublishedWalkEndedMessage, "type" | "player" | "spaceKey"> & {
+  Pick<PublishedWalkEndedMessage, "type" | "player" | "spaceKey" | "mayAsk"> & {
     reason: WalkEndReason;
   }
 >;
 export type Avatar = Simplify<
   Pick<
     PublishedAvatar,
-    keyof Player | "displayName" | "spriteKey" | "spaceKey"
+    keyof Player | "displayName" | "spriteKey" | "spaceKey" | "statusUntil"
   > & { status: PlayerStatus }
 >;
 export type StatusChangedMessage = Simplify<
-  Pick<PublishedStatusChangedMessage, "type" | "userId"> & {
+  Pick<PublishedStatusChangedMessage, "type" | "userId" | "until"> & {
     status: PlayerStatus;
   }
 >;
@@ -219,6 +219,12 @@ const playerStatusSchema = z.toZod<PlayerStatus>()(
   orUnknown(["available", "busy", "away"]),
 );
 
+// An end time that cannot be read is no end time: the status still shows.
+const statusUntilSchema = z.iso
+  .datetime({ offset: true })
+  .nullable()
+  .catch(null);
+
 const playerSchema = z.toZod<Player>()(
   z.object({
     userId: z.string(),
@@ -233,6 +239,7 @@ const avatarSchema = z.toZod<Avatar>()(
     ...playerSchema.shape,
     ...appearanceShape,
     status: playerStatusSchema,
+    statusUntil: statusUntilSchema,
     spaceKey: z.string(),
   }),
 );
@@ -320,6 +327,8 @@ const walkEndedMessageSchema = z.toZod<WalkEndedMessage>()(
     reason: walkEndReasonSchema,
     player: playerSchema,
     spaceKey: z.string().nullable(),
+    // A walk ended before world said whether asking would be taken offers none.
+    mayAsk: z.boolean().catch(false),
   }),
 );
 
@@ -344,6 +353,7 @@ const statusChangedMessageSchema = z.toZod<StatusChangedMessage>()(
     type: z.literal("statusChanged"),
     userId: z.string(),
     status: playerStatusSchema,
+    until: statusUntilSchema,
   }),
 );
 
@@ -454,8 +464,10 @@ const broadcastCallSchema = z.toZod<BroadcastCall>()(
 const broadcastMessageSchema = z.toZod<BroadcastMessage>()(
   z.object({
     type: z.literal("broadcast"),
-    // A call that cannot be read is no call: the rest of the handshake holds.
-    call: broadcastCallSchema.nullable().catch(null),
+    // Not caught: a call that cannot be read must not read as null, which
+    // means leave the broadcast room. The frame is dropped and world sends
+    // the next one within a heartbeat.
+    call: broadcastCallSchema.nullable(),
   }),
 );
 

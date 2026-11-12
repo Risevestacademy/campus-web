@@ -78,6 +78,7 @@ describe("createCampusRuntime", () => {
           displayName: "Ada",
           spriteKey: null,
           status: "available",
+          statusUntil: null,
           spaceKey: "_default",
         },
       ],
@@ -88,7 +89,7 @@ describe("createCampusRuntime", () => {
       fakePreparedMap(kaplay.module),
       mountOptions({ readPresence: presence.getState }),
     );
-    await vi.waitFor(() => expect(kaplay.contexts[0]?.liveObjects()).toBe(3));
+    await vi.waitFor(() => expect(kaplay.contexts[0]?.liveObjects()).toBe(5));
     const context = kaplay.contexts[0]!;
 
     context.drawFrame();
@@ -145,7 +146,7 @@ describe("createCampusRuntime", () => {
     await runtime.start(container(), prepared, mountOptions());
     await runtime.start(container(), prepared, mountOptions());
 
-    expect(kaplay.contexts[0]!.liveObjects()).toBe(3);
+    expect(kaplay.contexts[0]!.liveObjects()).toBe(5);
   });
 
   it("clears the map when its game stops", async () => {
@@ -300,7 +301,7 @@ describe("createCampusRuntime", () => {
     await expect(superseded).rejects.toMatchObject({ name: "AbortError" });
     await current;
     expect(kaplay.uploads).toHaveLength(2);
-    expect(kaplay.contexts[0]!.liveObjects()).toBe(3);
+    expect(kaplay.contexts[0]!.liveObjects()).toBe(5);
   });
 
   it("replaces the context after one sprite upload succeeds and another fails", async () => {
@@ -340,7 +341,7 @@ describe("createCampusRuntime", () => {
       fakePreparedMap(kaplay.module),
       mountOptions({ onRenderError }),
     );
-    await vi.waitFor(() => expect(kaplay.contexts[0]!.liveObjects()).toBe(3));
+    await vi.waitFor(() => expect(kaplay.contexts[0]!.liveObjects()).toBe(5));
     kaplay.contexts[0]!.failFrame(new Error("Draw failed."));
 
     await expect(game).rejects.toThrow("Draw failed.");
@@ -489,6 +490,6 @@ describe("createCampusRuntime", () => {
 
     await expect(aborted).rejects.toMatchObject({ name: "AbortError" });
     await current;
-    expect(kaplay.contexts[0]!.liveObjects()).toBe(3);
+    expect(kaplay.contexts[0]!.liveObjects()).toBe(5);
   });
 });

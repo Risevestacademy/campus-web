@@ -1,4 +1,4 @@
-import type { MapLayout, Tile } from "campus-world-map";
+import { contains, type MapLayout, type Tile } from "campus-world-map";
 
 import type { Presence } from "@/core/presence";
 import type {
@@ -17,7 +17,11 @@ import {
   learnRefusedTiles,
   withRefusedTiles,
 } from "../services/movement/refused-tiles";
-import { predictStep } from "../services/movement/step";
+import { predictStep, stepFrom } from "../services/movement/step";
+import {
+  type EntryRefusal,
+  spaceAt,
+} from "../services/space-locks/entry-refusal";
 
 export interface MovementInput {
   deltaMs: number;
@@ -28,6 +32,10 @@ export interface MovementInput {
 export interface OwnAvatarMovement {
   readPlayer(): Player | undefined;
   stop(): void;
+  // Steps once into the space from a tile beside it, as a yes to a request
+  // lets only the next step through. False when no side of the member touches
+  // the space.
+  stepInto(spaceKey: string): boolean;
   // True once for each walk world starts, and each time world moves the avatar
   // itself, so the camera returns to the avatar without taking back a drag
   // made mid-walk.
@@ -39,9 +47,12 @@ interface OwnAvatarMovementOptions {
   layout: MapLayout;
   movement: WorldMovement;
   onMoveCorrected: (outcome: MoveCorrection) => void;
+  onEntryRefused?: (refusal: EntryRefusal) => void;
   prefersReducedMotion: () => boolean;
   readPresence: () => Presence;
 }
+
+const DIRECTIONS: readonly Direction[] = ["up", "down", "left", "right"];
 
 interface StepAnimation {
   durationMs: number;
@@ -64,6 +75,7 @@ export function createOwnAvatarMovement({
   layout,
   movement,
   onMoveCorrected,
+  onEntryRefused,
   prefersReducedMotion,
   readPresence,
 }: OwnAvatarMovementOptions): OwnAvatarMovement {
@@ -136,6 +148,9 @@ export function createOwnAvatarMovement({
   }
 
   function followWalk(message: WalkingMessage | WalkEndedMessage) {
+    if (message.type === "walkEnded" && message.reason === "refused") {
+      onEntryRefused?.({ mayAsk: message.mayAsk, spaceKey: message.spaceKey });
+    }
     const walking = message.type === "walking";
     if (walking && !onWalk) walkStarted = true;
     onWalk = walking;
@@ -162,6 +177,15 @@ export function createOwnAvatarMovement({
     }
     if (message.type !== "moveResult" || !predicted) return;
 
+    if (message.outcome === "refused") {
+      onEntryRefused?.({
+        mayAsk: null,
+        spaceKey: spaceAt(
+          layout.spaces,
+          stepFrom(message.player, message.player.facing),
+        ),
+      });
+    }
     refused = learnRefusedTiles(refused, message);
     const before = predicted;
     const reconciled = reconcile(pending, message, walkable());
@@ -242,6 +266,17 @@ export function createOwnAvatarMovement({
   return {
     readPlayer: () => displayed,
     stop: unsubscribe,
+    stepInto(spaceKey) {
+      const space = layout.spaces.find(({ key }) => key === spaceKey);
+      if (!predicted || !space) return false;
+      const from = predicted;
+      const direction = DIRECTIONS.find((candidate) =>
+        contains(space.bounds, stepFrom(from, candidate)),
+      );
+      if (!direction) return false;
+      buffered = direction;
+      return true;
+    },
     takeWalkStarted() {
       const started = walkStarted;
       walkStarted = false;

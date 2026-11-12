@@ -16,5 +16,4 @@ export { VisualsDisplay } from "./components/visuals-display";
 export { useMediaSession } from "./services/media-session/media-session-provider";
 
 // Types
-export type { ActiveCampusViewModel } from "./types/active-campus.types";
 export type { CohortSummary, CohortViewer } from "./types/cohort.types";

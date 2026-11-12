@@ -66,6 +66,7 @@ describe("campus avatars eval", () => {
         displayName,
         spriteKey: null,
         status: "available" as const,
+        statusUntil: null,
         spaceKey: "_default",
       });
 
@@ -84,6 +85,7 @@ describe("campus avatars eval", () => {
           displayName: null,
           spriteKey,
           status: "available" as const,
+          statusUntil: null,
           spaceKey: "_default",
         }),
       ),

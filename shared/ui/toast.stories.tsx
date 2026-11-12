@@ -1,3 +1,4 @@
+import { LockSimpleIcon } from "@phosphor-icons/react/dist/ssr/LockSimple";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
@@ -157,5 +158,50 @@ export const AboveDialog: Story = {
       );
       return expect(toastElement.contains(painted)).toBe(true);
     });
+  },
+};
+
+export const TileWithActions: Story = {
+  render: (toasterProps) => (
+    <Toaster {...toasterProps}>
+      <Button
+        variant="outline"
+        onClick={() =>
+          storyToastManager.add({
+            data: {
+              tile: {
+                actions: [
+                  { label: "Not now", onClick: fn(), variant: "outline" },
+                  { label: "Let in", onClick: fn() },
+                ],
+                closable: false,
+                icon: <LockSimpleIcon aria-hidden weight="bold" />,
+                tone: "locked",
+              },
+            },
+            id: "story-tile",
+            timeout: 0,
+            description: "is asking to enter",
+            title: "Ada",
+          })
+        }
+      >
+        Knock
+      </Button>
+    </Toaster>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+
+    await userEvent.click(canvas.getByRole("button", { name: "Knock" }));
+
+    await expect(
+      await page.findByText("is asking to enter"),
+    ).toBeInTheDocument();
+    await expect(page.getByRole("button", { name: "Let in" })).toBeVisible();
+    await expect(
+      page.queryByRole("button", { name: "Close toast" }),
+    ).not.toBeInTheDocument();
   },
 };

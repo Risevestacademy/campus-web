@@ -9,8 +9,12 @@ import {
   buildAvatarDrawList,
 } from "../services/avatars/avatar-draw-list";
 import { prefersReducedMotion } from "../services/reduced-motion";
+import type { EntryRefusal } from "../services/space-locks/entry-refusal";
 import type { CampusCamera } from "./campus-camera";
-import { createOwnAvatarMovement } from "./own-avatar-movement";
+import {
+  createOwnAvatarMovement,
+  type OwnAvatarMovement,
+} from "./own-avatar-movement";
 import { createRemoteAvatarMovement } from "./remote-avatar-movement";
 
 interface AvatarLayerOptions {
@@ -19,6 +23,9 @@ interface AvatarLayerOptions {
   map: { height: number; tileheight: number; tilewidth: number; width: number };
   movement: WorldMovement;
   onMoveCorrected: (outcome: MoveCorrection) => void;
+  onEntryRefused?: (refusal: EntryRefusal) => void;
+  // Hands the member's own movement to whoever steps them on world's behalf.
+  onOwnMovement?: (movement: Pick<OwnAvatarMovement, "stepInto">) => void;
   readPresence: () => Presence;
 }
 
@@ -53,6 +60,8 @@ export function addAvatarLayer(
     map,
     movement,
     onMoveCorrected,
+    onEntryRefused,
+    onOwnMovement,
     readPresence,
   }: AvatarLayerOptions,
 ): GameObj {
@@ -69,9 +78,11 @@ export function addAvatarLayer(
     layout,
     movement,
     onMoveCorrected,
+    onEntryRefused,
     prefersReducedMotion,
     readPresence,
   });
+  onOwnMovement?.(ownMovement);
   const remoteMovement = createRemoteAvatarMovement({
     layout,
     movement,

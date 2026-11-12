@@ -3,8 +3,9 @@
 import { describe, expect, it } from "vitest";
 
 import { createPresenceStore } from "@/core/presence";
+import { AVATAR_TONES } from "@/shared/lib/avatar";
 
-import { AVATAR_TONES, toRosterParticipants } from "./presence-participants";
+import { toRosterParticipants } from "./presence-participants";
 import { avatar, snapshot, welcome } from "./testing/world-messages";
 
 function presenceOf(selfId: string, ...players: ReturnType<typeof avatar>[]) {
@@ -44,6 +45,40 @@ describe("toRosterParticipants", () => {
     const { online } = toRosterParticipants(participants, "me", undefined);
 
     expect(online[0]).toMatchObject({ status, detail });
+  });
+
+  it.each([
+    ["busy", "ada", "Busy · 4 min"],
+    ["away", "ada", "Away · 1 h 52 min"],
+    ["busy", "me", "You · Busy · 4 min"],
+    ["away", "me", "You · Away · 1 h 52 min"],
+  ] as const)("shows a timed %s for %s as %j", (status, userId, detail) => {
+    const now = Date.parse("2026-10-30T09:00:00.000Z");
+    const minutes = status === "busy" ? 4 : 112;
+    const statusUntil = new Date(now + minutes * 60_000).toISOString();
+    const { participants } = presenceOf(
+      "me",
+      avatar(userId, { status, statusUntil }),
+    );
+
+    const { online } = toRosterParticipants(participants, "me", undefined, now);
+
+    expect(online[0]?.detail).toBe(detail);
+  });
+
+  it("drops the time once a timer has run out, before world says so", () => {
+    const now = Date.parse("2026-10-30T09:00:00.000Z");
+    const { participants } = presenceOf(
+      "me",
+      avatar("ada", {
+        status: "busy",
+        statusUntil: "2026-10-30T08:59:00.000Z",
+      }),
+    );
+
+    const { online } = toRosterParticipants(participants, "me", undefined, now);
+
+    expect(online[0]?.detail).toBe("Busy");
   });
 
   it.each([

@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { fn } from "storybook/test";
 
 import type { Meeting } from "../types/active-campus.types";
 import { CampusViewProvider } from "./campus-view-provider";
@@ -12,15 +13,15 @@ const nearbyMeeting: Meeting = {
   participants: [
     {
       id: "participant-a",
-      initials: "AL",
+      initial: "A",
       name: "Ada Lovelace",
-      tone: "cobalt",
+      avatarClassName: "bg-cobalt-300 text-cobalt-950",
     },
     {
       id: "participant-g",
-      initials: "GH",
+      initial: "G",
       name: "Grace Hopper",
-      tone: "turquoise",
+      avatarClassName: "bg-turquoise-300 text-turquoise-950",
     },
   ],
 };
@@ -54,12 +55,17 @@ export const Room: Story = {
       title: "Library",
       participants: [
         ...nearbyMeeting.participants,
-        { id: "participant-l", initials: "LW", name: "Lin Wei", tone: "lemon" },
+        {
+          id: "participant-l",
+          initial: "L",
+          name: "Lin Wei",
+          avatarClassName: "bg-lemon-300 text-lemon-950",
+        },
         {
           id: "participant-m",
-          initials: "MA",
+          initial: "M",
           name: "Maya Angelou",
-          tone: "cobalt",
+          avatarClassName: "bg-cobalt-300 text-cobalt-950",
         },
       ],
     },
@@ -68,4 +74,29 @@ export const Room: Story = {
 
 export const Alone: Story = {
   args: { meeting: null },
+};
+
+const roomLock = {
+  canChange: true,
+  locked: false,
+  spaceName: "Room 1",
+  toggle: fn(),
+};
+
+export const LockableRoom: Story = {
+  args: {
+    meeting: { ...nearbyMeeting, hearing: "room", title: "Room 1" },
+    lock: roomLock,
+  },
+};
+
+export const LockedRoom: Story = {
+  args: {
+    meeting: { ...nearbyMeeting, hearing: "room", title: "Room 1" },
+    lock: { ...roomLock, locked: true },
+  },
+};
+
+export const AloneInLockableRoom: Story = {
+  args: { meeting: null, lock: roomLock },
 };

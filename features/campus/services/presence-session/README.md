@@ -15,7 +15,12 @@ same cohort never starts one; see [Presence Tab](#presence-tab).
   store's transport, fed every world frame through `onMessage` and every
   close through `onRemoteParticipantsCleared`), and follows
   the tab's status and world's outcomes. While mounted it reports activity
-  to world (see [Activity](#activity)). It needs the shared refresh port (`SessionRefreshProvider` from
+  to world (see [Activity](#activity)) and offers each request to enter the
+  member's space as a toast (the first name, "Ada", over "is asking to enter") with Not now and Let in, on every page. A
+  request that ends, or a step out of the space, closes its toast quietly,
+  and stepping back in shows it again; a toast the member closed or answered
+  stays closed while its request is open. An answer that can't be sent keeps
+  the toast open and says so. It needs the shared refresh port (`SessionRefreshProvider` from
   auth, composed by the cohort layout).
 - `useAdmission(selector)`: `pendingDestination`, `admitted`, `grantEntry`,
   `completeEntry`, `clear`.
@@ -37,6 +42,7 @@ transport and world.
 | `follow-presence-tab.ts`        | ends or restarts media, Admission and world     |
 | `follow-world-outcome.ts`       | what each terminal world outcome does           |
 | `report-activity.ts`            | throttled `active` frames from browser input    |
+| `answer-entry-requests.ts`      | a toast per request to enter the member's space |
 | `presence-session-provider.tsx` | per-cohort store creation and media composition |
 
 ## Presence Tab

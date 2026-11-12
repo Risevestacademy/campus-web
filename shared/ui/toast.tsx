@@ -8,6 +8,7 @@ import { WarningIcon } from "@phosphor-icons/react/dist/ssr/Warning";
 import { XIcon } from "@phosphor-icons/react/dist/ssr/X";
 import { XCircleIcon } from "@phosphor-icons/react/dist/ssr/XCircle";
 import { cn } from "cn";
+import type { ReactNode } from "react";
 
 import { Button } from "@/shared/ui/button";
 
@@ -28,7 +29,7 @@ function ToastViewport({ className, ...props }: ToastPrimitive.Viewport.Props) {
     <ToastPrimitive.Viewport
       data-slot="toast-viewport"
       className={cn(
-        "pointer-events-none fixed inset-x-4 bottom-4 z-[100] mx-auto w-auto max-w-sm outline-none sm:right-4 sm:left-auto sm:mx-0 sm:w-full",
+        "pointer-events-none fixed inset-x-4 bottom-4 z-[100] mx-auto w-auto max-w-md outline-none sm:right-4 sm:left-auto sm:mx-0 sm:w-full",
         className,
       )}
       {...props}
@@ -174,11 +175,95 @@ function ToastIcon({ type }: { type: string | undefined }) {
   );
 }
 
+export type ToastTileTone =
+  "locked" | "progress" | "success" | "warning" | "neutral" | "error" | "plain";
+
+export type ToastTileAction = Readonly<{
+  label: string;
+  onClick: () => void;
+  variant?: "default" | "outline";
+}>;
+
+// A toast that leads with a tinted icon tile and keeps its actions beside the
+// text, for flows that ask the member to act. Passed as the toast's `data`.
+export type ToastTile = Readonly<{
+  actions?: readonly ToastTileAction[];
+  closable?: boolean;
+  icon: ReactNode;
+  tone: ToastTileTone;
+}>;
+
+const TILE_TONE_CLASS_NAMES: Record<ToastTileTone, string> = {
+  locked: "bg-neutral-950 text-lemon-400 dark:bg-neutral-800",
+  progress: "bg-surface-elevated text-primary",
+  success: "bg-success-subtle text-success-foreground",
+  warning: "bg-warning-subtle text-warning-foreground",
+  neutral: "bg-surface text-foreground-secondary",
+  error: "bg-error-subtle text-error-icon",
+  plain: "",
+};
+
+function tileOf(data: unknown): ToastTile | undefined {
+  if (typeof data !== "object" || data === null || !("tile" in data)) {
+    return undefined;
+  }
+  return (data as { tile: ToastTile }).tile;
+}
+
+function TileToastContent({ tile }: Readonly<{ tile: ToastTile }>) {
+  return (
+    <ToastContent className="items-center p-3">
+      <span
+        data-slot="toast-tile"
+        className={cn(
+          "grid size-10 shrink-0 place-items-center rounded-xl [&_svg:not([class*='size-'])]:size-4.5",
+          TILE_TONE_CLASS_NAMES[tile.tone],
+        )}
+      >
+        {tile.icon}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <ToastTitle className="font-semibold" />
+        <ToastDescription className="text-foreground-secondary text-[0.8125rem]" />
+      </div>
+      {tile.actions?.map(({ label, onClick, variant = "default" }) => (
+        <Button
+          key={label}
+          type="button"
+          size="sm"
+          variant={variant}
+          onClick={onClick}
+          className="shrink-0"
+        >
+          {label}
+        </Button>
+      ))}
+      {tile.closable === false ? null : <ToastClose />}
+    </ToastContent>
+  );
+}
+
 function ToastList() {
   const { toasts } = ToastPrimitive.useToastManager();
 
-  return toasts.map((toastItem) => (
-    <Toast key={toastItem.id} toast={toastItem}>
+  return toasts.map((toastItem) => {
+    const tile = tileOf(toastItem.data);
+    if (tile) {
+      return (
+        <Toast key={toastItem.id} toast={toastItem}>
+          <TileToastContent tile={tile} />
+        </Toast>
+      );
+    }
+    return <PlainToast key={toastItem.id} toastItem={toastItem} />;
+  });
+}
+
+function PlainToast({
+  toastItem,
+}: Readonly<{ toastItem: ToastPrimitive.Root.ToastObject }>) {
+  return (
+    <Toast toast={toastItem}>
       <ToastContent>
         <ToastIcon type={toastItem.type} />
         {/* The action sits under the text, so the text keeps the full width. */}
@@ -192,7 +277,7 @@ function ToastList() {
         <ToastClose />
       </ToastContent>
     </Toast>
-  ));
+  );
 }
 
 function Toaster({

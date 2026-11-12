@@ -6,6 +6,7 @@ import type { Hearing } from "@/core/presence";
 
 import { useMeeting } from "../hooks/use-meeting";
 import { useMeetingViewShown } from "../hooks/use-meeting-view-shown";
+import { useSpaceLock } from "../hooks/use-space-lock";
 import { MeetingHeader } from "./meeting-header";
 import { MeetingViewControls } from "./meeting-view-switch";
 
@@ -18,11 +19,12 @@ function MeetingViewShown({ hearing }: Readonly<{ hearing: Hearing }>) {
 
 export function MeetingOverlay({ cohortId }: Readonly<{ cohortId: string }>) {
   const meeting = useMeeting(cohortId);
+  const lock = useSpaceLock(cohortId);
 
   return (
     <>
       <div className="relative z-30">
-        <MeetingHeader meeting={meeting} />
+        <MeetingHeader lock={lock} meeting={meeting} />
       </div>
       {meeting ? (
         <MeetingViewShown key={meeting.encounter} hearing={meeting.hearing} />

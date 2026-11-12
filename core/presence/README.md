@@ -33,15 +33,24 @@ presence.getState().clear(); // when the Presence Session ends
   closed socket so the scene stays drawn, so read `synced`, not `map`, to
   know whether who is online is current.
 - `participants`: who is here, `Map<userId, { userId, displayName, spriteKey,
-status, spaceKey }>`. `status` is `available`, `busy`, `away` (or `unknown`
-  for a value world adds later) and `spaceKey` names the space they stand in,
-  `_default` for the corridors and grounds.
+status, statusUntil, spaceKey }>`. `status` is `available`, `busy`, `away` (or `unknown`
+  for a value world adds later); `statusUntil` is when a status chosen for a
+  while ends, or null; `spaceKey` names the space they stand in,
+  `_default` for the corridors and grounds. `statusTimeLeft(statusUntil, now)`
+  words what is left, to the nearest minute.
 - `positions`: where they stand, `Map<userId, { x, y, facing }>` in tiles,
   clamped into the map's bounds.
 - `spaceNames`: what each space is called, `Map<spaceKey, name>`, from
   `snapshot` and replaced whole by `spaces` when one is renamed. Read it with
   `spaceNameOf(presence, spaceKey)`, which shows the key for a space World has
   not named, as World does.
+- Locks: `ownSpaceKeyOf(presence)` is the space you stand in,
+  `isSpaceLocked(presence, spaceKey)` reads `lockedSpaces`, and
+  `refusedEntryNotice(presence, spaceKey)` words a refusal ("Room 1 is
+  locked" or "You can't enter Room 1"), since a refused step looks the same
+  for a locked space and a listed one. `claimEntryRefusals(cohortId)` is held
+  by the mounted map, which answers refusals itself; while nothing holds it,
+  `entryRefusalsClaimed` is false and walk feedback says a refused walk.
 - `nearby`: the `userId`s world says are close enough to hear you, once each,
   in the order they came near. World sends its list sorted; keeping arrival order
   means a newcomer never reshuffles whoever was already there.
@@ -75,7 +84,7 @@ keeps anything finer (pixels, walking) itself.
 | `snapshot`          | replaced, with `spaceNames` | replaced, with the map       |
 | `joined`            | set, replacing any entry    | set                          |
 | `appearance`        | name and sprite updated     |                              |
-| `statusChanged`     | status updated if present   |                              |
+| `statusChanged`     | status and end updated ²    |                              |
 | `spaceChanged`      | space updated if present ¹  |                              |
 | `left`              | removed                     | removed                      |
 | `moved`             |                             | updated for known ids        |
@@ -90,6 +99,10 @@ keeps anything finer (pixels, walking) itself.
 `awaiting`, and the roster is empty until World's next `call`. Otherwise
 stepping out of a room would meet the whole corridor, and stepping into one
 would keep the corridor's `nearby` until World's next tick.
+
+² World answers your own `setStatus` only when the cohort sees a change, so
+`drawOwnStatus(status, statusUntil)` on the store draws your choice at once,
+and the `statusChanged` that follows, if any, settles it.
 
 ### What the campus says and decides
 
@@ -106,7 +119,7 @@ the map state above. `Presence` extends its `Social` fields:
 | `entryRequestEnded` | out of `entryRequests`, into `entryOutcomes` (newest 20)              |
 | `staffAction`       | `staffActions`: the newest 10, each with a running `seq`              |
 | `error`             | `errors`: the newest 10, each with a running `seq`                    |
-| `broadcast`         | `broadcast`: the call, or null                                        |
+| `broadcast`         | `broadcast`: the room and whether you may speak in it, or null        |
 | `desksChanged`      | `desksVersion` + 1: the cue to fetch the desks again                  |
 
 - World keeps no history, so a reconnect's `snapshot` keeps `chat`,
@@ -115,12 +128,22 @@ the map state above. `Presence` extends its `Social` fields:
 - Open requests were sent to a socket, so they end with it: a `snapshot` and
   `clearRemoteParticipants()` both empty `entryRequests`, since no frame says
   so when a socket closes.
+
 - World's refusals carry no id of the action they answer. The campus shell
   shows each one (`world-error-feedback.ts` in the world session). A feature
   that sent an action and wants its own answer reads `errors` after sending,
   and tells a new one by `seq`.
-- `broadcast` holds a media token. Read it to join the room; never log it or
-  put it in an analytics event.
+- `broadcast` keeps only the room and `canSpeak`. The call's url and token
+  never enter presence, as a space's call token does not: they reach the media
+  session through the world session's `onMessage`, which gets every parsed
+  frame. A frame whose call cannot be read is dropped, not read as null,
+  because null means leave the room.
+- A closed socket takes the member out of the broadcast room, so
+  `clearRemoteParticipants()` sets `broadcast` to null along with the open
+  requests. World sends the broadcast again on arrival.
+- `desksVersion` and every `seq` (`staffActions` and `errors`) start again from
+  0 after `clear()`. A view that keeps "the last one I showed" must keep it in
+  state that is cleared with presence, or it will show an old action again.
 
 `nearby` changes only `nearby`. It can name somebody not in `participants`
 yet; the roster skips them until `joined` arrives.

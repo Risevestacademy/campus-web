@@ -10,7 +10,10 @@ function renderDock(userName: string | null = "Ada Lovelace") {
     <MediaSessionProvider
       store={createMediaSessionStore({ mediaDevices: null })}
     >
-      <PresenceDock cohortId="c-1" userName={userName} />
+      <PresenceDock
+        cohortId="c-1"
+        viewer={{ id: "ada", displayName: userName }}
+      />
     </MediaSessionProvider>,
   );
 
@@ -40,10 +43,10 @@ describe("PresenceDock", () => {
     ).toHaveAttribute("href", "/campus");
   });
 
-  it("shows the member's initials on the presence avatar", () => {
-    const dock = renderDock("ada  lovelace byron");
+  it("shows the member's initial on the presence avatar", () => {
+    const dock = renderDock("  ada lovelace");
 
-    expect(within(dock).getByText("AL")).toBeInTheDocument();
+    expect(within(dock).getByText("A")).toBeInTheDocument();
   });
 
   it("shows a neutral avatar when the member has no display name", () => {

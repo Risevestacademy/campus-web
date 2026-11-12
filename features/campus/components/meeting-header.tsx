@@ -1,11 +1,15 @@
 "use client";
 
+import { LockSimpleIcon } from "@phosphor-icons/react/dist/ssr/LockSimple";
+import { LockSimpleOpenIcon } from "@phosphor-icons/react/dist/ssr/LockSimpleOpen";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/dist/ssr/SidebarSimple";
 import { cn } from "cn";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { Button } from "@/shared/ui/button";
 
+import { useSidebarOpen } from "../hooks/use-sidebar-state";
+import type { SpaceLock } from "../hooks/use-space-lock";
 import { splitAtCap } from "../services/meeting/meeting";
 import type { Meeting, MeetingParticipant } from "../types/active-campus.types";
 import { useCampusView } from "./campus-view-provider";
@@ -15,7 +19,6 @@ import {
   meetingPresenceProps,
   meetingScaleVariants,
 } from "./meeting-motion";
-import { participantToneClassNames } from "./participant-tone";
 
 const STACK_CAP = 3;
 const AVATAR_CLASS_NAME =
@@ -67,9 +70,9 @@ function MeetingParticipantStack({
         {shown.map((participant, index) => (
           <StackAvatar
             key={participant.id}
-            className={participantToneClassNames[participant.tone]}
+            className={participant.avatarClassName}
             index={index}
-            initials={participant.initials}
+            initials={participant.initial}
             label={participant.name}
             reduceMotion={reduceMotion}
           />
@@ -90,29 +93,61 @@ function MeetingParticipantStack({
   );
 }
 
+function SpaceLockButton({ lock }: Readonly<{ lock: SpaceLock }>) {
+  // A toggle: the name stays put and aria-pressed says whether it is locked.
+  const label = `Lock ${lock.spaceName}`;
+
+  return (
+    <Button
+      type="button"
+      // Locked, it turns red, so it is the elevated surface only while open.
+      data-surface-role={lock.locked ? undefined : "surface-elevated"}
+      size="icon-xs"
+      variant="ghost"
+      aria-label={label}
+      aria-pressed={lock.locked}
+      title={label}
+      disabled={!lock.canChange}
+      onClick={lock.toggle}
+      className="bg-surface-elevated border-border aria-pressed:bg-error-subtle aria-pressed:border-error-border aria-pressed:text-error-icon size-10 rounded-xl border [&_svg:not([class*='size-'])]:size-5"
+    >
+      {lock.locked ? (
+        <LockSimpleIcon aria-hidden weight="bold" />
+      ) : (
+        <LockSimpleOpenIcon aria-hidden />
+      )}
+    </Button>
+  );
+}
+
 export function MeetingHeader({
+  lock = null,
   meeting,
-}: Readonly<{ meeting: Meeting | null }>) {
+}: Readonly<{ lock?: SpaceLock | null; meeting: Meeting | null }>) {
   const { openSidebar } = useCampusView();
+  const sidebarOpen = useSidebarOpen();
   const reduceMotion = Boolean(useReducedMotion());
+  const title = meeting?.title ?? lock?.spaceName;
 
   return (
     <header className="flex h-fit items-center gap-3">
-      <Button
-        type="button"
-        data-surface-role="surface-elevated"
-        size="icon"
-        variant="ghost"
-        aria-label="Open sidebar"
-        title="Open sidebar"
-        onClick={openSidebar}
-        className="bg-surface-elevated border-border size-10 rounded-xl border [&_svg:not([class*='size-'])]:size-5"
-      >
-        <SidebarSimpleIcon aria-hidden />
-      </Button>
+      {sidebarOpen ? null : (
+        <Button
+          type="button"
+          data-surface-role="surface-elevated"
+          size="icon"
+          variant="ghost"
+          aria-label="Open sidebar"
+          title="Open sidebar"
+          onClick={openSidebar}
+          className="bg-surface-elevated border-border size-10 rounded-xl border [&_svg:not([class*='size-'])]:size-5"
+        >
+          <SidebarSimpleIcon aria-hidden />
+        </Button>
+      )}
 
       <AnimatePresence initial={false} custom={reduceMotion}>
-        {meeting ? (
+        {meeting || lock ? (
           <motion.div
             key="meeting"
             custom={reduceMotion}
@@ -120,8 +155,11 @@ export function MeetingHeader({
             {...meetingPresenceProps}
             className="flex items-center gap-1.5"
           >
-            <MeetingParticipantStack participants={meeting.participants} />
-            <h2 className="text-sm font-medium">{meeting.title}</h2>
+            {meeting ? (
+              <MeetingParticipantStack participants={meeting.participants} />
+            ) : null}
+            {lock ? <SpaceLockButton lock={lock} /> : null}
+            <h2 className="text-sm font-medium">{title}</h2>
           </motion.div>
         ) : null}
       </AnimatePresence>

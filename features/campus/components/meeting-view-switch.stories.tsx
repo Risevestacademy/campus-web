@@ -20,21 +20,41 @@ const previewMediaSessionStore = createMediaSessionStore({
 });
 
 const everyoneNearby: readonly MeetingParticipant[] = [
-  { id: "participant-a", initials: "AL", name: "Ada Lovelace", tone: "cobalt" },
-  { id: "participant-j", initials: "JB", name: "James Baldwin", tone: "lemon" },
+  {
+    id: "participant-a",
+    initial: "A",
+    name: "Ada Lovelace",
+    avatarClassName: "bg-cobalt-300 text-cobalt-950",
+  },
+  {
+    id: "participant-j",
+    initial: "J",
+    name: "James Baldwin",
+    avatarClassName: "bg-lemon-300 text-lemon-950",
+  },
   {
     id: "participant-g",
-    initials: "GH",
+    initial: "G",
     name: "Grace Hopper",
-    tone: "turquoise",
+    avatarClassName: "bg-turquoise-300 text-turquoise-950",
   },
-  { id: "participant-l", initials: "LW", name: "Lin Wei", tone: "lemon" },
-  { id: "participant-m", initials: "MA", name: "Maya Angelou", tone: "cobalt" },
+  {
+    id: "participant-l",
+    initial: "L",
+    name: "Lin Wei",
+    avatarClassName: "bg-lemon-300 text-lemon-950",
+  },
+  {
+    id: "participant-m",
+    initial: "M",
+    name: "Maya Angelou",
+    avatarClassName: "bg-cobalt-300 text-cobalt-950",
+  },
   {
     id: "participant-t",
-    initials: "TM",
+    initial: "T",
     name: "Toni Morrison",
-    tone: "turquoise",
+    avatarClassName: "bg-turquoise-300 text-turquoise-950",
   },
 ];
 

@@ -283,11 +283,21 @@ describe("CampusOverviewPanel", () => {
       const apply = renderWithEveryStatus();
       fireEvent.click(screen.getByRole("button", { name: "Busy" }));
 
-      apply({ type: "statusChanged", userId: "ada", status: "busy" });
+      apply({
+        type: "statusChanged",
+        userId: "ada",
+        status: "busy",
+        until: null,
+      });
 
       expect(rows("Online")).toEqual(["AAdaBusy", "BBolaBusy"]);
 
-      apply({ type: "statusChanged", userId: "ada", status: "away" });
+      apply({
+        type: "statusChanged",
+        userId: "ada",
+        status: "away",
+        until: null,
+      });
       fireEvent.click(screen.getByRole("button", { name: "Away" }));
 
       expect(rows("Online")).toEqual(["AAdaAway", "CChiAway"]);

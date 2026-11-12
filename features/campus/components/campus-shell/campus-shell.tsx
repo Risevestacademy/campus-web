@@ -1,6 +1,8 @@
+import { cn } from "cn";
 import type { ComponentType, ReactNode } from "react";
 
 import type { components } from "@/core/api/client";
+import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
@@ -44,7 +46,6 @@ type CampusShellProps = Readonly<{
   viewer?: CampusViewer;
 }>;
 
-const CURRENT_USER_INITIAL = "J";
 const collapseButton = <SidebarCollapseButton />;
 
 const comingSoonPanels = Object.fromEntries(
@@ -61,11 +62,13 @@ const comingSoonPanels = Object.fromEntries(
     ]),
 ) as Record<Exclude<SidebarPanelId, "map">, ReactNode>;
 
-function RailAvatar() {
+function RailAvatar({ viewer }: Readonly<{ viewer?: CampusViewer }>) {
   return (
     <Avatar size="lg">
-      <AvatarFallback className="bg-accent text-accent-foreground font-medium">
-        {CURRENT_USER_INITIAL}
+      <AvatarFallback
+        className={cn("font-medium", avatarToneOf(viewer?.id ?? "", "lemon"))}
+      >
+        {initialOf(viewer?.displayName)}
       </AvatarFallback>
     </Avatar>
   );
@@ -83,7 +86,7 @@ export function CampusShell({
   initialSidebarMode,
   viewer,
 }: CampusShellProps) {
-  const avatar = <RailAvatar />;
+  const avatar = <RailAvatar viewer={viewer} />;
 
   return (
     <CampusViewProvider>

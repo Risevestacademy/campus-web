@@ -93,8 +93,9 @@ function connectedPresence() {
   return store;
 }
 
-// The lower band, the avatar layer and the upper band.
-const OBJECTS_PER_MAP = 3;
+// The lower band, the lock floor, the avatar layer, the upper band and the
+// lock plates.
+const OBJECTS_PER_MAP = 5;
 function sourceFiles(directory: string): string[] {
   return readdirSync(path.join(projectRoot, directory), {
     recursive: true,
@@ -447,7 +448,7 @@ describe("Campus world eval (required threshold: 22/22)", () => {
       const start = vi.fn<CampusRuntime["start"]>(
         async (_container, prepared) => {
           await consumeImages(prepared);
-          return { stop };
+          return { stop, stepInto: vi.fn(() => false) };
         },
       );
       const prepared = {
@@ -514,7 +515,11 @@ describe("Campus world eval (required threshold: 22/22)", () => {
       [];
     const start = vi.fn<CampusRuntime["start"]>(
       async (_container, prepared) => {
-        const game = { stop: vi.fn(), version: prepared.manifest.version };
+        const game = {
+          stop: vi.fn(),
+          stepInto: vi.fn(() => false),
+          version: prepared.manifest.version,
+        };
         games.push(game);
         return game;
       },

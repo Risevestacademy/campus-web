@@ -11,20 +11,24 @@ import {
   takePreparedTilesetImages,
 } from "../services/map/prepare-campus-map";
 import { prefersReducedMotion } from "../services/reduced-motion";
+import type { EntryRefusal } from "../services/space-locks/entry-refusal";
 import { campusBackground } from "../services/theme-background";
 import { addAvatarLayer } from "./avatar-layer";
 import { type CampusCamera, createCampusCamera } from "./campus-camera";
+import { addLockLayers } from "./lock-layer";
 import { addMapBand, type RenderTileset } from "./map-renderer";
 import { uploadTilesetSprites } from "./tileset-sprites";
 
 export interface CampusGame {
   stop: () => void;
+  stepInto: (spaceKey: string) => boolean;
 }
 
 export interface CampusGameOptions {
   movement: WorldMovement;
   onMoveCorrected: (outcome: MoveCorrection) => void;
   onRenderError: () => void;
+  onEntryRefused?: (refusal: EntryRefusal) => void;
   onZoomChanged: (level: ZoomLevel) => void;
   readPresence: () => Presence;
   signal: AbortSignal;
@@ -50,6 +54,7 @@ interface RuntimeContext {
 
 interface Mount {
   camera?: CampusCamera;
+  stepInto?: (spaceKey: string) => boolean;
   objects: GameObj[];
   onRenderError: () => void;
   ready: boolean;
@@ -202,7 +207,11 @@ export function createCampusRuntime(
     tilesets: RenderTileset[],
     options: Pick<
       CampusGameOptions,
-      "movement" | "onMoveCorrected" | "onZoomChanged" | "readPresence"
+      | "movement"
+      | "onMoveCorrected"
+      | "onEntryRefused"
+      | "onZoomChanged"
+      | "readPresence"
     >,
   ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
@@ -231,12 +240,21 @@ export function createCampusRuntime(
           layers: prepared.bands.below,
         }),
       );
+      const locks = addLockLayers(k, {
+        map: prepared.map,
+        readPresence: avatarOptions.readPresence,
+        spaces: prepared.layout.spaces,
+      });
+      mount.objects.push(locks.floor);
       mount.objects.push(
         addAvatarLayer(k, {
           camera,
           layout: prepared.layout,
           map: prepared.map,
           movement,
+          onOwnMovement: (own) => {
+            mount.stepInto = own.stepInto;
+          },
           ...avatarOptions,
         }),
       );
@@ -248,6 +266,7 @@ export function createCampusRuntime(
           onDraw: () => resolve(),
         }),
       );
+      mount.objects.push(locks.plates);
     });
   }
 
@@ -297,7 +316,10 @@ export function createCampusRuntime(
         await drawMap(runtimeContext, mount, prepared, tilesets, options);
         if (mount.renderError) throw mount.renderError;
         mount.ready = true;
-        return { stop: () => stop(mount) };
+        return {
+          stop: () => stop(mount),
+          stepInto: (spaceKey) => mount.stepInto?.(spaceKey) ?? false,
+        };
       } catch (error) {
         closeImages(images);
         stop(mount);

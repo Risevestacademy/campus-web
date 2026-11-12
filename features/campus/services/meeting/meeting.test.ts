@@ -37,6 +37,7 @@ function avatar(
     displayName,
     spriteKey: null,
     status: "available",
+    statusUntil: null,
     spaceKey,
   };
 }
@@ -84,9 +85,9 @@ function meetingWith(encounter: number, ...participantIds: string[]): Meeting {
     localParticipantId: "ada",
     participants: participantIds.map((id): MeetingParticipant => ({
       id,
-      initials: "?",
+      initial: "?",
       name: id,
-      tone: "cobalt",
+      avatarClassName: "bg-cobalt-300 text-cobalt-950",
     })),
   };
 }
@@ -109,15 +110,11 @@ describe("selectMeeting", () => {
     );
 
     expect(
-      meeting?.participants.map(({ id, name, initials }) => [
-        id,
-        name,
-        initials,
-      ]),
+      meeting?.participants.map(({ id, name, initial }) => [id, name, initial]),
     ).toEqual([
-      ["ada", "Ada Lovelace", "AL"],
-      ["lin", "Campus member", "?"],
-      ["grace", "Grace Hopper", "GH"],
+      ["ada", "Ada Lovelace", "A"],
+      ["lin", "Campus member", "C"],
+      ["grace", "Grace Hopper", "G"],
     ]);
     expect(meeting?.localParticipantId).toBe("ada");
     expect(meeting?.encounter).toBe(1);
@@ -137,7 +134,10 @@ describe("selectMeeting", () => {
   it("gives each person the same tone whatever order they came in", () => {
     const tonesOf = (meeting: Meeting | null) =>
       Object.fromEntries(
-        meeting?.participants.map(({ id, tone }) => [id, tone]) ?? [],
+        meeting?.participants.map(({ id, avatarClassName }) => [
+          id,
+          avatarClassName,
+        ]) ?? [],
       );
 
     const together = meetingAfter(

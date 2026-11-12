@@ -9,11 +9,14 @@ import {
 } from "react";
 import { useStore } from "zustand";
 
+import { presenceFor } from "@/core/presence";
 import { socialFor } from "@/core/realtime";
 import { type RefreshSession, useRefreshSession } from "@/core/session";
 import { replaceDocument } from "@/shared/lib/document-navigation";
 import { useMountEffect } from "@/shared/lib/use-mount-effect";
+import { toast } from "@/shared/ui/toast";
 
+import { showEntryAnswerToast } from "../../components/entry-answer-toast";
 import { createBrowserCallMediaSession } from "../call-media/browser-call-media-session";
 import { MediaSessionProvider } from "../media-session/media-session-provider";
 import { createMediaSessionStore } from "../media-session/media-session-store";
@@ -27,6 +30,7 @@ import {
   type AdmissionStore,
   createAdmissionStore,
 } from "./admission-store";
+import { answerEntryRequests } from "./answer-entry-requests";
 import { createBrowserPresenceTab } from "./browser-presence-tab";
 import { followPresenceTab } from "./follow-presence-tab";
 import {
@@ -86,7 +90,7 @@ function createPresenceSession(
     ),
     onMessage(message, presence) {
       callMedia.applyWorldMessage(message, presence);
-      announceWalkEnded(message, presence);
+      announceWalkEnded(message, presence, cohortId);
       announceWorldError(message);
     },
     onRemoteParticipantsCleared: callMedia.applyPresence,
@@ -116,8 +120,15 @@ export function PresenceSessionProvider({
       now: () => performance.now(),
       subscribeToActivity: subscribeToBrowserActivity,
     });
+    const stopAnswering = answerEntryRequests({
+      close: toast.close,
+      presence: presenceFor(cohortId),
+      show: showEntryAnswerToast,
+      social: socialFor(cohortId),
+    });
 
     return () => {
+      stopAnswering();
       stopReporting();
       close();
       stopFollowing();

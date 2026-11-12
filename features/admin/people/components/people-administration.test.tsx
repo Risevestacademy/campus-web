@@ -49,6 +49,7 @@ function avatar(userId: string, status: Avatar["status"]): Avatar {
     displayName: userId,
     spriteKey: null,
     status,
+    statusUntil: null,
     spaceKey: "_default",
   };
 }
@@ -229,9 +230,12 @@ describe("People page", () => {
     );
 
     act(() =>
-      presenceFor("people-cohort")
-        .getState()
-        .apply({ type: "statusChanged", userId: "ada", status: "busy" }),
+      presenceFor("people-cohort").getState().apply({
+        type: "statusChanged",
+        userId: "ada",
+        status: "busy",
+        until: null,
+      }),
     );
 
     expect(screen.getByText("Busy")).toBeInTheDocument();

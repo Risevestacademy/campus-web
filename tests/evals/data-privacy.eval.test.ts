@@ -247,6 +247,7 @@ const AVATAR_PATHS = [
   "spaceKey",
   "spriteKey",
   "status",
+  "statusUntil",
 ].sort();
 const SPACE_NAME_PATHS = ["name", "spaceKey"];
 
@@ -290,7 +291,7 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   replaced: ["type"],
   said: ["at", "id", "spaceKey", "text", "type", "userId"],
   spaceChanged: ["spaceKey", "type", "userId"],
-  statusChanged: ["status", "type", "userId"],
+  statusChanged: ["status", "type", "until", "userId"],
   snapshot: [
     "lockableSpaces[]",
     "lockedSpaces[]",
@@ -309,7 +310,13 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
     "until",
     "userId",
   ],
-  walkEnded: [...under("player", PLAYER_PATHS), "reason", "spaceKey", "type"],
+  walkEnded: [
+    "mayAsk",
+    ...under("player", PLAYER_PATHS),
+    "reason",
+    "spaceKey",
+    "type",
+  ],
   walking: [...under("player", PLAYER_PATHS), "type"],
   welcome: [
     "awayAfterSeconds",

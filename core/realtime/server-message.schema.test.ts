@@ -15,18 +15,6 @@ function frameText(value: unknown): string {
 
 const { mode: _mode, ...welcome } = serverFrames.welcome;
 
-// A player as the parser hands them on: their status's end time is unread.
-function withoutStatusEnd({
-  statusUntil: _statusUntil,
-  ...player
-}: (typeof serverFrames.joined)["player"]) {
-  return player;
-}
-const snapshot = {
-  ...serverFrames.snapshot,
-  players: serverFrames.snapshot.players.map(withoutStatusEnd),
-};
-const { until: _until, ...statusChanged } = serverFrames.statusChanged;
 const { userId: _lockedBy, ...lockChanged } = serverFrames.lockChanged;
 const {
   room: _room,
@@ -39,12 +27,6 @@ const {
 const framesAsRead = {
   ...serverFrames,
   welcome,
-  snapshot,
-  joined: {
-    ...serverFrames.joined,
-    player: withoutStatusEnd(serverFrames.joined.player),
-  },
-  statusChanged,
   lockChanged,
   call: { type: "call", call },
   nearby: serverFrames.nearby,
@@ -58,6 +40,7 @@ const framesAsRead = {
     reason: "refused",
     player: serverFrames.walkEnded.player,
     spaceKey: "library",
+    mayAsk: true,
   },
 } satisfies {
   [Type in ServerMessage["type"]]: Extract<ServerMessage, { type: Type }>;
@@ -163,7 +146,31 @@ describe("parseServerMessage", () => {
 
       expect(parseServerMessage(frameText(frame))).toEqual({
         ok: true,
-        message: { ...snapshot, spaces: [] },
+        message: { ...serverFrames.snapshot, spaces: [] },
+      });
+    },
+  );
+
+  it("keeps when a timed status ends", () => {
+    const frame = {
+      ...serverFrames.statusChanged,
+      until: "2026-10-30T09:30:00.000Z",
+    };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: frame,
+    });
+  });
+
+  it.each([["not a time"], [42]])(
+    "reads an end time of %j as a status that lasts",
+    (until) => {
+      const frame = { ...serverFrames.statusChanged, until };
+
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: true,
+        message: { ...serverFrames.statusChanged, until: null },
       });
     },
   );
@@ -254,6 +261,36 @@ describe("parseServerMessage", () => {
       message: frame,
     });
   });
+
+  it("reads a null broadcast call, which tells the member to leave the room", () => {
+    const frame = { type: "broadcast", call: null } as const;
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: frame,
+    });
+  });
+
+  it.each([
+    ["no token", { token: undefined }],
+    ["a numeric token", { token: 7 }],
+    ["no room", { room: undefined }],
+    ["a canSpeak that is not a boolean", { canSpeak: "yes" }],
+  ])(
+    "drops a broadcast with %s instead of reading it as leave-the-room",
+    (_case, overrides) => {
+      const frame = {
+        ...serverFrames.broadcast,
+        call: { ...serverFrames.broadcast.call, ...overrides },
+      };
+
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: false,
+        reason: "invalid",
+        type: "broadcast",
+      });
+    },
+  );
 
   it.each([
     ["a negative audible radius", { audibleRadius: -1 }],

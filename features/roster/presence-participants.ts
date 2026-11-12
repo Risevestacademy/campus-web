@@ -1,19 +1,14 @@
 import {
   DEFAULT_SPACE_KEY,
   type Participant as PresenceParticipant,
+  statusTimeLeft,
 } from "@/core/presence";
+import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 
 import type { DirectoryPerson } from "./schemas/directory.schema";
 import type { Participant, ParticipantStatus } from "./types";
 
 const UNNAMED_MEMBER = "Campus member";
-// Not success, error or warning: those are the status dots beside the avatar.
-export const AVATAR_TONES = [
-  "bg-info-200 text-info-900",
-  "bg-lemon-300 text-lemon-950",
-  "bg-cobalt-300 text-cobalt-950",
-  "bg-turquoise-300 text-turquoise-950",
-] as const;
 
 const STATUS_DETAILS: Record<ParticipantStatus, string> = {
   available: "Available",
@@ -21,36 +16,35 @@ const STATUS_DETAILS: Record<ParticipantStatus, string> = {
   away: "Away",
 };
 
-const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-
 function shownName(displayName: string | null): string {
   return displayName?.trim() || UNNAMED_MEMBER;
-}
-
-// The backend sends no avatar color, so a person's own ID picks theirs: the
-// same everywhere and every session, for the offline too.
-function toneOf(id: string): string {
-  let hash = 5381;
-  for (const char of id) hash = (hash * 33 + char.codePointAt(0)!) >>> 0;
-  return AVATAR_TONES[hash % AVATAR_TONES.length]!;
-}
-
-function initialOf(name: string): string {
-  const [first] = graphemes.segment(name);
-  return first?.segment.toLocaleUpperCase() ?? "?";
 }
 
 function statusOf({ status }: PresenceParticipant): ParticipantStatus {
   return status === "busy" || status === "away" ? status : "available";
 }
 
+function timedStatusOf(person: PresenceParticipant, now: number): string {
+  const status = STATUS_DETAILS[statusOf(person)];
+  const timeLeft = statusTimeLeft(person.statusUntil, now);
+  return timeLeft ? `${status} · ${timeLeft}` : status;
+}
+
 // The roster does not show room names yet, so a room is only said to be one.
-function detailOf(person: PresenceParticipant, selfId: string | null): string {
-  if (person.userId === selfId) return "You";
+function detailOf(
+  person: PresenceParticipant,
+  selfId: string | null,
+  now: number,
+): string {
   const status = statusOf(person);
+  if (person.userId === selfId) {
+    return status === "available"
+      ? "You"
+      : `You · ${timedStatusOf(person, now)}`;
+  }
   return status === "available" && person.spaceKey !== DEFAULT_SPACE_KEY
     ? "In a room"
-    : STATUS_DETAILS[status];
+    : timedStatusOf(person, now);
 }
 
 function rowOf(
@@ -64,7 +58,7 @@ function rowOf(
     id,
     name,
     initial: initialOf(name),
-    avatarClassName: toneOf(id),
+    avatarClassName: avatarToneOf(id),
     status,
     detail,
     isSelf: false,
@@ -78,6 +72,7 @@ export function toRosterParticipants(
   participants: ReadonlyMap<string, PresenceParticipant>,
   selfId: string | null,
   directory: readonly DirectoryPerson[] | undefined,
+  now: number = Date.now(),
 ): { online: Participant[]; offline: Participant[] | undefined } {
   const online = [...participants.values()].map((person) => {
     return {
@@ -85,7 +80,7 @@ export function toRosterParticipants(
         person.userId,
         person.displayName,
         statusOf(person),
-        detailOf(person, selfId),
+        detailOf(person, selfId, now),
       ),
       isSelf: person.userId === selfId,
     };

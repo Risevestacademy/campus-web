@@ -27,15 +27,15 @@ const meeting: Meeting = {
   participants: [
     {
       id: "participant-a",
-      initials: "A",
+      initial: "A",
       name: "Ada Lovelace",
-      tone: "cobalt",
+      avatarClassName: "bg-cobalt-300 text-cobalt-950",
     },
     {
       id: "participant-j",
-      initials: "J",
+      initial: "J",
       name: "James Baldwin",
-      tone: "lemon",
+      avatarClassName: "bg-lemon-300 text-lemon-950",
     },
   ],
 };
@@ -205,9 +205,9 @@ describe("MeetingViewControls", () => {
       localParticipantId: "Ada",
       participants: names.map((name): MeetingParticipant => ({
         id: name,
-        initials: name[0] ?? "?",
+        initial: name[0] ?? "?",
         name,
-        tone: "cobalt",
+        avatarClassName: "bg-cobalt-300 text-cobalt-950",
       })),
     };
     renderMeetingViewControls(crowd);
