@@ -32,17 +32,20 @@ describe("MeetingHeader", () => {
     renderHeader(lock);
 
     expect(screen.getByRole("heading", { name: "Room 1" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Lock Room 1" }));
+    const button = screen.getByRole("button", { name: "Lock Room 1" });
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(button).toHaveAttribute("data-surface-role", "surface-elevated");
+    fireEvent.click(button);
 
     expect(lock.toggle).toHaveBeenCalledOnce();
   });
 
-  it("shows a locked room as pressed, and offers to unlock it", () => {
+  it("shows a locked room as the same toggle, pressed", () => {
     renderHeader(lockOf({ locked: true }));
 
-    expect(
-      screen.getByRole("button", { name: "Unlock Room 1" }),
-    ).toHaveAttribute("aria-pressed", "true");
+    const button = screen.getByRole("button", { name: "Lock Room 1" });
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(button).not.toHaveAttribute("data-surface-role");
   });
 
   it("keeps the lock still until world is back", () => {
