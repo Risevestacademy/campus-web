@@ -148,6 +148,49 @@ describe("answerEntryRequests", () => {
     expect(session.close).toHaveBeenCalledWith("entry-answer-r1");
   });
 
+  it("shows the request again when the member steps back in", () => {
+    const session = start();
+    knock(session);
+
+    session.apply({ type: "spaceChanged", userId: "me", spaceKey: "_default" });
+    session.apply({ type: "spaceChanged", userId: "me", spaceKey: "room_1" });
+
+    expect(session.shown().map(({ id }) => id)).toEqual([
+      "entry-answer-r1",
+      "entry-answer-r1",
+    ]);
+  });
+
+  it("keeps a closed toast closed through leaving and returning", () => {
+    const session = start();
+    knock(session);
+    session.shown()[0]!.onClose();
+
+    session.apply({ type: "spaceChanged", userId: "me", spaceKey: "_default" });
+    session.apply({ type: "spaceChanged", userId: "me", spaceKey: "room_1" });
+
+    expect(session.shown()).toHaveLength(1);
+  });
+
+  it("keeps the toast open and says so when the answer cannot be sent", () => {
+    const session = start();
+    knock(session);
+    session.social.sendAnswerEntryRequest.mockReturnValueOnce(false);
+
+    session.shown()[0]!.onAnswer(true);
+
+    expect(session.close).not.toHaveBeenCalled();
+    expect(session.shown()).toEqual([
+      expect.objectContaining({ id: "entry-answer-r1", unsent: false }),
+      expect.objectContaining({ id: "entry-answer-r1", unsent: true }),
+    ]);
+
+    session.shown()[1]!.onAnswer(true);
+
+    expect(session.social.sendAnswerEntryRequest).toHaveBeenCalledTimes(2);
+    expect(session.close).toHaveBeenCalledWith("entry-answer-r1");
+  });
+
   it("never shows the member's own request", () => {
     const session = start("_default");
 

@@ -13,6 +13,8 @@ export interface EntryAnswerToast {
   id: string;
   onAnswer: (admit: boolean) => void;
   onClose: () => void;
+  // The last answer could not be sent, as while the socket is down.
+  unsent: boolean;
 }
 
 export interface AnswerPorts {
@@ -47,7 +49,9 @@ function answerable({
 
 // One toast per request the member can answer: world only sends them to
 // whoever may, and only while they stand in the space. A request that ends,
-// whoever answered it, or a step out of the space closes it quietly.
+// whoever answered it, or a step out of the space closes it quietly; stepping
+// back in while it is open shows it again. Only closing or answering it sets
+// it aside until it ends.
 export function answerEntryRequests({
   close,
   presence,
@@ -57,16 +61,45 @@ export function answerEntryRequests({
   const shown = new Set<string>();
   const setAside = new Set<string>();
 
-  function forget(requestId: string) {
+  function hide(requestId: string) {
     shown.delete(requestId);
-    setAside.add(requestId);
     close(toastIdOf(requestId));
+  }
+
+  function present(
+    { requestId, userId }: Presence["entryRequests"][number],
+    current: Presence,
+    unsent: boolean,
+  ) {
+    show({
+      askerId: userId,
+      askerName: firstNameOf(current.participants.get(userId)?.displayName),
+      id: toastIdOf(requestId),
+      onAnswer: (admit) => {
+        if (!shown.has(requestId)) return;
+        if (!social.sendAnswerEntryRequest(requestId, admit)) {
+          const request = presence
+            .getState()
+            .entryRequests.find((open) => open.requestId === requestId);
+          if (request) present(request, presence.getState(), true);
+          return;
+        }
+        setAside.add(requestId);
+        hide(requestId);
+      },
+      onClose: () => {
+        if (!shown.has(requestId)) return;
+        shown.delete(requestId);
+        setAside.add(requestId);
+      },
+      unsent,
+    });
   }
 
   function follow(current: Presence) {
     const open = answerable(current);
     for (const requestId of shown) {
-      if (!open.has(requestId)) forget(requestId);
+      if (!open.has(requestId)) hide(requestId);
     }
     for (const requestId of setAside) {
       if (!current.entryRequests.some((r) => r.requestId === requestId)) {
@@ -74,24 +107,11 @@ export function answerEntryRequests({
       }
     }
     for (const request of current.entryRequests) {
-      const { requestId, userId } = request;
+      const { requestId } = request;
       if (!open.has(requestId) || shown.has(requestId)) continue;
       if (setAside.has(requestId)) continue;
       shown.add(requestId);
-      show({
-        askerId: userId,
-        askerName: firstNameOf(current.participants.get(userId)?.displayName),
-        id: toastIdOf(requestId),
-        onAnswer: (admit) => {
-          social.sendAnswerEntryRequest(requestId, admit);
-          forget(requestId);
-        },
-        onClose: () => {
-          if (!shown.has(requestId)) return;
-          shown.delete(requestId);
-          setAside.add(requestId);
-        },
-      });
+      present(request, current, false);
     }
   }
 

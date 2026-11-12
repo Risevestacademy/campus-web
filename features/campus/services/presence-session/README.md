@@ -17,8 +17,10 @@ same cohort never starts one; see [Presence Tab](#presence-tab).
   the tab's status and world's outcomes. While mounted it reports activity
   to world (see [Activity](#activity)) and offers each request to enter the
   member's space as a toast (the first name, "Ada", over "is asking to enter") with Not now and Let in, on every page. A
-  request that ends, or a step out of the space, closes its toast quietly;
-  a closed one stays closed while its request is open. It needs the shared refresh port (`SessionRefreshProvider` from
+  request that ends, or a step out of the space, closes its toast quietly,
+  and stepping back in shows it again; a toast the member closed or answered
+  stays closed while its request is open. An answer that can't be sent keeps
+  the toast open and says so. It needs the shared refresh port (`SessionRefreshProvider` from
   auth, composed by the cohort layout).
 - `useAdmission(selector)`: `pendingDestination`, `admitted`, `grantEntry`,
   `completeEntry`, `clear`.

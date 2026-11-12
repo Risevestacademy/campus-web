@@ -11,11 +11,14 @@ export function showEntryAnswerToast({
   id,
   onAnswer,
   onClose,
+  unsent,
 }: EntryAnswerToast) {
   toast.add({
     id,
     title: askerName,
-    description: "is asking to enter",
+    description: unsent
+      ? "is asking to enter. Your answer wasn't sent: you're not connected"
+      : "is asking to enter",
     priority: "high",
     timeout: 0,
     onClose,
