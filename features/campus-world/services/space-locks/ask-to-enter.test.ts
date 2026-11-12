@@ -7,6 +7,7 @@ import type { Avatar, ServerMessage } from "@/core/realtime";
 
 import {
   ANSWER_WAIT_MS,
+  ASK_AGAIN_AFTER_S,
   type AskToEnterPorts,
   createAskToEnter,
   ENTRY_TOAST_ID,
@@ -64,7 +65,9 @@ function start({ sent = true, steps = true } = {}) {
   };
   const stepInto = vi.fn(() => steps);
   const show = vi.fn((_toast: Shown) => {});
+  const closeToast = vi.fn((_id: string) => {});
   const flow = createAskToEnter({
+    close: closeToast,
     presence,
     setTimer: (run) => {
       wait = run;
@@ -80,6 +83,7 @@ function start({ sent = true, steps = true } = {}) {
   return {
     apply: (frame: ServerMessage) => presence.getState().apply(frame),
     close: () => presence.getState().clearRemoteParticipants(),
+    closeToast,
     elapse: () => wait?.(),
     flow,
     lastToast: () => show.mock.lastCall![0],
@@ -144,6 +148,30 @@ describe("createAskToEnter", () => {
     expect(session.lastToast().timeout).toBeUndefined();
   });
 
+  it("only tells the member at a room that a step was refused but no lock keeps", () => {
+    const session = start();
+
+    session.flow.refused({ mayAsk: null, spaceKey: "library" });
+
+    expect(session.lastToast()).toMatchObject({
+      look: "refused",
+      title: "You can't enter library",
+    });
+    expect(session.lastToast().actions).toBeUndefined();
+    expect(session.lastToast().timeout).toBeUndefined();
+  });
+
+  it("offers to ask at an unlocked room when world says asking would be taken", () => {
+    const session = start();
+
+    session.flow.refused({ mayAsk: true, spaceKey: "library" });
+
+    expect(session.lastToast()).toMatchObject({
+      look: "refused",
+      actions: [{ label: "Ask to enter" }],
+    });
+  });
+
   it("asks, and waits to be let in", () => {
     const session = start();
 
@@ -188,7 +216,11 @@ describe("createAskToEnter", () => {
   });
 
   it.each([
-    ["declined", "Not let into Room 1", "You can ask again in 30 s"],
+    [
+      "declined",
+      "Not let into Room 1",
+      `You can ask again in ${ASK_AGAIN_AFTER_S} s`,
+    ],
     ["withdrawn", "Request withdrawn", "You can ask again any time"],
     ["walked_away", "Request ended", "You walked away from Room 1"],
     [
@@ -291,5 +323,82 @@ describe("createAskToEnter", () => {
     session.flow.refused({ mayAsk: null, spaceKey: "room_1" });
 
     expect(session.show).toHaveBeenCalledTimes(shown);
+  });
+
+  describe("when the map goes", () => {
+    it("closes the wait and withdraws the open request", () => {
+      const session = start();
+      askAtRoom(session);
+      echo(session);
+      const shown = session.show.mock.calls.length;
+
+      session.flow.stop();
+
+      expect(session.closeToast).toHaveBeenCalledExactlyOnceWith(
+        ENTRY_TOAST_ID,
+      );
+      expect(
+        session.social.sendWithdrawEntryRequest,
+      ).toHaveBeenCalledExactlyOnceWith("r1");
+      end(session, "withdrawn");
+      expect(session.show).toHaveBeenCalledTimes(shown);
+    });
+
+    it("withdraws a request world names after the map went", () => {
+      const session = start();
+      askAtRoom(session);
+
+      session.flow.stop();
+      expect(session.social.sendWithdrawEntryRequest).not.toHaveBeenCalled();
+      echo(session);
+
+      expect(
+        session.social.sendWithdrawEntryRequest,
+      ).toHaveBeenCalledExactlyOnceWith("r1");
+    });
+
+    it("stops waiting for world to name the request", () => {
+      const session = start();
+      askAtRoom(session);
+      session.flow.stop();
+
+      session.elapse();
+      echo(session);
+
+      expect(session.social.sendWithdrawEntryRequest).not.toHaveBeenCalled();
+    });
+
+    it("withdraws only once after the member already did", () => {
+      const session = start();
+      askAtRoom(session);
+      echo(session);
+      session.lastToast().actions![0]!.onClick();
+
+      session.flow.stop();
+
+      expect(session.social.sendWithdrawEntryRequest).toHaveBeenCalledOnce();
+    });
+
+    it("closes an offer to ask", () => {
+      const session = start();
+      session.flow.refused({ mayAsk: null, spaceKey: "room_1" });
+
+      session.flow.stop();
+
+      expect(session.closeToast).toHaveBeenCalledExactlyOnceWith(
+        ENTRY_TOAST_ID,
+      );
+    });
+
+    it("leaves a toast that times out on its own", () => {
+      const session = start();
+      askAtRoom(session);
+      echo(session);
+      end(session, "declined");
+
+      session.flow.stop();
+
+      expect(session.closeToast).not.toHaveBeenCalled();
+    });
   });
 });

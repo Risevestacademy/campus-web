@@ -6,6 +6,7 @@ import { ClockIcon } from "@phosphor-icons/react/dist/ssr/Clock";
 import { InfoIcon } from "@phosphor-icons/react/dist/ssr/Info";
 import { LockSimpleIcon } from "@phosphor-icons/react/dist/ssr/LockSimple";
 import { LockSimpleOpenIcon } from "@phosphor-icons/react/dist/ssr/LockSimpleOpen";
+import { ProhibitIcon } from "@phosphor-icons/react/dist/ssr/Prohibit";
 import { SignOutIcon } from "@phosphor-icons/react/dist/ssr/SignOut";
 import { UserMinusIcon } from "@phosphor-icons/react/dist/ssr/UserMinus";
 import { WifiSlashIcon } from "@phosphor-icons/react/dist/ssr/WifiSlash";
@@ -20,6 +21,7 @@ import type {
 
 const LOOKS: Record<EntryLook, { Icon: Icon; tone: ToastTileTone }> = {
   locked: { Icon: LockSimpleIcon, tone: "locked" },
+  refused: { Icon: ProhibitIcon, tone: "warning" },
   asking: { Icon: CircleNotchIcon, tone: "progress" },
   admitted: { Icon: CheckIcon, tone: "success" },
   declined: { Icon: ClockIcon, tone: "warning" },
@@ -55,11 +57,19 @@ export function showEntryToast({
           <Icon
             aria-hidden
             weight="bold"
-            className={look === "asking" ? "animate-spin" : undefined}
+            className={
+              look === "asking"
+                ? "animate-spin motion-reduce:animate-none"
+                : undefined
+            }
           />
         ),
         tone,
       },
     },
   });
+}
+
+export function closeEntryToast(id: string) {
+  toast.close(id);
 }

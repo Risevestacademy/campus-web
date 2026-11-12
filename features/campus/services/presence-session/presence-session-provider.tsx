@@ -86,7 +86,7 @@ function createPresenceSession(
     ),
     onMessage(message, presence) {
       callMedia.applyWorldMessage(message, presence);
-      announceWalkEnded(message);
+      announceWalkEnded(message, presence, cohortId);
       announceWorldError(message);
     },
     onRemoteParticipantsCleared: callMedia.applyPresence,
