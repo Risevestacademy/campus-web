@@ -126,6 +126,9 @@ browser media or `localStorage`.
 - A new joined page goes in a route group whose layout renders
   `PresenceSessionGate` and, unless it shows the map, `PresenceDock`.
 - Remote audio plays only from `RemoteAudioOutput`; tiles render video only.
+  A person's tile names them, shows whether their microphone is on, and glows
+  while the level meter hears them speak. It meters the microphone's track and
+  never plays it.
 - Load `livekit-client` only through `services/livekit/livekit-client.ts`.
 - The meeting view shows only whom world's `nearby` names. Never measure
   distance on the client to decide who is near.

@@ -385,8 +385,8 @@ function connectRoom(
   }
 
   // Mute events carry the base publication types; the room holds the remote
-  // ones, and a member's own mutes are never in it. Only a tile needs to know:
-  // an upsert re-attaches its element, which would clip a microphone's audio.
+  // ones, and a member's own mutes are never in it. A microphone's handover
+  // keeps its stream, so its audio element plays on undisturbed.
   function forwardMute(
     { trackSid }: TrackPublication,
     { identity }: Participant,
@@ -395,7 +395,7 @@ function connectRoom(
     const publication = participant?.trackPublications.get(trackSid);
     const owner =
       participant && publication && wantedOwnerOf(publication, participant);
-    if (owner && owner.source !== "microphone" && publication?.track)
+    if (owner && publication?.track)
       upsert(owner, publication.track, publication);
   }
 

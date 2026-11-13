@@ -201,6 +201,28 @@ describe("RemoteAudioOutput", () => {
     expect(sourceChanges).toEqual([]);
   });
 
+  it("keeps playing, undetached, when the microphone mutes and unmutes", () => {
+    const { publish, setGains, store } = connectedSession();
+    render(
+      <MediaSessionProvider store={store}>
+        <RemoteAudioOutput />
+      </MediaSessionProvider>,
+    );
+    const microphone = remoteMicrophone("participant-2");
+    act(() => {
+      setGains({ "participant-2": 1 });
+      publish(microphone);
+    });
+    const audio = screen.getByLabelText("participant-2 audio");
+    const sourceChanges = recordSourceChanges(audio);
+
+    act(() => publish({ ...microphone, enabled: false }));
+    act(() => publish(microphone));
+
+    expect(screen.getByLabelText("participant-2 audio")).toBe(audio);
+    expect(sourceChanges).toEqual([]);
+  });
+
   it("stops following the gain once the audio is removed", () => {
     const { publish, remove, setGains, store } = connectedSession();
     render(

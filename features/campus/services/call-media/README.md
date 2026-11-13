@@ -82,10 +82,10 @@ first video with its own clock, since only it knows when a camera was asked for.
   since the SFU may never unsubscribe it and no second event would fire.
 - The room's first subscribed camera reports first video once, timed from
   the moment that camera was asked for, with the member's own link quality.
-- A subscribed camera or screen that mutes or unmutes is handed over again with
-  `enabled` flipped, so a tile never freezes on its last frame. A microphone
-  is not: a handover re-attaches its element, which would clip the audio, so
-  its `enabled` holds the value from when it subscribed.
+- A subscribed camera, screen or microphone that mutes or unmutes is handed
+  over again with `enabled` flipped, so a tile never freezes on its last frame
+  and shows who is muted. The stream stays the same, so `useMediaElementRef`
+  never re-attaches a playing element for it.
 - It publishes copies of the member's microphone, camera and screen, each as
   its own source, never the store's track: LiveKit can stop a track it fails to
   publish. A device switch swaps the copy in place; turning off unpublishes
