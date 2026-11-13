@@ -91,6 +91,8 @@ export function joinedMember() {
   const heard = new Set<string>();
   const seen = new Set<string>();
   const leaveSession = session.connect({
+    onBroadcastPublicationChange: () => undefined,
+    onBroadcastSpeakingChange: () => undefined,
     onCameraPublishOutcome: () => undefined,
     onRemoteAudioGainsChange: () => undefined,
     onRemoteScreenSharesChange: (participantIds) => {

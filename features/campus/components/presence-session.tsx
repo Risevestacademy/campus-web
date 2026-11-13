@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 
+import { useBroadcastSpeakingFeedback } from "../hooks/use-broadcast-speaking-feedback";
 import { useCallAudioFeedback } from "../hooks/use-call-audio-feedback";
 import { useCameraPublishFeedback } from "../hooks/use-camera-publish-feedback";
 import { useScreenShareFeedback } from "../hooks/use-screen-share-feedback";
@@ -12,6 +13,7 @@ import { RemoteAudioOutput } from "./remote-audio-output";
 // several surfaces at once and must never grow to explain a failure.
 export function CallMediaFeedback() {
   useCallAudioFeedback();
+  useBroadcastSpeakingFeedback();
   useCameraPublishFeedback();
   useScreenShareFeedback();
   return null;

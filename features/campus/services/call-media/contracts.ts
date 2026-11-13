@@ -2,8 +2,10 @@ import type { Presence } from "@/core/presence";
 import type { ServerMessage } from "@/core/realtime";
 
 import type {
+  BroadcastPublicationChange,
   LocalPublicationChange,
   MeetingMediaTransport,
+  MeetingMediaTransportCallbacks,
   RemotePublicationChange,
   VideoDemand,
 } from "../media-session/contracts";
@@ -76,4 +78,49 @@ export interface CallMediaSession extends MeetingMediaTransport {
   applyWorldMessage(message: ServerMessage, presence: Presence): void;
   // Presence that changed without a frame, like a World close clearing it.
   applyPresence(presence: Presence): void;
+}
+
+// The space's call alone: the broadcast listener adds speaking.
+export type SpaceCallMediaSession = Omit<
+  CallMediaSession,
+  "setBroadcastSpeaking"
+>;
+
+export type BroadcastRoomEvents = Readonly<{
+  onDisconnected: () => void;
+  // Only microphones: the broadcast room carries nothing else.
+  onRemotePublicationChange: (change: BroadcastPublicationChange) => void;
+}>;
+
+export interface BroadcastRoomConnection {
+  // Safe to call more than once, including after onDisconnected.
+  disconnect(): Promise<void>;
+  // Microphone changes only: an admin's voice is all a broadcast carries.
+  // They settle in the order they were made.
+  handleLocalPublicationChange(change: LocalPublicationChange): Promise<void>;
+}
+
+export interface BroadcastRoomTransport {
+  // Same contract as MeetingRoomTransport.connect: rejects once `signal`
+  // aborts, and `disconnect` always settles.
+  connect(
+    access: Readonly<{ url: string; token: string }>,
+    events: BroadcastRoomEvents,
+    signal: AbortSignal,
+  ): Promise<BroadcastRoomConnection>;
+}
+
+export type BroadcastListenerCallbacks = Pick<
+  MeetingMediaTransportCallbacks,
+  "onBroadcastPublicationChange" | "onBroadcastSpeakingChange"
+>;
+
+export interface BroadcastListener {
+  applyWorldMessage(message: ServerMessage, presence: Presence): void;
+  applyPresence(presence: Presence): void;
+  // Returns the function that leaves the room and stops listening.
+  connect(callbacks: BroadcastListenerCallbacks): () => void;
+  // Every local change: only the microphone's reach the broadcast room.
+  handleLocalPublicationChange(change: LocalPublicationChange): void;
+  setSpeaking(speaking: boolean): void;
 }

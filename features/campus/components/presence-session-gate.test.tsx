@@ -42,6 +42,7 @@ function presenceGate(
       connect,
       handleLocalPublicationChange() {},
       retry() {},
+      setBroadcastSpeaking() {},
       setVideoDemand() {},
     },
   });

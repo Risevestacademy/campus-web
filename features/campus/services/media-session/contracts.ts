@@ -192,7 +192,36 @@ export type RemotePublicationChange =
       type: "removed";
     }>;
 
+// A microphone in the cohort's broadcast room, with the name World signed into
+// its speaker's token: they may not be in this cohort's presence.
+export type BroadcastPublication = RemoteMediaPublication &
+  Readonly<{ speakerName: string | null }>;
+
+export type BroadcastPublicationChange =
+  | Readonly<{ publication: BroadcastPublication; type: "upserted" }>
+  | Extract<RemotePublicationChange, { type: "removed" }>;
+
+// The broadcast's microphones by participant id.
+export type BroadcastPublications = Readonly<
+  Record<string, BroadcastPublication>
+>;
+
+// A muted speaker stays in the broadcast room but is not speaking.
+export function liveBroadcasts(
+  publications: BroadcastPublications,
+): readonly BroadcastPublication[] {
+  return Object.values(publications).filter(({ enabled }) => enabled);
+}
+
+// Whether the member's microphone is going out to the whole cohort: `failed`
+// when the broadcast room refused it, until the member tries again.
+export type BroadcastSpeaking = "off" | "on" | "failed";
+
 export type MeetingMediaTransportCallbacks = Readonly<{
+  // A microphone in the cohort's broadcast room: played over everything else,
+  // never muted, and never part of the meeting.
+  onBroadcastPublicationChange: (change: BroadcastPublicationChange) => void;
+  onBroadcastSpeakingChange: (speaking: BroadcastSpeaking) => void;
   // Whether the room refused the member's latest camera change; the call
   // itself carries on either way.
   onCameraPublishOutcome: (failed: boolean) => void;
@@ -216,6 +245,9 @@ export interface MeetingMediaTransport {
   // The member asked to try the call again after it became unavailable.
   // Called only while connected.
   retry(): void;
+  // The member, an admin, asked to speak to the whole cohort or to stop. Only
+  // the microphone goes out, and only while World says they may speak.
+  setBroadcastSpeaking(speaking: boolean): void;
   // Called whenever the tiles on screen change, connected or not; the latest
   // demand wins.
   setVideoDemand(demand: VideoDemand): void;

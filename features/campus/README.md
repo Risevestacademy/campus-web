@@ -77,6 +77,8 @@ not import those features.
 | `components/meeting-header.tsx`, `hooks/use-space-lock.ts`                                                                            | the header over the map: the meeting's people, the lock for a lockable space you stand in (alone too), and Open sidebar while the sidebar is closed                                                        | `socialFor`, `presenceFor`              |
 | `components/status-dock.tsx`, `status-tray.tsx`, `presence-menu-trigger.tsx`, `services/status-choice/`, `hooks/use-own-status.ts`    | the member's avatar on both docks and the tray it opens: Available, Busy or Away, optionally for a fixed time; sends `setStatus` and draws it at once                                                      | `socialFor`, `presenceFor`              |
 | `components/presence-dock.tsx`, `remote-audio-output.tsx`, `hooks/use-call-audio-feedback.ts`, `hooks/use-camera-publish-feedback.ts` | compact controls on non-map pages; one audio mix, one call-audio failure toast and one refused-camera toast per session                                                                                    | `useMediaSession`                       |
+| `components/broadcast-control.tsx`, `hooks/use-broadcast-speaking-feedback.ts`                                                        | an admin's Speak to everyone in the control bar and Presence Dock, and one refused-broadcast toast per session                                                                                             | `useMediaSession`, `presenceFor`        |
+| `components/broadcast-status.tsx`, `hooks/use-remote-audio-volume.ts`                                                                 | who is speaking in the cohort's broadcast, and the space call's ducked volume under it                                                                                                                     | `useMediaSession`, `presenceFor`        |
 | `components/screen-share-*.tsx`, `hooks/use-screen-capture-supported.ts`, `hooks/use-screen-share-feedback.ts`                        | Share screen in the control bar during a meeting with a call, Stop on the bar and Presence Dock, one screen-share toast per session                                                                        | `useMediaSession`, `useMeeting`         |
 | `services/meeting/`, `hooks/use-meeting.ts`, `components/meeting-overlay.tsx`                                                         | the meeting view's people and title from presence `meetingRoster`: order, names, initials, tones, caps, and which layout shows                                                                             | `useMeeting`                            |
 | `hooks/use-video-demand-ref.ts`, `components/meeting-tiles.tsx`                                                                       | remote tiles on screen ask for their participant's camera or screen at the layer their size needs                                                                                                          | `useVideoDemandRef`                     |
@@ -126,6 +128,10 @@ browser media or `localStorage`.
 - A new joined page goes in a route group whose layout renders
   `PresenceSessionGate` and, unless it shows the map, `PresenceDock`.
 - Remote audio plays only from `RemoteAudioOutput`; tiles render video only.
+  A broadcast plays there at full volume with no way to mute it, the space's
+  call drops to `BROADCAST_DUCKED_GAIN` underneath, and a broadcasting admin
+  is heard from the broadcast alone. `BroadcastStatus` says who is speaking,
+  over the control bar and on the Presence Dock.
   A person's tile names them, shows whether their microphone is on, and glows
   while the level meter hears them speak. It meters the microphone's track and
   never plays it.

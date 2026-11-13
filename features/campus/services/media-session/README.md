@@ -22,9 +22,12 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
   a restart in flight shares the prompt and refreshes the new session's catalog.
 - `connect()`: joins the transport after Admission. Idempotent; replays
   publications chosen on pre-join as `added`. `stop()` disconnects and resets
-  `callAudioStatus`, `remoteAudioGains` and `remotePublications`.
+  `callAudioStatus`, `remoteAudioGains`, `remotePublications` and
+  `broadcastPublications`.
 - `MeetingMediaTransport`: `connect(callbacks)` returns a disconnect function.
   The transport picks its own rooms and reports remote publication changes,
+  the broadcast room's microphones (`onBroadcastPublicationChange`, kept
+  apart from the meeting's in `broadcastPublications`),
   per-participant `remoteAudioGains` (0 to 1) and a safe `callAudioStatus`
   (`idle`, `connecting`, `connected`, `unavailable`); no room, URL or token
   reaches the store. `handleLocalPublicationChange` is called only while
@@ -45,6 +48,12 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
   tile reads, so that tile cannot outlive the share.
 - `remoteScreenShares`: who in the roster is sharing, subscribed or not, so a
   tile can mount and ask for the screen.
+- `toggleBroadcastSpeaking()`: an admin starts or stops speaking to the whole
+  cohort (`transport.setBroadcastSpeaking`). Starting turns the microphone on
+  first if it is off, so the member's permission and device choice apply, and
+  resolves to the microphone's failure if there is one. It does nothing until
+  `connect`. `broadcastSpeaking` (`off`, `on`, `failed`) is what the transport
+  reports, and `stop()` resets it.
 
 Tests inject a store through `MediaSessionProvider`.
 

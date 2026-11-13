@@ -82,6 +82,7 @@ function renderTiles(
       },
       handleLocalPublicationChange() {},
       retry() {},
+      setBroadcastSpeaking() {},
       setVideoDemand,
     },
   });

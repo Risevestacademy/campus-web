@@ -1,14 +1,10 @@
 import type {
-  LocalTrack,
-  LocalTrackPublication,
   Participant,
   RemoteParticipant,
   RemoteTrack,
   RemoteTrackPublication,
   Room,
-  Track,
   TrackPublication,
-  TrackPublishOptions,
 } from "livekit-client";
 
 import { parseParticipantId } from "../../schemas/livekit-participant.schema";
@@ -31,8 +27,13 @@ import {
   type MeetingRoomConnection,
   type MeetingRoomEvents,
   type MeetingRoomTransport,
-  RoomAccessDeniedError,
 } from "./contracts";
+import { localTrackPublisher } from "./livekit-local-track-publisher";
+import {
+  CONNECT_OPTIONS,
+  joinFailure,
+  untilAborted,
+} from "./livekit-room-join";
 
 export type LivekitRoomModule = Pick<
   LivekitClient,
@@ -44,8 +45,6 @@ export type LivekitRoomModule = Pick<
   | "Track"
   | "VideoQuality"
 >;
-
-const CONNECT_OPTIONS = { autoSubscribe: false, maxRetries: 3 };
 
 // Publishers stop encoding the camera layers nobody subscribes to.
 const ROOM_OPTIONS = { dynacast: true };
@@ -72,108 +71,6 @@ function remotePublicationOf(
     source,
     stream: track.mediaStream ?? new MediaStream([track.mediaStreamTrack]),
     track: track.mediaStreamTrack,
-  };
-}
-
-// Publishes copies: LiveKit may stop a track it fails to publish, and the
-// member's own track must outlive the room. Changes run in order, and any
-// still queued at close never clone.
-function localTrackPublisher(
-  room: Room,
-  source: Track.Source,
-  publishOptions: Readonly<TrackPublishOptions> = {},
-) {
-  const copies = new Set<MediaStreamTrack>();
-  let published:
-    | Readonly<{ copy: MediaStreamTrack; publication: LocalTrackPublication }>
-    | undefined;
-  let pending = Promise.resolve();
-  let closed = false;
-
-  function copyOf(track: MediaStreamTrack) {
-    const copy = track.clone();
-    // A hint that did not survive the clone would soften a shared screen's text.
-    copy.contentHint = track.contentHint;
-    copies.add(copy);
-    return copy;
-  }
-
-  function stopCopy(copy: MediaStreamTrack) {
-    copy.stop();
-    copies.delete(copy);
-  }
-
-  // A copy LiveKit never took would run until close().
-  async function withCopy(
-    track: MediaStreamTrack,
-    handOver: (copy: MediaStreamTrack) => Promise<void>,
-  ) {
-    const copy = copyOf(track);
-    try {
-      await handOver(copy);
-    } catch (error) {
-      stopCopy(copy);
-      throw error;
-    }
-  }
-
-  function publish(track: MediaStreamTrack) {
-    return withCopy(track, async (copy) => {
-      const publication = await room.localParticipant.publishTrack(copy, {
-        ...publishOptions,
-        source,
-      });
-      published = { copy, publication };
-    });
-  }
-
-  function replace(track: MediaStreamTrack) {
-    const current = published;
-    const localTrack = current?.publication.track;
-    if (!current || !localTrack) return publish(track);
-    return withCopy(track, async (copy) => {
-      try {
-        await localTrack.replaceTrack(copy, true);
-      } catch (error) {
-        // The member switched away from this device, so it must not keep
-        // sending. LiveKit finds a bare MediaStreamTrack by identity, which a
-        // partial swap can break, so name its own track.
-        await unpublish(localTrack);
-        throw error;
-      }
-      stopCopy(current.copy);
-      published = { ...current, copy };
-    });
-  }
-
-  async function unpublish(localTrack?: LocalTrack) {
-    if (!published) return;
-    const { copy } = published;
-    published = undefined;
-    try {
-      await room.localParticipant.unpublishTrack(localTrack ?? copy, false);
-    } finally {
-      stopCopy(copy);
-    }
-  }
-
-  function apply(change: LocalPublicationChange) {
-    if (closed) return;
-    if (change.type === "added") return publish(change.publication.track);
-    if (change.type === "replaced") return replace(change.publication.track);
-    return unpublish();
-  }
-
-  return {
-    handle(change: LocalPublicationChange) {
-      const applied = pending.then(() => apply(change));
-      pending = applied.catch(() => undefined);
-      return applied;
-    },
-    close() {
-      closed = true;
-      for (const copy of copies) stopCopy(copy);
-    },
   };
 }
 
@@ -471,27 +368,6 @@ function connectRoom(
     handleLocalPublicationChange,
   };
   return { connection, grantAudience };
-}
-
-function untilAborted<T>(work: Promise<T>, signal: AbortSignal) {
-  return new Promise<T>((resolve, reject) => {
-    signal.throwIfAborted();
-    const abort = () => reject(signal.reason);
-    signal.addEventListener("abort", abort, { once: true });
-    work
-      .then(resolve, reject)
-      .finally(() => signal.removeEventListener("abort", abort));
-  });
-}
-
-function joinFailure(
-  { ConnectionError, ConnectionErrorReason }: LivekitRoomModule,
-  error: unknown,
-) {
-  return error instanceof ConnectionError &&
-    error.reason === ConnectionErrorReason.NotAllowed
-    ? new RoomAccessDeniedError(error.message)
-    : error;
 }
 
 export function createLivekitMeetingRoomTransport(

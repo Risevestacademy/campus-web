@@ -3,8 +3,13 @@ import { captureBrowserAnalyticsEvent } from "@/core/analytics/client";
 import { ANALYTICS_EVENTS } from "@/core/analytics/events";
 
 import { pinMediaUrl, readMediaOrigin } from "../connection-check/media-origin";
+import {
+  createBroadcastListener,
+  withBroadcastListener,
+} from "./broadcast-listener";
 import { createCallMediaSession } from "./call-media-session";
 import type { CallMediaSession } from "./contracts";
+import { createLivekitBroadcastRoomTransport } from "./livekit-broadcast-room-transport";
 import { createLivekitMeetingRoomTransport } from "./livekit-meeting-room-transport";
 
 // Reads the origin per call: an invalid NEXT_PUBLIC_MEDIA_URL then fails the
@@ -17,7 +22,7 @@ function pinToMediaOrigin(url: string) {
 export function createBrowserCallMediaSession(
   refreshCall: () => boolean,
 ): CallMediaSession {
-  return createCallMediaSession({
+  const callMedia = createCallMediaSession({
     now: () => performance.now(),
     pinMediaUrl: pinToMediaOrigin,
     recordFirstAudioMilliseconds: (firstAudioMilliseconds, hearing) =>
@@ -49,4 +54,11 @@ export function createBrowserCallMediaSession(
     refreshCall,
     roomTransport: createLivekitMeetingRoomTransport(),
   });
+  return withBroadcastListener(
+    callMedia,
+    createBroadcastListener({
+      pinMediaUrl: pinToMediaOrigin,
+      roomTransport: createLivekitBroadcastRoomTransport(),
+    }),
+  );
 }

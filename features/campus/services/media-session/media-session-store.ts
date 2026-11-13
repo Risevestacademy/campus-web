@@ -2,6 +2,9 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 
 import type {
   AudioOutputState,
+  BroadcastPublicationChange,
+  BroadcastPublications,
+  BroadcastSpeaking,
   CallAudioStatus,
   CaptureSource,
   CaptureSourceState,
@@ -54,6 +57,9 @@ type DeviceRequest = Readonly<{
 }>;
 
 export type MediaSessionState = Readonly<{
+  broadcastPublications: BroadcastPublications;
+  // Whether the member's microphone is going out in the broadcast room.
+  broadcastSpeaking: BroadcastSpeaking;
   camera: CaptureSourceState;
   // The call refused the member's latest camera change.
   cameraPublishFailed: boolean;
@@ -89,6 +95,10 @@ export type MediaSessionState = Readonly<{
   stop: () => void;
   // Call it from the member's click: the browser opens its picker only then.
   toggleScreenShare: () => void;
+  // An admin's broadcast: turns the microphone on first if it is off, so the
+  // member's permission and device choice apply. Resolves to the
+  // microphone's failure, if any.
+  toggleBroadcastSpeaking: () => MediaActionFailure;
   toggleSource: (source: CaptureSource) => MediaActionFailure;
 }>;
 
@@ -297,6 +307,27 @@ export function createMediaSessionStore(
               )
             : removeRemotePublication(state.remotePublications, change),
       }));
+    }
+
+    function applyBroadcastPublicationChange(
+      change: BroadcastPublicationChange,
+    ) {
+      set(({ broadcastPublications }) => {
+        if (change.type === "upserted") {
+          const { participantId } = change.publication;
+          return {
+            broadcastPublications: {
+              ...broadcastPublications,
+              [participantId]: change.publication,
+            },
+          };
+        }
+        const { [change.participantId]: removed, ...others } =
+          broadcastPublications;
+        return removed?.publicationId === change.publicationId
+          ? { broadcastPublications: others }
+          : {};
+      });
     }
 
     function updateSource(
@@ -623,6 +654,8 @@ export function createMediaSessionStore(
     }
 
     return {
+      broadcastPublications: {},
+      broadcastSpeaking: "off",
       camera: createInitialCaptureState(false),
       cameraPublishFailed: false,
       callAudioStatus: "idle",
@@ -670,6 +703,9 @@ export function createMediaSessionStore(
         if (disconnectTransport) return;
 
         disconnectTransport = transport.connect({
+          onBroadcastPublicationChange: applyBroadcastPublicationChange,
+          onBroadcastSpeakingChange: (broadcastSpeaking) =>
+            set({ broadcastSpeaking }),
           onCameraPublishOutcome: (cameraPublishFailed) =>
             set({ cameraPublishFailed }),
           onRemoteAudioGainsChange: (remoteAudioGains) =>
@@ -809,12 +845,32 @@ export function createMediaSessionStore(
             false,
             devicePreferences.microphoneDeviceId,
           ),
+          broadcastPublications: {},
+          broadcastSpeaking: "off",
           callAudioStatus: "idle",
           cameraPublishFailed: false,
           remoteAudioGains: {},
           remotePublications: {},
           remoteScreenShares: NOBODY_SHARING,
         });
+      },
+      async toggleBroadcastSpeaking() {
+        const isConnected = () => disconnectTransport !== undefined;
+        if (!isConnected()) return null;
+        if (get().broadcastSpeaking === "on") {
+          transport.setBroadcastSpeaking(false);
+          return null;
+        }
+        if (!get().microphone.desiredEnabled) {
+          const failure = await get().toggleSource("microphone");
+          if (failure) return failure;
+        }
+        // A microphone still being asked for, or a session that ended
+        // meanwhile, starts nothing: the member presses again.
+        if (isConnected() && get().localPublications.microphone) {
+          transport.setBroadcastSpeaking(true);
+        }
+        return null;
       },
       toggleScreenShare() {
         if (disconnectTransport) screenShare.toggle();

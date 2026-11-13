@@ -100,6 +100,7 @@ export function createCountingMediaSession() {
     },
     handleLocalPublicationChange() {},
     retry() {},
+    setBroadcastSpeaking() {},
     setVideoDemand() {},
   };
 

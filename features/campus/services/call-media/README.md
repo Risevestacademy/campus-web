@@ -25,6 +25,10 @@ session.applyWorldMessage(message, presence); // every parsed World frame
 session.applyPresence(presence); // presence that changed without a frame
 ```
 
+The production session is `withBroadcastListener(callMedia, listener)`: the
+space's call and the cohort's broadcast room, fed the same frames and
+connected and disconnected together.
+
 The Presence Session uses `createBrowserCallMediaSession()`, which binds
 `pinMediaUrl` to `NEXT_PUBLIC_MEDIA_URL`, `now` to `performance.now`, first
 audio, first video and screen shares to PostHog, `refreshCall` to `world.rejoin()`, and the
@@ -51,11 +55,15 @@ first video with its own clock, since only it knows when a camera was asked for.
 
 ## Modules
 
-| Module                              | Owns                                                      |
-| ----------------------------------- | --------------------------------------------------------- |
-| `call-media-session.ts`             | call lifecycle, subscription policy, gain, status, timing |
-| `livekit-meeting-room-transport.ts` | one LiveKit `Room` as a `MeetingRoomConnection`           |
-| `browser-call-media-session.ts`     | production composition: media host pin, clock, analytics  |
+| Module                                | Owns                                                       |
+| ------------------------------------- | ---------------------------------------------------------- |
+| `call-media-session.ts`               | call lifecycle, subscription policy, gain, status, timing  |
+| `livekit-meeting-room-transport.ts`   | one LiveKit `Room` as a `MeetingRoomConnection`            |
+| `broadcast-listener.ts`               | the broadcast room's lifecycle beside the space's call     |
+| `livekit-broadcast-room-transport.ts` | the broadcast `Room`: every microphone, and an admin's own |
+| `livekit-local-track-publisher.ts`    | publishing copies of the member's tracks, in order         |
+| `livekit-room-join.ts`                | join options, abortable joins, a refused grant             |
+| `browser-call-media-session.ts`       | production composition: media host pin, clock, analytics   |
 
 ## LiveKit adapter
 
@@ -100,6 +108,68 @@ first video with its own clock, since only it knows when a camera was asked for.
   `disconnect` always settles, stops every copy, and reports no drop.
   Microphone and camera changes still queued then never clone.
 - `livekit-client` loads only through `services/livekit/livekit-client.ts`.
+
+## Broadcast
+
+World sends `broadcast` after each snapshot (`docs/world-protocol.md`,
+"Broadcast"). `createBroadcastListener` joins `call.url` (pinned like a space's
+call) with `call.token`, beside the space's call, and stays in it while the
+member walks: no other frame touches it.
+
+- A new `broadcast` leaves the room and joins again with its token, even for
+  the same room, since World revokes the old token when a role changes. The
+  old room finishes leaving first; a join a newer broadcast overtook is aborted
+  and whatever it returns is left.
+- `null` leaves. So does presence whose `broadcast` a closed socket cleared
+  (`applyPresence`); World sends it again after the next snapshot. The web
+  never watches, so there is no watching case.
+- A join that fails or a room that drops on its own clears what it carried
+  and stays out until World's next `broadcast`. It never touches
+  `callAudioStatus`: the space's call is fine.
+- The adapter joins with `autoSubscribe: false` and subscribes the microphone
+  of every identity World named (`<userId>:<anything>`), already in the room
+  or published later. Cameras, screens and anything else stay unsubscribed.
+- Microphones reach `onBroadcastPublicationChange`, which the media store keeps
+  in `broadcastPublications`, never in the meeting's `remotePublications`, so
+  no tile, roster or video demand sees them. Who has an unmuted one there is
+  who is speaking: World says a broadcast is on while an audio track is
+  published, but a speaker may mute without unpublishing, so a mute or unmute
+  hands the microphone over again with `enabled` current. `liveBroadcasts`
+  skips muted ones, for the status and for ducking alike.
+  Each carries `speakerName`, the display name World signed into the
+  speaker's token (`parseParticipantName`: trimmed, 1 to 100 characters, else
+  `null`). `BroadcastStatus` prefers presence's name, then this one (an admin
+  outside the cohort is in no presence), then "An admin".
+- The token stays inside the listener, as a space's call's does.
+
+### Speaking
+
+An admin's microphone, and only the microphone, goes out in the broadcast room
+while three things hold: the member asked (`setBroadcastSpeaking(true)`), the
+latest `broadcast` says `canSpeak`, and their microphone is on. Losing any of
+them ends the broadcast, and the member asks again to start over.
+
+- It publishes a copy of the member's own microphone, like a space's call: the
+  same device, swapped in place on a device switch. Cameras and screens never
+  reach this room; World's token refuses them too.
+- The microphone goes out as soon as the room is joined, since a token that may
+  speak is only good for joining within a minute. A fresh `broadcast` that may
+  still speak carries on in the new room; between leaving the old room and
+  joining the new one, nothing goes out, though the member still shows as
+  speaking.
+- Losing the room ends it as `failed`: a drop, or a fresh `broadcast` whose room
+  cannot be joined or whose host cannot be pinned. With no room joined or
+  joining, asking to speak reports `failed` at once, until World's next
+  `broadcast` brings one.
+- A `broadcast` with `canSpeak: false` ends it, and leaving the old room takes
+  the microphone down. So do `null`, a closed socket, turning the microphone
+  off, and the end of the session.
+- `onBroadcastSpeakingChange` reports `on`, `off`, or `failed` when the room
+  refused the microphone or was lost. The store keeps it as `broadcastSpeaking`;
+  `useBroadcastSpeakingFeedback` warns "Your voice isn't reaching everyone"
+  until it changes.
+- Another admin speaking at the same time is heard as usual: several may speak
+  at once.
 
 ## Rules
 
