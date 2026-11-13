@@ -616,6 +616,81 @@ describe("speaking in a broadcast", () => {
     expect(harness.roomAt(0).connection.disconnect).toHaveBeenCalledOnce();
   });
 
+  it("fails the broadcast when its room drops, and refuses to start without one", async () => {
+    const { listener, roomAt, rooms, sent, speaking } = await speakingAdmin();
+    listener.setSpeaking(true);
+    await settle();
+
+    roomAt(0).events.onDisconnected();
+    await settle();
+    expect(speaking).toEqual(["on", "failed"]);
+
+    listener.setSpeaking(true);
+    await settle();
+    expect(speaking).toEqual(["on", "failed"]);
+    expect(sent).toEqual(["added:mic-1@speak-token"]);
+    expect(rooms).toHaveLength(1);
+  });
+
+  it("speaks again once World's next broadcast joins a room", async () => {
+    const { listener, receive, roomAt, sent, speaking } = await speakingAdmin();
+    listener.setSpeaking(true);
+    await settle();
+    roomAt(0).events.onDisconnected();
+    await settle();
+
+    receive(speakingBroadcast("fresh-token"));
+    listener.setSpeaking(true);
+    await settle();
+
+    expect(speaking).toEqual(["on", "failed", "on"]);
+    expect(sent).toEqual([
+      "added:mic-1@speak-token",
+      "added:mic-1@fresh-token",
+    ]);
+  });
+
+  it("fails the broadcast when a fresh token's room cannot be joined", async () => {
+    let fail = false;
+    const { listener, receive, speaking } = await speakingAdmin({
+      join: async () => {
+        if (fail) throw new Error("server unreachable");
+      },
+    });
+    listener.setSpeaking(true);
+    await settle();
+
+    fail = true;
+    receive(speakingBroadcast("fresh-token"));
+    await settle();
+
+    expect(speaking).toEqual(["on", "failed"]);
+  });
+
+  it("fails the broadcast when a fresh token's host cannot be pinned", async () => {
+    const { listener, receive, speaking } = await speakingAdmin({
+      pinMediaUrl: (url) => (url.includes("unknown") ? undefined : url),
+    });
+    listener.setSpeaking(true);
+    await settle();
+
+    const fresh = speakingBroadcast("fresh-token");
+    if (!fresh.call) throw new Error("A speaking broadcast carries a call.");
+    receive({ ...fresh, call: { ...fresh.call, url: "wss://unknown.test" } });
+    await settle();
+
+    expect(speaking).toEqual(["on", "failed"]);
+  });
+
+  it("reports nothing when a room is lost while the member is not speaking", async () => {
+    const { roomAt, speaking } = await speakingAdmin();
+
+    roomAt(0).events.onDisconnected();
+    await settle();
+
+    expect(speaking).toEqual([]);
+  });
+
   it("ends the broadcast when the media session disconnects", async () => {
     const harness = setup();
     const disconnect = harness.listener.connect(harness.callbacks);

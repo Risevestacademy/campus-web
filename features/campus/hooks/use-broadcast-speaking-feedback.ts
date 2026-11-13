@@ -13,7 +13,8 @@ function closeBroadcastSpeakingFeedback() {
 // going out to the cohort.
 function showRefusedBroadcast() {
   toast.add({
-    description: "Press the megaphone to try again.",
+    // After a drop no room takes it until World's next broadcast.
+    description: "Try again in a moment.",
     id: BROADCAST_SPEAKING_TOAST_ID,
     priority: "high",
     timeout: 0,

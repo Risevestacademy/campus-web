@@ -154,12 +154,18 @@ them ends the broadcast, and the member asks again to start over.
   reach this room; World's token refuses them too.
 - The microphone goes out as soon as the room is joined, since a token that may
   speak is only good for joining within a minute. A fresh `broadcast` that may
-  still speak carries on in the new room.
+  still speak carries on in the new room; between leaving the old room and
+  joining the new one, nothing goes out, though the member still shows as
+  speaking.
+- Losing the room ends it as `failed`: a drop, or a fresh `broadcast` whose room
+  cannot be joined or whose host cannot be pinned. With no room joined or
+  joining, asking to speak reports `failed` at once, until World's next
+  `broadcast` brings one.
 - A `broadcast` with `canSpeak: false` ends it, and leaving the old room takes
   the microphone down. So do `null`, a closed socket, turning the microphone
   off, and the end of the session.
 - `onBroadcastSpeakingChange` reports `on`, `off`, or `failed` when the room
-  refused the microphone. The store keeps it as `broadcastSpeaking`;
+  refused the microphone or was lost. The store keeps it as `broadcastSpeaking`;
   `useBroadcastSpeakingFeedback` warns "Your voice isn't reaching everyone"
   until it changes.
 - Another admin speaking at the same time is heard as usual: several may speak

@@ -41,6 +41,8 @@ function removalOf(microphone: LocalMediaPublication): LocalPublicationChange {
 // An admin may speak in it: their microphone, and nothing else, goes out
 // while they ask to, World says they may (`canSpeak`), and the microphone is
 // on. Losing any of those ends it; the member asks again to start over.
+// Losing the room ends it too, as `failed`, since the member did not choose
+// it: a drop, or a join that fails or cannot be pinned.
 export function createBroadcastListener(
   options: BroadcastListenerOptions,
 ): BroadcastListener {
@@ -52,6 +54,9 @@ export function createBroadcastListener(
   let microphone: LocalMediaPublication | undefined;
   let wantsToSpeak = false;
   let speaking: BroadcastSpeaking = "off";
+  // From asking for a room until it joins or fails. Speaking may start then,
+  // and the microphone goes out once the room is in.
+  let awaitingRoom = false;
   // Bumped whenever the current room ends; async work from an older
   // generation is stale and must not touch state or callbacks.
   let roomGeneration = 0;
@@ -98,6 +103,11 @@ export function createBroadcastListener(
     report(outcome);
   }
 
+  function loseRoom() {
+    awaitingRoom = false;
+    if (wantsToSpeak) stopSpeaking("failed");
+  }
+
   function forward(change: BroadcastPublicationChange) {
     if (change.type === "upserted") {
       const { participantId, publicationId } = change.publication;
@@ -130,7 +140,10 @@ export function createBroadcastListener(
   async function join(call: BroadcastCall, stepGeneration: number) {
     if (!isCurrent(stepGeneration)) return;
     const url = options.pinMediaUrl(call.url);
-    if (!url) return;
+    if (!url) {
+      loseRoom();
+      return;
+    }
 
     const controller = new AbortController();
     pendingJoin = controller;
@@ -140,7 +153,9 @@ export function createBroadcastListener(
         { url, token: call.token },
         {
           onDisconnected: () => {
-            if (isCurrent(stepGeneration)) closeRoom();
+            if (!isCurrent(stepGeneration)) return;
+            closeRoom();
+            loseRoom();
           },
           onRemotePublicationChange: (change) => {
             if (isCurrent(stepGeneration)) forward(change);
@@ -148,6 +163,9 @@ export function createBroadcastListener(
         },
         controller.signal,
       );
+    } catch (error) {
+      if (isCurrent(stepGeneration)) loseRoom();
+      throw error;
     } finally {
       if (pendingJoin === controller) pendingJoin = undefined;
     }
@@ -157,6 +175,7 @@ export function createBroadcastListener(
       return;
     }
     active = connection;
+    awaitingRoom = false;
     // The token that may speak is only good for joining within a minute, so
     // the microphone goes out as soon as the room is joined.
     if (isPublishing() && microphone) {
@@ -168,6 +187,7 @@ export function createBroadcastListener(
     if (!latestCall) return;
     const call = latestCall;
     closeRoom();
+    awaitingRoom = true;
     const stepGeneration = roomGeneration;
     enqueue(() => join(call, stepGeneration));
   }
@@ -175,6 +195,7 @@ export function createBroadcastListener(
   function leave() {
     stopSpeaking("off");
     latestCall = undefined;
+    awaitingRoom = false;
     closeRoom();
   }
 
@@ -183,7 +204,8 @@ export function createBroadcastListener(
       report("off");
       return;
     }
-    if (!microphone) {
+    // Without a room, nothing would go out until World's next broadcast.
+    if (!microphone || (!active && !awaitingRoom)) {
       report("failed");
       return;
     }
@@ -235,6 +257,7 @@ export function createBroadcastListener(
         wantsToSpeak = false;
         report("off");
         microphone = undefined;
+        awaitingRoom = false;
         closeRoom();
         callbacks = undefined;
       };
