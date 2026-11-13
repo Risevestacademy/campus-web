@@ -180,6 +180,11 @@ initialized`. The runtime moves its one canvas between containers, clears
   `facing`, a ring for you) until character art exists. Once world has
   placed you, the camera follows your drawn, predicted position each frame,
   clamped to the map, so it never waits for world's answer.
+- A `positionCorrected` frame (a new map put your tile inside a wall) snaps
+  the avatar to the tile world chose: no animation, the steps predicted from
+  the old tile dropped, the refused tiles learned on the old map forgotten, and
+  the camera brought back to you once, as a walk's start does. Sequence
+  numbers carry on. Others see the move as `moved`.
 - A link that names a space (`?goToSpace=` on the map's URL, from a room link)
   mounts `WalkOnArrival`: it sends `goToSpace` once world is ready, then drops
   the parameter so a reload does not walk again.

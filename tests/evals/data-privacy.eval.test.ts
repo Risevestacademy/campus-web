@@ -287,7 +287,7 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   mapChanged: ["type"],
   watching: ["type"],
   notification: ["type"],
-  positionCorrected: ["type"],
+  positionCorrected: [...under("player", PLAYER_PATHS), "type"],
   replaced: ["type"],
   said: ["at", "id", "spaceKey", "text", "type", "userId"],
   spaceChanged: ["spaceKey", "type", "userId"],

@@ -21,7 +21,8 @@ export type WorldMovementMessage = Extract<
       | "moved"
       | "moveResult"
       | "walking"
-      | "walkEnded";
+      | "walkEnded"
+      | "positionCorrected";
   }
 >;
 
@@ -67,7 +68,8 @@ export function createWorldMovementChannel(): WorldMovementChannel {
         message.type === "moved" ||
         message.type === "moveResult" ||
         message.type === "walking" ||
-        message.type === "walkEnded"
+        message.type === "walkEnded" ||
+        message.type === "positionCorrected"
       ) {
         publish(message);
       }
