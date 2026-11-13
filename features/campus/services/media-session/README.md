@@ -22,9 +22,12 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
   a restart in flight shares the prompt and refreshes the new session's catalog.
 - `connect()`: joins the transport after Admission. Idempotent; replays
   publications chosen on pre-join as `added`. `stop()` disconnects and resets
-  `callAudioStatus`, `remoteAudioGains` and `remotePublications`.
+  `callAudioStatus`, `remoteAudioGains`, `remotePublications` and
+  `broadcastPublications`.
 - `MeetingMediaTransport`: `connect(callbacks)` returns a disconnect function.
   The transport picks its own rooms and reports remote publication changes,
+  the broadcast room's microphones (`onBroadcastPublicationChange`, kept
+  apart from the meeting's in `broadcastPublications`),
   per-participant `remoteAudioGains` (0 to 1) and a safe `callAudioStatus`
   (`idle`, `connecting`, `connected`, `unavailable`); no room, URL or token
   reaches the store. `handleLocalPublicationChange` is called only while

@@ -25,6 +25,10 @@ session.applyWorldMessage(message, presence); // every parsed World frame
 session.applyPresence(presence); // presence that changed without a frame
 ```
 
+The production session is `withBroadcastListener(callMedia, listener)`: the
+space's call and the cohort's broadcast room, fed the same frames and
+connected and disconnected together.
+
 The Presence Session uses `createBrowserCallMediaSession()`, which binds
 `pinMediaUrl` to `NEXT_PUBLIC_MEDIA_URL`, `now` to `performance.now`, first
 audio, first video and screen shares to PostHog, `refreshCall` to `world.rejoin()`, and the
@@ -51,11 +55,14 @@ first video with its own clock, since only it knows when a camera was asked for.
 
 ## Modules
 
-| Module                              | Owns                                                      |
-| ----------------------------------- | --------------------------------------------------------- |
-| `call-media-session.ts`             | call lifecycle, subscription policy, gain, status, timing |
-| `livekit-meeting-room-transport.ts` | one LiveKit `Room` as a `MeetingRoomConnection`           |
-| `browser-call-media-session.ts`     | production composition: media host pin, clock, analytics  |
+| Module                                | Owns                                                      |
+| ------------------------------------- | --------------------------------------------------------- |
+| `call-media-session.ts`               | call lifecycle, subscription policy, gain, status, timing |
+| `livekit-meeting-room-transport.ts`   | one LiveKit `Room` as a `MeetingRoomConnection`           |
+| `broadcast-listener.ts`               | the broadcast room's lifecycle beside the space's call    |
+| `livekit-broadcast-room-transport.ts` | the broadcast `Room`: listen to every microphone          |
+| `livekit-room-join.ts`                | join options, abortable joins, a refused grant            |
+| `browser-call-media-session.ts`       | production composition: media host pin, clock, analytics  |
 
 ## LiveKit adapter
 
@@ -100,6 +107,37 @@ first video with its own clock, since only it knows when a camera was asked for.
   `disconnect` always settles, stops every copy, and reports no drop.
   Microphone and camera changes still queued then never clone.
 - `livekit-client` loads only through `services/livekit/livekit-client.ts`.
+
+## Broadcast
+
+World sends `broadcast` after each snapshot (`docs/world-protocol.md`,
+"Broadcast"). `createBroadcastListener` joins `call.url` (pinned like a space's
+call) with `call.token`, beside the space's call, and stays in it while the
+member walks: no other frame touches it.
+
+- A new `broadcast` leaves the room and joins again with its token, even for
+  the same room, since World revokes the old token when a role changes. The
+  old room finishes leaving first; a join a newer broadcast overtook is aborted
+  and whatever it returns is left.
+- `null` leaves. So does presence whose `broadcast` a closed socket cleared
+  (`applyPresence`); World sends it again after the next snapshot. The web
+  never watches (A-3), so there is no watching case.
+- A join that fails or a room that drops on its own clears what it carried
+  and stays out until World's next `broadcast`. It never touches
+  `callAudioStatus`: the space's call is fine.
+- The adapter joins with `autoSubscribe: false` and subscribes the microphone
+  of every identity World named (`<userId>:<anything>`), already in the room
+  or published later. Cameras, screens and anything else stay unsubscribed.
+  It publishes nothing; speaking is D-2.
+- Microphones reach `onBroadcastPublicationChange`, which the media store keeps
+  in `broadcastPublications`, never in the meeting's `remotePublications`, so
+  no tile, roster or video demand sees them. Who has one there is who is
+  speaking: World says a broadcast is on while an audio track is published.
+  Each carries `speakerName`, the display name World signed into the
+  speaker's token (`parseParticipantName`: trimmed, 1 to 100 characters, else
+  `null`). `BroadcastStatus` prefers presence's name, then this one (an admin
+  outside the cohort is in no presence), then "An admin".
+- The token stays inside the listener, as a space's call's does.
 
 ## Rules
 

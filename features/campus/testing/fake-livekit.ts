@@ -205,6 +205,8 @@ export type FakeRemotePublication = {
 
 export type FakeRemoteParticipant = Readonly<{
   identity: string;
+  // The display name World signed into the token, if any.
+  name?: string;
   trackPublications: Map<string, FakeRemotePublication>;
 }>;
 
@@ -410,9 +412,10 @@ export function fakeLivekitRoom() {
     }
 
     // Already in the room when this member joins: the SDK announces nobody.
-    join(identity: string, sources: readonly FakeTrackSource[]) {
+    join(identity: string, sources: readonly FakeTrackSource[], name?: string) {
       const participant: FakeRemoteParticipant = {
         identity,
+        name,
         trackPublications: new Map(
           sources.map((source) => {
             const publication = remotePublication(identity, source);
@@ -424,8 +427,12 @@ export function fakeLivekitRoom() {
       return participant;
     }
 
-    arrive(identity: string, sources: readonly FakeTrackSource[]) {
-      const participant = this.join(identity, sources);
+    arrive(
+      identity: string,
+      sources: readonly FakeTrackSource[],
+      name?: string,
+    ) {
+      const participant = this.join(identity, sources, name);
       this.emit(RoomEvent.ParticipantConnected, participant);
       for (const publication of participant.trackPublications.values()) {
         this.emit(RoomEvent.TrackPublished, publication, participant);

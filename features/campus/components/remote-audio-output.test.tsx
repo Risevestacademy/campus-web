@@ -1,7 +1,9 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { BROADCAST_DUCKED_GAIN } from "../hooks/use-remote-audio-volume";
 import type {
+  BroadcastPublicationChange,
   MeetingMediaTransport,
   MeetingMediaTransportCallbacks,
   RemoteMediaPublication,
@@ -39,6 +41,13 @@ function connectedSession() {
   };
 
   return {
+    broadcast: (publication: RemoteMediaPublication) =>
+      callbacks().onBroadcastPublicationChange({
+        publication: { ...publication, speakerName: null },
+        type: "upserted",
+      }),
+    endBroadcast: (change: BroadcastPublicationChange) =>
+      callbacks().onBroadcastPublicationChange(change),
     publish: (publication: RemoteMediaPublication) =>
       callbacks().onRemotePublicationChange({ publication, type: "upserted" }),
     remove: (change: RemotePublicationChange) =>
@@ -225,5 +234,84 @@ describe("RemoteAudioOutput", () => {
     act(() => setGains({ "participant-2": 1 }));
 
     expect(audio).toHaveProperty("volume", 0.5);
+  });
+
+  it("plays a broadcast at full volume through the selected speaker, beside the call", async () => {
+    const setSinkId = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(HTMLMediaElement.prototype, "setSinkId", {
+      configurable: true,
+      value: setSinkId,
+    });
+    const { broadcast, publish, store } = connectedSession();
+    store.getState().selectOutputDevice("speaker-2");
+    const admin = remoteMicrophone("admin");
+    render(
+      <MediaSessionProvider store={store}>
+        <RemoteAudioOutput />
+      </MediaSessionProvider>,
+    );
+
+    act(() => {
+      publish(remoteMicrophone("participant-2"));
+      broadcast(admin);
+    });
+
+    const audio = screen.getByLabelText("admin broadcast audio");
+    expect(audio).toHaveProperty("srcObject", admin.stream);
+    expect(audio).toHaveProperty("volume", 1);
+    expect(screen.getByLabelText("participant-2 audio")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(setSinkId).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("ducks the space's call while a broadcast plays, without detaching it", () => {
+    const { broadcast, endBroadcast, publish, setGains, store } =
+      connectedSession();
+    render(
+      <MediaSessionProvider store={store}>
+        <RemoteAudioOutput />
+      </MediaSessionProvider>,
+    );
+    act(() => {
+      setGains({ "participant-2": 0.8 });
+      publish(remoteMicrophone("participant-2"));
+    });
+    const audio = screen.getByLabelText("participant-2 audio");
+    const sourceChanges = recordSourceChanges(audio);
+
+    act(() => broadcast(remoteMicrophone("admin")));
+    expect(audio).toHaveProperty("volume", 0.8 * BROADCAST_DUCKED_GAIN);
+
+    act(() =>
+      endBroadcast({
+        participantId: "admin",
+        publicationId: "admin-microphone",
+        source: "microphone",
+        type: "removed",
+      }),
+    );
+    expect(audio).toHaveProperty("volume", 0.8);
+    expect(sourceChanges).toEqual([]);
+  });
+
+  it("hears a broadcasting admin from the broadcast only, never twice", () => {
+    const { broadcast, publish, setGains, store } = connectedSession();
+    render(
+      <MediaSessionProvider store={store}>
+        <RemoteAudioOutput />
+      </MediaSessionProvider>,
+    );
+    act(() => {
+      setGains({ admin: 1 });
+      publish(remoteMicrophone("admin"));
+      broadcast(remoteMicrophone("admin"));
+    });
+
+    expect(screen.getByLabelText("admin audio")).toHaveProperty("volume", 0);
+    expect(screen.getByLabelText("admin broadcast audio")).toHaveProperty(
+      "volume",
+      1,
+    );
   });
 });
