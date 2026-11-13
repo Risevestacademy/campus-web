@@ -10,7 +10,8 @@ type MediaPublicationOutputProps = Readonly<{
   className?: string;
   fallbackClassName?: string;
   fallbackInitials?: string;
-  fallbackLabel: string;
+  // Left out where the tile names its owner itself, as a meeting tile does.
+  fallbackLabel?: string;
   fit?: "cover" | "contain";
   label: string;
   ref?: Ref<HTMLDivElement>;
@@ -76,7 +77,9 @@ export function MediaPublicationOutput({
                   {fallbackInitials}
                 </span>
               ) : null}
-              <span className="text-xs">{fallbackLabel}</span>
+              {fallbackLabel ? (
+                <span className="text-xs">{fallbackLabel}</span>
+              ) : null}
             </div>,
           )}
     </div>

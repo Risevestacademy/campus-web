@@ -15,17 +15,19 @@ function followVolume(element: HTMLMediaElement, volume: MediaElementVolume) {
 }
 
 // Volume is followed outside React, so a gain change never re-runs this ref
-// and never detaches what the member is hearing.
+// and never detaches what the member is hearing. Neither does a handover of
+// the same stream, such as a mute: re-attaching would clip the audio.
 export function useMediaElementRef(
   publication: MediaPublication | undefined,
   outputDeviceId?: string,
   volume?: MediaElementVolume,
 ) {
+  const stream = publication?.stream;
   return useCallback(
     (element: HTMLMediaElement | null) => {
-      if (!element || !publication) return;
+      if (!element || !stream) return;
 
-      element.srcObject = publication.stream;
+      element.srcObject = stream;
 
       if (outputDeviceId !== undefined && "setSinkId" in element) {
         void element.setSinkId(outputDeviceId).catch(() => undefined);
@@ -35,9 +37,9 @@ export function useMediaElementRef(
 
       return () => {
         stopFollowingVolume?.();
-        if (element.srcObject === publication.stream) element.srcObject = null;
+        if (element.srcObject === stream) element.srcObject = null;
       };
     },
-    [outputDeviceId, publication, volume],
+    [outputDeviceId, stream, volume],
   );
 }

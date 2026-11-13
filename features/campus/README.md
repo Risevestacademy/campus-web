@@ -132,6 +132,9 @@ browser media or `localStorage`.
   call drops to `BROADCAST_DUCKED_GAIN` underneath, and a broadcasting admin
   is heard from the broadcast alone. `BroadcastStatus` says who is speaking,
   over the control bar and on the Presence Dock.
+  A person's tile names them, shows whether their microphone is on, and glows
+  while the level meter hears them speak. It meters the microphone's track and
+  never plays it.
 - Load `livekit-client` only through `services/livekit/livekit-client.ts`.
 - The meeting view shows only whom world's `nearby` names. Never measure
   distance on the client to decide who is near.

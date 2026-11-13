@@ -1,9 +1,13 @@
 "use client";
 
+import { MicrophoneIcon } from "@phosphor-icons/react/dist/ssr/Microphone";
+import { MicrophoneSlashIcon } from "@phosphor-icons/react/dist/ssr/MicrophoneSlash";
 import { cn } from "cn";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { ComponentProps, CSSProperties, ReactNode } from "react";
+import { useId } from "react";
 
+import { useMicrophoneLevelRef } from "../hooks/use-microphone-level-ref";
 import { useVideoDemandRef } from "../hooks/use-video-demand-ref";
 import type { VideoLayer } from "../services/media-session/contracts";
 import { useMediaSession } from "../services/media-session/media-session-provider";
@@ -12,6 +16,8 @@ import {
   splitAtCap,
   tileVideoLayer,
 } from "../services/meeting/meeting";
+import { browserMicrophoneLevelMeter } from "../services/microphone-level/browser-microphone-level";
+import type { MicrophoneLevelMeter } from "../services/microphone-level/microphone-level-meter";
 import type {
   MeetingParticipant,
   MeetingTile,
@@ -40,6 +46,8 @@ const COMPACT_TILE_CAP = 4;
 
 export interface MeetingTilesProps {
   layout: MeetingTileLayout;
+  // Hears who is speaking; tests pass their own.
+  levelMeter?: MicrophoneLevelMeter;
   localParticipantId: MeetingParticipant["id"];
   motionConfig?: MeetingTileMotionConfig;
   onShowAll: (shouldAnimate: boolean) => void;
@@ -78,7 +86,6 @@ function LocalParticipantMedia({
     <MediaPublicationOutput
       fallbackClassName={participant.avatarClassName}
       fallbackInitials={participant.initial}
-      fallbackLabel="You"
       wrapFallback={wrapFallback}
       label={`${participant.name} video`}
       videoPublication={videoPublication}
@@ -101,7 +108,6 @@ function RemoteParticipantMedia({
       ref={demandRef}
       fallbackClassName={participant.avatarClassName}
       fallbackInitials={participant.initial}
-      fallbackLabel={participant.name}
       wrapFallback={wrapFallback}
       label={`${participant.name} video`}
       videoPublication={videoPublication}
@@ -146,6 +152,68 @@ function OwnScreenMedia({ wrapFallback }: FallbackMotionProps) {
       label={OWN_SCREEN_NAME}
       videoPublication={videoPublication}
     />
+  );
+}
+
+const OWN_NAME = "You";
+
+type ParticipantVoiceProps = FallbackMotionProps &
+  Readonly<{
+    isLocal: boolean;
+    levelMeter: MicrophoneLevelMeter;
+    participant: MeetingParticipant;
+    // Describes the tile's button, whose label alone would hide this.
+    statusId: string;
+  }>;
+
+// A person's name and whether their microphone is on, over their video or
+// avatar, and a glow while they speak. The level is read from the audio
+// itself, so a muted microphone never glows.
+function ParticipantVoice({
+  isLocal,
+  levelMeter,
+  participant,
+  statusId,
+  wrapFallback = (nameplate) => nameplate,
+}: ParticipantVoiceProps) {
+  const microphone = useMediaSession((state) =>
+    isLocal
+      ? state.localPublications.microphone
+      : state.remotePublications[participant.id]?.microphone,
+  );
+  const live = microphone?.enabled === true;
+  const levelRef = useMicrophoneLevelRef(
+    live ? microphone.track : null,
+    levelMeter,
+  );
+  const MicIcon = live ? MicrophoneIcon : MicrophoneSlashIcon;
+
+  return (
+    <>
+      <span
+        ref={levelRef}
+        aria-hidden="true"
+        data-testid="speaking-glow"
+        className="pointer-events-none absolute inset-0 rounded-[12px] opacity-0 shadow-[inset_0_0_0_2px_var(--color-success),inset_0_0_18px_color-mix(in_oklab,var(--color-success)_50%,transparent)] transition-opacity duration-150 data-[speaking=true]:opacity-100 motion-reduce:transition-none"
+      />
+      <span className="pointer-events-none absolute inset-x-0 bottom-0 flex p-1.5">
+        {wrapFallback(
+          <span className="flex max-w-full min-w-0 items-center gap-1 rounded-full bg-black py-0.5 pr-2 pl-1.5 text-xs text-white">
+            <MicIcon
+              aria-hidden="true"
+              data-microphone={live ? "on" : "off"}
+              className="data-[microphone=off]:text-error data-[microphone=on]:text-success size-3.5 shrink-0"
+            />
+            <span id={statusId} className="sr-only">
+              {live ? "Microphone on" : "Microphone off"}
+            </span>
+            <span className="truncate">
+              {isLocal ? OWN_NAME : participant.name}
+            </span>
+          </span>,
+        )}
+      </span>
+    </>
   );
 }
 
@@ -273,6 +341,7 @@ function gridShapeStyle(tileCount: number) {
 
 export function MeetingTiles({
   layout,
+  levelMeter = browserMicrophoneLevelMeter,
   localParticipantId,
   motionConfig = DEFAULT_MEETING_TILE_MOTION,
   onShowAll,
@@ -281,6 +350,7 @@ export function MeetingTiles({
   tiles,
 }: MeetingTilesProps) {
   const reduceMotion = Boolean(useReducedMotion());
+  const statusIdPrefix = useId();
   const motionDisabled = !shouldAnimate || reduceMotion;
   const layoutTransition = getLayoutTransition(motionConfig, motionDisabled);
   const isExpanded = layout.mode === "expanded";
@@ -366,6 +436,8 @@ export function MeetingTiles({
             >
               {shown.map((tile) => {
                 const isFocused = focusedTileId === tile.id;
+                const statusId = `${statusIdPrefix}-${tile.id}-microphone`;
+                const isPerson = tile.kind === "person";
 
                 return (
                   <motion.div
@@ -391,10 +463,11 @@ export function MeetingTiles({
                         type="button"
                         aria-label={tileLabel(tile, isExpanded, isFocused)}
                         aria-pressed={isExpanded ? isFocused : undefined}
+                        aria-describedby={isPerson ? statusId : undefined}
                         onClick={(event) =>
                           onTileActivate(tile, event.detail > 0)
                         }
-                        className="bg-surface size-full cursor-pointer appearance-none border-0 p-0 outline-none"
+                        className="bg-surface relative size-full cursor-pointer appearance-none border-0 p-0 outline-none"
                       >
                         <TileMedia
                           wrapFallback={wrapFallback}
@@ -402,6 +475,15 @@ export function MeetingTiles({
                           tile={tile}
                           videoLayer={tileVideoLayer(layout, tile.id)}
                         />
+                        {isPerson ? (
+                          <ParticipantVoice
+                            wrapFallback={wrapFallback}
+                            isLocal={tile.participant.id === localParticipantId}
+                            levelMeter={levelMeter}
+                            participant={tile.participant}
+                            statusId={statusId}
+                          />
+                        ) : null}
                       </button>
                     </motion.div>
                   </motion.div>
