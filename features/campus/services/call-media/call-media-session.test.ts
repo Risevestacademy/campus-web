@@ -148,6 +148,7 @@ function setup(
     }),
   };
   const callbacks = {
+    onBroadcastPublicationChange: vi.fn(),
     onCameraPublishOutcome: vi.fn(),
     onRemoteAudioGainsChange: vi.fn(),
     onRemotePublicationChange: vi.fn(),

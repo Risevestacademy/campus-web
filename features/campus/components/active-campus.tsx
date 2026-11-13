@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { BroadcastStatus } from "./broadcast-status";
 import { CampusControlBar } from "./campus-control-bar";
 import type { CampusViewer } from "./campus-shell/feedback-layer";
 import { MeetingOverlay } from "./meeting-overlay";
@@ -40,6 +41,7 @@ export function ActiveCampus({
           >
             <div className="absolute inset-x-0 bottom-full flex flex-col items-center gap-1.5">
               <WorldConnectionStatus />
+              <BroadcastStatus cohortId={cohortId} />
               <ScreenShareStatus cohortId={cohortId} />
             </div>
             <CampusControlBar

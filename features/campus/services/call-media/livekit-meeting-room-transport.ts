@@ -31,8 +31,12 @@ import {
   type MeetingRoomConnection,
   type MeetingRoomEvents,
   type MeetingRoomTransport,
-  RoomAccessDeniedError,
 } from "./contracts";
+import {
+  CONNECT_OPTIONS,
+  joinFailure,
+  untilAborted,
+} from "./livekit-room-join";
 
 export type LivekitRoomModule = Pick<
   LivekitClient,
@@ -44,8 +48,6 @@ export type LivekitRoomModule = Pick<
   | "Track"
   | "VideoQuality"
 >;
-
-const CONNECT_OPTIONS = { autoSubscribe: false, maxRetries: 3 };
 
 // Publishers stop encoding the camera layers nobody subscribes to.
 const ROOM_OPTIONS = { dynacast: true };
@@ -471,27 +473,6 @@ function connectRoom(
     handleLocalPublicationChange,
   };
   return { connection, grantAudience };
-}
-
-function untilAborted<T>(work: Promise<T>, signal: AbortSignal) {
-  return new Promise<T>((resolve, reject) => {
-    signal.throwIfAborted();
-    const abort = () => reject(signal.reason);
-    signal.addEventListener("abort", abort, { once: true });
-    work
-      .then(resolve, reject)
-      .finally(() => signal.removeEventListener("abort", abort));
-  });
-}
-
-function joinFailure(
-  { ConnectionError, ConnectionErrorReason }: LivekitRoomModule,
-  error: unknown,
-) {
-  return error instanceof ConnectionError &&
-    error.reason === ConnectionErrorReason.NotAllowed
-    ? new RoomAccessDeniedError(error.message)
-    : error;
 }
 
 export function createLivekitMeetingRoomTransport(

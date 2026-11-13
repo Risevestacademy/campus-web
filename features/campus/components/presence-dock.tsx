@@ -5,6 +5,7 @@ import { campusHref } from "@/core/navigation";
 import { Separator } from "@/shared/ui/separator";
 
 import { BackToCampusesControl } from "./back-to-campuses-control";
+import { BroadcastStatus } from "./broadcast-status";
 import type { CampusViewer } from "./campus-shell/feedback-layer";
 import { SIDEBAR_WIDTH } from "./campus-shell/sidebar-width";
 import { MeetingMediaControls } from "./meeting-media-controls";
@@ -27,6 +28,7 @@ export function PresenceDock({ cohortId, viewer }: PresenceDockProps) {
       style={{ width: SIDEBAR_WIDTH - 2 * DOCK_INSET_PX }}
       className="bg-background fixed bottom-3 left-22 z-40 grid gap-1 rounded-[1.25rem] border p-1.5 shadow-lg"
     >
+      <BroadcastStatus cohortId={cohortId} />
       <ScreenShareStatus cohortId={cohortId} />
       <Link
         href={campusHref(cohortId)}

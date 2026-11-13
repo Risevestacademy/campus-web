@@ -2,6 +2,8 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 
 import type {
   AudioOutputState,
+  BroadcastPublicationChange,
+  BroadcastPublications,
   CallAudioStatus,
   CaptureSource,
   CaptureSourceState,
@@ -54,6 +56,7 @@ type DeviceRequest = Readonly<{
 }>;
 
 export type MediaSessionState = Readonly<{
+  broadcastPublications: BroadcastPublications;
   camera: CaptureSourceState;
   // The call refused the member's latest camera change.
   cameraPublishFailed: boolean;
@@ -297,6 +300,27 @@ export function createMediaSessionStore(
               )
             : removeRemotePublication(state.remotePublications, change),
       }));
+    }
+
+    function applyBroadcastPublicationChange(
+      change: BroadcastPublicationChange,
+    ) {
+      set(({ broadcastPublications }) => {
+        if (change.type === "upserted") {
+          const { participantId } = change.publication;
+          return {
+            broadcastPublications: {
+              ...broadcastPublications,
+              [participantId]: change.publication,
+            },
+          };
+        }
+        const { [change.participantId]: removed, ...others } =
+          broadcastPublications;
+        return removed?.publicationId === change.publicationId
+          ? { broadcastPublications: others }
+          : {};
+      });
     }
 
     function updateSource(
@@ -623,6 +647,7 @@ export function createMediaSessionStore(
     }
 
     return {
+      broadcastPublications: {},
       camera: createInitialCaptureState(false),
       cameraPublishFailed: false,
       callAudioStatus: "idle",
@@ -670,6 +695,7 @@ export function createMediaSessionStore(
         if (disconnectTransport) return;
 
         disconnectTransport = transport.connect({
+          onBroadcastPublicationChange: applyBroadcastPublicationChange,
           onCameraPublishOutcome: (cameraPublishFailed) =>
             set({ cameraPublishFailed }),
           onRemoteAudioGainsChange: (remoteAudioGains) =>
@@ -809,6 +835,7 @@ export function createMediaSessionStore(
             false,
             devicePreferences.microphoneDeviceId,
           ),
+          broadcastPublications: {},
           callAudioStatus: "idle",
           cameraPublishFailed: false,
           remoteAudioGains: {},

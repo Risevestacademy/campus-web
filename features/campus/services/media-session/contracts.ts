@@ -192,7 +192,31 @@ export type RemotePublicationChange =
       type: "removed";
     }>;
 
+// A microphone in the cohort's broadcast room, with the name World signed into
+// its speaker's token: they may not be in this cohort's presence.
+export type BroadcastPublication = RemoteMediaPublication &
+  Readonly<{ speakerName: string | null }>;
+
+export type BroadcastPublicationChange =
+  | Readonly<{ publication: BroadcastPublication; type: "upserted" }>
+  | Extract<RemotePublicationChange, { type: "removed" }>;
+
+// The broadcast's microphones by participant id.
+export type BroadcastPublications = Readonly<
+  Record<string, BroadcastPublication>
+>;
+
+// A muted speaker stays in the broadcast room but is not speaking.
+export function liveBroadcasts(
+  publications: BroadcastPublications,
+): readonly BroadcastPublication[] {
+  return Object.values(publications).filter(({ enabled }) => enabled);
+}
+
 export type MeetingMediaTransportCallbacks = Readonly<{
+  // A microphone in the cohort's broadcast room: played over everything else,
+  // never muted, and never part of the meeting.
+  onBroadcastPublicationChange: (change: BroadcastPublicationChange) => void;
   // Whether the room refused the member's latest camera change; the call
   // itself carries on either way.
   onCameraPublishOutcome: (failed: boolean) => void;
