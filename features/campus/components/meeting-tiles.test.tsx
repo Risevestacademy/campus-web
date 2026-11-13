@@ -64,6 +64,7 @@ function renderTiles(
       connect: () => () => undefined,
       handleLocalPublicationChange() {},
       retry() {},
+      setBroadcastSpeaking() {},
       setVideoDemand,
     },
   });

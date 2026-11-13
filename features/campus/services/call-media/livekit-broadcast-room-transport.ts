@@ -15,11 +15,13 @@ import {
   type LivekitClient,
   loadLivekitClient,
 } from "../livekit/livekit-client";
+import { localChangeSource } from "../media-session/contracts";
 import type {
   BroadcastRoomConnection,
   BroadcastRoomEvents,
   BroadcastRoomTransport,
 } from "./contracts";
+import { localTrackPublisher } from "./livekit-local-track-publisher";
 import {
   CONNECT_OPTIONS,
   joinFailure,
@@ -31,8 +33,9 @@ export type LivekitBroadcastModule = Pick<
   "ConnectionError" | "ConnectionErrorReason" | "Room" | "RoomEvent" | "Track"
 >;
 
-// Listens only: every microphone of a participant World named, and nothing
-// else, since a broadcast carries voice alone.
+// Every microphone of a participant World named, and nothing else, since a
+// broadcast carries voice alone. An admin's own microphone goes out the same
+// way; the token refuses anyone else's.
 function listenTo(
   { RoomEvent, Track }: LivekitBroadcastModule,
   room: Room,
@@ -40,6 +43,7 @@ function listenTo(
 ) {
   const handedOver = new Set<string>();
   let leaving = false;
+  const microphone = localTrackPublisher(room, Track.Source.Microphone);
 
   function speakerOf(
     { source }: RemoteTrackPublication,
@@ -135,6 +139,11 @@ function listenTo(
     async disconnect() {
       leaving = true;
       await room.disconnect(true).catch(() => undefined);
+      microphone.close();
+    },
+    async handleLocalPublicationChange(change) {
+      if (localChangeSource(change) !== "microphone") return;
+      await microphone.handle(change);
     },
   };
   return { connection, subscribeAll };

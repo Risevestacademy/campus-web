@@ -522,6 +522,7 @@ describe("media controls acceptance", () => {
       },
       handleLocalPublicationChange() {},
       retry() {},
+      setBroadcastSpeaking() {},
       setVideoDemand() {},
     };
     const store = createMediaSessionStore({
@@ -561,6 +562,7 @@ describe("media controls acceptance", () => {
       },
       handleLocalPublicationChange() {},
       retry() {},
+      setBroadcastSpeaking() {},
       setVideoDemand() {},
     };
     const store = createMediaSessionStore({
@@ -594,6 +596,7 @@ describe("media controls acceptance", () => {
       },
       handleLocalPublicationChange() {},
       retry,
+      setBroadcastSpeaking() {},
       setVideoDemand() {},
     };
     const store = createMediaSessionStore({ transport: call });

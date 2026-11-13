@@ -31,6 +31,7 @@ function connectedSession() {
     },
     handleLocalPublicationChange() {},
     retry() {},
+    setBroadcastSpeaking() {},
     setVideoDemand() {},
   };
   const store = createMediaSessionStore({ mediaDevices: null, transport });

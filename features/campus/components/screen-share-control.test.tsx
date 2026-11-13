@@ -58,6 +58,7 @@ function setUp({
       },
       handleLocalPublicationChange() {},
       retry() {},
+      setBroadcastSpeaking() {},
       setVideoDemand() {},
     },
   });

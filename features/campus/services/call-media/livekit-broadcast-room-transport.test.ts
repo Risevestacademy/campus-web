@@ -4,9 +4,33 @@ import {
   type FakeLivekitRoom,
   fakeLivekitRoom,
 } from "../../testing/fake-livekit";
+import {
+  createTestMediaStream,
+  createTestMediaTrack,
+} from "../../testing/media-session-test-utils";
+import type { LocalMediaPublication } from "../media-session/contracts";
 import type { RemotePublicationChange } from "../media-session/contracts";
 import { type BroadcastRoomEvents, RoomAccessDeniedError } from "./contracts";
 import { createLivekitBroadcastRoomTransport } from "./livekit-broadcast-room-transport";
+
+function ownCapture(source: "camera" | "microphone") {
+  const kind = source === "microphone" ? "audio" : "video";
+  const copy = Object.assign(createTestMediaTrack(kind, `${source}-copy`), {
+    stop: vi.fn(),
+  });
+  const track = Object.assign(createTestMediaTrack(kind, source), {
+    clone: vi.fn(() => copy),
+  });
+  const publication: LocalMediaPublication = {
+    enabled: true,
+    origin: "local",
+    publicationId: `local-${source}`,
+    source,
+    stream: createTestMediaStream([track]),
+    track,
+  };
+  return { copy, publication, track };
+}
 
 const ACCESS = { url: "wss://media.example.test", token: "broadcast-token" };
 const ADA = "11111111-1111-4111-8111-111111111111";
@@ -194,4 +218,65 @@ describe("createLivekitBroadcastRoomTransport", () => {
       });
     },
   );
+
+  it("publishes a copy of the admin's microphone, and nothing else", async () => {
+    const { connection, room } = await joinedRoom();
+    const microphone = ownCapture("microphone");
+    const camera = ownCapture("camera");
+
+    await connection.handleLocalPublicationChange({
+      publication: camera.publication,
+      type: "added",
+    });
+    await connection.handleLocalPublicationChange({
+      publication: microphone.publication,
+      type: "added",
+    });
+
+    expect(room.published).toEqual([
+      expect.objectContaining({
+        options: { source: "microphone" },
+        track: microphone.copy,
+      }),
+    ]);
+    expect(camera.track.clone).not.toHaveBeenCalled();
+  });
+
+  it("takes the microphone down, and stops its copy when it leaves", async () => {
+    const { connection, room } = await joinedRoom();
+    const microphone = ownCapture("microphone");
+    await connection.handleLocalPublicationChange({
+      publication: microphone.publication,
+      type: "added",
+    });
+
+    await connection.handleLocalPublicationChange({
+      previousTrack: microphone.track,
+      publicationId: microphone.publication.publicationId,
+      source: "microphone",
+      type: "removed",
+    });
+    expect(room.unpublished).toEqual([{ track: microphone.copy, stop: false }]);
+
+    await connection.handleLocalPublicationChange({
+      publication: microphone.publication,
+      type: "added",
+    });
+    await connection.disconnect();
+    expect(microphone.copy.stop).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a microphone the room refuses, stopping its copy", async () => {
+    const { connection, room } = await joinedRoom();
+    room.publishFails = true;
+    const microphone = ownCapture("microphone");
+
+    await expect(
+      connection.handleLocalPublicationChange({
+        publication: microphone.publication,
+        type: "added",
+      }),
+    ).rejects.toThrow("publish failed");
+    expect(microphone.copy.stop).toHaveBeenCalledOnce();
+  });
 });

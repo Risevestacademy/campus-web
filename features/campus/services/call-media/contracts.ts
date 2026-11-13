@@ -80,6 +80,12 @@ export interface CallMediaSession extends MeetingMediaTransport {
   applyPresence(presence: Presence): void;
 }
 
+// The space's call alone: the broadcast listener adds speaking.
+export type SpaceCallMediaSession = Omit<
+  CallMediaSession,
+  "setBroadcastSpeaking"
+>;
+
 export type BroadcastRoomEvents = Readonly<{
   onDisconnected: () => void;
   // Only microphones: the broadcast room carries nothing else.
@@ -89,6 +95,9 @@ export type BroadcastRoomEvents = Readonly<{
 export interface BroadcastRoomConnection {
   // Safe to call more than once, including after onDisconnected.
   disconnect(): Promise<void>;
+  // Microphone changes only: an admin's voice is all a broadcast carries.
+  // They settle in the order they were made.
+  handleLocalPublicationChange(change: LocalPublicationChange): Promise<void>;
 }
 
 export interface BroadcastRoomTransport {
@@ -103,7 +112,7 @@ export interface BroadcastRoomTransport {
 
 export type BroadcastListenerCallbacks = Pick<
   MeetingMediaTransportCallbacks,
-  "onBroadcastPublicationChange"
+  "onBroadcastPublicationChange" | "onBroadcastSpeakingChange"
 >;
 
 export interface BroadcastListener {
@@ -111,4 +120,7 @@ export interface BroadcastListener {
   applyPresence(presence: Presence): void;
   // Returns the function that leaves the room and stops listening.
   connect(callbacks: BroadcastListenerCallbacks): () => void;
+  // Every local change: only the microphone's reach the broadcast room.
+  handleLocalPublicationChange(change: LocalPublicationChange): void;
+  setSpeaking(speaking: boolean): void;
 }
