@@ -104,6 +104,31 @@ describe("createLivekitBroadcastRoomTransport", () => {
     });
   });
 
+  it("hands a microphone over again whenever its speaker mutes or unmutes", async () => {
+    const { events, room } = await joinedRoom();
+    const grace = room.arrive(`${GRACE}:tab`, ["microphone"]);
+    room.deliver(grace, "microphone");
+    events.onRemotePublicationChange.mockClear();
+
+    room.mute(grace, "microphone", true);
+    room.mute(grace, "microphone", false);
+
+    expect(
+      events.onRemotePublicationChange.mock.calls.map(([change]) =>
+        change.type === "upserted" ? change.publication.enabled : change.type,
+      ),
+    ).toEqual([false, true]);
+  });
+
+  it("ignores a mute on a microphone it never handed over", async () => {
+    const { events, room } = await joinedRoom();
+    const grace = room.arrive(`${GRACE}:tab`, ["microphone"]);
+
+    room.mute(grace, "microphone", true);
+
+    expect(events.onRemotePublicationChange).not.toHaveBeenCalled();
+  });
+
   it("never subscribes an identity World did not name", async () => {
     const { livekit, room } = await joinedRoom();
 

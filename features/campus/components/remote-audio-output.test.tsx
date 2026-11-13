@@ -296,6 +296,31 @@ describe("RemoteAudioOutput", () => {
     expect(sourceChanges).toEqual([]);
   });
 
+  it("stops ducking, and hears the admin in the call again, while their broadcast is muted", () => {
+    const { broadcast, publish, setGains, store } = connectedSession();
+    render(
+      <MediaSessionProvider store={store}>
+        <RemoteAudioOutput />
+      </MediaSessionProvider>,
+    );
+    act(() => {
+      setGains({ admin: 1, "participant-2": 0.8 });
+      publish(remoteMicrophone("admin"));
+      publish(remoteMicrophone("participant-2"));
+      broadcast(remoteMicrophone("admin"));
+    });
+    const admin = screen.getByLabelText("admin audio");
+    const other = screen.getByLabelText("participant-2 audio");
+
+    act(() => broadcast({ ...remoteMicrophone("admin"), enabled: false }));
+    expect(other).toHaveProperty("volume", 0.8);
+    expect(admin).toHaveProperty("volume", 1);
+
+    act(() => broadcast(remoteMicrophone("admin")));
+    expect(other).toHaveProperty("volume", 0.8 * BROADCAST_DUCKED_GAIN);
+    expect(admin).toHaveProperty("volume", 0);
+  });
+
   it("hears a broadcasting admin from the broadcast only, never twice", () => {
     const { broadcast, publish, setGains, store } = connectedSession();
     render(

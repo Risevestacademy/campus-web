@@ -1,8 +1,10 @@
 import type {
+  Participant,
   RemoteParticipant,
   RemoteTrack,
   RemoteTrackPublication,
   Room,
+  TrackPublication,
 } from "livekit-client";
 
 import {
@@ -92,6 +94,20 @@ function listenTo(
     });
   }
 
+  // A muted speaker stays in the room but is no longer heard, so listeners
+  // learn of it the same way as of a new microphone.
+  function forwardMute(
+    { trackSid }: TrackPublication,
+    { identity }: Participant,
+  ) {
+    if (!handedOver.has(trackSid)) return;
+    const participant = room.remoteParticipants.get(identity);
+    const publication = participant?.trackPublications.get(trackSid);
+    if (participant && publication?.track) {
+      forwardSubscribed(publication.track, publication, participant);
+    }
+  }
+
   function forwardRemoved(
     publication: RemoteTrackPublication,
     participant: RemoteParticipant,
@@ -113,6 +129,8 @@ function listenTo(
       forwardRemoved(publication, participant),
     )
     .on(RoomEvent.TrackUnpublished, forwardRemoved)
+    .on(RoomEvent.TrackMuted, forwardMute)
+    .on(RoomEvent.TrackUnmuted, forwardMute)
     .on(RoomEvent.Disconnected, () => {
       if (!leaving) events.onDisconnected();
     });
