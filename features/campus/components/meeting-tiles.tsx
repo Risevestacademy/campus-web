@@ -198,14 +198,12 @@ function ParticipantVoice({
       />
       <span className="pointer-events-none absolute inset-x-0 bottom-0 flex p-1.5">
         {wrapFallback(
-          <span className="flex max-w-full min-w-0 items-center gap-1 rounded-md bg-neutral-950/70 py-0.5 pr-1.5 pl-0.5 text-xs text-white">
-            <span
+          <span className="flex max-w-full min-w-0 items-center gap-1 rounded-full bg-black py-0.5 pr-2 pl-1.5 text-xs text-white">
+            <MicIcon
               aria-hidden="true"
               data-microphone={live ? "on" : "off"}
-              className="data-[microphone=off]:bg-error grid size-4 shrink-0 place-items-center rounded-full"
-            >
-              <MicIcon className="size-3" />
-            </span>
+              className="data-[microphone=off]:text-error data-[microphone=on]:text-success size-3.5 shrink-0"
+            />
             <span id={statusId} className="sr-only">
               {live ? "Microphone on" : "Microphone off"}
             </span>
