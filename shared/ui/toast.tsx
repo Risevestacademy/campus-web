@@ -24,14 +24,14 @@ function ToastPortal({ ...props }: ToastPrimitive.Portal.Props) {
 
 // Above every z-50 overlay: toasts report on whatever is open, including
 // dialogs, so a modal backdrop must never cover them. Top right, stacking
-// downward, below the row where the meeting header and its view switch sit,
+// downward, just below the row where the meeting header and its view switch sit,
 // so a toast that stays never covers them.
 function ToastViewport({ className, ...props }: ToastPrimitive.Viewport.Props) {
   return (
     <ToastPrimitive.Viewport
       data-slot="toast-viewport"
       className={cn(
-        "pointer-events-none fixed inset-x-4 top-18 z-[100] mx-auto w-auto max-w-md outline-none sm:right-4 sm:left-auto sm:mx-0 sm:w-full",
+        "pointer-events-none fixed inset-x-4 top-16 z-[100] mx-auto w-auto max-w-md outline-none sm:right-4 sm:left-auto sm:mx-0 sm:w-full",
         className,
       )}
       {...props}
