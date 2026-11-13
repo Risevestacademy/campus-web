@@ -48,6 +48,12 @@ transport are not owned here; they plug in at `MeetingMediaTransport`.
   tile reads, so that tile cannot outlive the share.
 - `remoteScreenShares`: who in the roster is sharing, subscribed or not, so a
   tile can mount and ask for the screen.
+- `toggleBroadcastSpeaking()`: an admin starts or stops speaking to the whole
+  cohort (`transport.setBroadcastSpeaking`). Starting turns the microphone on
+  first if it is off, so the member's permission and device choice apply, and
+  resolves to the microphone's failure if there is one. It does nothing until
+  `connect`. `broadcastSpeaking` (`off`, `on`, `failed`) is what the transport
+  reports, and `stop()` resets it.
 
 Tests inject a store through `MediaSessionProvider`.
 

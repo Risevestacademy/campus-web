@@ -13,13 +13,13 @@ import {
   type VideoDemand,
 } from "../media-session/contracts";
 import {
-  type CallMediaSession,
   type FirstRemoteVideo,
   type FirstScreenViewer,
   type MeetingRoomConnection,
   type MeetingRoomEvents,
   type MeetingRoomTransport,
   RoomAccessDeniedError,
+  type SpaceCallMediaSession,
 } from "./contracts";
 
 type CallMediaSessionOptions = Readonly<{
@@ -112,7 +112,7 @@ function remoteAudioGain(
 
 export function createCallMediaSession(
   options: CallMediaSessionOptions,
-): CallMediaSession {
+): SpaceCallMediaSession {
   let callbacks: MeetingMediaTransportCallbacks | undefined;
   let active: ActiveRoom | undefined;
   let pendingJoin: AbortController | undefined;

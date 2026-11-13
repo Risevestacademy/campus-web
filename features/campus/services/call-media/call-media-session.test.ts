@@ -149,6 +149,7 @@ function setup(
   };
   const callbacks = {
     onBroadcastPublicationChange: vi.fn(),
+    onBroadcastSpeakingChange: vi.fn(),
     onCameraPublishOutcome: vi.fn(),
     onRemoteAudioGainsChange: vi.fn(),
     onRemotePublicationChange: vi.fn(),

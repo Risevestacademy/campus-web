@@ -5,6 +5,7 @@ import { campusHref } from "@/core/navigation";
 import { Separator } from "@/shared/ui/separator";
 
 import { BackToCampusesControl } from "./back-to-campuses-control";
+import { BroadcastControl } from "./broadcast-control";
 import { BroadcastStatus } from "./broadcast-status";
 import type { CampusViewer } from "./campus-shell/feedback-layer";
 import { SIDEBAR_WIDTH } from "./campus-shell/sidebar-width";
@@ -46,6 +47,7 @@ export function PresenceDock({ cohortId, viewer }: PresenceDockProps) {
       >
         <Separator orientation="vertical" className="mx-1 my-auto h-6" />
         <MeetingMediaControls className="gap-1.5" cohortId={cohortId} />
+        <BroadcastControl className="bg-surface" cohortId={cohortId} />
         <Separator orientation="vertical" className="mx-1 my-auto h-6" />
         <BackToCampusesControl />
       </StatusDock>

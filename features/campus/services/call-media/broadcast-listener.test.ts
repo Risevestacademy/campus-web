@@ -10,6 +10,9 @@ import {
 import type {
   BroadcastPublication,
   BroadcastPublicationChange,
+  BroadcastSpeaking,
+  LocalMediaPublication,
+  LocalPublicationChange,
   MeetingMediaTransportCallbacks,
 } from "../media-session/contracts";
 import {
@@ -20,7 +23,7 @@ import type {
   BroadcastRoomConnection,
   BroadcastRoomEvents,
   BroadcastRoomTransport,
-  CallMediaSession,
+  SpaceCallMediaSession,
 } from "./contracts";
 
 const ADMIN_ID = "22222222-2222-4222-8222-222222222222";
@@ -38,6 +41,40 @@ function broadcastWith(token: string): BroadcastMessage {
 }
 
 const BROADCAST = broadcastWith("listen-token");
+
+function speakingBroadcast(token = "speak-token"): BroadcastMessage {
+  const message = broadcastWith(token);
+  return { ...message, call: { ...message.call!, canSpeak: true } };
+}
+
+function ownMicrophone(deviceId = "mic-1"): LocalMediaPublication {
+  const track = createTestMediaTrack("audio", deviceId);
+  return {
+    enabled: true,
+    origin: "local",
+    publicationId: `local-${deviceId}`,
+    source: "microphone",
+    stream: createTestMediaStream([track]),
+    track,
+  };
+}
+
+function microphoneAdded(
+  publication = ownMicrophone(),
+): LocalPublicationChange {
+  return { publication, type: "added" };
+}
+
+function microphoneRemoved(
+  publication = ownMicrophone(),
+): LocalPublicationChange {
+  return {
+    previousTrack: publication.track,
+    publicationId: publication.publicationId,
+    source: "microphone",
+    type: "removed",
+  };
+}
 const NO_BROADCAST: BroadcastMessage = { type: "broadcast", call: null };
 
 function presenceOf(message: BroadcastMessage): Presence {
@@ -81,10 +118,13 @@ function setup(
   options: Readonly<{
     join?: () => Promise<void>;
     pinMediaUrl?: (url: string) => string | undefined;
+    refusePublish?: boolean;
   }> = {},
 ) {
   const rooms: Room[] = [];
   const steps: string[] = [];
+  // What reached a room from the member: `<change>:<source or device>@<token>`.
+  const sent: string[] = [];
   const roomTransport: BroadcastRoomTransport = {
     connect: vi.fn(async (access, events, signal) => {
       steps.push(`join:${access.token}`);
@@ -94,6 +134,18 @@ function setup(
         disconnect: vi.fn(async () => {
           steps.push(`leave:${access.token}`);
         }),
+        handleLocalPublicationChange: vi.fn(
+          async (change: LocalPublicationChange) => {
+            const what =
+              change.type === "removed"
+                ? change.source
+                : change.publication.publicationId.replace("local-", "");
+            sent.push(`${change.type}:${what}@${access.token}`);
+            if (options.refusePublish && change.type !== "removed") {
+              throw new Error("publish refused");
+            }
+          },
+        ),
       };
       rooms.push({ access, connection, events, signal });
       return connection;
@@ -104,9 +156,11 @@ function setup(
     roomTransport,
   });
   const changes: BroadcastPublicationChange[] = [];
+  const speaking: BroadcastSpeaking[] = [];
   const callbacks = {
     onBroadcastPublicationChange: (change: BroadcastPublicationChange) =>
       changes.push(change),
+    onBroadcastSpeakingChange: (next: BroadcastSpeaking) => speaking.push(next),
   };
 
   function receive(message: BroadcastMessage) {
@@ -119,7 +173,17 @@ function setup(
     return room;
   }
 
-  return { callbacks, changes, listener, receive, roomAt, rooms, steps };
+  return {
+    callbacks,
+    changes,
+    listener,
+    receive,
+    roomAt,
+    rooms,
+    sent,
+    speaking,
+    steps,
+  };
 }
 
 async function settle() {
@@ -363,11 +427,214 @@ describe("createBroadcastListener", () => {
   });
 });
 
+describe("speaking in a broadcast", () => {
+  async function speakingAdmin(options: Parameters<typeof setup>[0] = {}) {
+    const harness = setup(options);
+    harness.listener.connect(harness.callbacks);
+    harness.listener.handleLocalPublicationChange(microphoneAdded());
+    harness.receive(speakingBroadcast());
+    await settle();
+    return harness;
+  }
+
+  it("publishes the member's microphone when they ask and World lets them", async () => {
+    const { listener, sent, speaking } = await speakingAdmin();
+    expect(sent).toEqual([]);
+
+    listener.setSpeaking(true);
+    await settle();
+
+    expect(sent).toEqual(["added:mic-1@speak-token"]);
+    expect(speaking).toEqual(["on"]);
+  });
+
+  it("never publishes a camera or a screen", async () => {
+    const { listener, sent } = await speakingAdmin();
+    listener.setSpeaking(true);
+    const camera = { ...ownMicrophone("cam-1"), source: "camera" as const };
+
+    listener.handleLocalPublicationChange({
+      publication: camera,
+      type: "added",
+    });
+    listener.handleLocalPublicationChange({
+      publication: { ...camera, source: "screen" },
+      type: "added",
+    });
+    await settle();
+
+    expect(sent).toEqual(["added:mic-1@speak-token"]);
+  });
+
+  it("publishes nothing for a member World lets only listen", async () => {
+    const { callbacks, listener, receive, sent, speaking } = setup();
+    listener.connect(callbacks);
+    listener.handleLocalPublicationChange(microphoneAdded());
+    receive(BROADCAST);
+    await settle();
+
+    listener.setSpeaking(true);
+    await settle();
+
+    expect(sent).toEqual([]);
+    expect(speaking).toEqual([]);
+  });
+
+  it("follows a device switch, and stops", async () => {
+    const { listener, sent, speaking } = await speakingAdmin();
+    listener.setSpeaking(true);
+
+    listener.handleLocalPublicationChange({
+      previousTrack: ownMicrophone().track,
+      publication: ownMicrophone("mic-2"),
+      type: "replaced",
+    });
+    listener.setSpeaking(false);
+    await settle();
+
+    expect(sent).toEqual([
+      "added:mic-1@speak-token",
+      "replaced:mic-2@speak-token",
+      "removed:microphone@speak-token",
+    ]);
+    expect(speaking).toEqual(["on", "off"]);
+  });
+
+  it("ends the broadcast when the member turns the microphone off", async () => {
+    const { listener, sent, speaking } = await speakingAdmin();
+    listener.setSpeaking(true);
+
+    listener.handleLocalPublicationChange(microphoneRemoved());
+    listener.handleLocalPublicationChange(microphoneAdded());
+    await settle();
+
+    expect(sent).toEqual([
+      "added:mic-1@speak-token",
+      "removed:microphone@speak-token",
+    ]);
+    expect(speaking).toEqual(["on", "off"]);
+  });
+
+  it("a device switch while not speaking sends nothing", async () => {
+    const { listener, sent } = await speakingAdmin();
+
+    listener.handleLocalPublicationChange({
+      previousTrack: ownMicrophone().track,
+      publication: ownMicrophone("mic-2"),
+      type: "replaced",
+    });
+    await settle();
+
+    expect(sent).toEqual([]);
+  });
+
+  it("stops, and stays stopped, once World says the member may no longer speak", async () => {
+    const { listener, receive, sent, speaking, steps } = await speakingAdmin();
+    listener.setSpeaking(true);
+    await settle();
+
+    receive(broadcastWith("listen-token"));
+    await settle();
+
+    expect(speaking).toEqual(["on", "off"]);
+    expect(steps).toEqual([
+      "join:speak-token",
+      "leave:speak-token",
+      "join:listen-token",
+    ]);
+    expect(sent).toEqual(["added:mic-1@speak-token"]);
+  });
+
+  it("carries on with a fresh token that may still speak", async () => {
+    const { listener, receive, sent, speaking } = await speakingAdmin();
+    listener.setSpeaking(true);
+    await settle();
+
+    receive(speakingBroadcast("fresh-token"));
+    await settle();
+
+    expect(sent).toEqual([
+      "added:mic-1@speak-token",
+      "added:mic-1@fresh-token",
+    ]);
+    expect(speaking).toEqual(["on"]);
+  });
+
+  it("publishes as soon as a room asked for before it joined is in", async () => {
+    let releaseJoin = () => {};
+    const held = new Promise<void>((resolve) => {
+      releaseJoin = resolve;
+    });
+    const { callbacks, listener, receive, sent } = setup({ join: () => held });
+    listener.connect(callbacks);
+    listener.handleLocalPublicationChange(microphoneAdded());
+    receive(speakingBroadcast());
+    await settle();
+
+    listener.setSpeaking(true);
+    expect(sent).toEqual([]);
+    releaseJoin();
+    await settle();
+
+    expect(sent).toEqual(["added:mic-1@speak-token"]);
+  });
+
+  it("reports a refused microphone and lets the member try again", async () => {
+    const { listener, speaking } = await speakingAdmin({
+      refusePublish: true,
+    });
+
+    listener.setSpeaking(true);
+    await settle();
+    expect(speaking).toEqual(["on", "failed"]);
+
+    listener.setSpeaking(true);
+    await settle();
+    expect(speaking).toEqual(["on", "failed", "on", "failed"]);
+  });
+
+  it.each([
+    [
+      "a null broadcast",
+      (harness: Awaited<ReturnType<typeof setup>>) =>
+        harness.receive(NO_BROADCAST),
+    ],
+    [
+      "a closed socket",
+      (harness: Awaited<ReturnType<typeof setup>>) =>
+        harness.listener.applyPresence(SOCKET_CLOSED),
+    ],
+  ])("ends the broadcast on %s", async (_case, end) => {
+    const harness = await speakingAdmin();
+    harness.listener.setSpeaking(true);
+    await settle();
+
+    end(harness);
+    await settle();
+
+    expect(harness.speaking).toEqual(["on", "off"]);
+    expect(harness.roomAt(0).connection.disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("ends the broadcast when the media session disconnects", async () => {
+    const harness = setup();
+    const disconnect = harness.listener.connect(harness.callbacks);
+    harness.listener.handleLocalPublicationChange(microphoneAdded());
+    harness.receive(speakingBroadcast());
+    await settle();
+    harness.listener.setSpeaking(true);
+
+    disconnect();
+
+    expect(harness.speaking).toEqual(["on", "off"]);
+  });
+});
+
 describe("withBroadcastListener", () => {
   it("feeds both World's frames and closed presence, and shares one lifecycle", () => {
     const disconnectCall = vi.fn();
     const stopListening = vi.fn();
-    const callMedia: CallMediaSession = {
+    const callMedia: SpaceCallMediaSession = {
       applyPresence: vi.fn(),
       applyWorldMessage: vi.fn(),
       connect: vi.fn(() => disconnectCall),
@@ -379,6 +646,8 @@ describe("withBroadcastListener", () => {
       applyPresence: vi.fn(),
       applyWorldMessage: vi.fn(),
       connect: vi.fn(() => stopListening),
+      handleLocalPublicationChange: vi.fn(),
+      setSpeaking: vi.fn(),
     };
     const session = withBroadcastListener(callMedia, broadcast);
     const presence = presenceOf(BROADCAST);
@@ -386,6 +655,8 @@ describe("withBroadcastListener", () => {
     session.applyWorldMessage(BROADCAST, presence);
     session.applyPresence(SOCKET_CLOSED);
     const disconnect = session.connect({} as MeetingMediaTransportCallbacks);
+    session.handleLocalPublicationChange(microphoneAdded());
+    session.setBroadcastSpeaking(true);
     disconnect();
 
     expect(callMedia.applyWorldMessage).toHaveBeenCalledWith(
@@ -398,6 +669,9 @@ describe("withBroadcastListener", () => {
     );
     expect(callMedia.applyPresence).toHaveBeenCalledWith(SOCKET_CLOSED);
     expect(broadcast.applyPresence).toHaveBeenCalledWith(SOCKET_CLOSED);
+    expect(callMedia.handleLocalPublicationChange).toHaveBeenCalledOnce();
+    expect(broadcast.handleLocalPublicationChange).toHaveBeenCalledOnce();
+    expect(broadcast.setSpeaking).toHaveBeenCalledExactlyOnceWith(true);
     expect(stopListening).toHaveBeenCalledOnce();
     expect(disconnectCall).toHaveBeenCalledOnce();
   });

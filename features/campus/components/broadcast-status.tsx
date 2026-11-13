@@ -15,8 +15,12 @@ const SPEAKERS = new Intl.ListFormat("en", {
 // Only admins may speak, and one with no display name is still an admin.
 const UNNAMED_SPEAKER = "An admin";
 
+// The member's own broadcast comes first, as "You".
+export const OWN_SPEAKER = "You";
+
 export function broadcastHeadline(names: readonly string[]) {
-  return `${SPEAKERS.format(names)} ${names.length === 1 ? "is" : "are"} speaking to everyone`;
+  const plural = names.length > 1 || names[0] === OWN_SPEAKER;
+  return `${SPEAKERS.format(names)} ${plural ? "are" : "is"} speaking to everyone`;
 }
 
 // Shown wherever the member is while an admin speaks in the broadcast room.
@@ -43,6 +47,9 @@ export function BroadcastStatus({ cohortId }: Readonly<{ cohortId: string }>) {
   const broadcastPublications = useMediaSession(
     (state) => state.broadcastPublications,
   );
+  const speakingYourself = useMediaSession(
+    (state) => state.broadcastSpeaking === "on",
+  );
   const participants = useStore(
     presenceFor(cohortId),
     (state) => state.participants,
@@ -58,7 +65,12 @@ export function BroadcastStatus({ cohortId }: Readonly<{ cohortId: string }>) {
 
   return (
     <div role="status" className="empty:hidden">
-      <BroadcastStatusView speakers={[...new Set(speakers)]} />
+      <BroadcastStatusView
+        speakers={[
+          ...(speakingYourself ? [OWN_SPEAKER] : []),
+          ...new Set(speakers),
+        ]}
+      />
     </div>
   );
 }

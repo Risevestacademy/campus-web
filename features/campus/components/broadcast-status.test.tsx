@@ -33,6 +33,7 @@ function broadcastingSession() {
     },
     handleLocalPublicationChange() {},
     retry() {},
+    setBroadcastSpeaking() {},
     setVideoDemand() {},
   };
   const store = createMediaSessionStore({ mediaDevices: null, transport });
@@ -74,6 +75,7 @@ function broadcastingSession() {
 describe("broadcastHeadline", () => {
   it("names one speaker or several", () => {
     expect(broadcastHeadline(["Ada"])).toBe("Ada is speaking to everyone");
+    expect(broadcastHeadline(["You"])).toBe("You are speaking to everyone");
     expect(broadcastHeadline(["Ada", "Grace", "Lin"])).toBe(
       "Ada, Grace, and Lin are speaking to everyone",
     );
@@ -134,6 +136,26 @@ describe("BroadcastStatus", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent(
       "Grace Hopper is speaking to everyone",
+    );
+  });
+
+  it("puts the member's own broadcast first", () => {
+    seedPresence(COHORT_ID, GRACE);
+    const { speak, store } = broadcastingSession();
+    render(
+      <MediaSessionProvider store={store}>
+        <BroadcastStatus cohortId={COHORT_ID} />
+      </MediaSessionProvider>,
+    );
+
+    act(() => store.setState({ broadcastSpeaking: "on" }));
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "You are speaking to everyone",
+    );
+
+    speak(GRACE.userId);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "You and Grace Hopper are speaking to everyone",
     );
   });
 });

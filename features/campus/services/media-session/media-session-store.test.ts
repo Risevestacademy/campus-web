@@ -120,6 +120,8 @@ function createTransport() {
     remoteListener = undefined;
   });
   const retry = vi.fn();
+  const setBroadcastSpeaking =
+    vi.fn<MeetingMediaTransport["setBroadcastSpeaking"]>();
   const setVideoDemand = vi.fn<MeetingMediaTransport["setVideoDemand"]>();
   let remoteListener: ((change: RemotePublicationChange) => void) | undefined;
   const transport: MeetingMediaTransport = {
@@ -130,6 +132,7 @@ function createTransport() {
     },
     handleLocalPublicationChange: (change) => changes.push(change),
     retry,
+    setBroadcastSpeaking,
     setVideoDemand,
   };
 
@@ -138,6 +141,7 @@ function createTransport() {
     connections,
     disconnect,
     retry,
+    setBroadcastSpeaking,
     setVideoDemand,
     emitRemote: (change: RemotePublicationChange) => remoteListener?.(change),
     transport,
@@ -1385,5 +1389,71 @@ describe("video demand", () => {
       [cameraDemand([[GRACE, "low"]])],
       [cameraDemand([])],
     ]);
+  });
+
+  describe("broadcast speaking", () => {
+    async function connectedAdmin(
+      getUserMedia: (
+        constraints: MediaStreamConstraints,
+      ) => Promise<MediaStream> = async () =>
+        createStream([createTrack("audio", "microphone-1")]),
+    ) {
+      const harness = createTransport();
+      const store = createMediaSessionStore({
+        createMediaStream: () => createStream(),
+        mediaDevices: createMediaDevices(getUserMedia),
+        transport: harness.transport,
+      });
+      await store.getState().start();
+      store.getState().connect();
+      const callbacks = harness.connections[0]!;
+      return { ...harness, callbacks, store };
+    }
+
+    it("turns the microphone on first, so it goes out on the member's own device", async () => {
+      const { changes, setBroadcastSpeaking, store } = await connectedAdmin();
+
+      expect(await store.getState().toggleBroadcastSpeaking()).toBeNull();
+
+      expect(store.getState().microphone.desiredEnabled).toBe(true);
+      expect(changes.at(-1)).toMatchObject({
+        publication: { source: "microphone" },
+        type: "added",
+      });
+      expect(setBroadcastSpeaking).toHaveBeenCalledExactlyOnceWith(true);
+    });
+
+    it("starts nothing when the microphone is refused", async () => {
+      const { setBroadcastSpeaking, store } = await connectedAdmin(async () => {
+        throw new DOMException("denied", "NotAllowedError");
+      });
+
+      expect(await store.getState().toggleBroadcastSpeaking()).toBe(
+        "permission-denied",
+      );
+      expect(setBroadcastSpeaking).not.toHaveBeenCalled();
+    });
+
+    it("follows what the call reports, stops when on, and resets on stop", async () => {
+      const { callbacks, setBroadcastSpeaking, store } = await connectedAdmin();
+      await store.getState().toggleSource("microphone");
+
+      callbacks.onBroadcastSpeakingChange("on");
+      expect(store.getState().broadcastSpeaking).toBe("on");
+      await store.getState().toggleBroadcastSpeaking();
+      expect(setBroadcastSpeaking).toHaveBeenLastCalledWith(false);
+
+      callbacks.onBroadcastSpeakingChange("failed");
+      store.getState().stop();
+      expect(store.getState().broadcastSpeaking).toBe("off");
+    });
+
+    it("does nothing before the session connects", async () => {
+      const { setBroadcastSpeaking, transport } = createTransport();
+      const store = createMediaSessionStore({ mediaDevices: null, transport });
+
+      expect(await store.getState().toggleBroadcastSpeaking()).toBeNull();
+      expect(setBroadcastSpeaking).not.toHaveBeenCalled();
+    });
   });
 });

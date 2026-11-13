@@ -1,9 +1,13 @@
 import type { Presence } from "@/core/presence";
 import type { BroadcastCall, ServerMessage } from "@/core/realtime";
 
-import type {
-  BroadcastPublicationChange,
-  RemotePublicationChange,
+import {
+  type BroadcastPublicationChange,
+  type BroadcastSpeaking,
+  localChangeSource,
+  type LocalMediaPublication,
+  type LocalPublicationChange,
+  type RemotePublicationChange,
 } from "../media-session/contracts";
 import type {
   BroadcastListener,
@@ -11,6 +15,7 @@ import type {
   BroadcastRoomConnection,
   BroadcastRoomTransport,
   CallMediaSession,
+  SpaceCallMediaSession,
 } from "./contracts";
 
 type BroadcastListenerOptions = Readonly<{
@@ -20,9 +25,22 @@ type BroadcastListenerOptions = Readonly<{
 
 type PublicationRemoval = Extract<RemotePublicationChange, { type: "removed" }>;
 
+function removalOf(microphone: LocalMediaPublication): LocalPublicationChange {
+  return {
+    previousTrack: microphone.track,
+    publicationId: microphone.publicationId,
+    source: "microphone",
+    type: "removed",
+  };
+}
+
 // The cohort's broadcast room, beside the space's call: joined on each
 // `broadcast`, kept while the member walks, and left on `null` or when the
 // socket closes. World sends it again after the next snapshot.
+//
+// An admin may speak in it: their microphone, and nothing else, goes out
+// while they ask to, World says they may (`canSpeak`), and the microphone is
+// on. Losing any of those ends it; the member asks again to start over.
 export function createBroadcastListener(
   options: BroadcastListenerOptions,
 ): BroadcastListener {
@@ -31,6 +49,9 @@ export function createBroadcastListener(
   let active: BroadcastRoomConnection | undefined;
   let pendingJoin: AbortController | undefined;
   const pendingRemovals = new Map<string, PublicationRemoval>();
+  let microphone: LocalMediaPublication | undefined;
+  let wantsToSpeak = false;
+  let speaking: BroadcastSpeaking = "off";
   // Bumped whenever the current room ends; async work from an older
   // generation is stale and must not touch state or callbacks.
   let roomGeneration = 0;
@@ -45,6 +66,36 @@ export function createBroadcastListener(
 
   function isCurrent(stepGeneration: number) {
     return stepGeneration === roomGeneration && callbacks !== undefined;
+  }
+
+  function report(next: BroadcastSpeaking) {
+    if (next === speaking) return;
+    speaking = next;
+    callbacks?.onBroadcastSpeakingChange(next);
+  }
+
+  function isPublishing() {
+    return wantsToSpeak && latestCall?.canSpeak === true && !!microphone;
+  }
+
+  // A refused microphone ends the broadcast; a refused take-down needs
+  // nothing more, since leaving the room stops its copy either way.
+  function sendToRoom(change: LocalPublicationChange) {
+    const connection = active;
+    if (!connection) return;
+    const stepGeneration = roomGeneration;
+    connection.handleLocalPublicationChange(change).catch(() => {
+      if (change.type === "removed" || stepGeneration !== roomGeneration) {
+        return;
+      }
+      stopSpeaking("failed");
+    });
+  }
+
+  function stopSpeaking(outcome: Exclude<BroadcastSpeaking, "on">) {
+    if (isPublishing() && microphone) sendToRoom(removalOf(microphone));
+    wantsToSpeak = false;
+    report(outcome);
   }
 
   function forward(change: BroadcastPublicationChange) {
@@ -106,6 +157,11 @@ export function createBroadcastListener(
       return;
     }
     active = connection;
+    // The token that may speak is only good for joining within a minute, so
+    // the microphone goes out as soon as the room is joined.
+    if (isPublishing() && microphone) {
+      sendToRoom({ publication: microphone, type: "added" });
+    }
   }
 
   function joinLatestCall() {
@@ -117,8 +173,35 @@ export function createBroadcastListener(
   }
 
   function leave() {
+    stopSpeaking("off");
     latestCall = undefined;
     closeRoom();
+  }
+
+  function startSpeaking() {
+    if (!latestCall?.canSpeak) {
+      report("off");
+      return;
+    }
+    if (!microphone) {
+      report("failed");
+      return;
+    }
+    if (wantsToSpeak) return;
+    wantsToSpeak = true;
+    report("on");
+    sendToRoom({ publication: microphone, type: "added" });
+  }
+
+  function handleMicrophoneChange(change: LocalPublicationChange) {
+    if (change.type === "removed") {
+      // Turning the microphone off ends the broadcast with it.
+      stopSpeaking("off");
+      microphone = undefined;
+      return;
+    }
+    microphone = change.publication;
+    if (isPublishing()) sendToRoom(change);
   }
 
   return {
@@ -129,7 +212,12 @@ export function createBroadcastListener(
         return;
       }
       // A new token, even for the same room: World revokes the old one when
-      // a role changes.
+      // a role changes. One that may not speak ends the member's broadcast;
+      // leaving the old room takes the microphone down.
+      if (!message.call.canSpeak && wantsToSpeak) {
+        wantsToSpeak = false;
+        report("off");
+      }
       latestCall = message.call;
       joinLatestCall();
     },
@@ -144,9 +232,21 @@ export function createBroadcastListener(
       joinLatestCall();
 
       return () => {
+        wantsToSpeak = false;
+        report("off");
+        microphone = undefined;
         closeRoom();
         callbacks = undefined;
       };
+    },
+    handleLocalPublicationChange(change) {
+      if (localChangeSource(change) === "microphone") {
+        handleMicrophoneChange(change);
+      }
+    },
+    setSpeaking(on) {
+      if (on) startSpeaking();
+      else stopSpeaking("off");
     },
   };
 }
@@ -154,7 +254,7 @@ export function createBroadcastListener(
 // The space's call and the broadcast room share one World feed and one
 // lifecycle.
 export function withBroadcastListener(
-  callMedia: CallMediaSession,
+  callMedia: SpaceCallMediaSession,
   broadcast: BroadcastListener,
 ): CallMediaSession {
   return {
@@ -175,5 +275,10 @@ export function withBroadcastListener(
         disconnectCall();
       };
     },
+    handleLocalPublicationChange(change) {
+      callMedia.handleLocalPublicationChange(change);
+      broadcast.handleLocalPublicationChange(change);
+    },
+    setBroadcastSpeaking: broadcast.setSpeaking,
   };
 }

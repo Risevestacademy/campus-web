@@ -25,3 +25,7 @@ export const OneAdmin: Story = {
 export const SeveralAdmins: Story = {
   args: { speakers: ["Ada Lovelace", "Grace Hopper", "An admin"] },
 };
+
+export const Yourself: Story = {
+  args: { speakers: ["You", "Ada Lovelace"] },
+};
