@@ -206,6 +206,13 @@ export type BroadcastPublications = Readonly<
   Record<string, BroadcastPublication>
 >;
 
+// A muted speaker stays in the broadcast room but is not speaking.
+export function liveBroadcasts(
+  publications: BroadcastPublications,
+): readonly BroadcastPublication[] {
+  return Object.values(publications).filter(({ enabled }) => enabled);
+}
+
 export type MeetingMediaTransportCallbacks = Readonly<{
   // A microphone in the cohort's broadcast room: played over everything else,
   // never muted, and never part of the meeting.

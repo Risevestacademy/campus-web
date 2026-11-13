@@ -5,6 +5,7 @@ import { useStore } from "zustand";
 
 import { presenceFor } from "@/core/presence";
 
+import { liveBroadcasts } from "../services/media-session/contracts";
 import { useMediaSession } from "../services/media-session/media-session-provider";
 
 const SPEAKERS = new Intl.ListFormat("en", {
@@ -29,9 +30,9 @@ export function BroadcastStatusView({
   return (
     <div className="bg-background flex items-center gap-2 rounded-2xl py-2 pr-3 pl-2.5 text-sm">
       <MegaphoneIcon aria-hidden className="text-primary size-4 shrink-0" />
-      <p className="grid">
+      <p className="grid min-w-0">
         <span className="font-medium">Broadcast</span>
-        <span className="text-foreground-secondary -mt-px text-xs">
+        <span className="text-foreground-secondary -mt-px truncate text-xs">
           {broadcastHeadline(speakers)}
         </span>
       </p>
@@ -49,7 +50,7 @@ export function BroadcastStatus({ cohortId }: Readonly<{ cohortId: string }>) {
   );
   // Presence names those in this cohort; the token's name covers an admin who
   // is not, such as a platform admin.
-  const speakers = Object.values(broadcastPublications).map(
+  const speakers = liveBroadcasts(broadcastPublications).map(
     ({ participantId, speakerName }) =>
       participants.get(participantId)?.displayName ??
       speakerName ??

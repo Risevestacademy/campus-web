@@ -131,8 +131,11 @@ member walks: no other frame touches it.
   It publishes nothing; speaking is D-2.
 - Microphones reach `onBroadcastPublicationChange`, which the media store keeps
   in `broadcastPublications`, never in the meeting's `remotePublications`, so
-  no tile, roster or video demand sees them. Who has one there is who is
-  speaking: World says a broadcast is on while an audio track is published.
+  no tile, roster or video demand sees them. Who has an unmuted one there is
+  who is speaking: World says a broadcast is on while an audio track is
+  published, but a speaker may mute without unpublishing, so a mute or unmute
+  hands the microphone over again with `enabled` current. `liveBroadcasts`
+  skips muted ones, for the status and for ducking alike.
   Each carries `speakerName`, the display name World signed into the
   speaker's token (`parseParticipantName`: trimmed, 1 to 100 characters, else
   `null`). `BroadcastStatus` prefers presence's name, then this one (an admin

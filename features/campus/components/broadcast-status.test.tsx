@@ -43,11 +43,15 @@ function broadcastingSession() {
   }
 
   return {
-    speak(participantId: string, speakerName: string | null = null) {
+    speak(
+      participantId: string,
+      speakerName: string | null = null,
+      enabled = true,
+    ) {
       const track = createTestMediaTrack("audio", `${participantId}-mic`);
       change({
         publication: {
-          enabled: true,
+          enabled,
           origin: "remote",
           participantId,
           publicationId: `${participantId}-mic`,
@@ -103,6 +107,24 @@ describe("BroadcastStatus", () => {
     stop(GRACE.userId);
     stop(UNKNOWN_ADMIN);
     expect(screen.getByRole("status")).toBeEmptyDOMElement();
+  });
+
+  it("leaves out a speaker while they are muted", () => {
+    seedPresence(COHORT_ID, GRACE);
+    const { speak, store } = broadcastingSession();
+    render(
+      <MediaSessionProvider store={store}>
+        <BroadcastStatus cohortId={COHORT_ID} />
+      </MediaSessionProvider>,
+    );
+
+    speak(GRACE.userId, null, false);
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+
+    speak(GRACE.userId);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Grace Hopper is speaking to everyone",
+    );
   });
 
   it("names an admin outside this cohort by the name in their token", () => {

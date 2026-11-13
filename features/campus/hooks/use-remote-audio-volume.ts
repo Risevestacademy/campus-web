@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
+import { liveBroadcasts } from "../services/media-session/contracts";
 import { useMediaSessionStore } from "../services/media-session/media-session-provider";
 import type { MediaSessionState } from "../services/media-session/media-session-store";
 import type { MediaElementVolume } from "./use-media-element-ref";
@@ -9,17 +10,17 @@ import type { MediaElementVolume } from "./use-media-element-ref";
 export const BROADCAST_DUCKED_GAIN = 0.25;
 
 function isBroadcasting(state: MediaSessionState) {
-  return Object.keys(state.broadcastPublications).length > 0;
+  return liveBroadcasts(state.broadcastPublications).length > 0;
 }
 
 // No gain means the call does not let you hear them: silent, never full
 // volume. Somebody broadcasting is heard from the broadcast room only, so
-// their voice never plays twice.
+// their voice never plays twice; once they mute it, the call is theirs again.
 export function spaceCallVolume(
   state: MediaSessionState,
   participantId: string,
 ) {
-  if (state.broadcastPublications[participantId]) return 0;
+  if (state.broadcastPublications[participantId]?.enabled) return 0;
   const gain = state.remoteAudioGains[participantId] ?? 0;
   return isBroadcasting(state) ? gain * BROADCAST_DUCKED_GAIN : gain;
 }
