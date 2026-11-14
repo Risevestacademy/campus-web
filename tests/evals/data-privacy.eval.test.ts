@@ -48,6 +48,7 @@ import {
   parsePendingInvite,
 } from "@/features/invitation/schemas/invite.schema";
 import { moveInviteTokenToCookie } from "@/features/invitation/services/invite-token-proxy.service";
+import { parseOwnProfile } from "@/features/profile/schemas/own-profile.schema";
 import { parseCohortDirectory } from "@/features/roster/schemas/directory.schema";
 import { invitePreview, pendingInvite } from "@/tests/fixtures/invites";
 import { serverFrames } from "@/tests/fixtures/world-frames";
@@ -140,6 +141,21 @@ const PERSON_CARD_ALLOW_LIST = [
   "memberships[].cohort.name",
   "memberships[].role",
   "memberships[].track.name",
+];
+
+const OWN_PROFILE_ALLOW_LIST = [
+  "avatarUrl",
+  "bio",
+  "displayName",
+  "email",
+  "firstName",
+  "id",
+  "lastName",
+  "memberships[].cohort.id",
+  "memberships[].cohort.name",
+  "memberships[].role",
+  "memberships[].track.name",
+  "phone",
 ];
 
 const SESSION_ALLOW_LIST = [
@@ -594,6 +610,35 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       });
 
       expect(keyPaths(card)).toEqual(PERSON_CARD_ALLOW_LIST);
+    });
+
+    it("keeps only the own-profile fields the account menu and editor read, never the photo or consent", () => {
+      const profile = parseOwnProfile({
+        id: "u-1",
+        email: "ada@campus.local",
+        firstName: "Ada",
+        lastName: "Lovelace",
+        displayName: "Ada L.",
+        bio: "Writes notes on engines.",
+        phone: "+2348000000000",
+        avatarUrl: "https://lh3.googleusercontent.com/a/example",
+        spriteKey: null,
+        systemRole: "admin",
+        analyticsConsent: "granted",
+        createdAt: "2026-09-22T12:00:00.000Z",
+        internalNote: "do not ship",
+        memberships: [
+          {
+            role: "student",
+            status: "active",
+            accessExpiresAt: null,
+            cohort: { id: "c-1", name: "Cohort", code: "C", ...UNEXPECTED },
+            track: { id: "t-1", name: "Backend", code: "BE" },
+          },
+        ],
+      });
+
+      expect(keyPaths(profile)).toEqual(OWN_PROFILE_ALLOW_LIST);
     });
 
     it("keeps only the feedback fields the detail panel renders", () => {
