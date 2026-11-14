@@ -1,6 +1,5 @@
 import { AdminSidebar } from "@/features/admin";
 import {
-  AccountMenu,
   LogOutAction,
   requireRouteAccess,
   SessionUnavailable,
@@ -12,6 +11,7 @@ import {
   SidebarCollapseButton,
 } from "@/features/campus";
 import { FeedbackPopup } from "@/features/feedback";
+import { OwnProfileAction } from "@/features/profile";
 import { CampusOverviewPanel } from "@/features/roster";
 
 import { cohortContextOf } from "../cohort-context";
@@ -39,7 +39,6 @@ export default async function AdministrationLayout({
   return (
     <PresenceSessionGate cohortId={id}>
       <CampusShell
-        AccountMenu={AccountMenu}
         administrationPanel={
           <AdminSidebar
             cohortId={id}
@@ -48,6 +47,7 @@ export default async function AdministrationLayout({
         }
         FeedbackPopup={FeedbackPopup}
         LogOutAction={LogOutAction}
+        OwnProfileAction={OwnProfileAction}
         OverviewPanel={CampusOverviewPanel}
         cohort={cohortContextOf(access.session, id)}
         cohortId={id}

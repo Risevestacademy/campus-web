@@ -1,9 +1,6 @@
-import { cn } from "cn";
 import type { ComponentType, ReactNode } from "react";
 
 import type { components } from "@/core/api/client";
-import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
-import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
 import { closeFeedbackPanel } from "../../store/feedback-panel-store";
@@ -12,13 +9,18 @@ import type {
   SidebarPanelId,
 } from "../../store/sidebar-preferences";
 import { CampusViewProvider } from "../campus-view-provider";
-import { CampusRail, type LogOutActionComponent } from "./campus-rail";
+import { CampusRail } from "./campus-rail";
 import { CampusSidebar } from "./campus-sidebar";
 import {
   type CampusViewer,
   FeedbackLayer,
   type FeedbackPopupComponent,
 } from "./feedback-layer";
+import {
+  type LogOutActionComponent,
+  type OwnProfileActionComponent,
+  RailAccount,
+} from "./rail-account";
 import { railPanelItems } from "./rail-items";
 import { SidebarCollapseButton } from "./sidebar-collapse-button";
 import { SidebarComingSoonPanel } from "./sidebar-coming-soon-panel";
@@ -30,10 +32,10 @@ type OverviewCohort = {
 };
 
 type CampusShellProps = Readonly<{
-  AccountMenu?: ComponentType<{ children: ReactNode }>;
   administrationPanel?: ReactNode;
   FeedbackPopup?: FeedbackPopupComponent;
   LogOutAction?: LogOutActionComponent;
+  OwnProfileAction?: OwnProfileActionComponent;
   OverviewPanel: ComponentType<{
     cohort?: OverviewCohort;
     cohortId: string;
@@ -62,21 +64,9 @@ const comingSoonPanels = Object.fromEntries(
     ]),
 ) as Record<Exclude<SidebarPanelId, "map">, ReactNode>;
 
-function RailAvatar({ viewer }: Readonly<{ viewer?: CampusViewer }>) {
-  return (
-    <Avatar size="lg">
-      <AvatarFallback
-        className={cn("font-medium", avatarToneOf(viewer?.id ?? "", "lemon"))}
-      >
-        {initialOf(viewer?.displayName)}
-      </AvatarFallback>
-    </Avatar>
-  );
-}
-
 export function CampusShell({
-  AccountMenu,
   LogOutAction,
+  OwnProfileAction,
   administrationPanel,
   FeedbackPopup,
   OverviewPanel,
@@ -86,8 +76,6 @@ export function CampusShell({
   initialSidebarMode,
   viewer,
 }: CampusShellProps) {
-  const avatar = <RailAvatar viewer={viewer} />;
-
   return (
     <CampusViewProvider>
       <TooltipProvider>
@@ -101,12 +89,16 @@ export function CampusShell({
           <div className="contents" onClickCapture={closeFeedbackPanel}>
             <CampusRail
               account={
-                AccountMenu ? <AccountMenu>{avatar}</AccountMenu> : avatar
+                <RailAccount
+                  cohortId={cohortId}
+                  LogOutAction={LogOutAction}
+                  OwnProfileAction={OwnProfileAction}
+                  viewer={viewer}
+                />
               }
               cohortId={cohortId}
               hasAdministration={administrationPanel !== undefined}
               initialSidebarMode={initialSidebarMode}
-              LogOutAction={LogOutAction}
             />
             <CampusSidebar
               administrationPanel={administrationPanel}
