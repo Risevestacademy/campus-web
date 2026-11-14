@@ -26,6 +26,9 @@ export type StatusTrayProps = Readonly<{
   stacked?: boolean;
   status: ChosenStatus;
   timeLeft: string | null;
+  // The rail's account menu shows the status in its own header, so its tray
+  // asks instead of summing up, and drops the dock's padding.
+  variant?: "dock" | "menu";
 }>;
 
 function chosen<Value extends string>(
@@ -44,33 +47,45 @@ export function StatusTray({
   stacked = false,
   status,
   timeLeft,
+  variant = "dock",
 }: StatusTrayProps) {
   const headingId = useId();
   const durationLabelId = useId();
+  const inMenu = variant === "menu";
 
   return (
     <section
       id={id}
       aria-labelledby={headingId}
       className={cn(
-        "text-foreground flex flex-col gap-2.5 px-3.5 pt-3.5 pb-3",
+        "text-foreground flex flex-col gap-2.5",
+        !inMenu && "px-3.5 pt-3.5 pb-3",
         stacked && "contain-inline-size",
       )}
     >
-      <div
-        className={cn(
-          "flex items-baseline justify-between gap-6",
-          stacked && "flex-wrap gap-y-0.5",
-        )}
-      >
-        <h2 id={headingId} className="text-sm font-semibold">
-          Your status
+      {inMenu ? (
+        <h2
+          id={headingId}
+          className="text-foreground-secondary text-xs font-semibold"
+        >
+          Set your availability
         </h2>
-        <p className="text-foreground-secondary text-xs">
-          {STATUS_LABELS[status]}
-          {timeLeft ? ` · ${timeLeft} left` : null}
-        </p>
-      </div>
+      ) : (
+        <div
+          className={cn(
+            "flex items-baseline justify-between gap-6",
+            stacked && "flex-wrap gap-y-0.5",
+          )}
+        >
+          <h2 id={headingId} className="text-sm font-semibold">
+            Your status
+          </h2>
+          <p className="text-foreground-secondary text-xs">
+            {STATUS_LABELS[status]}
+            {timeLeft ? ` · ${timeLeft} left` : null}
+          </p>
+        </div>
+      )}
 
       {canChoose ? null : (
         <p className="bg-warning-subtle border-warning-border text-warning-foreground rounded-lg border px-2.5 py-2 text-xs">
@@ -93,8 +108,12 @@ export function StatusTray({
             value={option}
             variant="outline"
             className={cn(
-              "aria-pressed:border-primary aria-pressed:bg-surface-hover dark:aria-pressed:bg-cobalt-900 bg-background gap-2 rounded-xl aria-pressed:border-2",
-              stacked ? "h-10 w-full justify-start px-3" : "h-12 flex-1 px-4",
+              "aria-pressed:border-primary aria-pressed:bg-surface-hover dark:aria-pressed:bg-cobalt-900 bg-background gap-2 aria-pressed:border-2",
+              inMenu
+                ? "h-10 flex-1 rounded-full px-2.5"
+                : stacked
+                  ? "h-10 w-full justify-start rounded-xl px-3"
+                  : "h-12 flex-1 rounded-xl px-4",
             )}
           >
             <span
@@ -109,13 +128,24 @@ export function StatusTray({
         ))}
       </ToggleGroup>
 
-      {status === "available" ? null : (
-        <div className="flex flex-col gap-1.5">
+      {status === "available" ? (
+        inMenu ? (
+          <p className="bg-surface-elevated text-foreground-secondary rounded-xl px-3 py-2.5 text-xs">
+            Pick Busy or Away to choose how long it lasts.
+          </p>
+        ) : null
+      ) : (
+        <div
+          className={cn(
+            "flex flex-col gap-1.5",
+            inMenu && "bg-surface-elevated rounded-xl p-3",
+          )}
+        >
           <span
             id={durationLabelId}
             className="text-foreground-secondary text-xs font-medium"
           >
-            For
+            {inMenu ? `${STATUS_LABELS[status]} for` : "For"}
           </span>
           <ToggleGroup
             aria-labelledby={durationLabelId}
