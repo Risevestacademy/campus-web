@@ -12,9 +12,10 @@ import { useCohortDirectory } from "./hooks/use-cohort-directory";
 import { useGoToParticipant } from "./hooks/use-go-to-participant";
 import { useGoToSpace } from "./hooks/use-go-to-space";
 import { useGoToTile } from "./hooks/use-go-to-tile";
+import type { RenderProfileCard } from "./participant-row";
 import { toRosterParticipants } from "./presence-participants";
 import { quickTransportDestinationsOf } from "./quick-transport";
-import type { CohortContext } from "./types";
+import type { CohortContext, ProfileCardComponent } from "./types";
 
 const CLOCK_TICK_MS = 15_000;
 
@@ -22,10 +23,12 @@ export function CampusOverviewPanel({
   cohort,
   cohortId,
   collapseButton,
+  ProfileCard,
 }: {
   cohort?: CohortContext;
   cohortId: string;
   collapseButton: ReactNode;
+  ProfileCard?: ProfileCardComponent;
 }) {
   const presence = presenceFor(cohortId);
   const participants = useStore(presence, (state) => state.participants);
@@ -59,6 +62,20 @@ export function CampusOverviewPanel({
     [participants, selfId, hasSnapshot, directory, now],
   );
 
+  const renderProfileCard: RenderProfileCard | undefined = ProfileCard
+    ? (participant, { presence, actions }) => (
+        <ProfileCard
+          actions={actions}
+          avatarClassName={participant.avatarClassName}
+          cohortId={cohortId}
+          initial={participant.initial}
+          name={participant.name}
+          presence={presence}
+          userId={participant.id}
+        />
+      )
+    : undefined;
+
   return (
     <CampusOverview
       collapseButton={collapseButton}
@@ -72,6 +89,7 @@ export function CampusOverviewPanel({
       }
       participants={online}
       quickTransportDestinations={destinations}
+      renderProfileCard={renderProfileCard}
     />
   );
 }

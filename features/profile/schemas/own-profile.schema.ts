@@ -11,6 +11,13 @@ import type {
   ProfileFieldValues,
 } from "../types";
 
+// The Google photo. Only an https address is drawn; anything else falls back
+// to the initial rather than failing the whole profile.
+export const photoUrlSchema = z
+  .url({ protocol: /^https$/ })
+  .nullable()
+  .catch(null);
+
 const ownProfileSchema = z.toZod<OwnProfile>()(
   z.object({
     id: z.string().min(1),

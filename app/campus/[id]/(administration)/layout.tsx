@@ -12,8 +12,8 @@ import {
 } from "@/features/campus";
 import { FeedbackPopup } from "@/features/feedback";
 import { OwnProfileAction } from "@/features/profile";
-import { CampusOverviewPanel } from "@/features/roster";
 
+import { OverviewPanelWithProfiles } from "../campus-overview-panel";
 import { cohortContextOf } from "../cohort-context";
 import { requireCohortId } from "../require-cohort-id";
 
@@ -48,7 +48,7 @@ export default async function AdministrationLayout({
         FeedbackPopup={FeedbackPopup}
         LogOutAction={LogOutAction}
         OwnProfileAction={OwnProfileAction}
-        OverviewPanel={CampusOverviewPanel}
+        OverviewPanel={OverviewPanelWithProfiles}
         cohort={cohortContextOf(access.session, id)}
         cohortId={id}
         initialSidebarMode="admin"

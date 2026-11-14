@@ -20,7 +20,7 @@ import {
   type ParticipantFilterId,
   participantFilters,
 } from "./participant-filters";
-import { ParticipantRow } from "./participant-row";
+import { ParticipantRow, type RenderProfileCard } from "./participant-row";
 import type { QuickTransportDestination } from "./quick-transport";
 import { QuickTransportList } from "./quick-transport-list";
 import type { Participant, ParticipantAction } from "./types";
@@ -58,6 +58,7 @@ export type CampusOverviewProps = Readonly<{
   onQuickTransport?: (destination: QuickTransportDestination) => void;
   participants: readonly Participant[];
   quickTransportDestinations?: readonly QuickTransportDestination[];
+  renderProfileCard?: RenderProfileCard;
 }>;
 
 export function CampusOverview({
@@ -68,6 +69,7 @@ export function CampusOverview({
   onQuickTransport,
   participants,
   quickTransportDestinations = [],
+  renderProfileCard,
 }: CampusOverviewProps) {
   const [searchText, setSearchText] = useState("");
   const [activeFilter, setActiveFilter] = useState<ParticipantFilterId>("all");
@@ -173,6 +175,7 @@ export function CampusOverview({
                   key={participant.id}
                   onAction={onParticipantAction}
                   participant={participant}
+                  renderProfileCard={renderProfileCard}
                 />
               ))}
             </ul>
@@ -198,6 +201,7 @@ export function CampusOverview({
                   <ParticipantRow
                     key={participant.id}
                     participant={participant}
+                    renderProfileCard={renderProfileCard}
                   />
                 ))}
               </ul>

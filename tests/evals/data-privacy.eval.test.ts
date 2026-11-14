@@ -48,6 +48,7 @@ import {
   parsePendingInvite,
 } from "@/features/invitation/schemas/invite.schema";
 import { moveInviteTokenToCookie } from "@/features/invitation/services/invite-token-proxy.service";
+import { parseMemberProfile } from "@/features/profile/schemas/member-profile.schema";
 import { parseOwnProfile } from "@/features/profile/schemas/own-profile.schema";
 import { parseCohortDirectory } from "@/features/roster/schemas/directory.schema";
 import { invitePreview, pendingInvite } from "@/tests/fixtures/invites";
@@ -139,6 +140,18 @@ const PERSON_CARD_ALLOW_LIST = [
   "lastName",
   "memberships[].cohort.id",
   "memberships[].cohort.name",
+  "memberships[].role",
+  "memberships[].track.name",
+];
+
+const MEMBER_PROFILE_ALLOW_LIST = [
+  "avatarUrl",
+  "bio",
+  "displayName",
+  "firstName",
+  "id",
+  "lastName",
+  "memberships[].cohort.id",
   "memberships[].role",
   "memberships[].track.name",
 ];
@@ -612,7 +625,7 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       expect(keyPaths(card)).toEqual(PERSON_CARD_ALLOW_LIST);
     });
 
-    it("keeps only the own-profile fields the account menu and editor read, never the photo or consent", () => {
+    it("keeps only the own-profile fields the account menu and editor read, never consent", () => {
       const profile = parseOwnProfile({
         id: "u-1",
         email: "ada@campus.local",
@@ -639,6 +652,29 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       });
 
       expect(keyPaths(profile)).toEqual(OWN_PROFILE_ALLOW_LIST);
+    });
+
+    it("keeps only the fields another member's card reads, never their email", () => {
+      const card = parseMemberProfile({
+        id: "u-2",
+        email: "grace@campus.local",
+        firstName: "Grace",
+        lastName: "Hopper",
+        displayName: "Grace H.",
+        bio: "Compilers, mostly.",
+        avatarUrl: "https://lh3.googleusercontent.com/a/example",
+        spriteKey: null,
+        ...UNEXPECTED,
+        memberships: [
+          {
+            role: "student",
+            cohort: { id: "c-1", name: "Cohort", code: "C", ...UNEXPECTED },
+            track: { id: "t-1", name: "Backend", code: "BE" },
+          },
+        ],
+      });
+
+      expect(keyPaths(card)).toEqual(MEMBER_PROFILE_ALLOW_LIST);
     });
 
     it("keeps only the feedback fields the detail panel renders", () => {

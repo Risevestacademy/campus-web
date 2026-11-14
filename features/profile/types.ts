@@ -26,6 +26,29 @@ export type OwnProfile = Simplify<
   > & { memberships: OwnMembership[] }
 >;
 
+type CardMembership = Simplify<
+  Pick<Schemas["ProfileCardMembershipDto"], "role"> & {
+    cohort: Pick<Schemas["UserMembershipCohortDto"], "id">;
+    track: Pick<Schemas["UserMembershipTrackDto"], "name"> | null;
+  }
+>;
+
+// What `GET /v1/users/{id}/profile` sends that another member's card reads.
+export type MemberProfile = Simplify<
+  Pick<
+    Schemas["ProfileCardDto"],
+    "id" | "firstName" | "lastName" | "displayName" | "bio" | "avatarUrl"
+  > & { memberships: CardMembership[] }
+>;
+
+// `missing` is campus-api's 404: no such account, a suspended one, or one the
+// viewer shares no cohort with.
+export type MemberProfileRead =
+  | { kind: "loaded"; profile: MemberProfile }
+  | { kind: "missing" }
+  | { kind: "signed-out" }
+  | { kind: "unavailable" };
+
 export type OwnProfileRead =
   | { kind: "loaded"; profile: OwnProfile }
   | { kind: "signed-out" }

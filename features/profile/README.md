@@ -1,8 +1,8 @@
 # Profile
 
-Owns the member's own profile: reading it, the editor that changes it, and the
-one-line summary the Campus Shell's account menu shows. Other members'
-profile cards are not built yet.
+Owns the member's own profile (reading it, the editor that changes it, and the
+one-line summary the Campus Shell's account menu shows) and the card that shows
+another member's profile.
 
 ## Interface
 
@@ -21,14 +21,32 @@ where `section` is `"profile"` or `"character"`. The summary is undefined until
 beside what the function draws, so closing a menu leaves the editor open. The
 route passes it in because Campus may not import Profile.
 
+```tsx
+import { MemberProfileCard } from "@/features/profile";
+
+<CampusOverviewPanel ProfileCard={MemberProfileCard} … />;
+```
+
+`MemberProfileCard` draws another member's card inside a `Popover`, whose title
+is their name. It takes their `userId` and the `cohortId`, the `name`,
+`initial` and `avatarClassName` the caller already shows (drawn until the card
+is read), their `presence` (`badgeClassName` and a `label` such as
+`Busy · 4 min`, since the caller owns presence) and optional `actions`. It
+reads `GET /v1/users/{id}/profile` and shows their photo, name, "Role · Track"
+in the cohort and bio. A 404 says the profile isn't available. The desk row is
+placeholder data until desks are read, and its View desk does nothing yet.
+`app/campus/[id]/campus-overview-panel.tsx` joins it to the roster.
+
 ## Modules
 
-| Module                                                                     | Owns                                                                                    | Seam                                  |
-| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------- |
-| `components/own-profile-action.tsx`                                        | the summary and the editor's open state for a control another feature draws             | `useOwnProfile`                       |
-| `components/profile-dialog.tsx`, `profile-form.tsx`, `character-panel.tsx` | the editor: its Profile and Character tabs, the form, and Character's empty placeholder | `useSaveOwnProfile`                   |
-| `schemas/own-profile.schema.ts`, `types.ts`                                | parsing the profile, reading the form into changed fields, and the summary              | none                                  |
-| `services/`, `hooks/`                                                      | `GET` and `PATCH /v1/users/me`, the cached profile, and the save's pending and problems | `services/own-profile-api.adapter.ts` |
+| Module                                                                       | Owns                                                                                    | Seam                                  |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------- |
+| `components/own-profile-action.tsx`                                          | the summary and the editor's open state for a control another feature draws             | `useOwnProfile`                       |
+| `components/profile-dialog.tsx`, `profile-form.tsx`, `character-panel.tsx`   | the editor: its Profile and Character tabs, the form, and Character's empty placeholder | `useSaveOwnProfile`                   |
+| `schemas/own-profile.schema.ts`, `types.ts`                                  | parsing the profile, reading the form into changed fields, and the summary              | none                                  |
+| `services/`, `hooks/`                                                        | `GET` and `PATCH /v1/users/me`, the cached profile, and the save's pending and problems | `services/own-profile-api.adapter.ts` |
+| `components/member-profile-card.tsx`                                         | another member's card                                                                   | `useMemberProfile`                    |
+| `schemas/member-profile.schema.ts`, `services/member-profile-api.adapter.ts` | parsing and reading `GET /v1/users/{id}/profile`, the card's name and role line         | `@/core/api/client`                   |
 
 The editor changes first and last name, display name, bio and phone, and
 sends only the fields that changed; an emptied field is sent as null, which
@@ -39,8 +57,8 @@ shown read-only: admins set them. A saved profile replaces the cached one and
 refreshes the route, because the rail and dock draw the member from the
 session the route layout reads. A 401 on save goes to sign-in.
 
-The photo is not shown: Google's picture would need its host pinned first, so
-the avatar keeps the member's initial as everywhere else. The Character tab is
+The avatar shows the member's Google photo when its address is https, and
+their initial otherwise or while it loads. The Character tab is
 an empty placeholder until the sprites exist; `spriteKey` is not read or sent.
 Projects are not built.
 
@@ -57,7 +75,7 @@ Projects are not built.
 ### Rules
 
 - Import no other feature.
-- Validate in `schemas/own-profile.schema.ts`, never in a component. Form
+- Validate in `schemas/`, never in a component. Form
   submits go through `parseForm` from `@/shared/lib/forms`.
 - Comment only a non-obvious why.
 
@@ -70,4 +88,6 @@ pnpm eval:privacy
 
 The component test renders `OwnProfileAction` against a mock campus-api: the
 summary, the filled editor, saving only what changed, an unchanged form, a bad
-phone, a refused save, the Character tab and an unreadable profile.
+phone, a refused save, the Character tab and an unreadable profile. The card's test
+renders `MemberProfileCard` in an open popover: a read card, the caller's name
+while it loads, a missing card and an unreadable one.
