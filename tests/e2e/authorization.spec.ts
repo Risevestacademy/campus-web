@@ -1023,10 +1023,21 @@ test.describe("log out", () => {
     await signIn(context, baseURL);
   });
 
-  function logOutFromAccountMenu(page: Page) {
-    return test.step("log out from the account menu", async () => {
+  function logOutFromChooser(page: Page) {
+    return test.step("log out from the chooser's account menu", async () => {
       await page.getByRole("button", { name: "Account" }).click();
       await page.getByRole("menuitem", { name: "Log out" }).click();
+    });
+  }
+
+  function logOutFromRail(page: Page) {
+    return test.step("log out from the rail's account menu", async () => {
+      await page.getByRole("button", { name: /^Your account/ }).click();
+      await page.getByRole("button", { name: "Log out", exact: true }).click();
+      await page
+        .getByRole("dialog", { name: "Log out of Campus?" })
+        .getByRole("button", { name: "Log out", exact: true })
+        .click();
     });
   }
 
@@ -1040,7 +1051,7 @@ test.describe("log out", () => {
     await enterCampus(page, "/campus/c-3");
     const historyLength = await page.evaluate(() => history.length);
 
-    await logOutFromAccountMenu(page);
+    await logOutFromRail(page);
 
     await expect(page).toHaveURL("/sign-in");
     await expect(googleLink(page)).toBeVisible();
@@ -1065,22 +1076,23 @@ test.describe("log out", () => {
     await fakeApi.scriptSession(sessions.member(COHORT_3, COHORT_4));
     await page.goto("/campus");
 
-    await logOutFromAccountMenu(page);
+    await logOutFromChooser(page);
 
     await expect(page).toHaveURL("/sign-in");
     expect(await fakeApi.logoutPosts()).toHaveLength(1);
   });
 
-  test("a member with several cohorts has no account menu in the rail", async ({
+  test("a member with several cohorts also logs out from the rail", async ({
     page,
     fakeApi,
   }) => {
     await fakeApi.scriptSession(sessions.member(COHORT_3, COHORT_4));
-
     await enterCampus(page, "/campus/c-3");
 
-    await expect(campusMap(page)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Account" })).toHaveCount(0);
+    await logOutFromRail(page);
+
+    await expect(page).toHaveURL("/sign-in");
+    expect(await fakeApi.logoutPosts()).toHaveLength(1);
   });
 
   test("a failed logout keeps the member signed in and says so", async ({
@@ -1092,7 +1104,7 @@ test.describe("log out", () => {
     await fakeApi.scriptLogout({ status: 503 });
     await enterCampus(page, "/campus/c-3");
 
-    await logOutFromAccountMenu(page);
+    await logOutFromRail(page);
 
     await expect(page.getByText("We couldn't log you out")).toBeVisible();
     await expect(page).toHaveURL("/campus/c-3");

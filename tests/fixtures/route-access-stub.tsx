@@ -18,8 +18,6 @@ export const requireRouteAccess = () =>
     },
   });
 
-export const logsOutFromRail = () => true;
-
 export const isSystemAdministrator = (role: string) =>
   role === "admin" || role === "super_admin";
 
