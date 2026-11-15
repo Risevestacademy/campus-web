@@ -11,7 +11,6 @@ vi.mock("@/features/auth", () => ({
   CohortGate: ({ children }: { children: ReactNode }) => children,
   isSystemAdministrator: (role: string) =>
     role === "admin" || role === "super_admin",
-  logsOutFromRail: () => false,
   requireRouteAccess: () =>
     Promise.resolve({
       kind: "allow",
