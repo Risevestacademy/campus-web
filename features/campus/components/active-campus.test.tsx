@@ -135,15 +135,14 @@ describe("ActiveCampus", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("switches the theme from the rail", () => {
-    document.documentElement.dataset.theme = "light";
+  it("leaves theme switching to Settings", () => {
     renderActiveCampus();
 
-    fireEvent.click(
-      within(campusRail()).getByRole("button", { name: "Switch to dark mode" }),
-    );
-
-    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+    expect(
+      within(campusRail()).queryByRole("button", {
+        name: /Switch to (dark|light) mode/,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("draws the member's initial on the rail's account button", () => {

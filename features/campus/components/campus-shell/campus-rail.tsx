@@ -2,15 +2,13 @@
 
 import { ChatCenteredDotsIcon } from "@phosphor-icons/react/dist/ssr/ChatCenteredDots";
 import { GearSixIcon } from "@phosphor-icons/react/dist/ssr/GearSix";
-import { MoonIcon } from "@phosphor-icons/react/dist/ssr/Moon";
 import { ShieldCheckIcon } from "@phosphor-icons/react/dist/ssr/ShieldCheck";
 import { SquaresFourIcon } from "@phosphor-icons/react/dist/ssr/SquaresFour";
-import { SunIcon } from "@phosphor-icons/react/dist/ssr/Sun";
 import { cn } from "cn";
 import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
 import logoMark from "@/assets/icon-inverse.svg";
 import { useAnalyticsConsent } from "@/core/analytics/consent";
@@ -18,14 +16,17 @@ import { campusHref } from "@/core/navigation";
 import { badgeVariants } from "@/shared/ui/badge";
 import { buttonVariants } from "@/shared/ui/button";
 import { Separator } from "@/shared/ui/separator";
-import { useThemeToggle } from "@/shared/ui/theme-toggle/use-theme-toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
 import { useActivePanel, useSidebarMode } from "../../hooks/use-sidebar-state";
 import { openFeedbackPanel } from "../../store/feedback-panel-store";
 import type { SidebarMode } from "../../store/sidebar-preferences";
 import { useCampusView } from "../campus-view-provider";
+import { SettingsDialog } from "../settings/settings-dialog";
+import type { LogOutActionComponent } from "./log-out-confirm-dialog";
 import { railPanelItems } from "./rail-items";
+
+export type { LogOutActionComponent } from "./log-out-confirm-dialog";
 
 function RailButton({
   label,
@@ -77,17 +78,6 @@ function RailButton({
   );
 }
 
-function ThemeRailButton() {
-  const { isDark, label, toggle } = useThemeToggle();
-  const Icon = isDark ? SunIcon : MoonIcon;
-
-  return (
-    <RailButton label={label} isPressed={isDark} onClick={toggle}>
-      <Icon aria-hidden size="1.3rem" weight="bold" />
-    </RailButton>
-  );
-}
-
 // The rail hides the floating Privacy choices control, so it offers its own.
 function PrivacyRailButton() {
   const { canReopen, isOpen, toggle } = useAnalyticsConsent();
@@ -101,16 +91,43 @@ function PrivacyRailButton() {
   );
 }
 
+function SettingsRailButton({
+  LogOutAction,
+}: {
+  LogOutAction?: LogOutActionComponent;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <>
+      <RailButton
+        label="Settings"
+        isPressed={isOpen}
+        onClick={() => setIsOpen(true)}
+      >
+        <GearSixIcon aria-hidden size="1.3rem" weight="bold" />
+      </RailButton>
+      <SettingsDialog
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        LogOutAction={LogOutAction}
+      />
+    </>
+  );
+}
+
 export function CampusRail({
   account,
   cohortId,
   hasAdministration = false,
   initialSidebarMode,
+  LogOutAction,
 }: {
   account: ReactNode;
   cohortId: string;
   hasAdministration?: boolean;
   initialSidebarMode?: SidebarMode;
+  LogOutAction?: LogOutActionComponent;
 }) {
   const activePanel = useActivePanel();
   const sidebarMode = useSidebarMode(initialSidebarMode, hasAdministration);
@@ -164,11 +181,8 @@ export function CampusRail({
         <RailButton label="Report an issue" onClick={openFeedbackPanel}>
           <ChatCenteredDotsIcon aria-hidden size="1.3rem" weight="bold" />
         </RailButton>
-        <ThemeRailButton />
         <PrivacyRailButton />
-        <RailButton label="Settings">
-          <GearSixIcon aria-hidden size="1.3rem" weight="bold" />
-        </RailButton>
+        <SettingsRailButton LogOutAction={LogOutAction} />
         <div className="mt-2 flex">{account}</div>
       </div>
     </nav>

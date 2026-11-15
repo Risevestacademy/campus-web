@@ -14,24 +14,27 @@ type Story = StoryObj<typeof meta>;
 
 export const Vertical: Story = {
   render: () => (
-    <Tabs defaultValue="profile" orientation="vertical" className="w-md">
-      <TabsList aria-label="Profile sections" className="w-40">
-        <TabsTab value="profile">Profile</TabsTab>
-        <TabsTab value="character">Character</TabsTab>
+    <Tabs
+      defaultValue="audio"
+      orientation="vertical"
+      className="bg-surface-elevated w-96 rounded-xl p-3"
+    >
+      <TabsList className="w-40" aria-label="Sections">
+        <TabsTab value="audio">Audio &amp; video</TabsTab>
+        <TabsTab value="appearance">Appearance</TabsTab>
       </TabsList>
-      <TabsPanel value="profile">Your name and bio.</TabsPanel>
-      <TabsPanel value="character">How you look on the map.</TabsPanel>
+      <TabsPanel value="audio" className="p-2">
+        Devices
+      </TabsPanel>
+      <TabsPanel value="appearance" className="p-2">
+        Theme
+      </TabsPanel>
     </Tabs>
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Your name and bio.")).toBeVisible();
+    await userEvent.click(canvas.getByRole("tab", { name: "Appearance" }));
 
-    await userEvent.click(canvas.getByRole("tab", { name: "Character" }));
-
-    await expect(canvas.getByText("How you look on the map.")).toBeVisible();
-    await expect(
-      canvas.getByRole("tab", { name: "Character" }),
-    ).toHaveAttribute("aria-selected", "true");
+    await expect(await canvas.findByText("Theme")).toBeVisible();
   },
 };

@@ -99,6 +99,7 @@ export function CampusShell({
               cohortId={cohortId}
               hasAdministration={administrationPanel !== undefined}
               initialSidebarMode={initialSidebarMode}
+              LogOutAction={LogOutAction}
             />
             <CampusSidebar
               administrationPanel={administrationPanel}

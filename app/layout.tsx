@@ -9,6 +9,7 @@ import {
   PrivacyChoicesButton,
 } from "@/core/analytics/consent";
 import { sidebarInitializerScript } from "@/features/campus/document";
+import { motionInitializerScript } from "@/shared/motion";
 import { fontVariableClasses } from "@/shared/styles/fonts";
 import { themeInitializerScript } from "@/shared/theme";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
@@ -34,6 +35,9 @@ export default function RootLayout({
       <body data-surface-role="background" className="flex min-h-full flex-col">
         <Script id="theme-initializer" strategy="beforeInteractive">
           {themeInitializerScript}
+        </Script>
+        <Script id="motion-initializer" strategy="beforeInteractive">
+          {motionInitializerScript}
         </Script>
         <Script id="sidebar-initializer" strategy="beforeInteractive">
           {sidebarInitializerScript}

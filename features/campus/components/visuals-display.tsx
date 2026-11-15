@@ -2,18 +2,9 @@
 
 import { useDeviceAccessRequest } from "../hooks/use-device-access-request";
 import { useMediaSession } from "../services/media-session/media-session-provider";
+import { cameraFallbackLabels } from "./camera-fallback-labels";
 import { MediaControls } from "./media-controls";
 import { MediaPublicationOutput } from "./media-publication-output";
-
-const cameraFallbackLabels = {
-  denied: "Camera permission denied",
-  disabled: "Camera off",
-  failed: "Camera unavailable",
-  idle: "Starting camera…",
-  ready: "Camera on",
-  requesting: "Starting camera…",
-  unavailable: "No camera available",
-} as const;
 
 export function VisualsDisplay() {
   useDeviceAccessRequest();

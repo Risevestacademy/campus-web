@@ -87,3 +87,8 @@
     transition: none;
   }
 }
+
+:global(:root[data-motion="reduce"]) .selectedIconLayer,
+:global(:root[data-motion="reduce"]) .iconLayer svg {
+  transition: none;
+}
