@@ -1,10 +1,7 @@
 "use client";
 
-import { cn } from "cn";
 import { type FormEvent, useId, useState } from "react";
 
-import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
-import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
 import { Button } from "@/shared/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
@@ -19,6 +16,7 @@ import type {
   ProfileFieldValues,
   ProfileSaveProblem,
 } from "../types";
+import { AvatarEditor } from "./avatar-editor";
 
 const PROBLEM_MESSAGES: Record<ProfileSaveProblem, string | undefined> = {
   "signed-out": undefined,
@@ -118,26 +116,7 @@ export function ProfileForm({
 
   return (
     <form noValidate onSubmit={submit} className="flex h-full flex-col gap-5">
-      <div className="flex items-center gap-4">
-        <Avatar className="size-16">
-          {profile.avatarUrl ? (
-            <AvatarImage src={profile.avatarUrl} alt="" />
-          ) : null}
-          <AvatarFallback
-            className={cn(
-              "text-2xl font-semibold",
-              avatarToneOf(profile.id, "lemon"),
-            )}
-          >
-            {initialOf(profile.displayName)}
-          </AvatarFallback>
-        </Avatar>
-        <p className="text-muted-foreground text-sm">
-          {profile.avatarUrl
-            ? "Your photo comes from your Google account."
-            : "Your initial shows on your avatar across Campus."}
-        </p>
-      </div>
+      <AvatarEditor profile={profile} />
 
       {alertMessage ? (
         <p role="alert" className="text-destructive text-sm">

@@ -192,6 +192,7 @@ interface SessionReply {
     id: string;
     email: string;
     displayName: string | null;
+    avatarUrl?: string | null;
     systemRole: string;
   };
   memberships: readonly CohortPlace[];
@@ -213,6 +214,7 @@ function seenByRoutes({
       id: user.id,
       email: user.email,
       displayName: user.displayName,
+      ...(user.avatarUrl === undefined ? {} : { avatarUrl: user.avatarUrl }),
       systemRole: user.systemRole,
     },
     memberships: memberships.map(({ cohortId, role, cohort }) => ({

@@ -15,6 +15,7 @@ function person(overrides: Partial<Person> = {}): Person {
     firstName: "Ada",
     lastName: "Lovelace",
     displayName: null,
+    avatarUrl: null,
     systemRole: "user",
     status: "active",
     role: "student",

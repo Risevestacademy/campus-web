@@ -15,6 +15,7 @@ function user(overrides: Record<string, unknown> = {}) {
     firstName: "Ada",
     lastName: "Lovelace",
     displayName: null,
+    avatarUrl: "https://media.example.test/avatars/user-1.webp",
     systemRole: "user",
     status: "active",
     lastLoginAt: null,
@@ -47,6 +48,7 @@ describe("people list parser", () => {
           firstName: "Ada",
           lastName: "Lovelace",
           displayName: null,
+          avatarUrl: "https://media.example.test/avatars/user-1.webp",
           systemRole: "user",
           status: "active",
           role: "student",
@@ -135,6 +137,7 @@ describe("person card parser", () => {
       firstName: "Ada",
       lastName: "Lovelace",
       displayName: null,
+      avatarUrl: null,
       memberships: [
         {
           cohort: { id: COHORT_ID, name: "Cohort 1" },

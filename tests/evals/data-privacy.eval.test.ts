@@ -18,6 +18,10 @@ import {
 } from "@/core/realtime";
 import { readWorldOrigin } from "@/core/realtime/configuration";
 import {
+  parseSignedUpload,
+  parseUploadLimits,
+} from "@/core/uploads/upload.schema";
+import {
   parseFeedbackList,
   parseFeedbackRecord,
 } from "@/features/admin/feedback/schemas/feedback.schema";
@@ -105,6 +109,7 @@ const FEEDBACK_RECORD_ALLOW_LIST = [
 ].sort();
 
 const PERSON_ALLOW_LIST = [
+  "avatarUrl",
   "displayName",
   "email",
   "firstName",
@@ -133,6 +138,7 @@ const INVITE_ALLOW_LIST = [
   "status",
 ];
 const PERSON_CARD_ALLOW_LIST = [
+  "avatarUrl",
   "displayName",
   "email",
   "firstName",
@@ -154,6 +160,18 @@ const MEMBER_PROFILE_ALLOW_LIST = [
   "memberships[].cohort.id",
   "memberships[].role",
   "memberships[].track.name",
+];
+
+const UPLOAD_LIMITS_ALLOW_LIST = [
+  "[].contentTypes[]",
+  "[].kind",
+  "[].maxBytes",
+];
+
+const SIGNED_UPLOAD_ALLOW_LIST = [
+  "headers.Content-Type",
+  "mediaId",
+  "uploadUrl",
 ];
 
 const OWN_PROFILE_ALLOW_LIST = [
@@ -179,6 +197,7 @@ const SESSION_ALLOW_LIST = [
   "memberships[].cohortId",
   "memberships[].role",
   "scope",
+  "user.avatarUrl",
   "user.displayName",
   "user.email",
   "user.id",
@@ -675,6 +694,36 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       });
 
       expect(keyPaths(card)).toEqual(MEMBER_PROFILE_ALLOW_LIST);
+    });
+
+    it("keeps only the upload limits a picked file is checked against", () => {
+      const limits = parseUploadLimits({
+        maxAttachments: 10,
+        ...UNEXPECTED,
+        kinds: [
+          {
+            kind: "avatar",
+            contentTypes: ["image/webp"],
+            maxBytes: 2_000_000,
+            ...UNEXPECTED,
+          },
+        ],
+      });
+
+      expect(keyPaths(limits)).toEqual(UPLOAD_LIMITS_ALLOW_LIST);
+    });
+
+    it("keeps only where and how to send an upload, never its expiry or method", () => {
+      const upload = parseSignedUpload({
+        method: "PUT",
+        mediaId: "m-1",
+        uploadUrl: "https://storage.example.test/holding/m-1",
+        headers: { "Content-Type": "image/webp" },
+        expiresAt: "2026-11-14T12:10:00.000Z",
+        ...UNEXPECTED,
+      });
+
+      expect(keyPaths(upload)).toEqual(SIGNED_UPLOAD_ALLOW_LIST);
     });
 
     it("keeps only the feedback fields the detail panel renders", () => {

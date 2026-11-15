@@ -3,6 +3,7 @@ export {
   exceptionCodeSchema,
   parseExceptionCode,
 } from "./api-error";
+export { avatarUrlSchema } from "./avatar-url";
 export { cohortStatusSchema } from "./cohort-status";
 export { feedbackStatusSchema, feedbackTypeSchema } from "./feedback";
 export {

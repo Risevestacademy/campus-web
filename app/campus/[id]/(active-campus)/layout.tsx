@@ -37,6 +37,7 @@ export default async function ActiveCampusLayout({
   const viewer = {
     id: access.session.user.id,
     displayName: access.session.user.displayName,
+    avatarUrl: access.session.user.avatarUrl,
   };
 
   return (

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { cohortRoleSchema } from "@/core/api/schemas";
+import { avatarUrlSchema, cohortRoleSchema } from "@/core/api/schemas";
 import { changedFields } from "@/shared/lib/changed-fields";
 import { optionalText, parseForm } from "@/shared/lib/forms";
 
@@ -11,13 +11,6 @@ import type {
   ProfileFieldValues,
 } from "../types";
 
-// The Google photo. Only an https address is drawn; anything else falls back
-// to the initial rather than failing the whole profile.
-export const photoUrlSchema = z
-  .url({ protocol: /^https$/ })
-  .nullable()
-  .catch(null);
-
 const ownProfileSchema = z.toZod<OwnProfile>()(
   z.object({
     id: z.string().min(1),
@@ -27,12 +20,7 @@ const ownProfileSchema = z.toZod<OwnProfile>()(
     displayName: z.string().nullable(),
     bio: z.string().nullable(),
     phone: z.string().nullable(),
-    // The Google photo. Only an https address is drawn; anything else falls
-    // back to the initial rather than failing the whole profile.
-    avatarUrl: z
-      .url({ protocol: /^https$/ })
-      .nullable()
-      .catch(null),
+    avatarUrl: avatarUrlSchema,
     memberships: z.array(
       z.object({
         role: cohortRoleSchema,

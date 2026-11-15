@@ -94,3 +94,13 @@ export interface OwnProfileSummary {
   // for an administrator who holds no place in the cohort.
   place: string | null;
 }
+
+// Why a picture change did not take: `expired` is campus-api's 404 (the
+// upload is unknown, used or over 30 minutes old) and `mismatch` its 422 (the
+// stored file is not what was signed for). Either way, upload it again.
+export type AvatarProblem =
+  "expired" | "mismatch" | "signed-out" | "unavailable";
+
+export type AvatarChange =
+  | { kind: "changed"; profile: OwnProfile }
+  | { kind: "problem"; problem: AvatarProblem };

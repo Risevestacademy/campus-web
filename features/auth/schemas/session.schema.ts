@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  avatarUrlSchema,
   cohortRoleSchema,
   sessionScopeSchema,
   systemRoleSchema,
@@ -18,6 +19,7 @@ const sessionSchema = z.toZod<Session>()(
       id: z.string().min(1),
       email: z.string().min(1),
       displayName: z.string().nullish(),
+      avatarUrl: avatarUrlSchema.optional(),
       systemRole: systemRoleSchema,
     }),
     memberships: z.array(

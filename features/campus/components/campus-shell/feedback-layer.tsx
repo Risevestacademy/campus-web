@@ -19,6 +19,8 @@ import {
 export interface CampusViewer {
   id: string;
   displayName?: string | null;
+  // Their picture, from the session; the initial shows without one.
+  avatarUrl?: string | null;
 }
 
 export type FeedbackPopupComponent = ComponentType<{

@@ -2,7 +2,7 @@ import { cn } from "cn";
 import Link from "next/link";
 
 import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
-import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
 
 import { RoleBadge } from "../../role-badge";
 import { personName } from "../people-format";
@@ -58,6 +58,9 @@ export function PeopleTable({
                 <td className={BODY_CELL}>
                   <div className="flex items-center gap-3">
                     <Avatar size="lg">
+                      {person.avatarUrl ? (
+                        <AvatarImage src={person.avatarUrl} alt="" />
+                      ) : null}
                       <AvatarFallback className={avatarToneOf(person.id)}>
                         {initialOf(name)}
                       </AvatarFallback>

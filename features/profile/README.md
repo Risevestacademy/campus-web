@@ -39,14 +39,15 @@ placeholder data until desks are read, and its View desk does nothing yet.
 
 ## Modules
 
-| Module                                                                       | Owns                                                                                    | Seam                                  |
-| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------- |
-| `components/own-profile-action.tsx`                                          | the summary and the editor's open state for a control another feature draws             | `useOwnProfile`                       |
-| `components/profile-dialog.tsx`, `profile-form.tsx`, `character-panel.tsx`   | the editor: its Profile and Character tabs, the form, and Character's empty placeholder | `useSaveOwnProfile`                   |
-| `schemas/own-profile.schema.ts`, `types.ts`                                  | parsing the profile, reading the form into changed fields, and the summary              | none                                  |
-| `services/`, `hooks/`                                                        | `GET` and `PATCH /v1/users/me`, the cached profile, and the save's pending and problems | `services/own-profile-api.adapter.ts` |
-| `components/member-profile-card.tsx`                                         | another member's card                                                                   | `useMemberProfile`                    |
-| `schemas/member-profile.schema.ts`, `services/member-profile-api.adapter.ts` | parsing and reading `GET /v1/users/{id}/profile`, the card's name and role line         | `@/core/api/client`                   |
+| Module                                                                                                               | Owns                                                                                    | Seam                                                     |
+| -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `components/own-profile-action.tsx`                                                                                  | the summary and the editor's open state for a control another feature draws             | `useOwnProfile`                                          |
+| `components/profile-dialog.tsx`, `profile-form.tsx`, `character-panel.tsx`                                           | the editor: its Profile and Character tabs, the form, and Character's empty placeholder | `useSaveOwnProfile`                                      |
+| `schemas/own-profile.schema.ts`, `types.ts`                                                                          | parsing the profile, reading the form into changed fields, and the summary              | none                                                     |
+| `services/`, `hooks/`                                                                                                | `GET` and `PATCH /v1/users/me`, the cached profile, and the save's pending and problems | `services/own-profile-api.adapter.ts`                    |
+| `components/avatar-editor.tsx`, `lib/crop-avatar.ts`, `hooks/use-change-avatar.ts`, `services/avatar-api.adapter.ts` | the picture: cropper, export, upload, set and remove                                    | `@/core/uploads`, `PUT` and `DELETE /v1/users/me/avatar` |
+| `components/member-profile-card.tsx`                                                                                 | another member's card                                                                   | `useMemberProfile`                                       |
+| `schemas/member-profile.schema.ts`, `services/member-profile-api.adapter.ts`                                         | parsing and reading `GET /v1/users/{id}/profile`, the card's name and role line         | `@/core/api/client`                                      |
 
 The editor changes first and last name, display name, bio and phone, and
 sends only the fields that changed; an emptied field is sent as null, which
@@ -57,8 +58,20 @@ shown read-only: admins set them. A saved profile replaces the cached one and
 refreshes the route, because the rail and dock draw the member from the
 session the route layout reads. A 401 on save goes to sign-in.
 
-The avatar shows the member's Google photo when its address is https, and
-their initial otherwise or while it loads. The Character tab is
+The Profile tab's picture (`avatar-editor.tsx`) uploads a new one or removes
+it. A picked file opens a square cropper; the crop is drawn onto a 512×512
+canvas and exported as WebP, or JPEG where the browser cannot encode WebP
+(`lib/crop-avatar.ts`), which also drops the photo's EXIF and GPS. It goes up
+through `uploadMedia` from `@/core/uploads` with a progress bar and Cancel
+upload, then `PUT /v1/users/me/avatar` sets it. Remove picture asks first,
+since campus-api also drops a Google picture for good, then calls
+`DELETE /v1/users/me/avatar`. Either answer replaces the cached profile and
+refreshes the route, so avatars drawn from the session follow.
+
+Every avatar draws the picture when there is one and the initial otherwise.
+The initial also shows while the picture loads and when it fails, as an old
+picture's address does minutes after a change: `AvatarImage` only appears
+once its image has loaded. The Character tab is
 an empty placeholder until the sprites exist; `spriteKey` is not read or sent.
 Projects are not built.
 
@@ -88,6 +101,9 @@ pnpm eval:privacy
 
 The component test renders `OwnProfileAction` against a mock campus-api: the
 summary, the filled editor, saving only what changed, an unchanged form, a bad
-phone, a refused save, the Character tab and an unreadable profile. The card's test
+phone, a refused save, the Character tab and an unreadable profile. The picture's test
+stubs the cropper and the canvas export, which jsdom cannot draw, and covers
+a set picture, a refused upload, Cancel upload, asking before removing, and a
+file that is not a picture. The card's test
 renders `MemberProfileCard` in an open popover: a read card, the caller's name
 while it loads, a missing card and an unreadable one.
