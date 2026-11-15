@@ -25,7 +25,6 @@ export {
   redirectSignedInVisitor,
   requireRouteAccess,
 } from "./services/route-access.service";
-export { logsOutFromRail } from "./services/route-policy";
 export { isSystemAdministrator } from "./services/system-role";
 export type {
   InvitationPath,
