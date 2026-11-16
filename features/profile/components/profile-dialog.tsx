@@ -1,7 +1,7 @@
 "use client";
 
-import { SparkleIcon } from "@phosphor-icons/react/dist/ssr/Sparkle";
 import { UserIcon } from "@phosphor-icons/react/dist/ssr/User";
+import { UserSwitchIcon } from "@phosphor-icons/react/dist/ssr/UserSwitch";
 import { XIcon } from "@phosphor-icons/react/dist/ssr/X";
 
 import { Button } from "@/shared/ui/button";
@@ -97,7 +97,7 @@ export function ProfileDialog({
               Profile
             </TabsTab>
             <TabsTab value="character">
-              <SparkleIcon aria-hidden />
+              <UserSwitchIcon aria-hidden />
               Character
             </TabsTab>
           </TabsList>

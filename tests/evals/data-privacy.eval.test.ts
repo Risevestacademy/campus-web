@@ -612,7 +612,7 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       expect(keyPaths(card)).toEqual(PERSON_CARD_ALLOW_LIST);
     });
 
-    it("keeps only the own-profile fields the account menu and editor read, never the photo or consent", () => {
+    it("keeps only the own-profile fields the account menu and editor read, never consent or the system role", () => {
       const profile = parseOwnProfile({
         id: "u-1",
         email: "ada@campus.local",
