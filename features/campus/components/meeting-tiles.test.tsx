@@ -1,13 +1,19 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type {
   MeetingMediaTransport,
+  MeetingMediaTransportCallbacks,
+  RemoteMediaPublication,
   VideoLayer,
 } from "../services/media-session/contracts";
 import { MediaSessionProvider } from "../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../services/media-session/media-session-store";
 import { meetingTiles } from "../services/meeting/meeting";
+import type {
+  MicrophoneLevelMeter,
+  RenderLevel,
+} from "../services/microphone-level/microphone-level-meter";
 import {
   createTestMediaStream,
   createTestMediaTrack,
@@ -58,10 +64,22 @@ function renderTiles(
   isSharing = false,
 ) {
   const setVideoDemand = vi.fn<MeetingMediaTransport["setVideoDemand"]>();
+  let session: MeetingMediaTransportCallbacks | undefined;
+  // Who the meter follows, by track id, and how to make them speak.
+  const followed = new Map<string, RenderLevel>();
+  const levelMeter: MicrophoneLevelMeter = {
+    follow(track, render) {
+      followed.set(track.id, render);
+      return () => followed.delete(track.id);
+    },
+  };
   const store = createMediaSessionStore({
     mediaDevices: null,
     transport: {
-      connect: () => () => undefined,
+      connect: (callbacks) => {
+        session = callbacks;
+        return () => undefined;
+      },
       handleLocalPublicationChange() {},
       retry() {},
       setBroadcastSpeaking() {},
@@ -73,6 +91,7 @@ function renderTiles(
     <MediaSessionProvider store={store}>
       <MeetingTiles
         layout={nextLayout}
+        levelMeter={levelMeter}
         localParticipantId={ADA.id}
         onShowAll={() => undefined}
         onTileActivate={onTileActivate}
@@ -82,8 +101,14 @@ function renderTiles(
     </MediaSessionProvider>
   );
   const view = render(tiles(layout));
+  store.getState().connect();
 
   return {
+    followed,
+    publishMicrophone: (publication: RemoteMediaPublication) =>
+      act(() =>
+        session?.onRemotePublicationChange({ publication, type: "upserted" }),
+      ),
     lastDemand: async () => {
       await new Promise<void>(queueMicrotask);
       return setVideoDemand.mock.lastCall?.[0];
@@ -281,4 +306,70 @@ describe("MeetingTiles shares", () => {
       expect(tileClassOf(ownScreen)).toBe(tileClassOf(person));
     },
   );
+});
+
+function microphoneOf(participantId: string, enabled = true) {
+  const track = createTestMediaTrack("audio", `${participantId}-microphone`);
+  return {
+    enabled,
+    origin: "remote",
+    participantId,
+    publicationId: `${participantId}-microphone`,
+    source: "microphone",
+    stream: createTestMediaStream([track]),
+    track,
+  } satisfies RemoteMediaPublication;
+}
+
+function tileOf(name: string) {
+  return screen.getByRole("button", {
+    name: `Show expanded meeting view for ${name}`,
+  });
+}
+
+describe("MeetingTiles voices", () => {
+  it("names each person on their tile, and the member as You", () => {
+    renderTiles({ mode: "compact" });
+
+    expect(tileOf("Grace")).toHaveTextContent("Grace");
+    expect(tileOf("Ada")).toHaveTextContent("You");
+  });
+
+  it("shows whose microphone is off, and when they turn it on or mute it", () => {
+    const tiles = renderTiles({ mode: "compact" });
+    expect(tileOf("Grace")).toHaveAccessibleDescription("Microphone off");
+
+    tiles.publishMicrophone(microphoneOf("grace"));
+    expect(tileOf("Grace")).toHaveAccessibleDescription("Microphone on");
+
+    tiles.publishMicrophone(microphoneOf("grace", false));
+    expect(tileOf("Grace")).toHaveAccessibleDescription("Microphone off");
+  });
+
+  it("glows while a person speaks, and never while they are muted", () => {
+    const tiles = renderTiles({ mode: "compact" });
+    const microphone = microphoneOf("grace");
+    tiles.publishMicrophone(microphone);
+    const glow = within(tileOf("Grace")).getByTestId("speaking-glow");
+
+    act(() => tiles.followed.get(microphone.track.id)?.(0.6, true));
+    expect(glow).toHaveAttribute("data-speaking", "true");
+
+    act(() => tiles.followed.get(microphone.track.id)?.(0.05, false));
+    expect(glow).toHaveAttribute("data-speaking", "false");
+
+    tiles.publishMicrophone({ ...microphone, enabled: false });
+    expect(tiles.followed.has(microphone.track.id)).toBe(false);
+    expect(glow).not.toHaveAttribute("data-speaking");
+  });
+
+  it("names a shared screen only once, with no microphone", () => {
+    renderTiles({ mode: "compact" }, ["maya"]);
+
+    const share = screen.getByRole("button", {
+      name: "Show expanded meeting view for Maya's screen",
+    });
+    expect(within(share).queryByTestId("speaking-glow")).toBeNull();
+    expect(share).not.toHaveAccessibleDescription();
+  });
 });
