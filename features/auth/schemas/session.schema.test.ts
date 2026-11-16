@@ -39,6 +39,7 @@ describe("parseSessionBody", () => {
         id: "55555555-5555-4555-8555-555555555555",
         email: "ada@campus.local",
         displayName: "Ada Lovelace",
+        avatarUrl: "https://lh3.googleusercontent.com/a/example",
         systemRole: "user",
       },
       memberships: [

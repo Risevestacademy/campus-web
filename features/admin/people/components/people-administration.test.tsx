@@ -24,6 +24,7 @@ function person(id: string, overrides: Partial<Person> = {}): Person {
     firstName: null,
     lastName: null,
     displayName: id.toUpperCase(),
+    avatarUrl: null,
     systemRole: "user",
     status: "active",
     role: "student",

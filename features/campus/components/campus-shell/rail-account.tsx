@@ -119,7 +119,11 @@ function AccountMenu({
     profile?.summary?.displayName ?? viewer?.displayName,
   );
   const tone = avatarToneOf(viewer?.id ?? "", "lemon");
-  const photo = profile?.summary?.avatarUrl;
+  // The read profile is newer than the session, which a removed picture may
+  // still name until the route refreshes.
+  const photo = profile?.summary
+    ? profile.summary.avatarUrl
+    : viewer?.avatarUrl;
   const statusLabel = choice.timeLeft
     ? `${STATUS_LABELS[choice.status]} · ${choice.timeLeft} left`
     : STATUS_LABELS[choice.status];

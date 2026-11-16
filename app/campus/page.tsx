@@ -13,7 +13,7 @@ import {
 import { CohortChooser } from "@/features/campus";
 import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 import { firstSearchParameter } from "@/shared/lib/search-params";
-import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
 
 interface CampusPageProps {
   searchParams: Promise<{ view?: string | string[]; page?: string | string[] }>;
@@ -57,6 +57,9 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
         </Link>
         <AccountMenu side="bottom">
           <Avatar size="lg">
+            {access.session.user.avatarUrl ? (
+              <AvatarImage src={access.session.user.avatarUrl} alt="" />
+            ) : null}
             <AvatarFallback
               className={cn(
                 "font-medium",

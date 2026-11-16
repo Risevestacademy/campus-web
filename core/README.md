@@ -20,6 +20,8 @@ Implemented concerns:
   frames, the close policy and the socket client. See `realtime/README.md`.
 - `session`: the cross-feature Campus Access Session refresh contract. See
   `session/README.md`.
+- `uploads`: sending a file to campus-api's storage for a `mediaId`. See
+  `uploads/README.md`.
 
 Planned concerns are `game` and `media`. Create each concern only when its first
 implementation is required.

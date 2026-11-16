@@ -4,7 +4,7 @@ import { cn } from "cn";
 import Link from "next/link";
 
 import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
-import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
 import { Button, buttonVariants } from "@/shared/ui/button";
 
 import { RoleBadge } from "../../role-badge";
@@ -83,6 +83,9 @@ export function PersonDetail({
 
       <div className={cn(PANEL, "flex flex-wrap items-center gap-5")}>
         <Avatar className="size-20">
+          {person.avatarUrl ? (
+            <AvatarImage src={person.avatarUrl} alt="" />
+          ) : null}
           <AvatarFallback className={cn(avatarToneOf(person.id), "text-3xl")}>
             {initialOf(name)}
           </AvatarFallback>

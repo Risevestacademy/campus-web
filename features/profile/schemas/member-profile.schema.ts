@@ -1,9 +1,8 @@
 import { z } from "zod";
 
-import { cohortRoleSchema } from "@/core/api/schemas";
+import { avatarUrlSchema, cohortRoleSchema } from "@/core/api/schemas";
 
 import type { MemberProfile } from "../types";
-import { photoUrlSchema } from "./own-profile.schema";
 
 const memberProfileSchema = z.toZod<MemberProfile>()(
   z.object({
@@ -12,7 +11,7 @@ const memberProfileSchema = z.toZod<MemberProfile>()(
     lastName: z.string().nullable(),
     displayName: z.string().nullable(),
     bio: z.string().nullable(),
-    avatarUrl: photoUrlSchema,
+    avatarUrl: avatarUrlSchema,
     memberships: z.array(
       z.object({
         role: cohortRoleSchema,

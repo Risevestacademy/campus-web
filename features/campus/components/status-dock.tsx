@@ -68,6 +68,7 @@ export function StatusDock({
           aria-controls={open ? trayId : undefined}
           aria-expanded={open}
           avatarClassName={avatarToneOf(viewer.id)}
+          avatarUrl={viewer.avatarUrl}
           initial={initialOf(viewer.displayName)}
           onClick={() => setOpen((wasOpen) => !wasOpen)}
           status={choice.status}

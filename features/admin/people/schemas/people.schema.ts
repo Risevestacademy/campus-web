@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  avatarUrlSchema,
   cohortRoleSchema,
   paginationMetaWithTotalSchema,
   systemRoleSchema,
@@ -21,6 +22,7 @@ const namedUserShape = {
   firstName: z.string().nullable(),
   lastName: z.string().nullable(),
   displayName: z.string().nullable(),
+  avatarUrl: avatarUrlSchema,
 };
 
 const listItemSchema = z.toZod<PersonListItem>()(
