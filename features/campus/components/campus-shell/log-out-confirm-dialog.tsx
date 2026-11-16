@@ -18,7 +18,8 @@ export type LogOutActionComponent = ComponentType<{
   children: (action: { logOut: () => void; isPending: boolean }) => ReactNode;
 }>;
 
-// Logging out ends the session everywhere, so the rail and Settings ask first.
+// Logging out ends the session everywhere, so the account menu and Settings
+// ask first.
 // The prompt closes on confirming: success leaves the page, and a failure
 // explains itself in a toast that the open prompt would cover.
 export function LogOutConfirmDialog({

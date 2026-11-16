@@ -26,8 +26,6 @@ import { SettingsDialog } from "../settings/settings-dialog";
 import type { LogOutActionComponent } from "./log-out-confirm-dialog";
 import { railPanelItems } from "./rail-items";
 
-export type { LogOutActionComponent } from "./log-out-confirm-dialog";
-
 function RailButton({
   label,
   isActive,
