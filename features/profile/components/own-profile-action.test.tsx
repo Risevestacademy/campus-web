@@ -168,7 +168,7 @@ describe("OwnProfileAction", () => {
     );
 
     expect(phone).toHaveAttribute("aria-invalid", "true");
-    expect(phone).toHaveAccessibleDescription(/Use digits/);
+    expect(phone).toHaveAccessibleDescription(/Enter a full phone number/);
     expect(patch).not.toHaveBeenCalled();
   });
 

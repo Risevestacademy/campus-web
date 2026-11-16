@@ -22,4 +22,4 @@ A feature types its own read with `FormErrors<Values>` and
 `z.toZod<Values>()` checks), so the types file never imports the schema.
 
 `optionalText()` and `optionalIsoDate(error)` read an empty or blank field as
-absent.
+absent. `optionalText({ max, error })` also caps the trimmed length.

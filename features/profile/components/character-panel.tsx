@@ -1,4 +1,4 @@
-import { SparkleIcon } from "@phosphor-icons/react/dist/ssr/Sparkle";
+import { UserSwitchIcon } from "@phosphor-icons/react/dist/ssr/UserSwitch";
 import { useId } from "react";
 
 // The characters are not drawn yet, so the tab holds their place: the
@@ -17,7 +17,7 @@ export function CharacterPanel() {
         </p>
       </div>
       <div className="text-muted-foreground flex min-h-64 flex-1 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed text-center text-sm">
-        <SparkleIcon aria-hidden className="size-6" />
+        <UserSwitchIcon aria-hidden className="size-6" />
         Characters are coming soon.
       </div>
     </section>

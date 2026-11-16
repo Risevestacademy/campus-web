@@ -75,7 +75,11 @@ export function AvatarEditor({ profile }: { profile: OwnProfile }) {
       <div className="flex items-center gap-4">
         <Avatar className="size-16">
           {profile.avatarUrl ? (
-            <AvatarImage src={profile.avatarUrl} alt="" />
+            <AvatarImage
+              src={profile.avatarUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+            />
           ) : null}
           <AvatarFallback
             className={cn(

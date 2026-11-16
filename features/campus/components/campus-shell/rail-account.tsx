@@ -1,7 +1,7 @@
 "use client";
 
-import { SparkleIcon } from "@phosphor-icons/react/dist/ssr/Sparkle";
 import { UserIcon } from "@phosphor-icons/react/dist/ssr/User";
+import { UserSwitchIcon } from "@phosphor-icons/react/dist/ssr/UserSwitch";
 import { cn } from "cn";
 import { type ComponentType, type ReactNode, useState } from "react";
 
@@ -34,6 +34,9 @@ export type LogOutActionComponent = ComponentType<{
   children: (action: { logOut: () => void; isPending: boolean }) => ReactNode;
 }>;
 
+// Copies of ProfileSection (features/profile/types.ts) and OwnProfileControls
+// (features/profile/components/own-profile-action.tsx), since campus may not
+// import the profile feature. Change them together.
 type ProfileSection = "profile" | "character";
 
 type OwnProfileControls = {
@@ -135,10 +138,12 @@ function AccountMenu({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           aria-label={`Your account: ${statusLabel}`}
-          className="focus-visible:ring-primary-foreground ring-offset-primary aria-expanded:ring-primary-foreground rounded-full outline-none focus-visible:ring-2 focus-visible:ring-offset-2 aria-expanded:ring-2 aria-expanded:ring-offset-2"
+          className="focus-visible:ring-primary-foreground ring-offset-primary aria-expanded:ring-primary-foreground cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-offset-2 aria-expanded:ring-2 aria-expanded:ring-offset-2"
         >
           <Avatar size="lg" className="dark:after:border-transparent">
-            {photo ? <AvatarImage src={photo} alt="" /> : null}
+            {photo ? (
+              <AvatarImage src={photo} alt="" referrerPolicy="no-referrer" />
+            ) : null}
             <AvatarFallback className={cn("font-medium", tone)}>
               {initial}
             </AvatarFallback>
@@ -152,7 +157,9 @@ function AccountMenu({
         >
           <div className="flex items-center gap-3">
             <Avatar className="size-13 dark:after:border-transparent">
-              {photo ? <AvatarImage src={photo} alt="" /> : null}
+              {photo ? (
+                <AvatarImage src={photo} alt="" referrerPolicy="no-referrer" />
+              ) : null}
               <AvatarFallback className={cn("text-xl font-semibold", tone)}>
                 {initial}
               </AvatarFallback>
@@ -192,7 +199,7 @@ function AccountMenu({
                   Edit profile
                 </MenuAction>
                 <MenuAction onClick={() => openEditor("character")}>
-                  <SparkleIcon aria-hidden />
+                  <UserSwitchIcon aria-hidden />
                   Change character
                 </MenuAction>
               </div>

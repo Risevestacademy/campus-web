@@ -101,7 +101,7 @@ describe("parseProfileEdit", () => {
     });
   });
 
-  it.each(["+234 (801) 234-5678", "08012345678"])(
+  it.each(["+234 (801) 234-5678", "08012345678", "123456"])(
     "takes the phone number %s",
     (phone) => {
       expect(
@@ -110,18 +110,46 @@ describe("parseProfileEdit", () => {
     },
   );
 
-  it.each(["call me", "+", "080-CALL-ADA"])(
-    "refuses the phone number %s without repeating it",
-    (phone) => {
+  it.each([
+    "call me",
+    "+",
+    "+1",
+    "12345",
+    "(0801) 234 5678",
+    "080-CALL-ADA",
+    `+${"1".repeat(24)}`,
+  ])("refuses the phone number %s without repeating it", (phone) => {
+    const read = parseProfileEdit(profile, formOf({ ...unchangedForm, phone }));
+
+    expect(read.kind).toBe("invalid");
+    expect(read.kind === "invalid" && read.errors.phone).toBe(
+      "Enter a full phone number that starts with + or a digit, like +234 801 234 5678.",
+    );
+  });
+
+  it.each([
+    ["firstName", 80, "Keep your first name to 80 characters or fewer."],
+    ["lastName", 80, "Keep your last name to 80 characters or fewer."],
+    ["displayName", 80, "Keep your display name to 80 characters or fewer."],
+    ["bio", 500, "Keep your bio to 500 characters or fewer."],
+  ] as const)(
+    "takes a %s of %i characters and refuses a longer one",
+    (field, max, message) => {
+      expect(
+        parseProfileEdit(
+          profile,
+          formOf({ ...unchangedForm, [field]: ` ${"a".repeat(max)} ` }),
+        ),
+      ).toStrictEqual({
+        kind: "valid",
+        changes: { [field]: "a".repeat(max) },
+      });
+
       const read = parseProfileEdit(
         profile,
-        formOf({ ...unchangedForm, phone }),
+        formOf({ ...unchangedForm, [field]: "a".repeat(max + 1) }),
       );
-
-      expect(read.kind).toBe("invalid");
-      expect(read.kind === "invalid" && read.errors.phone).toBe(
-        "Use digits, with an optional + at the start and spaces or hyphens between them.",
-      );
+      expect(read.kind === "invalid" && read.errors[field]).toBe(message);
     },
   );
 });
