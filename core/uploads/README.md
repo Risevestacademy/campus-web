@@ -49,7 +49,9 @@ hour, so a picked file that is dropped needs no call.
 
 - Parse what campus-api sends in `upload.schema.ts`. The signed upload keeps
   only `mediaId`, an https `uploadUrl` and the `headers`; the limits keep each
-  known kind's types and size. Update the allow-lists in
+  known kind's types and size. Both are bound to the generated `UploadDto` and
+  `UploadKindLimitsDto` with `z.toZod`, so a contract change fails typecheck;
+  the 413 and 415 readers are bound by their error codes. Update the allow-lists in
   `tests/evals/data-privacy.eval.test.ts` with any change.
 - `/v1/uploads` and `/v1/uploads/limits` are forwarded by the browser proxy;
   storage is reached directly.

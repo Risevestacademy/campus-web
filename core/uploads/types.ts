@@ -1,19 +1,17 @@
 import type { components } from "@/core/api/client";
+import type { Simplify } from "@/core/api/schemas";
 
-export type MediaKind = components["schemas"]["MediaKind"];
+type Schemas = components["schemas"];
 
-export type UploadLimits = {
-  kind: MediaKind;
-  contentTypes: string[];
-  maxBytes: number;
-};
+export type MediaKind = Schemas["MediaKind"];
+
+// One kind's types and size, from `GET /v1/uploads/limits`.
+export type UploadLimits = Simplify<Schemas["UploadKindLimitsDto"]>;
 
 // Where to PUT one file, as `POST /v1/uploads` signed it.
-export type SignedUpload = {
-  mediaId: string;
-  uploadUrl: string;
-  headers: Record<string, string>;
-};
+export type SignedUpload = Simplify<
+  Pick<Schemas["UploadDto"], "mediaId" | "uploadUrl" | "headers">
+>;
 
 export type UploadProblem =
   | { kind: "type-not-allowed"; allowed: string[] }
