@@ -11,7 +11,10 @@ import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 
 import type { useSaveOwnProfile } from "../hooks/use-save-own-profile";
-import { parseProfileEdit } from "../schemas/own-profile.schema";
+import {
+  parseProfileEdit,
+  PROFILE_FIELD_LIMITS,
+} from "../schemas/own-profile.schema";
 import type {
   OwnProfile,
   ProfileFieldErrors,
@@ -80,6 +83,7 @@ export function ProfileForm({
     options: {
       autoComplete: string;
       hint?: string;
+      maxLength?: number;
       placeholder?: string;
       type?: string;
     },
@@ -110,6 +114,7 @@ export function ProfileForm({
           type={options.type}
           defaultValue={profile[field] ?? ""}
           placeholder={options.placeholder}
+          maxLength={options.maxLength}
           autoComplete={options.autoComplete}
           aria-invalid={Boolean(error)}
           aria-describedby={describedBy || undefined}
@@ -127,7 +132,11 @@ export function ProfileForm({
       <div className="flex items-center gap-4">
         <Avatar className="size-16">
           {profile.avatarUrl ? (
-            <AvatarImage src={profile.avatarUrl} alt="" />
+            <AvatarImage
+              src={profile.avatarUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+            />
           ) : null}
           <AvatarFallback
             className={cn(
@@ -158,11 +167,18 @@ export function ProfileForm({
 
       <FieldGroup className="gap-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          {textField("firstName", "First name", { autoComplete: "given-name" })}
-          {textField("lastName", "Last name", { autoComplete: "family-name" })}
+          {textField("firstName", "First name", {
+            autoComplete: "given-name",
+            maxLength: PROFILE_FIELD_LIMITS.firstName,
+          })}
+          {textField("lastName", "Last name", {
+            autoComplete: "family-name",
+            maxLength: PROFILE_FIELD_LIMITS.lastName,
+          })}
         </div>
         {textField("displayName", "Display name", {
           autoComplete: "nickname",
+          maxLength: PROFILE_FIELD_LIMITS.displayName,
           hint: "on the map, in lists and on calls",
         })}
         <Field data-invalid={Boolean(errors.bio)}>
@@ -179,6 +195,7 @@ export function ProfileForm({
             id={`${id}-bio`}
             name="bio"
             rows={3}
+            maxLength={PROFILE_FIELD_LIMITS.bio}
             defaultValue={profile.bio ?? ""}
             placeholder="What you're working on, or what people can ask you about"
             aria-invalid={Boolean(errors.bio)}
@@ -189,6 +206,7 @@ export function ProfileForm({
         </Field>
         {textField("phone", "Phone", {
           autoComplete: "tel",
+          maxLength: PROFILE_FIELD_LIMITS.phone,
           hint: "only admins see this",
           placeholder: "Add a phone number",
           type: "tel",
