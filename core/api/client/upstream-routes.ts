@@ -58,6 +58,20 @@ const PUBLISHED_ROUTES = {
   "/v1/calendar/connect": false,
   "/v1/calendar/connect/callback": false,
   "/v1/calendar/events": false,
+  "/v1/attendance/classes/{instanceId}": false,
+  "/v1/attendance/{attendanceId}": false,
+  "/v1/cohorts/{cohortId}/attendance/classes": false,
+  "/v1/cohorts/{cohortId}/attendance/students": false,
+  "/v1/cohorts/{cohortId}/attendance/students/{userId}": false,
+  "/v1/cohorts/{cohortId}/spaces/{spaceId}/recording": false,
+  "/v1/media/{id}/url": false,
+  "/v1/notices/{id}/comments": false,
+  "/v1/notifications": false,
+  "/v1/notifications/read-all": false,
+  "/v1/notifications/{id}/read": false,
+  "/v1/uploads": false,
+  "/v1/uploads/limits": false,
+  "/v1/users/me/avatar": false,
   "/v1/cohorts/{cohortId}/desks": false,
   "/v1/cohorts/{cohortId}/desks/{key}/claim": false,
   "/v1/cohorts/{cohortId}/desks/{key}/release": false,
@@ -68,12 +82,15 @@ const PUBLISHED_ROUTES = {
   "/v1/notices/{id}/pin": false,
   "/v1/room-links/{code}": false,
   "/v1/room-links/{code}/enter": false,
-  "/v1/room-links/{code}/window": false,
   "/v1/spaces": false,
   "/v1/spaces/{id}": false,
   "/v1/users/me/analytics-consent": false,
   // LiveKit calls campus-api directly; no browser sends it.
   "/v1/calls/webhook": false,
+  // Google calls campus-api directly; no browser sends it.
+  "/v1/calendar/notifications": false,
+  // An external scheduler calls it; no browser sends it.
+  "/v1/admin/retention/sweep": false,
 } as const satisfies Record<keyof paths, boolean>;
 
 type ForwardedRoute = {

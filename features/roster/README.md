@@ -18,6 +18,15 @@ import { CampusOverviewPanel } from "@/features/roster";
 and the member's `cohort` (`{ name, role? }`, from the session). The route
 passes the panel in because Campus may not import Roster.
 
+It also takes an optional `ProfileCard` (`ProfileCardComponent` in `types.ts`).
+With one, each row's avatar and name open that card in a popover beside the
+row, handing it the person's `userId`, the `cohortId`, the row's name, initial
+and tone, their `presence` (badge color and status line, `Offline` for an
+offline row) and, for someone else who is online, Wave, Message and Go to.
+Go to walks there as the row's own button does and closes the card. The route
+passes `MemberProfileCard` from Profile through
+`app/campus/[id]/campus-overview-panel.tsx`.
+
 ### What the rows show
 
 - **Online** is connected to the world right now. The member's own row comes

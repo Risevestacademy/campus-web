@@ -11,6 +11,7 @@ import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 
 import type { useSaveOwnProfile } from "../hooks/use-save-own-profile";
+import { ROLE_LABELS } from "../schemas/member-profile.schema";
 import {
   parseProfileEdit,
   PROFILE_FIELD_LIMITS,
@@ -21,13 +22,6 @@ import type {
   ProfileFieldValues,
   ProfileSaveProblem,
 } from "../types";
-
-const ROLE_LABELS = {
-  student: "Student",
-  professor: "Professor",
-  mentor: "Mentor",
-  guest: "Guest",
-} as const;
 
 const PROBLEM_MESSAGES: Record<ProfileSaveProblem, string | undefined> = {
   "signed-out": undefined,
