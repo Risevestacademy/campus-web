@@ -61,10 +61,6 @@ function usesCohortChooser(session: Session): boolean {
   );
 }
 
-export function logsOutFromRail(session: Session): boolean {
-  return !usesCohortChooser(session);
-}
-
 function decideCampusIndex(session: Session): RouteAuthorizationDecision {
   if (usesCohortChooser(session)) return { kind: "allow", session };
 

@@ -38,23 +38,13 @@ function OverviewPanelStub({
   );
 }
 
-function AccountMenuStub({ children }: { children: ReactNode }) {
-  return (
-    <div role="group" aria-label="Account menu">
-      {children}
-    </div>
-  );
-}
-
 function renderActiveCampus(
-  AccountMenu?: typeof AccountMenuStub,
   world: TestWorldSession = createTestWorldSession(),
 ) {
   const store = createMediaSessionStore({ mediaDevices: null });
 
   return render(
     <CampusShell
-      AccountMenu={AccountMenu}
       OverviewPanel={OverviewPanelStub}
       cohortId="c-1"
       viewer={VIEWER}
@@ -156,23 +146,14 @@ describe("ActiveCampus", () => {
     expect(document.documentElement).toHaveAttribute("data-theme", "dark");
   });
 
-  it("wraps the rail avatar in the account menu when given one", () => {
-    renderActiveCampus(AccountMenuStub);
-
-    const accountMenu = within(campusRail()).getByRole("group", {
-      name: "Account menu",
-    });
-
-    expect(within(accountMenu).getByText("A")).toBeInTheDocument();
-  });
-
-  it("shows a plain rail avatar without an account menu", () => {
+  it("draws the member's initial on the rail's account button", () => {
     renderActiveCampus();
 
-    expect(within(campusRail()).getByText("A")).toBeInTheDocument();
-    expect(
-      within(campusRail()).queryByRole("group", { name: "Account menu" }),
-    ).not.toBeInTheDocument();
+    const account = within(campusRail()).getByRole("button", {
+      name: /^Your account/,
+    });
+
+    expect(within(account).getByText("A")).toBeInTheDocument();
   });
 
   it("returns from grid view to map view before opening the sidebar", () => {
@@ -328,7 +309,6 @@ describe("Feedback popup", () => {
 
   it("tells the member when the campus map has lost world", () => {
     renderActiveCampus(
-      undefined,
       createTestWorldSession({ phase: "closed", outcome: "gave-up" }),
     );
 

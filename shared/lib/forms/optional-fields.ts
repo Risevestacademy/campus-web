@@ -12,7 +12,10 @@ function emptyAsUndefined(schema: z.ZodType<string, string>) {
     .optional();
 }
 
-export const optionalText = () => emptyAsUndefined(z.string());
+// With a limit, a longer value shows the given message, counted after trimming
+// as the server counts it.
+export const optionalText = (limit?: { max: number; error: string }) =>
+  emptyAsUndefined(limit ? z.string().max(limit.max, limit.error) : z.string());
 
 export const optionalIsoDate = (error: string) =>
   emptyAsUndefined(z.iso.date(error));

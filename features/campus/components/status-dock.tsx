@@ -3,26 +3,13 @@
 import { cn } from "cn";
 import { type ReactNode, useId, useRef, useState } from "react";
 
-import { presenceFor, statusTimeLeft } from "@/core/presence";
-import { socialFor } from "@/core/realtime";
 import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
-import { useNow } from "@/shared/lib/use-now";
 import { Separator } from "@/shared/ui/separator";
 
-import { useOwnStatus } from "../hooks/use-own-status";
-import {
-  chooseStatus,
-  type ChosenStatus,
-} from "../services/status-choice/choose-status";
-import {
-  durationSecondsOf,
-  type StatusDurationId,
-} from "../services/status-choice/status-durations";
+import { useStatusChoice } from "../hooks/use-status-choice";
 import type { CampusViewer } from "./campus-shell/feedback-layer";
 import { PresenceMenuTrigger } from "./presence-menu-trigger";
 import { StatusTray } from "./status-tray";
-
-const CLOCK_TICK_MS = 15_000;
 
 type StatusDockProps = Readonly<{
   children: ReactNode;
@@ -46,22 +33,7 @@ export function StatusDock({
   const trayId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const [durationId, setDurationId] = useState<StatusDurationId | null>(null);
-  const { status, statusUntil, synced } = useOwnStatus(cohortId);
-  const now = useNow(CLOCK_TICK_MS);
-  const timeLeft = statusTimeLeft(statusUntil, now);
-
-  function choose(next: ChosenStatus, forSeconds?: number) {
-    return chooseStatus(
-      {
-        social: socialFor(cohortId),
-        drawOwnStatus: presenceFor(cohortId).getState().drawOwnStatus,
-        now: Date.now,
-      },
-      next,
-      forSeconds,
-    );
-  }
+  const choice = useStatusChoice(cohortId);
 
   function close() {
     setOpen(false);
@@ -79,19 +51,13 @@ export function StatusDock({
         <>
           <StatusTray
             id={trayId}
-            canChoose={synced}
-            durationId={timeLeft === null ? null : durationId}
-            onDurationChange={(next) => {
-              const forSeconds =
-                next === null ? undefined : durationSecondsOf(next);
-              if (choose(status, forSeconds)) setDurationId(next);
-            }}
-            onStatusChange={(next) => {
-              if (choose(next)) setDurationId(null);
-            }}
+            canChoose={choice.canChoose}
+            durationId={choice.durationId}
+            onDurationChange={choice.chooseDuration}
+            onStatusChange={choice.chooseStatus}
             stacked={stackedTray}
-            status={status}
-            timeLeft={timeLeft}
+            status={choice.status}
+            timeLeft={choice.timeLeft}
           />
           <Separator className="mx-3.5 mb-1 w-auto data-horizontal:w-auto" />
         </>
@@ -104,8 +70,8 @@ export function StatusDock({
           avatarClassName={avatarToneOf(viewer.id)}
           initial={initialOf(viewer.displayName)}
           onClick={() => setOpen((wasOpen) => !wasOpen)}
-          status={status}
-          timeLeft={timeLeft}
+          status={choice.status}
+          timeLeft={choice.timeLeft}
         />
         {children}
       </div>
