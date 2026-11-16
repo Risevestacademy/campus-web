@@ -79,7 +79,7 @@ export function ParticipantRow({
   );
 
   return (
-    <li className="group/row flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-[#E9ECF6] dark:hover:bg-[#2B3B5F]">
+    <li className="group/row hover:bg-shell-hover flex items-center gap-3 rounded-xl px-2 py-2">
       {renderProfileCard ? (
         <Popover open={isCardOpen} onOpenChange={setIsCardOpen}>
           <PopoverTrigger
@@ -138,7 +138,7 @@ export function ParticipantRow({
               onMouseDown={keepFocus}
               className={cn(
                 buttonVariants({ variant: "ghost", size: "icon-xs" }),
-                "hover:bg-background rounded-full text-[#2443B3] dark:text-[#9DADE7] dark:hover:bg-[#1F2940]",
+                "hover:bg-shell-panel rounded-full text-[#2443B3] dark:text-[#9DADE7]",
               )}
             >
               <Icon aria-hidden size={14} weight="regular" />

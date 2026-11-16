@@ -142,6 +142,12 @@
   --color-icon-inverse: var(--color-neutral-50);
   --color-icon-brand: var(--color-cobalt-600);
 
+  /* The campus shell's panels, their rules and their row hover. In dark mode
+     they are the shell's navy rather than the neutral greys. */
+  --color-shell-panel: var(--color-background);
+  --color-shell-line: #d3dae9;
+  --color-shell-hover: var(--color-cobalt-100);
+
   --color-border: var(--color-neutral-200);
   --color-border-subtle: var(--color-neutral-100);
   --color-border-strong: var(--color-neutral-400);
@@ -306,6 +312,10 @@
   --color-icon-disabled: var(--color-neutral-700);
   --color-icon-inverse: var(--color-neutral-950);
   --color-icon-brand: var(--color-cobalt-300);
+
+  --color-shell-panel: #1f2940;
+  --color-shell-line: #2b3b5f;
+  --color-shell-hover: #2b3b5f;
 
   --color-border: var(--color-neutral-700);
   --color-border-subtle: var(--color-neutral-800);

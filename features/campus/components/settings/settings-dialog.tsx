@@ -30,10 +30,10 @@ import { SettingsSectionHeading } from "./settings-row";
 // In dark mode the dialog takes the campus shell's navy panels instead of the
 // generic grey popover, by redefining the tokens everything inside reads.
 const SHELL_DARK_PALETTE = [
-  "dark:[--popover:#1F2940] dark:[--input:#2B3B5F]",
-  "dark:[--color-border:#2B3B5F] dark:[--color-surface:var(--color-cobalt-950)]",
-  "dark:[--color-surface-elevated:var(--color-cobalt-900)] dark:[--color-surface-hover:#2B3B5F]",
-  "dark:ring-[#2B3B5F]",
+  "dark:[--popover:var(--color-shell-panel)] dark:[--input:var(--color-shell-line)]",
+  "dark:[--color-border:var(--color-shell-line)] dark:[--color-surface:var(--color-cobalt-950)]",
+  "dark:[--color-surface-elevated:var(--color-cobalt-900)] dark:[--color-surface-hover:var(--color-shell-hover)]",
+  "dark:ring-shell-line",
 ].join(" ");
 
 function SettingsLogOut({

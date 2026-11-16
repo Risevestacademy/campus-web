@@ -8,7 +8,7 @@ function Tabs({ className, ...props }: TabsPrimitive.Root.Props) {
     <TabsPrimitive.Root
       data-slot="tabs"
       className={cn(
-        "flex gap-2 data-[orientation=horizontal]:flex-col",
+        "flex gap-4 data-[orientation=horizontal]:flex-col",
         className,
       )}
       {...props}
@@ -34,7 +34,7 @@ function TabsTab({ className, ...props }: TabsPrimitive.Tab.Props) {
     <TabsPrimitive.Tab
       data-slot="tabs-tab"
       className={cn(
-        "text-foreground-secondary hover:bg-surface-hover hover:text-foreground focus-visible:ring-ring/50 data-active:bg-popover data-active:text-brand-foreground flex min-h-11 shrink-0 items-center gap-3 rounded-lg px-3 text-left text-sm font-medium whitespace-nowrap outline-none focus-visible:ring-3 disabled:pointer-events-none disabled:opacity-50 data-active:font-semibold data-active:shadow-xs [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
+        "text-foreground-secondary hover:bg-surface-hover hover:text-foreground focus-visible:ring-ring/50 data-active:bg-surface-hover data-active:text-brand-foreground flex min-h-11 shrink-0 items-center gap-3 rounded-xl px-3 text-left text-sm font-medium whitespace-nowrap outline-none focus-visible:ring-3 disabled:pointer-events-none disabled:opacity-50 data-active:font-semibold [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
         className,
       )}
       {...props}
@@ -46,7 +46,7 @@ function TabsPanel({ className, ...props }: TabsPrimitive.Panel.Props) {
   return (
     <TabsPrimitive.Panel
       data-slot="tabs-panel"
-      className={cn("outline-none", className)}
+      className={cn("min-w-0 flex-1 outline-none", className)}
       {...props}
     />
   );

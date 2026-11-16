@@ -196,7 +196,7 @@ function CameraPreview({
             type="button"
             size="sm"
             variant="secondary"
-            className="absolute top-3 right-3 bg-black/55 text-white backdrop-blur-sm hover:bg-black/70"
+            className="bg-background/80 text-foreground hover:bg-background absolute top-3 right-3 backdrop-blur-sm"
             onClick={test.stop}
           >
             <StopIcon aria-hidden weight="fill" data-icon="inline-start" />
@@ -222,7 +222,7 @@ function CameraPreview({
         </div>
       )}
       {isCallCameraOn ? (
-        <figcaption className="absolute bottom-3 left-3 rounded-full bg-black/55 px-2.5 py-1 text-xs text-white backdrop-blur-sm">
+        <figcaption className="bg-background/80 text-foreground absolute bottom-3 left-3 rounded-full px-2.5 py-1 text-xs backdrop-blur-sm">
           On in the call
         </figcaption>
       ) : null}
@@ -491,13 +491,13 @@ export function AudioVideoSettings() {
         <SettingsSwitchRow
           htmlFor={micOffId}
           label="Join with microphone off"
-          description="Rooms and meetings start with you muted."
+          description="Coming soon: rooms and meetings will start with you muted."
           control={<Switch id={micOffId} checked={false} disabled />}
         />
         <SettingsSwitchRow
           htmlFor={cameraOffId}
           label="Join with camera off"
-          description="Turn your camera on yourself once you are in."
+          description="Coming soon: your camera will stay off until you turn it on."
           control={<Switch id={cameraOffId} checked={false} disabled />}
         />
         <SettingsSwitchRow
