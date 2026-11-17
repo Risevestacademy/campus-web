@@ -47,6 +47,9 @@ interface OwnAvatarMovementOptions {
   movement: WorldMovement;
   onMoveCorrected: (outcome: MoveCorrection) => void;
   onEntryRefused?: (refusal: EntryRefusal) => void;
+  // A step into a space that is full: the avatar turns to face it, and the
+  // space is named when the map knows which one it is.
+  onSpaceFull?: (spaceKey: string | null) => void;
   prefersReducedMotion: () => boolean;
   readPresence: () => Presence;
 }
@@ -75,6 +78,7 @@ export function createOwnAvatarMovement({
   movement,
   onMoveCorrected,
   onEntryRefused,
+  onSpaceFull,
   prefersReducedMotion,
   readPresence,
 }: OwnAvatarMovementOptions): OwnAvatarMovement {
@@ -165,6 +169,11 @@ export function createOwnAvatarMovement({
           stepFrom(message.player, message.player.facing),
         ),
       });
+    }
+    if (message.outcome === "full") {
+      onSpaceFull?.(
+        spaceAt(layout.spaces, stepFrom(message.player, message.player.facing)),
+      );
     }
     refused = learnRefusedTiles(refused, message);
     const before = predicted;
