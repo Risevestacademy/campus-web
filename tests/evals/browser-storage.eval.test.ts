@@ -99,12 +99,26 @@ describe("Browser storage eval (threshold: every case holds)", () => {
     it("keeps each valid field when another one is corrupted", () => {
       expect(
         parseStoredSidebarPreferences(
-          '{"activePanel":"chat","sidebarMode":"admin","sidebarOpen":"yes"}',
+          '{"activePanel":"tasks","sidebarMode":"admin","sidebarOpen":"yes"}',
         ),
       ).toEqual({
-        activePanel: "chat",
+        activePanel: "tasks",
         sidebarMode: "admin",
         sidebarOpen: true,
+      });
+    });
+
+    // The rail's Chat item was removed, so an old saved choice of it lands on
+    // the default panel and keeps the other saved fields.
+    it("reads a panel that no longer exists as the default panel", () => {
+      expect(
+        parseStoredSidebarPreferences(
+          '{"activePanel":"chat","sidebarMode":"admin","sidebarOpen":false}',
+        ),
+      ).toEqual({
+        activePanel: "map",
+        sidebarMode: "admin",
+        sidebarOpen: false,
       });
     });
   });

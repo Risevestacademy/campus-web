@@ -71,7 +71,7 @@ describe("administration Campus layout", () => {
     expect(within(dock).getByText("A")).toBeInTheDocument();
   });
 
-  it.each(["Search", "Chat", "Tasks", "Calendar"])(
+  it.each(["Search", "Tasks", "Calendar"])(
     "%s restores Campus sidebar mode",
     async (panel) => {
       setSidebarMode("campus");
