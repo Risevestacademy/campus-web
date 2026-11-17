@@ -13,6 +13,9 @@ The motion module owns the member's reduced-motion preference.
   and `useReducedMotionConfig` follow the same choice. Read reduced motion with
   `useReducedMotionConfig`, not `useReducedMotion`, which sees only the
   operating system.
+- The campus map's camera and avatar movement read the choice through
+  `features/campus-world/services/reduced-motion.ts`, which checks the
+  attribute before the media query.
 - CSS that cannot use the Tailwind variants pairs
   `@media (prefers-reduced-motion: reduce)` with a
   `:root[data-motion="reduce"]` rule.
