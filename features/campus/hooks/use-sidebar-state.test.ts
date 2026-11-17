@@ -1,10 +1,17 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { setActivePanel, setSidebarMode } from "../store/sidebar-store";
-import { useSidebarMode } from "./use-sidebar-state";
+import { closeChat, openChat } from "../store/chat-panel-store";
+import { SIDEBAR_STORAGE_KEY } from "../store/sidebar-preferences";
+import {
+  setActivePanel,
+  setSidebarMode,
+  setSidebarOpen,
+} from "../store/sidebar-store";
+import { useSidebarMode, useSidebarVisible } from "./use-sidebar-state";
 
 beforeEach(() => {
+  closeChat();
   window.localStorage.clear();
   Reflect.deleteProperty(document.documentElement.dataset, "sidebarOpen");
 });
@@ -46,5 +53,36 @@ describe("sidebar mode", () => {
     act(() => setActivePanel("tasks"));
 
     expect(result.current).toBe("campus");
+  });
+});
+
+describe("sidebar visibility", () => {
+  it("shows the sidebar the member left open", () => {
+    const { result } = renderHook(() => useSidebarVisible());
+
+    expect(result.current).toBe(true);
+  });
+
+  it("gives way to chat and returns when chat closes, without a saved change", () => {
+    setSidebarOpen(true);
+    const saved = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    const { result } = renderHook(() => useSidebarVisible());
+
+    act(() => openChat());
+    expect(result.current).toBe(false);
+
+    act(() => closeChat());
+    expect(result.current).toBe(true);
+    expect(window.localStorage.getItem(SIDEBAR_STORAGE_KEY)).toBe(saved);
+  });
+
+  it("stays hidden when the member collapsed it", () => {
+    act(() => setSidebarOpen(false));
+    const { result } = renderHook(() => useSidebarVisible());
+
+    act(() => openChat());
+    act(() => closeChat());
+
+    expect(result.current).toBe(false);
   });
 });

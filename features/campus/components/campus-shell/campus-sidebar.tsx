@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import {
   useActivePanel,
   useSidebarMode,
-  useSidebarOpen,
+  useSidebarVisible,
 } from "../../hooks/use-sidebar-state";
 import type {
   SidebarMode,
@@ -36,7 +36,7 @@ export function CampusSidebar({
   initialMode,
   panels,
 }: CampusSidebarProps) {
-  const isOpen = useSidebarOpen();
+  const isOpen = useSidebarVisible();
   const activePanel = useActivePanel();
   const sidebarMode = useSidebarMode(
     initialMode,
