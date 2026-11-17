@@ -170,15 +170,18 @@ test.describe("protected routes", () => {
     const lightBox = await controls.boundingBox();
     expect(lightBox).not.toBeNull();
 
-    // The rail hosts the theme switch; the floating one hides on this page.
-    const themeSwitch = page.getByRole("button", {
-      name: "Switch to dark mode",
-    });
-    await expect(themeSwitch).toHaveCount(1);
+    // Settings holds the theme choice; the floating switch hides on this page.
+    await expect(
+      page.getByRole("button", { name: "Switch to dark mode" }),
+    ).toHaveCount(0);
     await page
       .getByRole("navigation", { name: "Campus" })
-      .getByRole("button", { name: "Switch to dark mode" })
+      .getByRole("button", { name: "Settings" })
       .click();
+    const settings = page.getByRole("dialog", { name: "Settings" });
+    await settings.getByRole("tab", { name: "Appearance" }).click();
+    await settings.getByRole("radio", { name: "Dark" }).click();
+    await settings.getByRole("button", { name: "Close settings" }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
     const darkBox = await controls.boundingBox();

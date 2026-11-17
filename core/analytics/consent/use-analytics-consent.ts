@@ -20,6 +20,9 @@ export function useAnalyticsConsent() {
   );
 
   return {
+    // "unknown" until the stored choice is read; "unavailable" where analytics
+    // is not set up.
+    consent: snapshot.consent,
     canReopen: isConsentChoiceKnown(snapshot),
     isOpen: isConsentChoiceOpen(snapshot),
     isReviewing: snapshot.reviewing,

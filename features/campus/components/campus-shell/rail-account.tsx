@@ -9,15 +9,6 @@ import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
 import { Button } from "@/shared/ui/button";
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/ui/dialog";
-import {
   Popover,
   PopoverContent,
   PopoverTitle,
@@ -29,10 +20,12 @@ import { useStatusChoice } from "../../hooks/use-status-choice";
 import { STATUS_LABELS } from "../status-appearance";
 import { StatusTray } from "../status-tray";
 import type { CampusViewer } from "./feedback-layer";
+import {
+  type LogOutActionComponent,
+  LogOutConfirmDialog,
+} from "./log-out-confirm-dialog";
 
-export type LogOutActionComponent = ComponentType<{
-  children: (action: { logOut: () => void; isPending: boolean }) => ReactNode;
-}>;
+export type { LogOutActionComponent } from "./log-out-confirm-dialog";
 
 // Copies of ProfileSection (features/profile/types.ts) and OwnProfileControls
 // (features/profile/components/own-profile-action.tsx), since campus may not
@@ -234,10 +227,11 @@ function AccountMenu({
         </PopoverContent>
       </Popover>
       {logOut ? (
-        <LogOutPrompt
-          isAsking={isAskingToLogOut}
-          logOut={logOut}
-          onAskingChange={setIsAskingToLogOut}
+        <LogOutConfirmDialog
+          open={isAskingToLogOut}
+          onOpenChange={setIsAskingToLogOut}
+          logOut={logOut.logOut}
+          isPending={logOut.isPending}
         />
       ) : null}
     </>
@@ -260,50 +254,5 @@ function MenuAction({
     >
       {children}
     </Button>
-  );
-}
-
-// Logging out ends the session everywhere, so the menu asks first. The prompt
-// closes on confirming: success leaves the page, and a failure explains itself
-// in a toast that the open prompt would cover.
-function LogOutPrompt({
-  isAsking,
-  logOut: { logOut, isPending },
-  onAskingChange,
-}: {
-  isAsking: boolean;
-  logOut: LogOut;
-  onAskingChange: (isAsking: boolean) => void;
-}) {
-  function confirm() {
-    if (!isAsking || isPending) return;
-    onAskingChange(false);
-    logOut();
-  }
-
-  return (
-    <Dialog open={isAsking} onOpenChange={onAskingChange}>
-      <DialogContent showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>Log out of Campus?</DialogTitle>
-          <DialogDescription>
-            You will leave your room and need to sign in again to come back.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="sm:justify-center">
-          <DialogClose render={<Button variant="outline" />}>
-            Stay signed in
-          </DialogClose>
-          <Button
-            type="button"
-            variant="destructive"
-            disabled={!isAsking || isPending}
-            onClick={confirm}
-          >
-            Log out
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

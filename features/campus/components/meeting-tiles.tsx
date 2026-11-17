@@ -3,7 +3,7 @@
 import { MicrophoneIcon } from "@phosphor-icons/react/dist/ssr/Microphone";
 import { MicrophoneSlashIcon } from "@phosphor-icons/react/dist/ssr/MicrophoneSlash";
 import { cn } from "cn";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotionConfig } from "motion/react";
 import type { ComponentProps, CSSProperties, ReactNode } from "react";
 import { useId } from "react";
 
@@ -349,7 +349,7 @@ export function MeetingTiles({
   shouldAnimate = true,
   tiles,
 }: MeetingTilesProps) {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = Boolean(useReducedMotionConfig());
   const statusIdPrefix = useId();
   const motionDisabled = !shouldAnimate || reduceMotion;
   const layoutTransition = getLayoutTransition(motionConfig, motionDisabled);

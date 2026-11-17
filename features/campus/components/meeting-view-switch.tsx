@@ -2,7 +2,7 @@
 
 import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 import { SquaresFourIcon } from "@phosphor-icons/react/dist/ssr/SquaresFour";
-import { motion, useIsPresent, useReducedMotion } from "motion/react";
+import { motion, useIsPresent, useReducedMotionConfig } from "motion/react";
 
 import { useMediaSession } from "../services/media-session/media-session-provider";
 import {
@@ -46,7 +46,7 @@ function MeetingViewSwitchControl({
   activeView,
   onActiveViewChange,
 }: MeetingViewSwitchControlProps) {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = Boolean(useReducedMotionConfig());
   const switchViewTitle =
     activeView === "map" ? "Switch to grid view" : "Switch to map view";
 

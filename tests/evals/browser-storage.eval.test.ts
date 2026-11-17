@@ -4,6 +4,12 @@ import { sharedSessionExpiry } from "@/features/auth/services/browser-session";
 import { parseStoredSidebarPreferences } from "@/features/campus/schemas/sidebar-preferences.schema";
 import { loadMediaDevicePreferences } from "@/features/campus/services/media-session/media-device-preferences";
 import { loadZoomLevel } from "@/features/campus-world/services/zoom-preference";
+import {
+  MOTION_STORAGE_KEY,
+  motionInitializerScript,
+  parseMotionPreference,
+} from "@/shared/motion/motion";
+import { subscribeToMotionPreference } from "@/shared/motion/motion-store";
 
 // Anyone with the page open (an extension, a script, a stale build) can edit
 // localStorage, so every value read back is treated as untrusted input.
@@ -16,6 +22,7 @@ const INVENTED_PLACEHOLDER_ID = /^(?:audioinput|videoinput|audiooutput)-\d+$/;
 
 beforeEach(() => {
   localStorage.clear();
+  delete document.documentElement.dataset.motion;
 });
 
 describe("Browser storage eval (threshold: every case holds)", () => {
@@ -130,6 +137,75 @@ describe("Browser storage eval (threshold: every case holds)", () => {
       localStorage.setItem(ZOOM_KEY, value);
 
       expect(loadZoomLevel()).toBe(level);
+    });
+  });
+
+  // Only the exact "reduce" turns animation down; anything else leaves the
+  // operating-system setting in charge, as if nothing were stored.
+  describe("a stored motion choice only ever restores Reduce motion or the device default", () => {
+    const HOSTILE = [
+      "not json",
+      "",
+      '"reduce"',
+      "reduce ",
+      " reduce",
+      "REDUCE",
+      "Reduce",
+      "{}",
+      '{"reduce":true}',
+      '["reduce"]',
+      "null",
+      "true",
+      "1",
+      "__proto__",
+      "reduce\u0000",
+    ];
+
+    it.each(HOSTILE)("parses %j as the device default", (value) => {
+      expect(parseMotionPreference(value)).toBe("device");
+    });
+
+    it.each(HOSTILE)(
+      "leaves data-motion unset before hydration for %j",
+      (value) => {
+        localStorage.setItem(MOTION_STORAGE_KEY, value);
+
+        new Function(motionInitializerScript)();
+
+        expect(document.documentElement).not.toHaveAttribute("data-motion");
+      },
+    );
+
+    it.each(HOSTILE)(
+      "clears Reduce motion when another tab writes %j",
+      (value) => {
+        document.documentElement.dataset.motion = "reduce";
+        const unsubscribe = subscribeToMotionPreference(() => {});
+
+        window.dispatchEvent(
+          new StorageEvent("storage", {
+            key: MOTION_STORAGE_KEY,
+            newValue: value,
+          }),
+        );
+        unsubscribe();
+
+        expect(document.documentElement).not.toHaveAttribute("data-motion");
+      },
+    );
+
+    it("restores reduce, the one value the member can choose", () => {
+      localStorage.setItem(MOTION_STORAGE_KEY, "reduce");
+
+      expect(parseMotionPreference("reduce")).toBe("reduce");
+      new Function(motionInitializerScript)();
+      expect(document.documentElement).toHaveAttribute("data-motion", "reduce");
+    });
+
+    it("follows the device when nothing is stored", () => {
+      expect(parseMotionPreference(null)).toBe("device");
+      new Function(motionInitializerScript)();
+      expect(document.documentElement).not.toHaveAttribute("data-motion");
     });
   });
 });

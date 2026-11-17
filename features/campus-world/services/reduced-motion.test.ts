@@ -10,6 +10,7 @@ function stubMatchMedia(matches: boolean) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  delete document.documentElement.dataset.motion;
 });
 
 describe("prefersReducedMotion", () => {
@@ -28,6 +29,22 @@ describe("prefersReducedMotion", () => {
   it("allows motion where the browser cannot answer", () => {
     vi.stubGlobal("matchMedia", undefined);
 
+    expect(prefersReducedMotion()).toBe(false);
+  });
+
+  it("reduces motion when the member chose Reduce motion, whatever the device allows", () => {
+    stubMatchMedia(false);
+    document.documentElement.dataset.motion = "reduce";
+
+    expect(prefersReducedMotion()).toBe(true);
+  });
+
+  it("follows a change to the member's choice on the next call", () => {
+    stubMatchMedia(false);
+    document.documentElement.dataset.motion = "reduce";
+    expect(prefersReducedMotion()).toBe(true);
+
+    delete document.documentElement.dataset.motion;
     expect(prefersReducedMotion()).toBe(false);
   });
 });

@@ -63,6 +63,9 @@ export type MediaSessionState = Readonly<{
   camera: CaptureSourceState;
   // The call refused the member's latest camera change.
   cameraPublishFailed: boolean;
+  // Captures the selected device for a local test (a preview, a level meter):
+  // never published, never the session's track. The caller stops the track.
+  captureTestTrack: (source: CaptureSource) => Promise<TestCapture>;
   callAudioStatus: CallAudioStatus;
   chooseAudioOutput: () => MediaActionFailure;
   connect: () => void;
@@ -101,6 +104,10 @@ export type MediaSessionState = Readonly<{
   toggleBroadcastSpeaking: () => MediaActionFailure;
   toggleSource: (source: CaptureSource) => MediaActionFailure;
 }>;
+
+export type TestCapture =
+  | Readonly<{ track: MediaStreamTrack }>
+  | Readonly<{ error: MediaSessionErrorCode }>;
 
 type MediaSessionStoreDependencies = Readonly<{
   createMediaStream?: () => MediaStream;
@@ -658,6 +665,31 @@ export function createMediaSessionStore(
       broadcastSpeaking: "off",
       camera: createInitialCaptureState(false),
       cameraPublishFailed: false,
+      async captureTestTrack(source) {
+        if (!mediaDevices) return { error: "unsupported" };
+
+        const { selectedDeviceId } = get()[source];
+
+        try {
+          const stream = await mediaDevices.getUserMedia(
+            getConstraints(
+              source,
+              selectedDeviceId
+                ? { deviceId: selectedDeviceId, match: "exact" }
+                : undefined,
+            ),
+          );
+          const track = getTrack(stream, source);
+          stream
+            .getTracks()
+            .filter((candidate) => candidate !== track)
+            .forEach((candidate) => candidate.stop());
+
+          return track ? { track } : { error: "device-unavailable" };
+        } catch (error) {
+          return { error: getErrorCode(error) };
+        }
+      },
       callAudioStatus: "idle",
       async chooseAudioOutput() {
         const selectableMediaDevices = mediaDevices as

@@ -49,7 +49,7 @@ export function CampusSidebar({
       initial={false}
       animate={{ width: isOpen ? SIDEBAR_WIDTH : 0 }}
       transition={SIDEBAR_TRANSITION}
-      className="bg-background shrink-0 overflow-hidden rounded-xl border border-[#D3DAE9] dark:border-[#2B3B5F] dark:bg-[#1F2940]"
+      className="bg-shell-panel border-shell-line shrink-0 overflow-hidden rounded-xl border"
     >
       <motion.div
         initial={false}
