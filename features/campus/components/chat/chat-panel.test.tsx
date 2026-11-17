@@ -107,7 +107,7 @@ describe("ChatPanel", () => {
     expect(tabs.map((tab) => tab.textContent)).toEqual([
       "Chat",
       "People2",
-      "Resources",
+      "Resources0",
     ]);
     expect(screen.getByRole("tab", { name: "Chat" })).toHaveAttribute(
       "aria-selected",
@@ -146,13 +146,18 @@ describe("ChatPanel", () => {
     expect(screen.getByRole("tab", { name: /People/ })).toHaveTextContent("1");
   });
 
-  it("shows the conversation on the Chat tab and a placeholder on Resources", () => {
+  it("shows the conversation on the Chat tab and the files on Resources", () => {
     renderChat();
     act(() => openChat());
     expect(screen.getByRole("log", { name: "Messages" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Resources" }));
-    expect(screen.getByText("Resources is coming soon.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Resources/ }));
+
+    expect(
+      screen.getByText(
+        "No files yet. Files sent in this meeting show up here.",
+      ),
+    ).toBeInTheDocument();
     expect(getChatTabSnapshot()).toBe("resources");
   });
 

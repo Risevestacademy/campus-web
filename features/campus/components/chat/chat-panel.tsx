@@ -8,6 +8,7 @@ import { useMountEffect } from "@/shared/lib/use-mount-effect";
 import { Button } from "@/shared/ui/button";
 import { Tabs, TabsPanel, TabsPillList, TabsPillTab } from "@/shared/ui/tabs";
 
+import { useChatFiles } from "../../hooks/use-chat-files";
 import { useChatOpen, useChatTab } from "../../hooks/use-chat-panel";
 import { useChatPeople } from "../../hooks/use-chat-people";
 import { useChatUnread } from "../../hooks/use-chat-unread";
@@ -21,6 +22,7 @@ import { SIDEBAR_WIDTH } from "../campus-shell/sidebar-width";
 import { ChatConversation } from "./chat-conversation";
 import { CHAT_PANEL_ID, focusChatToggle } from "./chat-ids";
 import { PeopleTab } from "./people-tab";
+import { ResourcesTab } from "./resources-tab";
 
 // The sidebar's width, so swapping one for the other does not move the
 // meeting.
@@ -35,18 +37,11 @@ function isChatTab(value: unknown): value is ChatTab {
   return CHAT_TABS.some((tab) => tab === value);
 }
 
-function ComingSoon({ what }: Readonly<{ what: string }>) {
-  return (
-    <div className="text-foreground-secondary grid flex-1 place-items-center p-6 text-center text-sm">
-      {what} is coming soon.
-    </div>
-  );
-}
-
 function ChatPanelContent({ cohortId }: Readonly<{ cohortId: string }>) {
   const tab = useChatTab();
   const { hearing, localId, people, spaceName } = useChatPeople(cohortId);
   const unread = useChatUnread(cohortId);
+  const files = useChatFiles(cohortId);
   const panel = useRef<HTMLDivElement>(null);
 
   // Opening the panel moves focus into it, onto the tab that is showing.
@@ -100,7 +95,9 @@ function ChatPanelContent({ cohortId }: Readonly<{ cohortId: string }>) {
             <TabsPillTab value="people" count={people.length}>
               People
             </TabsPillTab>
-            <TabsPillTab value="resources">Resources</TabsPillTab>
+            <TabsPillTab value="resources" count={files.length}>
+              Resources
+            </TabsPillTab>
           </TabsPillList>
           <Button
             type="button"
@@ -126,7 +123,7 @@ function ChatPanelContent({ cohortId }: Readonly<{ cohortId: string }>) {
           <PeopleTab localId={localId} people={people} />
         </TabsPanel>
         <TabsPanel value="resources" className="flex min-h-0 flex-col">
-          <ComingSoon what="Resources" />
+          <ResourcesTab cohortId={cohortId} />
         </TabsPanel>
       </Tabs>
     </div>

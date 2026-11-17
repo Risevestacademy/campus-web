@@ -5,6 +5,8 @@ const BURST = 5;
 const PER_SECOND = 1;
 
 export interface SendBudget {
+  // Whether there is a line to spend, without spending it.
+  available(): boolean;
   // Spends one line when there is one to spend.
   take(): boolean;
   // Gives it back: the line was never sent.
@@ -23,6 +25,10 @@ export function createSendBudget(now: () => number = Date.now): SendBudget {
   }
 
   return {
+    available() {
+      refill();
+      return lines >= 1;
+    },
     take() {
       refill();
       if (lines < 1) return false;

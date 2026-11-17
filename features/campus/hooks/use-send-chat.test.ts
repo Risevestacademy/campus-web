@@ -2,6 +2,7 @@ import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { socialFor } from "@/core/realtime";
+import { clearPresence, seedPresence } from "@/tests/fixtures/nearby-presence";
 import { serverFrames } from "@/tests/fixtures/world-frames";
 
 import { CHAT_LINE_MAX_LENGTH, useSendChat } from "./use-send-chat";
@@ -21,10 +22,12 @@ function connect(accepts = true) {
 
 beforeEach(() => {
   unbind();
+  seedPresence(COHORT);
 });
 
 afterEach(() => {
   unbind();
+  clearPresence(COHORT);
 });
 
 describe("useSendChat", () => {
@@ -65,6 +68,48 @@ describe("useSendChat", () => {
 
     expect(result.current.send("one more")).toBe("too-fast");
     expect(send).toHaveBeenCalledTimes(5);
+  });
+
+  it("sends a file with no line, and with one", () => {
+    const send = connect();
+    const { result } = renderHook(() => useSendChat(COHORT));
+    const attachment = {
+      mediaId: "m-1",
+      fileName: "plan.pdf",
+      contentType: "application/pdf",
+      sizeBytes: 12,
+    };
+
+    expect(result.current.send("", attachment)).toBe("sent");
+    expect(result.current.send("  Here it is ", attachment)).toBe("sent");
+
+    expect(send).toHaveBeenNthCalledWith(1, {
+      type: "say",
+      text: "",
+      attachment,
+    });
+    expect(send).toHaveBeenNthCalledWith(2, {
+      type: "say",
+      text: "Here it is",
+      attachment,
+    });
+  });
+
+  it("reports whether a line could go out before anything is done for it", () => {
+    connect();
+    const { result } = renderHook(() => useSendChat(COHORT));
+    expect(result.current.readiness()).toBe("ready");
+
+    for (let line = 0; line < 5; line += 1) result.current.send("hello");
+
+    expect(result.current.readiness()).toBe("too-fast");
+  });
+
+  it("is not ready while the socket is down", () => {
+    clearPresence(COHORT);
+    const { result } = renderHook(() => useSendChat(COHORT));
+
+    expect(result.current.readiness()).toBe("not-ready");
   });
 
   it("reports a socket that is not ready, and spends nothing", () => {
