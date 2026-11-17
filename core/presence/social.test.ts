@@ -108,6 +108,7 @@ describe("chat", () => {
       userId: serverFrames.said.userId,
       spaceKey: serverFrames.said.spaceKey,
       text: "First",
+      attachment: null,
       at: serverFrames.said.at,
       senderName: null,
     });
@@ -139,10 +140,30 @@ describe("chat", () => {
     expect(after.chat).toHaveLength(1);
   });
 
-  it("ignores a line with no text, which can only carry a file", () => {
+  it("ignores a line that says nothing and sends no file", () => {
     const presence = applied(said("a", ""), said("b", "   "), said("c"));
 
     expect(presence.chat.map(({ id }) => id)).toEqual(["c"]);
+  });
+
+  it("keeps a line that only sends a file, with the file", () => {
+    const attachment = {
+      mediaId: "9a0b8f10-1b64-4a3e-bf1a-2f5a58a0f4de",
+      fileName: "onboarding-flow.pdf",
+      contentType: "application/pdf",
+      sizeBytes: 1_234_567,
+    };
+
+    const presence = applied({
+      ...serverFrames.said,
+      id: "a",
+      text: "",
+      attachment,
+    });
+
+    expect(presence.chat).toHaveLength(1);
+    expect(presence.chat[0]?.text).toBe("");
+    expect(presence.chat[0]?.attachment).toEqual(attachment);
   });
 
   describe("who said it", () => {

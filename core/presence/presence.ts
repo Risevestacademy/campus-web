@@ -1,9 +1,10 @@
-import type {
-  Avatar,
-  Call,
-  Player,
-  ServerMessage,
-  SnapshotMessage,
+import {
+  type Avatar,
+  type Call,
+  type Player,
+  type ServerMessage,
+  type SnapshotMessage,
+  spaceIdOfRoom,
 } from "@/core/realtime";
 
 import {
@@ -43,6 +44,10 @@ export interface Presence extends Social {
   // When, by this device's clock, the member came into the space they stand
   // in. Chat starts over then, so its lines begin from here.
   spaceEnteredAt: number | null;
+  // The campus-api space whose call you are in, read from the call's room, for
+  // routes keyed by it. Null where the space has no call (the corridors), and
+  // until world sends the call after a crossing or a snapshot.
+  spaceId: string | null;
 }
 
 export const EMPTY_PRESENCE: Presence = {
@@ -57,6 +62,7 @@ export const EMPTY_PRESENCE: Presence = {
   meetingRoster: [],
   encounter: 0,
   spaceEnteredAt: null,
+  spaceId: null,
   ...EMPTY_SOCIAL,
 };
 
@@ -175,6 +181,10 @@ function withHearing(presence: Presence, hearing: PresenceHearing): Presence {
   return hearing === presence.hearing ? presence : { ...presence, hearing };
 }
 
+function withSpaceId(presence: Presence, spaceId: string | null): Presence {
+  return spaceId === presence.spaceId ? presence : { ...presence, spaceId };
+}
+
 // A World without media never sends a call, so only a held call is awaited.
 function awaitingCall(hearing: PresenceHearing): PresenceHearing {
   return hearing === null ? null : "awaiting";
@@ -211,7 +221,7 @@ function withSpaceChange(
   return crossed
     ? withSpaceEntry(
         presence,
-        withHearing(next, awaitingCall(presence.hearing)),
+        withSpaceId(withHearing(next, awaitingCall(presence.hearing)), null),
       )
     : next;
 }
@@ -296,6 +306,7 @@ function applyFrame(presence: Presence, message: ServerMessage): Presence {
         spaceNames: namesBySpaceKey(message.spaces),
         nearby: [],
         hearing: awaitingCall(presence.hearing),
+        spaceId: null,
         ...socialOfSnapshot(message),
       });
     case "spaces":
@@ -345,7 +356,10 @@ function applyFrame(presence: Presence, message: ServerMessage): Presence {
     case "nearby":
       return withNearby(presence, message.userIds);
     case "call":
-      return withHearing(presence, hearingOf(message.call));
+      return withSpaceId(
+        withHearing(presence, hearingOf(message.call)),
+        message.call?.room ? spaceIdOfRoom(message.call.room) : null,
+      );
     default:
       return presence;
   }

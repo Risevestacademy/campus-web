@@ -140,8 +140,14 @@ export type JoinedMessage = Simplify<
   Pick<PublishedJoinedMessage, "type"> & { player: Avatar }
 >;
 type Hearing = OrUnknown<PublishedCall["hearing"]>;
+// `room` names the call's room; a space's is `space:<cohort id>:<space id>`,
+// which is how a feature finds the campus-api space the call belongs to
+// (`spaceIdOfRoom`). It is not a secret, unlike the token.
 export type Call = Simplify<
-  Pick<PublishedCall, "url" | "token" | "audibleRadius"> & { hearing: Hearing }
+  Pick<PublishedCall, "url" | "token" | "audibleRadius"> & {
+    hearing: Hearing;
+    room?: string;
+  }
 >;
 export type CallMessage = Simplify<
   Pick<PublishedCallMessage, "type"> & { call: Call | null }
@@ -365,9 +371,20 @@ const spacesMessageSchema = z.toZod<SpacesMessage>()(
   z.object({ type: z.literal("spaces"), spaces: z.array(spaceNameSchema) }),
 );
 
+// A space's room is named `space:<cohort id>:<space id>`: the space id is what
+// campus-api's routes for a call, such as its chat files, are keyed by. Only a
+// space that has an id has a call, so the corridors name none.
+const SPACE_ROOM =
+  /^space:[^:]+:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+export function spaceIdOfRoom(room: string): string | null {
+  return SPACE_ROOM.exec(room)?.[1] ?? null;
+}
+
 const callSchema = z.toZod<Call>()(
   z.object({
     url: z.string().min(1),
+    room: z.string().optional(),
     token: z.string().min(1),
     hearing: orUnknown(["room", "proximity"]),
     audibleRadius: z.number().nonnegative(),

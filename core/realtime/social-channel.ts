@@ -1,6 +1,7 @@
 import type {
   ActiveMessage,
   AnswerEntryRequestMessage,
+  ChatAttachment,
   MuteMessage,
   RemoveFromSpaceMessage,
   RequestEntryMessage,
@@ -40,7 +41,9 @@ export interface WorldSocial {
   sendMute(userId: string): boolean;
   sendRemoveFromSpace(userId: string): boolean;
   sendRequestEntry(spaceKey: string): boolean;
-  sendSay(text: string): boolean;
+  // A line, or a file with or without a line: world takes empty text only
+  // with a file.
+  sendSay(text: string, attachment?: ChatAttachment): boolean;
   sendSetLock(locked: boolean): boolean;
   sendSetStatus(
     status: SetStatusMessage["status"],
@@ -107,10 +110,15 @@ export function createWorldSocialChannel(): WorldSocialChannel {
       sendWhenReady({ type: "removeFromSpace", userId }),
     sendRequestEntry: (spaceKey) =>
       sendWhenReady({ type: "requestEntry", spaceKey }),
-    sendSay(text) {
+    sendSay(text, attachment) {
       const line = text.trim();
-      if (line.length === 0 || line.length > SAY_MAX_LENGTH) return false;
-      return sendWhenReady({ type: "say", text: line });
+      if (line.length > SAY_MAX_LENGTH) return false;
+      if (line.length === 0 && !attachment) return false;
+      return sendWhenReady(
+        attachment
+          ? { type: "say", text: line, attachment }
+          : { type: "say", text: line },
+      );
     },
     sendSetLock: (locked) => sendWhenReady({ type: "setLock", locked }),
     sendSetStatus(status, forSeconds) {

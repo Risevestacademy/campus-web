@@ -710,6 +710,103 @@ describe("meeting roster", () => {
   });
 });
 
+describe("the space whose call you are in", () => {
+  const COHORT = "11111111-1111-4111-8111-111111111111";
+  const LIBRARY = "7c2f0a64-93d1-4a52-a5d7-0b6c9f4c2e11";
+
+  function callIn(room: string): ServerMessage {
+    return {
+      type: "call",
+      call: {
+        url: "wss://media.example.test",
+        token: "media-token",
+        hearing: "room",
+        audibleRadius: 6,
+        room,
+      },
+    };
+  }
+
+  function placed(...messages: ServerMessage[]) {
+    return [
+      {
+        type: "welcome",
+        userId: "ada",
+        connectionId: "c",
+        heartbeatSeconds: 30,
+        stepMs: 100,
+        tickMs: 50,
+        awayAfterSeconds: 300,
+        displayName: "Ada",
+        spriteKey: null,
+      } satisfies ServerMessage,
+      {
+        type: "snapshot",
+        map: { id: "campus", version: "v1", width: 5, height: 4 },
+        players: [ADA],
+        spaces: [],
+      } satisfies ServerMessage,
+      ...messages,
+    ].reduce(applyServerMessage, EMPTY_PRESENCE);
+  }
+
+  it("is read from a space's call room name", () => {
+    const presence = placed(callIn(`space:${COHORT}:${LIBRARY}`));
+
+    expect(presence.spaceId).toBe(LIBRARY);
+  });
+
+  it.each([
+    ["a room that names no space id", "cohort-1:library"],
+    ["a corridor room", `space:${COHORT}:_default`],
+    ["a room with a malformed id", `space:${COHORT}:not-a-uuid`],
+  ])("is none for %s", (_, room) => {
+    expect(placed(callIn(room)).spaceId).toBeNull();
+  });
+
+  it("is none after the call ends", () => {
+    const presence = placed(callIn(`space:${COHORT}:${LIBRARY}`), {
+      type: "call",
+      call: null,
+    });
+
+    expect(presence.spaceId).toBeNull();
+  });
+
+  it("is none from the member's own crossing until world sends the new call", () => {
+    const inLibrary = placed(callIn(`space:${COHORT}:${LIBRARY}`));
+
+    const crossed = applyServerMessage(inLibrary, {
+      type: "spaceChanged",
+      userId: "ada",
+      spaceKey: "courtyard",
+    });
+
+    expect(crossed.spaceId).toBeNull();
+  });
+
+  it("is none after a snapshot, until the call comes again", () => {
+    const inLibrary = placed(callIn(`space:${COHORT}:${LIBRARY}`));
+
+    const reconnected = applyServerMessage(inLibrary, {
+      type: "snapshot",
+      map: { id: "campus", version: "v1", width: 5, height: 4 },
+      players: [ADA],
+      spaces: [],
+    });
+
+    expect(reconnected.spaceId).toBeNull();
+  });
+
+  it("keeps the same presence when the same call arrives again", () => {
+    const first = placed(callIn(`space:${COHORT}:${LIBRARY}`));
+
+    expect(
+      applyServerMessage(first, callIn(`space:${COHORT}:${LIBRARY}`)),
+    ).toBe(first);
+  });
+});
+
 describe("space names", () => {
   function namedSnapshot(...spaces: { spaceKey: string; name: string }[]) {
     return applyServerMessage(EMPTY_PRESENCE, {

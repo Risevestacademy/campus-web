@@ -65,6 +65,7 @@ export {
   type ServerMessage,
   type ServerMessageResult,
   type SnapshotMessage,
+  spaceIdOfRoom,
   type StaffAction,
   type StaffActionMessage,
   type StatusChangedMessage,
