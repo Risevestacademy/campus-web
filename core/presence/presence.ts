@@ -40,6 +40,9 @@ export interface Presence extends Social {
   meetingRoster: readonly string[];
   // A view opened for one encounter must not reopen by itself for the next.
   encounter: number;
+  // When, by this device's clock, the member came into the space they stand
+  // in. Chat starts over then, so its lines begin from here.
+  spaceEnteredAt: number | null;
 }
 
 export const EMPTY_PRESENCE: Presence = {
@@ -53,6 +56,7 @@ export const EMPTY_PRESENCE: Presence = {
   hearing: null,
   meetingRoster: [],
   encounter: 0,
+  spaceEnteredAt: null,
   ...EMPTY_SOCIAL,
 };
 
@@ -176,6 +180,25 @@ function awaitingCall(hearing: PresenceHearing): PresenceHearing {
   return hearing === null ? null : "awaiting";
 }
 
+function ownSpaceOf({ selfId, participants }: Presence): string | undefined {
+  return selfId === null ? undefined : participants.get(selfId)?.spaceKey;
+}
+
+// World keeps no chat and will not send it again, so leaving a space leaves
+// its lines behind: the member's chat begins in the space they came into.
+function withSpaceEntry(previous: Presence, next: Presence): Presence {
+  const space = ownSpaceOf(next);
+  if (space === undefined) return next;
+  if (space === ownSpaceOf(previous) && next.spaceEnteredAt !== null) {
+    return next;
+  }
+  return {
+    ...next,
+    spaceEnteredAt: Date.now(),
+    chat: next.chat.filter(({ spaceKey }) => spaceKey === space),
+  };
+}
+
 function withSpaceChange(
   presence: Presence,
   userId: string,
@@ -185,7 +208,12 @@ function withSpaceChange(
     userId === presence.selfId &&
     presence.participants.get(userId)?.spaceKey !== spaceKey;
   const next = withParticipantChange(presence, userId, { spaceKey });
-  return crossed ? withHearing(next, awaitingCall(presence.hearing)) : next;
+  return crossed
+    ? withSpaceEntry(
+        presence,
+        withHearing(next, awaitingCall(presence.hearing)),
+      )
+    : next;
 }
 
 function roomMateIds({ selfId, participants }: Presence): string[] {
@@ -247,7 +275,11 @@ export function applyServerMessage(
 }
 
 function applyFrame(presence: Presence, message: ServerMessage): Presence {
-  const social = socialChangeOf(presence, message);
+  const social = socialChangeOf(
+    presence,
+    message,
+    (userId) => presence.participants.get(userId)?.displayName ?? null,
+  );
   if (social) return { ...presence, ...social };
 
   switch (message.type) {
@@ -256,7 +288,7 @@ function applyFrame(presence: Presence, message: ServerMessage): Presence {
     // A snapshot replaces who is here, where, and who is near: after a
     // reconnect, patching would keep whoever left while the socket was down.
     case "snapshot":
-      return {
+      return withSpaceEntry(presence, {
         ...presence,
         map: message.map,
         synced: true,
@@ -265,7 +297,7 @@ function applyFrame(presence: Presence, message: ServerMessage): Presence {
         nearby: [],
         hearing: awaitingCall(presence.hearing),
         ...socialOfSnapshot(message),
-      };
+      });
     case "spaces":
       return { ...presence, spaceNames: namesBySpaceKey(message.spaces) };
     case "joined":
