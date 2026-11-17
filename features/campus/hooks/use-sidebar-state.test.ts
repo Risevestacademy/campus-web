@@ -43,7 +43,7 @@ describe("sidebar mode", () => {
   it("follows a panel chosen after entering in the route mode", () => {
     const { result } = renderHook(() => useSidebarMode("admin", true));
 
-    act(() => setActivePanel("chat"));
+    act(() => setActivePanel("tasks"));
 
     expect(result.current).toBe("campus");
   });

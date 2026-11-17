@@ -1,7 +1,6 @@
 export const SIDEBAR_PANEL_IDS = [
   "search",
   "map",
-  "chat",
   "tasks",
   "calendar",
 ] as const;

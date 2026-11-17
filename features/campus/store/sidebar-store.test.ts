@@ -29,22 +29,22 @@ describe("sidebar store", () => {
     expect(getSidebarModeSnapshot()).toBe("admin");
     expect(getSidebarOpenSnapshot()).toBe(true);
 
-    setActivePanel("chat");
+    setActivePanel("tasks");
 
     expect(getSidebarModeSnapshot()).toBe("campus");
-    expect(getActivePanelSnapshot()).toBe("chat");
+    expect(getActivePanelSnapshot()).toBe("tasks");
   });
 
   it("persists the active panel and reopens the sidebar", () => {
     setSidebarOpen(false);
 
-    setActivePanel("chat");
+    setActivePanel("tasks");
 
-    expect(getActivePanelSnapshot()).toBe("chat");
+    expect(getActivePanelSnapshot()).toBe("tasks");
     expect(getSidebarOpenSnapshot()).toBe(true);
     expect(
       JSON.parse(window.localStorage.getItem(SIDEBAR_STORAGE_KEY) ?? "{}"),
-    ).toMatchObject({ activePanel: "chat", sidebarOpen: true });
+    ).toMatchObject({ activePanel: "tasks", sidebarOpen: true });
   });
 
   it("ignores a corrupted value stored for another key", () => {

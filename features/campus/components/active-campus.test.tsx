@@ -123,15 +123,23 @@ describe("ActiveCampus", () => {
   it("shows every other rail panel as coming soon", () => {
     renderActiveCampus();
 
-    const chat = within(campusRail()).getByRole("button", { name: "Chat" });
+    const tasks = within(campusRail()).getByRole("button", { name: "Tasks" });
 
-    fireEvent.click(chat);
+    fireEvent.click(tasks);
 
-    expect(chat).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("heading", { name: "Chat" })).toBeInTheDocument();
+    expect(tasks).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
     expect(screen.getByText("Coming soon.")).toBeInTheDocument();
     expect(
       screen.queryByRole("region", { name: "Overview panel" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("has no Chat item on the rail", () => {
+    renderActiveCampus();
+
+    expect(
+      within(campusRail()).queryByRole("button", { name: "Chat" }),
     ).not.toBeInTheDocument();
   });
 
