@@ -1,4 +1,11 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -11,6 +18,7 @@ import {
 import { MediaSessionProvider } from "../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../services/media-session/media-session-store";
 import { WorldSessionProvider } from "../services/world-session/world-session-provider";
+import { closeChat, getChatOpenSnapshot } from "../store/chat-panel-store";
 import {
   createTestWorldSession,
   type TestWorldSession,
@@ -141,6 +149,55 @@ describe("ActiveCampus", () => {
     expect(
       within(campusRail()).queryByRole("button", { name: "Chat" }),
     ).not.toBeInTheDocument();
+  });
+
+  describe("the chat panel", () => {
+    afterEach(() => act(() => closeChat()));
+
+    it("opens from the control bar and takes the sidebar's place", async () => {
+      renderActiveCampus();
+      const sidebar = document.querySelector('[data-slot="campus-sidebar"]');
+      expect(
+        screen.getByRole("region", { name: "Overview panel" }),
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Open chat" }));
+
+      expect(
+        screen.getByRole("complementary", { name: "Meeting chat" }),
+      ).toBeInTheDocument();
+      expect(sidebar).not.toBeNull();
+      expect(
+        JSON.parse(window.localStorage.getItem("campus-sidebar") ?? "{}")
+          .sidebarOpen ?? true,
+      ).toBe(true);
+    });
+
+    it("closes when the sidebar is chosen from the rail", () => {
+      renderActiveCampus();
+      fireEvent.click(screen.getByRole("button", { name: "Open chat" }));
+
+      fireEvent.click(
+        within(campusRail()).getByRole("button", { name: "Tasks" }),
+      );
+
+      expect(getChatOpenSnapshot()).toBe(false);
+    });
+
+    it("gives the sidebar back, as the member left it, when it closes", async () => {
+      renderActiveCampus();
+      fireEvent.click(screen.getByRole("button", { name: "Open chat" }));
+      const saved = window.localStorage.getItem("campus-sidebar");
+
+      fireEvent.click(
+        within(
+          screen.getByRole("complementary", { name: "Meeting chat" }),
+        ).getByRole("button", { name: "Close chat" }),
+      );
+
+      await waitFor(() => expect(getChatOpenSnapshot()).toBe(false));
+      expect(window.localStorage.getItem("campus-sidebar")).toBe(saved);
+    });
   });
 
   it("leaves theme switching to Settings", () => {
