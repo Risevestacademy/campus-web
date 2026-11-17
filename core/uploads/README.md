@@ -55,7 +55,10 @@ hour, so a picked file that is dropped needs no call.
   `tests/evals/data-privacy.eval.test.ts` with any change.
 - `/v1/uploads` and `/v1/uploads/limits` are forwarded by the browser proxy;
   storage is reached directly.
-- A call chat attachment (`sessionId`) is not a kind campus-api offers yet.
+- `call_chat_attachment` is the kind for a file sent in a call's chat: upload it
+  with `uploadMedia`, tie it to the call with `POST
+/v1/cohorts/{cohortId}/spaces/{spaceId}/call/attachments`, then send the line
+  through world with the file.
 
 ## Tests
 
