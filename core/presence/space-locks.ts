@@ -33,6 +33,18 @@ export function refusedEntryNotice(
     : `${name} is private`;
 }
 
+// What the member is told when world keeps them out of a space that is full.
+// Unlike a refusal there is nothing to ask: a space holds as many people as
+// its capacity allows, and nobody queues.
+export function fullSpaceNotice(
+  presence: Pick<Presence, "spaceNames">,
+  spaceKey: string | null,
+): string {
+  return spaceKey === null
+    ? "That space is full"
+    : `${spaceNameOf(presence, spaceKey)} is full`;
+}
+
 // The mounted map answers a refused entry itself, with the offer to ask to
 // enter. While no map claims a cohort's refusals, walk feedback says them.
 const entryRefusalClaims = new Map<string, number>();

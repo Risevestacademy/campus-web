@@ -10,6 +10,7 @@ import type {
   BroadcastMessage as PublishedBroadcastMessage,
   Call as PublishedCall,
   CallMessage as PublishedCallMessage,
+  ChatAttachment,
   Direction,
   EntryRequestedMessage as PublishedEntryRequestedMessage,
   EntryRequestEndedMessage as PublishedEntryRequestEndedMessage,
@@ -100,8 +101,9 @@ export type EntryRequestOutcome = OrUnknown<PublishedEntryRequestOutcome>;
 export type StaffAction = OrUnknown<PublishedStaffActionMessage["action"]>;
 export type SaidMessage = Pick<
   PublishedSaidMessage,
-  "type" | "id" | "userId" | "spaceKey" | "text" | "at"
+  "type" | "id" | "userId" | "spaceKey" | "text" | "attachment" | "at"
 >;
+export type { ChatAttachment };
 export type EntryRequestedMessage = Pick<
   PublishedEntryRequestedMessage,
   "type" | "requestId" | "userId" | "spaceKey"
@@ -388,6 +390,17 @@ const entryRequestOutcomeSchema = z.toZod<EntryRequestOutcome>()(
   ]),
 );
 
+// A file sent with a line, as the speaker gave it: world passes it on without
+// checking it, so what it says about itself is capped here.
+const chatAttachmentSchema = z.toZod<ChatAttachment>()(
+  z.object({
+    mediaId: z.string().min(1),
+    fileName: z.string().max(255).nullable(),
+    contentType: z.string().min(1).max(255),
+    sizeBytes: z.number().int().min(0),
+  }),
+);
+
 const saidMessageSchema = z.toZod<SaidMessage>()(
   z.object({
     type: z.literal("said"),
@@ -395,6 +408,7 @@ const saidMessageSchema = z.toZod<SaidMessage>()(
     userId: z.string(),
     spaceKey: z.string(),
     text: z.string(),
+    attachment: chatAttachmentSchema.nullable(),
     at: z.string(),
   }),
 );
