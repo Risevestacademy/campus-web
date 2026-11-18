@@ -1,8 +1,19 @@
 import type { Page, Route } from "@playwright/test";
+import { z } from "zod";
 
 import mapFixture from "@/features/campus-world/services/map/fixtures/campus-trimmed.json" with { type: "json" };
 
-const mapUrl = "https://cdn.sanity.io/files/sj3zsz66/staging/campus-map.json";
+// The app rejects map assets outside the dataset it was built with, so the
+// stub serves them from that same dataset: staging for dev, production for main.
+const sanity = z
+  .object({
+    NEXT_PUBLIC_SANITY_DATASET: z.string().min(1),
+    NEXT_PUBLIC_SANITY_PROJECT_ID: z.string().min(1),
+  })
+  .parse(process.env);
+const assetPath = `${sanity.NEXT_PUBLIC_SANITY_PROJECT_ID}/${sanity.NEXT_PUBLIC_SANITY_DATASET}`;
+
+const mapUrl = `https://cdn.sanity.io/files/${assetPath}/campus-map.json`;
 const transparentPixel = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
   "base64",
@@ -26,7 +37,7 @@ const manifest = {
   mapUrl,
   tilesets: mapFixture.tilesets.map(({ image }) => ({
     tiledImagePath: image,
-    url: `https://cdn.sanity.io/images/sj3zsz66/staging/${image.split("/").at(-1)}`,
+    url: `https://cdn.sanity.io/images/${assetPath}/${image.split("/").at(-1)}`,
   })),
   version: E2E_MAP.version,
   widthTiles: E2E_MAP.width,
