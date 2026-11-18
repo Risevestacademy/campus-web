@@ -36,8 +36,9 @@ export interface OwnAvatarMovement {
   // lets only the next step through. False when no side of the member touches
   // the space.
   stepInto(spaceKey: string): boolean;
-  // True once for each walk world starts, so the camera returns to the avatar
-  // without taking back a drag made mid-walk.
+  // True once for each walk world starts, and each time world moves the avatar
+  // itself, so the camera returns to the avatar without taking back a drag
+  // made mid-walk.
   takeWalkStarted(): boolean;
   update(input: MovementInput): void;
 }
@@ -131,6 +132,21 @@ export function createOwnAvatarMovement({
     advanceAnimation(0);
   }
 
+  // A new map put the tile under the avatar inside a wall and world moved it.
+  // Nothing predicted from the old tile still holds, and the tiles learned as
+  // refused belong to the old map, so the avatar starts over where world says.
+  function snapTo(player: Player) {
+    if (!predicted) return;
+
+    predicted = player;
+    displayed = player;
+    animation = undefined;
+    buffered = undefined;
+    pending = [];
+    refused = [];
+    walkStarted = true;
+  }
+
   function followWalk(message: WalkingMessage | WalkEndedMessage) {
     if (message.type === "walkEnded" && message.reason === "refused") {
       onEntryRefused?.({ mayAsk: message.mayAsk, spaceKey: message.spaceKey });
@@ -153,6 +169,10 @@ export function createOwnAvatarMovement({
     }
     if (message.type === "walking" || message.type === "walkEnded") {
       followWalk(message);
+      return;
+    }
+    if (message.type === "positionCorrected") {
+      snapTo(message.player);
       return;
     }
     if (message.type !== "moveResult" || !predicted) return;
