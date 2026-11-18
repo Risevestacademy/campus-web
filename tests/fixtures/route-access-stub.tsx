@@ -1,0 +1,42 @@
+import type { ReactNode } from "react";
+
+// Stands in for @/features/auth where route layouts and pages are rendered for
+// their markup, not their authorization: every visitor is an allowed member.
+// Use as vi.mock("@/features/auth", () => import("@/tests/fixtures/route-access-stub")).
+
+export const requireRouteAccess = () =>
+  Promise.resolve({
+    kind: "allow",
+    session: {
+      user: {
+        id: "ada",
+        displayName: "Ada Lovelace",
+        systemRole: "user",
+        email: "ada@campus.local",
+      },
+      memberships: [],
+    },
+  });
+
+export const isSystemAdministrator = (role: string) =>
+  role === "admin" || role === "super_admin";
+
+export function AccountMenu({ children }: { children: ReactNode }) {
+  return children;
+}
+
+export const LogOutAction = () => null;
+
+export function CohortGate({ children }: { children: ReactNode }) {
+  return children;
+}
+
+export const CohortSession = () => null;
+
+export function SessionRefreshProvider({ children }: { children: ReactNode }) {
+  return children;
+}
+
+export const SessionUnavailable = () => null;
+
+export { normalizeCohortReturnTo } from "@/features/auth/schemas/return-to";

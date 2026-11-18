@@ -1,0 +1,126 @@
+import type { Presence } from "@/core/presence";
+import type { ServerMessage } from "@/core/realtime";
+
+import type {
+  BroadcastPublicationChange,
+  LocalPublicationChange,
+  MeetingMediaTransport,
+  MeetingMediaTransportCallbacks,
+  RemotePublicationChange,
+  VideoDemand,
+} from "../media-session/contracts";
+
+// The room refused the grant, most often because its token expired: only a
+// fresh call from World can join it.
+export class RoomAccessDeniedError extends Error {
+  override name = "RoomAccessDeniedError";
+}
+
+export const CONNECTION_QUALITIES = [
+  "excellent",
+  "good",
+  "poor",
+  "lost",
+  "unknown",
+] as const;
+
+export type ConnectionQuality = (typeof CONNECTION_QUALITIES)[number];
+
+// How long the room's first remote camera took from being asked for, and the
+// member's own link quality at that moment.
+export type FirstRemoteVideo = Readonly<{
+  connectionQuality: ConnectionQuality;
+  waitedMs: number;
+}>;
+
+// How long a share took to reach its first viewer from being published, and
+// the member's own link quality at that moment.
+export type FirstScreenViewer = FirstRemoteVideo;
+
+export type MeetingRoomEvents = Readonly<{
+  onDisconnected: () => void;
+  onFirstRemoteAudio: () => void;
+  onFirstRemoteVideo: (firstVideo: FirstRemoteVideo) => void;
+  onFirstScreenViewer: (firstViewer: FirstScreenViewer) => void;
+  onRemotePublicationChange: (change: RemotePublicationChange) => void;
+  onRemoteScreenSharesChange: (participantIds: ReadonlySet<string>) => void;
+}>;
+
+// The members you meet: you hear them, and only they may receive your tracks.
+// `video` holds the cameras and screens on screen.
+export type MeetingAudience = Readonly<{
+  participantIds: ReadonlySet<string>;
+  video: VideoDemand;
+}>;
+
+export interface MeetingRoomConnection {
+  applyAudience(audience: MeetingAudience): void;
+  // Safe to call more than once, including after onDisconnected: the session
+  // always calls it to release local tracks, even when the room already dropped.
+  disconnect(): Promise<void>;
+  // Changes to one source settle in the order they were made, so the session
+  // can take the last outcome it hears as the latest change's.
+  handleLocalPublicationChange(change: LocalPublicationChange): Promise<void>;
+}
+
+export interface MeetingRoomTransport {
+  // Must reject once `signal` aborts, and `disconnect` must always settle:
+  // joins and disconnects run one at a time, so a step that never settles
+  // blocks every later call.
+  connect(
+    access: Readonly<{ url: string; token: string }>,
+    events: MeetingRoomEvents,
+    signal: AbortSignal,
+  ): Promise<MeetingRoomConnection>;
+}
+
+export interface CallMediaSession extends MeetingMediaTransport {
+  applyWorldMessage(message: ServerMessage, presence: Presence): void;
+  // Presence that changed without a frame, like a World close clearing it.
+  applyPresence(presence: Presence): void;
+}
+
+// The space's call alone: the broadcast listener adds speaking.
+export type SpaceCallMediaSession = Omit<
+  CallMediaSession,
+  "setBroadcastSpeaking"
+>;
+
+export type BroadcastRoomEvents = Readonly<{
+  onDisconnected: () => void;
+  // Only microphones: the broadcast room carries nothing else.
+  onRemotePublicationChange: (change: BroadcastPublicationChange) => void;
+}>;
+
+export interface BroadcastRoomConnection {
+  // Safe to call more than once, including after onDisconnected.
+  disconnect(): Promise<void>;
+  // Microphone changes only: an admin's voice is all a broadcast carries.
+  // They settle in the order they were made.
+  handleLocalPublicationChange(change: LocalPublicationChange): Promise<void>;
+}
+
+export interface BroadcastRoomTransport {
+  // Same contract as MeetingRoomTransport.connect: rejects once `signal`
+  // aborts, and `disconnect` always settles.
+  connect(
+    access: Readonly<{ url: string; token: string }>,
+    events: BroadcastRoomEvents,
+    signal: AbortSignal,
+  ): Promise<BroadcastRoomConnection>;
+}
+
+export type BroadcastListenerCallbacks = Pick<
+  MeetingMediaTransportCallbacks,
+  "onBroadcastPublicationChange" | "onBroadcastSpeakingChange"
+>;
+
+export interface BroadcastListener {
+  applyWorldMessage(message: ServerMessage, presence: Presence): void;
+  applyPresence(presence: Presence): void;
+  // Returns the function that leaves the room and stops listening.
+  connect(callbacks: BroadcastListenerCallbacks): () => void;
+  // Every local change: only the microphone's reach the broadcast room.
+  handleLocalPublicationChange(change: LocalPublicationChange): void;
+  setSpeaking(speaking: boolean): void;
+}

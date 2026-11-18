@@ -17,10 +17,19 @@
       "partialMatch": false
     },
     {
+      "type": "design-system",
+      "pattern": "design-system",
+      "partialMatch": false
+    },
+    {
       "type": "shared",
       "pattern": "shared",
       "partialMatch": false
     }
+  ],
+  "files": [
+    { "category": "root-proxy", "pattern": "proxy.ts" },
+    { "category": "root-layout", "pattern": "app/layout.tsx" }
   ],
   "dependencyRule": {
     "default": "disallow",
@@ -57,6 +66,44 @@
         "allow": {
           "to": {
             "element": { "type": "shared" }
+          }
+        }
+      },
+      {
+        "from": { "element": { "type": "design-system" } },
+        "allow": {
+          "to": {
+            "element": { "type": "shared" }
+          }
+        }
+      },
+      {
+        "from": { "file": { "categories": ["root-proxy"] } },
+        "allow": {
+          "to": {
+            "element": { "type": "feature", "fileInternalPath": "proxy.ts" }
+          }
+        }
+      },
+      {
+        "from": { "file": { "categories": ["root-layout"] } },
+        "allow": {
+          "to": {
+            "element": {
+              "type": "feature",
+              "fileInternalPath": "document.ts"
+            }
+          }
+        }
+      },
+      {
+        "from": { "file": { "categories": ["root-layout"] } },
+        "disallow": {
+          "to": {
+            "element": {
+              "type": "feature",
+              "fileInternalPath": "index.{ts,tsx}"
+            }
           }
         }
       }

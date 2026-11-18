@@ -1,0 +1,318 @@
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import {
+  clearPresence,
+  GRACE,
+  seedPresence,
+} from "@/tests/fixtures/nearby-presence";
+
+import { MediaSessionProvider } from "../services/media-session/media-session-provider";
+import { createMediaSessionStore } from "../services/media-session/media-session-store";
+import { WorldSessionProvider } from "../services/world-session/world-session-provider";
+import {
+  createTestWorldSession,
+  type TestWorldSession,
+} from "../testing/world-session-test-utils";
+import { ActiveCampus } from "./active-campus";
+import { CampusShell } from "./campus-shell/campus-shell";
+
+const VIEWER = { id: "ada", displayName: "Ada Lovelace" };
+
+function OverviewPanelStub({
+  cohort,
+  cohortId,
+  collapseButton,
+}: {
+  cohort?: { name: string; role?: string };
+  cohortId: string;
+  collapseButton: ReactNode;
+}) {
+  return (
+    <section aria-label="Overview panel">
+      <p>{cohortId}</p>
+      <p>{cohort?.name}</p>
+      {collapseButton}
+    </section>
+  );
+}
+
+function renderActiveCampus(
+  world: TestWorldSession = createTestWorldSession(),
+) {
+  const store = createMediaSessionStore({ mediaDevices: null });
+
+  return render(
+    <CampusShell
+      OverviewPanel={OverviewPanelStub}
+      cohortId="c-1"
+      viewer={VIEWER}
+    >
+      <MediaSessionProvider store={store}>
+        <WorldSessionProvider world={world}>
+          <ActiveCampus
+            cohortId="c-1"
+            viewer={VIEWER}
+            zoomControls={<div role="group" aria-label="Zoom controls" />}
+          >
+            <p>Route content</p>
+          </ActiveCampus>
+        </WorldSessionProvider>
+      </MediaSessionProvider>
+    </CampusShell>,
+  );
+}
+
+function campusRail() {
+  return screen.getByRole("navigation", { name: "Campus" });
+}
+
+beforeEach(() => {
+  seedPresence("c-1", GRACE);
+});
+
+afterEach(() => {
+  window.localStorage.clear();
+  Reflect.deleteProperty(document.documentElement.dataset, "sidebarOpen");
+  clearPresence("c-1");
+});
+
+describe("ActiveCampus", () => {
+  it("renders the route content alongside the campus controls", () => {
+    renderActiveCampus();
+
+    expect(screen.getByText("Route content")).toBeInTheDocument();
+    expect(
+      within(campusRail()).queryByRole("button", { name: "Administration" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("complementary", { name: "Campus controls" }),
+    ).toBeInTheDocument();
+  });
+
+  it("tells the overview panel which cohort it shows and the member's place in it", () => {
+    render(
+      <CampusShell
+        OverviewPanel={OverviewPanelStub}
+        cohort={{ name: "Product Design 2026", role: "student" }}
+        cohortId="c-1"
+      >
+        <p>Route content</p>
+      </CampusShell>,
+    );
+
+    const overview = screen.getByRole("region", { name: "Overview panel" });
+
+    expect(within(overview).getByText("c-1")).toBeInTheDocument();
+    expect(
+      within(overview).getByText("Product Design 2026"),
+    ).toBeInTheDocument();
+  });
+
+  it("fills the map panel with the overview panel and its collapse button", () => {
+    renderActiveCampus();
+
+    const overview = screen.getByRole("region", { name: "Overview panel" });
+
+    expect(
+      within(overview).getByRole("button", { name: "Collapse sidebar" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows every other rail panel as coming soon", () => {
+    renderActiveCampus();
+
+    const chat = within(campusRail()).getByRole("button", { name: "Chat" });
+
+    fireEvent.click(chat);
+
+    expect(chat).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("heading", { name: "Chat" })).toBeInTheDocument();
+    expect(screen.getByText("Coming soon.")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Overview panel" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("leaves theme switching to Settings", () => {
+    renderActiveCampus();
+
+    expect(
+      within(campusRail()).queryByRole("button", {
+        name: /Switch to (dark|light) mode/,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("draws the member's initial on the rail's account button", () => {
+    renderActiveCampus();
+
+    const account = within(campusRail()).getByRole("button", {
+      name: /^Your account/,
+    });
+
+    expect(within(account).getByText("A")).toBeInTheDocument();
+  });
+
+  it("returns from grid view to map view before opening the sidebar", () => {
+    renderActiveCampus();
+
+    const viewSwitch = screen.getByRole("switch", { name: "Use grid view" });
+
+    fireEvent.click(viewSwitch);
+    fireEvent.click(screen.getByRole("button", { name: "Open sidebar" }));
+
+    expect(viewSwitch).toHaveAttribute("aria-checked", "false");
+    expect(document.documentElement.dataset.sidebarOpen).toBe("true");
+  });
+
+  it("clears focused-participant view before opening the sidebar", () => {
+    renderActiveCampus();
+
+    fireEvent.click(screen.getByRole("switch", { name: "Use grid view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Focus Ada Lovelace" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open sidebar" }));
+
+    expect(
+      screen.queryByRole("button", { name: "Restore equal meeting view" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Show expanded meeting view for Ada Lovelace",
+      }),
+    ).toBeInTheDocument();
+  });
+});
+
+function FeedbackPopupStub({
+  isOpen,
+  onClose,
+  viewer,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  viewer?: { id: string; displayName?: string | null };
+}) {
+  return isOpen ? (
+    <section aria-label="Feedback popup">
+      <p>{viewer?.displayName}</p>
+      <button type="button" onClick={onClose}>
+        Close popup
+      </button>
+    </section>
+  ) : null;
+}
+
+describe("Feedback popup", () => {
+  it("opens from the Report an issue rail button and closes again", () => {
+    render(
+      <CampusShell
+        FeedbackPopup={FeedbackPopupStub}
+        OverviewPanel={OverviewPanelStub}
+        cohortId="c-1"
+        viewer={{ id: "u-1", displayName: "Joseph Okoro" }}
+      >
+        <p>Route content</p>
+      </CampusShell>,
+    );
+
+    expect(
+      screen.queryByRole("region", { name: "Feedback popup" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(campusRail()).getByRole("button", { name: "Report an issue" }),
+    );
+
+    const popup = screen.getByRole("region", { name: "Feedback popup" });
+
+    expect(within(popup).getByText("Joseph Okoro")).toBeInTheDocument();
+    expect(screen.getByText("Route content")).toBeInTheDocument();
+
+    fireEvent.click(within(popup).getByRole("button", { name: "Close popup" }));
+
+    expect(
+      screen.queryByRole("region", { name: "Feedback popup" }),
+    ).not.toBeInTheDocument();
+  });
+
+  describe("closing the feedback popup from the rest of the shell", () => {
+    function renderWithPopup() {
+      render(
+        <CampusShell
+          FeedbackPopup={FeedbackPopupStub}
+          OverviewPanel={OverviewPanelStub}
+          cohortId="c-1"
+          viewer={{ id: "u-1", displayName: "Joseph Okoro" }}
+        >
+          <p>Route content</p>
+        </CampusShell>,
+      );
+      fireEvent.click(
+        within(campusRail()).getByRole("button", { name: "Report an issue" }),
+      );
+      expect(
+        screen.getByRole("region", { name: "Feedback popup" }),
+      ).toBeInTheDocument();
+    }
+
+    it("closes when another rail button is used", () => {
+      renderWithPopup();
+
+      fireEvent.click(
+        within(campusRail()).getByRole("button", { name: "Search" }),
+      );
+
+      expect(
+        screen.queryByRole("region", { name: "Feedback popup" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("closes when something in the sidebar is used", () => {
+      renderWithPopup();
+
+      fireEvent.click(
+        within(
+          screen.getByRole("region", { name: "Overview panel" }),
+        ).getByRole("button"),
+      );
+
+      expect(
+        screen.queryByRole("region", { name: "Feedback popup" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("stays open when Report an issue is pressed again", () => {
+      renderWithPopup();
+
+      fireEvent.click(
+        within(campusRail()).getByRole("button", { name: "Report an issue" }),
+      );
+
+      expect(
+        screen.getByRole("region", { name: "Feedback popup" }),
+      ).toBeInTheDocument();
+    });
+
+    it("stays open when the popup itself is used", () => {
+      renderWithPopup();
+
+      fireEvent.click(screen.getByText("Joseph Okoro"));
+
+      expect(
+        screen.getByRole("region", { name: "Feedback popup" }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("tells the member when the campus map has lost world", () => {
+    renderActiveCampus(
+      createTestWorldSession({ phase: "closed", outcome: "gave-up" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Reconnect" }),
+    ).toBeInTheDocument();
+  });
+});

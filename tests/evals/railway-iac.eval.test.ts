@@ -1,0 +1,222 @@
+// @vitest-environment node
+
+import type { ProjectDefinition, ServiceNode } from "railway/iac";
+import { createRailwayContext, project } from "railway/iac";
+import { describe, expect, it } from "vitest";
+
+import railwayDefinition, { partial } from "../../.railway/railway";
+
+async function evaluateRailwayDefinition(
+  environment: string,
+): Promise<ProjectDefinition> {
+  return railwayDefinition(createRailwayContext({ environment }), project);
+}
+
+function findService(
+  definition: ProjectDefinition,
+  serviceName: string,
+): ServiceNode {
+  const resource = definition.resources
+    ?.flat()
+    .find(({ name }) => name === serviceName);
+
+  if (resource?.type !== "service") {
+    throw new Error(`Railway service not found: ${serviceName}`);
+  }
+
+  return resource;
+}
+
+const alwaysOnRegions = {
+  multiRegionConfig: {
+    ams: { numReplicas: 1 },
+  },
+};
+
+const campusWebBaseVariables = {
+  API_BASE_URL: {
+    type: "literal",
+    value: "http://${{campus-api.RAILWAY_PRIVATE_DOMAIN}}:${{campus-api.PORT}}",
+  },
+  NEXT_PUBLIC_MEDIA_URL: { type: "preserve" },
+  NEXT_PUBLIC_POSTHOG_HOST: { type: "preserve" },
+  NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: { type: "preserve" },
+  NEXT_PUBLIC_SANITY_DATASET: { type: "preserve" },
+  NEXT_PUBLIC_SANITY_PROJECT_ID: { type: "preserve" },
+  NEXT_PUBLIC_WORLD_URL: { type: "preserve" },
+};
+
+describe("Railway IaC eval (required threshold: 8/8)", () => {
+  it("owns only the two frontend services through one stable partial", async () => {
+    const definitions = await Promise.all([
+      evaluateRailwayDefinition("staging"),
+      evaluateRailwayDefinition("production"),
+    ]);
+
+    expect(partial).toBe("campus-frontends");
+    for (const definition of definitions) {
+      expect(definition.name).toBe("campus-by-rise");
+      expect(
+        definition.resources?.flat().map(({ name, type }) => ({ name, type })),
+      ).toEqual([
+        { name: "campus-storybook", type: "service" },
+        { name: "campus-web", type: "service" },
+      ]);
+    }
+  });
+
+  it("pins each environment to its required GitHub source", async () => {
+    const staging = await evaluateRailwayDefinition("staging");
+    const production = await evaluateRailwayDefinition("production");
+    const stagingSource = {
+      branch: "dev",
+      checkSuites: true,
+      repo: "Risevestacademy/campus-web",
+      type: "github",
+    };
+    const productionSource = {
+      branch: "main",
+      checkSuites: true,
+      repo: "Risevestacademy/campus-web",
+      type: "github",
+    };
+
+    expect(findService(staging, "campus-storybook").source).toEqual(
+      stagingSource,
+    );
+    expect(findService(staging, "campus-web").source).toEqual(stagingSource);
+    expect(findService(production, "campus-storybook").source).toEqual(
+      productionSource,
+    );
+    expect(findService(production, "campus-web").source).toEqual(
+      productionSource,
+    );
+  });
+
+  it("routes both environments to their environment-local campus-api service", async () => {
+    const definitions = await Promise.all([
+      evaluateRailwayDefinition("staging"),
+      evaluateRailwayDefinition("production"),
+    ]);
+
+    for (const definition of definitions) {
+      expect(findService(definition, "campus-web").variables).toMatchObject(
+        campusWebBaseVariables,
+      );
+    }
+  });
+
+  it("keeps application variables out of campus-storybook", async () => {
+    const definitions = await Promise.all([
+      evaluateRailwayDefinition("staging"),
+      evaluateRailwayDefinition("production"),
+    ]);
+
+    for (const definition of definitions) {
+      expect(findService(definition, "campus-storybook").variables).toEqual({
+        RAILPACK_SPA_OUTPUT_DIR: {
+          type: "literal",
+          value: "storybook-static",
+        },
+      });
+    }
+  });
+
+  it("renders the imported build and watch settings in both environments", async () => {
+    const definitions = await Promise.all([
+      evaluateRailwayDefinition("staging"),
+      evaluateRailwayDefinition("production"),
+    ]);
+    const expectedStorybookBuild = {
+      buildCommand: "pnpm storybook:build",
+      buildEnvironment: "V3",
+      builder: "RAILPACK",
+      watchPatterns: [
+        "/.storybook/**",
+        "/app/globals.css",
+        "/assets/**",
+        "/config/**",
+        "/core/**",
+        "/design-system/**",
+        "/features/**",
+        "/shared/**",
+        "/next.config.ts",
+        "/package.json",
+        "/pnpm-lock.yaml",
+        "/pnpm-workspace.yaml",
+        "/postcss.config.mjs",
+        "/tsconfig.json",
+      ],
+    };
+    const expectedWebBuild = {
+      buildEnvironment: "V3",
+      builder: "RAILPACK",
+      watchPatterns: [
+        "/app/**",
+        "/assets/**",
+        "/config/**",
+        "/core/**",
+        "/features/**",
+        "/public/**",
+        "/shared/**",
+        "/instrumentation-client.ts",
+        "/next.config.ts",
+        "/package.json",
+        "/pnpm-lock.yaml",
+        "/pnpm-workspace.yaml",
+        "/postcss.config.mjs",
+        "/tsconfig.json",
+      ],
+    };
+
+    for (const definition of definitions) {
+      expect(findService(definition, "campus-storybook").build).toEqual(
+        expectedStorybookBuild,
+      );
+      expect(findService(definition, "campus-web").build).toEqual(
+        expectedWebBuild,
+      );
+    }
+  });
+
+  it("lets staging frontends sleep when idle, serving production builds that cannot keep themselves awake", async () => {
+    const staging = await evaluateRailwayDefinition("staging");
+
+    expect(findService(staging, "campus-storybook").deploy).toEqual({
+      ...alwaysOnRegions,
+      healthcheckPath: "/",
+      sleepApplication: true,
+    });
+    expect(findService(staging, "campus-web").deploy).toEqual({
+      ...alwaysOnRegions,
+      healthcheckPath: "/",
+      sleepApplication: true,
+      startCommand: "pnpm start",
+    });
+    expect(findService(staging, "campus-web").variables).toEqual({
+      ...campusWebBaseVariables,
+      NEXT_TELEMETRY_DISABLED: { type: "literal", value: "1" },
+    });
+  });
+
+  it("keeps production frontends always-on and byte-identical to the imported configuration", async () => {
+    const production = await evaluateRailwayDefinition("production");
+
+    expect(findService(production, "campus-storybook").deploy).toEqual({
+      ...alwaysOnRegions,
+      healthcheckPath: "/",
+    });
+    expect(findService(production, "campus-web").deploy).toEqual(
+      alwaysOnRegions,
+    );
+    expect(findService(production, "campus-web").variables).toEqual(
+      campusWebBaseVariables,
+    );
+  });
+
+  it("fails closed when the target Railway environment is unsupported", async () => {
+    await expect(evaluateRailwayDefinition("preview")).rejects.toThrow(
+      "Unsupported Railway environment: preview",
+    );
+  });
+});

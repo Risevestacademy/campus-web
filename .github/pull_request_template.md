@@ -2,6 +2,10 @@
 
 <!-- Briefly describe what this PR does and why. -->
 
+## Change and measurable outcome
+
+<!-- Required by Factory PR Review. Name the behavior or metric that changes and how a reviewer can see it. -->
+
 ## Changes
 
 -
@@ -40,6 +44,16 @@ Closes #
 - [ ] I have updated documentation where necessary
 - [ ] No secrets or sensitive information have been committed
 - [ ] This PR is ready for review
+
+### UI / Design System
+
+- [ ] Reusable visual components include colocated Storybook stories
+- [ ] Stories cover meaningful visual and interaction states
+- [ ] Keyboard interaction has been checked
+- [ ] Storybook accessibility checks pass
+- [ ] Responsive states have been considered
+- [ ] Approved semantic design tokens are used instead of ad-hoc values
+- [ ] Design and implementation differences are documented
 
 ## Screenshots / Evidence
 

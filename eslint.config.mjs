@@ -4,12 +4,20 @@ import nextTs from "eslint-config-next/typescript";
 import prettier from "eslint-config-prettier/flat";
 import boundaries from "eslint-plugin-boundaries";
 import eslintPluginSimpleImportSort from "eslint-plugin-simple-import-sort";
+import storybook from "eslint-plugin-storybook";
 import unicornPlugin from "eslint-plugin-unicorn";
 import unusedImportsPlugin from "eslint-plugin-unused-imports";
+
+import architectureBoundaries from "./config/architecture-boundaries.json" with { type: "json" };
+import livekitImportRestrictions from "./config/livekit-imports.json" with { type: "json" };
+import phosphorImportRestrictions from "./config/phosphor-imports.json" with { type: "json" };
+import reactImportRestrictions from "./config/react-imports.json" with { type: "json" };
+import zodRestrictions from "./config/zod-restrictions.json" with { type: "json" };
 
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  ...storybook.configs["flat/recommended"],
   {
     files: ["**/*.{js,ts,jsx,tsx,mjs,cjs}"],
     plugins: {
@@ -25,12 +33,13 @@ const eslintConfig = defineConfig([
         "error",
         {
           paths: [
-            {
-              name: "react",
-              importNames: ["useEffect"],
-              message:
-                "Components must derive state, use event handlers, or use a focused reusable hook instead of importing useEffect directly.",
-            },
+            ...reactImportRestrictions.paths,
+            ...phosphorImportRestrictions.paths,
+            ...livekitImportRestrictions.paths,
+          ],
+          patterns: [
+            ...phosphorImportRestrictions.patterns,
+            ...livekitImportRestrictions.patterns,
           ],
         },
       ],
@@ -52,7 +61,7 @@ const eslintConfig = defineConfig([
         },
       ],
       "unicorn/prefer-node-protocol": "off",
-      "unicorn/filename-case": "off",
+      "unicorn/filename-case": ["error", { case: "kebabCase" }],
       "unicorn/no-array-method-this-argument": "off",
       "unicorn/prefer-spread": "off",
       "simple-import-sort/exports": "error",
@@ -86,37 +95,18 @@ const eslintConfig = defineConfig([
     files: [
       "app/**/*.{js,jsx,ts,tsx}",
       "core/**/*.{js,jsx,ts,tsx}",
+      "design-system/**/*.{js,jsx,ts,tsx}",
       "features/**/*.{js,jsx,ts,tsx}",
       "shared/**/*.{js,jsx,ts,tsx}",
+      "proxy.ts",
     ],
     plugins: {
       boundaries,
     },
     settings: {
       "boundaries/root-path": import.meta.dirname,
-      "boundaries/elements": [
-        {
-          type: "feature",
-          pattern: "features/*",
-          capture: ["featureName"],
-          partialMatch: false,
-        },
-        {
-          type: "app",
-          pattern: "app",
-          partialMatch: false,
-        },
-        {
-          type: "core",
-          pattern: "core",
-          partialMatch: false,
-        },
-        {
-          type: "shared",
-          pattern: "shared",
-          partialMatch: false,
-        },
-      ],
+      "boundaries/elements": architectureBoundaries.elements,
+      "boundaries/files": architectureBoundaries.files,
       "import/resolver": {
         typescript: {
           project: "./tsconfig.json",
@@ -126,47 +116,19 @@ const eslintConfig = defineConfig([
     rules: {
       "boundaries/dependencies": [
         "error",
-        {
-          default: "disallow",
-          policies: [
-            {
-              from: { element: { type: "app" } },
-              allow: {
-                to: {
-                  element: { type: ["core", "shared"] },
-                },
-              },
-            },
-            {
-              from: { element: { type: "app" } },
-              allow: {
-                to: {
-                  element: {
-                    type: "feature",
-                    fileInternalPath: "index.{ts,tsx}",
-                  },
-                },
-              },
-            },
-            {
-              from: { element: { type: "feature" } },
-              allow: {
-                to: {
-                  element: { type: ["core", "shared"] },
-                },
-              },
-            },
-            {
-              from: { element: { type: "core" } },
-              allow: {
-                to: {
-                  element: { type: "shared" },
-                },
-              },
-            },
-          ],
-        },
+        architectureBoundaries.dependencyRule,
       ],
+    },
+  },
+  {
+    files: [
+      "app/**/*.{ts,tsx}",
+      "core/**/*.{ts,tsx}",
+      "features/**/*.{ts,tsx}",
+      "shared/**/*.{ts,tsx}",
+    ],
+    rules: {
+      "no-restricted-syntax": ["error", ...zodRestrictions],
     },
   },
   prettier,
@@ -176,6 +138,7 @@ const eslintConfig = defineConfig([
     ".vercel/**",
     "coverage/**",
     "playwright-report/**",
+    "storybook-static/**",
     "test-results/**",
     "out/**",
     "build/**",

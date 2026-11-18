@@ -1,0 +1,322 @@
+// @vitest-environment node
+
+import { describe, expect, it } from "vitest";
+
+import { serverFrames } from "@/tests/fixtures/world-frames";
+
+import {
+  parseServerMessage,
+  type ServerMessage,
+} from "./server-message.schema";
+
+function frameText(value: unknown): string {
+  return JSON.stringify(value);
+}
+
+const { mode: _mode, ...welcome } = serverFrames.welcome;
+
+const { userId: _lockedBy, ...lockChanged } = serverFrames.lockChanged;
+const {
+  room: _room,
+  subscribeRadius: _subscribeRadius,
+  ...call
+} = serverFrames.call.call!;
+
+// Each frame as the parser hands it on: unread fields dropped, and a frame no
+// feature reads yet cut down to its type.
+const framesAsRead = {
+  ...serverFrames,
+  welcome,
+  lockChanged,
+  call: { type: "call", call },
+  nearby: serverFrames.nearby,
+  desksChanged: { type: "desksChanged" },
+  mapChanged: { type: "mapChanged" },
+  watching: { type: "watching" },
+  notification: { type: "notification" },
+  positionCorrected: { type: "positionCorrected" },
+  walking: { type: "walking", player: serverFrames.walking.player },
+  walkEnded: {
+    type: "walkEnded",
+    reason: "refused",
+    player: serverFrames.walkEnded.player,
+    spaceKey: "library",
+    mayAsk: true,
+  },
+} satisfies {
+  [Type in ServerMessage["type"]]: Extract<ServerMessage, { type: Type }>;
+};
+
+describe("parseServerMessage", () => {
+  it("keeps where a walk stopped when world adds a reason this client does not know", () => {
+    const frame = { ...serverFrames.walkEnded, reason: "fell_in_a_lake" };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: { ...framesAsRead.walkEnded, reason: "unknown" },
+    });
+  });
+
+  it.each(Object.values(serverFrames))(
+    "reads a $type frame keeping exactly what the client reads",
+    (frame) => {
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: true,
+        message: framesAsRead[frame.type],
+      });
+    },
+  );
+
+  it("drops a field the server adds later instead of rejecting the frame", () => {
+    const frame = { ...serverFrames.left, sessionToken: "secret" };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: serverFrames.left,
+    });
+  });
+
+  it.each(["teleport", "constructor", "toString", "__proto__"])(
+    "reports %j as a type the client does not know, so it can be skipped",
+    (type) => {
+      expect(parseServerMessage(frameText({ type, userId: "x" }))).toEqual({
+        ok: false,
+        reason: "unknown-type",
+      });
+    },
+  );
+
+  it("names a known frame that arrived corrupted, so a broken welcome is not mistaken for noise", () => {
+    const { connectionId: _connectionId, ...welcome } = serverFrames.welcome;
+
+    expect(parseServerMessage(frameText(welcome))).toEqual({
+      ok: false,
+      reason: "invalid",
+      type: "welcome",
+    });
+  });
+
+  it.each([
+    ["a negative tile", -1],
+    ["a fractional tile", 1.5],
+    ["a tile past the safe integer range", 2 ** 53],
+  ])("refuses a player on %s", (_case, x) => {
+    const frame = {
+      ...serverFrames.moved,
+      players: [{ ...serverFrames.moved.players[0], x }],
+    };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: false,
+      reason: "invalid",
+      type: "moved",
+    });
+  });
+
+  it("refuses an avatar whose nullable name is missing rather than null", () => {
+    const { displayName: _displayName, ...player } = serverFrames.joined.player;
+
+    expect(parseServerMessage(frameText({ type: "joined", player }))).toEqual({
+      ok: false,
+      reason: "invalid",
+      type: "joined",
+    });
+  });
+
+  it("refuses a facing the protocol does not define", () => {
+    const frame = {
+      ...serverFrames.moveResult,
+      player: { ...serverFrames.moveResult.player, facing: "north" },
+    };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: false,
+      reason: "invalid",
+      type: "moveResult",
+    });
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["not a list", "library"],
+    ["holding an unnamed space", [{ spaceKey: "library", name: null }]],
+  ])(
+    "reads a snapshot whose space names are %s with none, so entry never waits on a label",
+    (_case, spaces) => {
+      const frame = { ...serverFrames.snapshot, spaces };
+
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: true,
+        message: { ...serverFrames.snapshot, spaces: [] },
+      });
+    },
+  );
+
+  it("keeps when a timed status ends", () => {
+    const frame = {
+      ...serverFrames.statusChanged,
+      until: "2026-10-30T09:30:00.000Z",
+    };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: frame,
+    });
+  });
+
+  it.each([["not a time"], [42]])(
+    "reads an end time of %j as a status that lasts",
+    (until) => {
+      const frame = { ...serverFrames.statusChanged, until };
+
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: true,
+        message: { ...serverFrames.statusChanged, until: null },
+      });
+    },
+  );
+
+  it.each(["moved", "blocked", "refused", "too_fast"] as const)(
+    "reads a %s outcome as world sent it",
+    (outcome) => {
+      const frame = { ...serverFrames.moveResult, outcome };
+
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: true,
+        message: frame,
+      });
+    },
+  );
+
+  it("reads a NOT_ALLOWED error as world sent it", () => {
+    const frame = { ...serverFrames.error, code: "NOT_ALLOWED" as const };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: frame,
+    });
+  });
+
+  it("reads an outcome world added after the last world:types as unknown, so the move it answers still resolves", () => {
+    const frame = { ...serverFrames.moveResult, outcome: "teleported" };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: { ...serverFrames.moveResult, outcome: "unknown" },
+    });
+  });
+
+  it("reads a hearing world added after the last world:types as unknown, so the proximity room leaves", () => {
+    const frame = {
+      ...serverFrames.call,
+      call: { ...serverFrames.call.call, hearing: "stage" },
+    };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: { type: "call", call: { ...call, hearing: "unknown" } },
+    });
+  });
+
+  it("reads an error code world added after the last world:types as unknown", () => {
+    const frame = { ...serverFrames.error, code: "RATE_LIMITED" };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: { ...serverFrames.error, code: "unknown" },
+    });
+  });
+
+  it.each([
+    ["no outcome", undefined],
+    ["a numeric outcome", 2],
+  ])("refuses a moveResult with %s", (_case, outcome) => {
+    const frame = { ...serverFrames.moveResult, outcome };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: false,
+      reason: "invalid",
+      type: "moveResult",
+    });
+  });
+
+  it.each([
+    ["no list", undefined],
+    ["one id instead of a list", "grace"],
+    ["a numeric id", [5]],
+  ])("refuses a nearby with %s", (_case, userIds) => {
+    const frame = { ...serverFrames.nearby, userIds };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: false,
+      reason: "invalid",
+      type: "nearby",
+    });
+  });
+
+  it("reads a null call so the active media room can leave", () => {
+    const frame = { type: "call", call: null } as const;
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: frame,
+    });
+  });
+
+  it("reads a null broadcast call, which tells the member to leave the room", () => {
+    const frame = { type: "broadcast", call: null } as const;
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: frame,
+    });
+  });
+
+  it.each([
+    ["no token", { token: undefined }],
+    ["a numeric token", { token: 7 }],
+    ["no room", { room: undefined }],
+    ["a canSpeak that is not a boolean", { canSpeak: "yes" }],
+  ])(
+    "drops a broadcast with %s instead of reading it as leave-the-room",
+    (_case, overrides) => {
+      const frame = {
+        ...serverFrames.broadcast,
+        call: { ...serverFrames.broadcast.call, ...overrides },
+      };
+
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: false,
+        reason: "invalid",
+        type: "broadcast",
+      });
+    },
+  );
+
+  it.each([
+    ["a negative audible radius", { audibleRadius: -1 }],
+    ["an empty token", { token: "" }],
+    ["an empty media url", { url: "" }],
+  ])("refuses a call with %s", (_case, overrides) => {
+    const frame = {
+      ...serverFrames.call,
+      call: { ...serverFrames.call.call, ...overrides },
+    };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: false,
+      reason: "invalid",
+      type: "call",
+    });
+  });
+
+  it.each(["", "not json", "[]", "null", '{"type":5}', '{"userId":"x"}'])(
+    "reads %j as an invalid frame with no type",
+    (text) => {
+      expect(parseServerMessage(text)).toEqual({
+        ok: false,
+        reason: "invalid",
+      });
+    },
+  );
+});

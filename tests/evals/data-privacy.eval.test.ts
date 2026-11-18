@@ -1,0 +1,1302 @@
+// @vitest-environment node
+
+import { NextRequest } from "next/server";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { z } from "zod";
+
+import { validateBuildEnvironment } from "@/config/environment/validation";
+import {
+  analyticsCohortSchema,
+  analyticsEventSchemas,
+  analyticsIdentitySchema,
+} from "@/core/analytics/events";
+import { scrubAnalyticsEvent } from "@/core/analytics/scrub";
+import {
+  parseServerMessage,
+  parseSocketClose,
+  type ServerMessage,
+} from "@/core/realtime";
+import { readWorldOrigin } from "@/core/realtime/configuration";
+import {
+  parseSignedUpload,
+  parseUploadLimits,
+} from "@/core/uploads/upload.schema";
+import {
+  parseFeedbackList,
+  parseFeedbackRecord,
+} from "@/features/admin/feedback/schemas/feedback.schema";
+import { parseImport } from "@/features/admin/invites/schemas/import.schema";
+import {
+  parseEmailed,
+  parseInvites,
+} from "@/features/admin/invites/schemas/invite.schema";
+import { parseGroupOptions } from "@/features/admin/invites/schemas/mentorship-group.schema";
+import {
+  parsePeopleList,
+  parsePersonCard,
+} from "@/features/admin/people/schemas/people.schema";
+import { parseReturnTo } from "@/features/auth/schemas/return-to";
+import { parseSessionBody } from "@/features/auth/schemas/session.schema";
+import { checkConnection } from "@/features/campus/services/connection-check/check-connection";
+import {
+  type ConnectionCheckAccess,
+  requestConnectionCheck,
+} from "@/features/campus/services/connection-check/connection-check.service";
+import { loadLivekitProbe } from "@/features/campus/services/connection-check/livekit-probe";
+import { runConnectionCheck } from "@/features/campus/services/connection-check/run-connection-check";
+import { fakeLivekit, fakeTrack } from "@/features/campus/testing/fake-livekit";
+import { parseFeedbackReceipt } from "@/features/feedback/schemas/feedback.schema";
+import { parseCohortPeople } from "@/features/feedback/schemas/people.schema";
+import {
+  parseInvitePreview,
+  parsePendingInvite,
+} from "@/features/invitation/schemas/invite.schema";
+import { moveInviteTokenToCookie } from "@/features/invitation/services/invite-token-proxy.service";
+import { parseMemberProfile } from "@/features/profile/schemas/member-profile.schema";
+import { parseOwnProfile } from "@/features/profile/schemas/own-profile.schema";
+import { parseCohortDirectory } from "@/features/roster/schemas/directory.schema";
+import { invitePreview, pendingInvite } from "@/tests/fixtures/invites";
+import { serverFrames } from "@/tests/fixtures/world-frames";
+
+vi.mock("server-only", () => ({}));
+
+// A new field reaching screens or PostHog fails here until it is added to an
+// allow-list below, on purpose: each addition is a privacy decision.
+
+const TOKEN = "zHrjwba-bzFiiuyT5wb1OiuUQUdS619_DNNd0C6sFg0";
+const ORIGIN = "https://campus.example";
+const UNEXPECTED = { phone: "+2348000000000", internalNote: "do not ship" };
+function keyPaths(value: unknown, prefix = ""): string[] {
+  if (Array.isArray(value)) return keyPaths(value[0], `${prefix}[]`);
+  if (value === null || typeof value !== "object") return [prefix];
+  return Object.entries(value)
+    .flatMap(([key, child]) =>
+      keyPaths(child, prefix ? `${prefix}.${key}` : key),
+    )
+    .sort();
+}
+
+const person = { id: "u-1", email: "ada@campus.local", displayName: "Ada" };
+const FEEDBACK_SUMMARY = {
+  id: "f-1",
+  type: "report",
+  title: "Rude in chat",
+  about: "Ana | Hall",
+  status: "open",
+  createdAt: "2026-10-16T12:00:00.000Z",
+  submittedBy: person,
+  reportedUser: person,
+};
+const FEEDBACK_SUMMARY_ALLOW_LIST = [
+  "about",
+  "createdAt",
+  "id",
+  "reportedUser.displayName",
+  "reportedUser.email",
+  "reportedUser.id",
+  "status",
+  "submittedBy.displayName",
+  "submittedBy.email",
+  "submittedBy.id",
+  "title",
+  "type",
+].sort();
+const FEEDBACK_RECORD_ALLOW_LIST = [
+  ...FEEDBACK_SUMMARY_ALLOW_LIST,
+  "details",
+  "resolvedAt",
+  "resolvedBy",
+].sort();
+
+const PERSON_ALLOW_LIST = [
+  "avatarUrl",
+  "displayName",
+  "email",
+  "firstName",
+  "id",
+  "lastName",
+  "role",
+  "status",
+  "systemRole",
+  "trackName",
+];
+const IMPORT_ALLOW_LIST = [
+  "failed[].email",
+  "failed[].line",
+  "failed[].reason",
+  "invited",
+  "notEmailed",
+];
+const GROUP_OPTION_ALLOW_LIST = ["id", "mentorName", "name"];
+const INVITE_ALLOW_LIST = [
+  "cohortRole",
+  "createdAt",
+  "email",
+  "expiresAt",
+  "id",
+  "revokedAt",
+  "status",
+];
+const PERSON_CARD_ALLOW_LIST = [
+  "avatarUrl",
+  "displayName",
+  "email",
+  "firstName",
+  "id",
+  "lastName",
+  "memberships[].cohort.id",
+  "memberships[].cohort.name",
+  "memberships[].role",
+  "memberships[].track.name",
+];
+
+const MEMBER_PROFILE_ALLOW_LIST = [
+  "avatarUrl",
+  "bio",
+  "displayName",
+  "firstName",
+  "id",
+  "lastName",
+  "memberships[].cohort.id",
+  "memberships[].role",
+  "memberships[].track.name",
+];
+
+const UPLOAD_LIMITS_ALLOW_LIST = [
+  "[].contentTypes[]",
+  "[].kind",
+  "[].maxBytes",
+];
+
+const SIGNED_UPLOAD_ALLOW_LIST = [
+  "headers.Content-Type",
+  "mediaId",
+  "uploadUrl",
+];
+
+const OWN_PROFILE_ALLOW_LIST = [
+  "avatarUrl",
+  "bio",
+  "displayName",
+  "email",
+  "firstName",
+  "id",
+  "lastName",
+  "memberships[].cohort.id",
+  "memberships[].cohort.name",
+  "memberships[].role",
+  "memberships[].track.name",
+  "phone",
+];
+
+const SESSION_ALLOW_LIST = [
+  "expiresAt",
+  "inviteId",
+  "memberships[].cohort.code",
+  "memberships[].cohort.name",
+  "memberships[].cohortId",
+  "memberships[].role",
+  "scope",
+  "user.avatarUrl",
+  "user.displayName",
+  "user.email",
+  "user.id",
+  "user.systemRole",
+];
+
+const INVITE_PREVIEW_ALLOW_LIST = [
+  "cohort.name",
+  "cohortRole",
+  "invitedBy.firstName",
+  "invitedBy.lastName",
+  "systemRole",
+  "track.name",
+];
+
+const PENDING_INVITE_ALLOW_LIST = [
+  "cohort.name",
+  "cohortRole",
+  "id",
+  "systemRole",
+  "track.name",
+  "user.displayName",
+  "user.email",
+  "user.firstName",
+  "user.lastName",
+];
+
+const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
+  "auth.login_failed": ["auth_method", "error_code"],
+  "auth.login_submitted": ["auth_method", "entry_source", "platform"],
+  "auth.login_succeeded": [
+    "account_status",
+    "auth_method",
+    "cohort_id",
+    "role",
+    "track_id",
+    "user_id",
+  ],
+  "auth.logout": ["logout_source"],
+  "auth.password_reset_completed": [],
+  "auth.password_reset_requested": ["reset_method"],
+  "auth.session_renewed": ["failed_attempts", "outcome"],
+  "auth.signup_failed": ["auth_method", "error_code"],
+  "auth.signup_submitted": ["auth_method", "platform"],
+  "auth.signup_succeeded": ["auth_method", "role", "user_id"],
+  "auth.verification_completed": ["verification_type"],
+  "auth.verification_sent": ["verification_type"],
+  "campus.connection_check_completed": ["failed_step", "result"],
+  "campus.device_access_requested": ["outcome"],
+  "campus.presence_tab_conflict_shown": ["surface"],
+  "campus.presence_tab_moved": ["surface"],
+  "campus.meeting_video_ready": [
+    "connection_quality",
+    "first_video_ms",
+    "hearing",
+  ],
+  "campus.proximity_audio_ready": ["first_audio_ms", "hearing"],
+  "campus.proximity_view_shown": ["hearing"],
+  "campus.screen_share_ended": ["duration_ms", "hearing", "reason"],
+  "campus.screen_share_ready": [
+    "connection_quality",
+    "first_viewer_ms",
+    "hearing",
+  ],
+  "campus_world.camera_zoomed": ["level"],
+  "campus_world.go_to_ended": ["reason"],
+  "campus_world.map_failed": ["error_kind", "map_id"],
+  "campus_world.map_loaded": ["load_ms", "map_id", "tilesets", "version"],
+  "campus_world.map_ready": ["first_frame_ms", "map_id", "version"],
+  "campus_world.move_corrected": ["outcome"],
+  "cohort.created": ["cohort_status"],
+  "identity.profile_setup_completed": ["cohort_id", "role", "track_id"],
+  "identity.profile_setup_started": ["cohort_id", "role", "track_id"],
+  "invitation.missing_link_shown": [],
+  "realtime.closed": ["action", "code", "reason"],
+  "realtime.connected": ["reconnect"],
+  "realtime.gave_up": ["attempts"],
+  "realtime.reconnected": ["attempts"],
+};
+
+// The person carries the identity; each event in a cohort carries the cohort.
+const ANALYTICS_MEMBER_ALLOW_LIST = {
+  identity: ["id", "systemRole"],
+  cohort: ["cohortId", "cohortRole"],
+};
+const analyticsMemberSchemas = [
+  ["identity", analyticsIdentitySchema],
+  ["cohort", analyticsCohortSchema],
+] as const;
+
+const PLAYER_PATHS = ["facing", "userId", "x", "y"];
+const AVATAR_PATHS = [
+  ...PLAYER_PATHS,
+  "displayName",
+  "spaceKey",
+  "spriteKey",
+  "status",
+  "statusUntil",
+].sort();
+const SPACE_NAME_PATHS = ["name", "spaceKey"];
+
+function under(prefix: string, paths: string[]): string[] {
+  return paths.map((path) => `${prefix}.${path}`);
+}
+
+const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
+  appearance: ["displayName", "spriteKey", "type", "userId"],
+  broadcast: ["call.canSpeak", "call.room", "call.token", "call.url", "type"],
+  call: [
+    "call.audibleRadius",
+    "call.hearing",
+    "call.token",
+    "call.url",
+    "type",
+  ],
+  entryRequestEnded: [
+    "answeredBy",
+    "outcome",
+    "requestId",
+    "spaceKey",
+    "type",
+    "userId",
+  ],
+  entryRequested: ["requestId", "spaceKey", "type", "userId"],
+  error: ["code", "message", "type"],
+  joined: [...under("player", AVATAR_PATHS), "type"],
+  left: ["type", "userId"],
+  lockChanged: ["locked", "spaceKey", "type"],
+  lockableSpaces: ["spaceKeys[]", "type"],
+  moveResult: ["outcome", ...under("player", PLAYER_PATHS), "seq", "type"],
+  moved: [...under("players[]", PLAYER_PATHS), "type"],
+  nearby: ["type", "userIds[]"],
+  pong: ["type"],
+  desksChanged: ["type"],
+  mapChanged: ["type"],
+  watching: ["type"],
+  notification: ["type"],
+  positionCorrected: ["type"],
+  replaced: ["type"],
+  said: ["at", "id", "spaceKey", "text", "type", "userId"],
+  spaceChanged: ["spaceKey", "type", "userId"],
+  statusChanged: ["status", "type", "until", "userId"],
+  snapshot: [
+    "lockableSpaces[]",
+    "lockedSpaces[]",
+    ...under("map", ["height", "id", "version", "width"]),
+    ...under("players[]", AVATAR_PATHS),
+    ...under("spaces[]", SPACE_NAME_PATHS),
+    "type",
+  ],
+  spaces: [...under("spaces[]", SPACE_NAME_PATHS), "type"],
+  staffAction: [
+    "action",
+    "by",
+    ...under("player", PLAYER_PATHS),
+    "spaceKey",
+    "type",
+    "until",
+    "userId",
+  ],
+  walkEnded: [
+    "mayAsk",
+    ...under("player", PLAYER_PATHS),
+    "reason",
+    "spaceKey",
+    "type",
+  ],
+  walking: [...under("player", PLAYER_PATHS), "type"],
+  welcome: [
+    "awayAfterSeconds",
+    "connectionId",
+    "displayName",
+    "heartbeatSeconds",
+    "spriteKey",
+    "stepMs",
+    "tickMs",
+    "type",
+    "userId",
+  ],
+};
+
+function withUnexpectedFields(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withUnexpectedFields);
+  if (value === null || typeof value !== "object") return value;
+  return {
+    ...Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [
+        key,
+        withUnexpectedFields(child),
+      ]),
+    ),
+    ...UNEXPECTED,
+  };
+}
+
+async function completeGoogleSignIn(
+  backendDestination: string,
+  ...upstreamSetCookies: string[]
+) {
+  vi.stubEnv("API_BASE_URL", "https://api.example.test");
+  vi.stubGlobal("fetch", () => {
+    const headers = new Headers({
+      location: `${ORIGIN}${backendDestination}`,
+    });
+    for (const setCookie of upstreamSetCookies) {
+      headers.append("set-cookie", setCookie);
+    }
+    return Promise.resolve(new Response(null, { headers, status: 302 }));
+  });
+  const { GET } = await import("@/app/api/[...path]/route");
+
+  const response = await GET(
+    new Request(`${ORIGIN}/api/v1/auth/google/callback?code=google-code`),
+    { params: Promise.resolve({ path: ["v1", "auth", "google", "callback"] }) },
+  );
+
+  return response.headers
+    .getSetCookie()
+    .filter((setCookie) => setCookie.startsWith("campus_invite_token="));
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  vi.resetModules();
+});
+
+const eventSchemas: [string, z.ZodObject][] = Object.entries(
+  analyticsEventSchemas,
+);
+
+const sessionDto = {
+  scope: "full_access",
+  expiresAt: "2026-10-02T12:15:00.000Z",
+  inviteId: "66666666-6666-4666-8666-666666666666",
+  user: {
+    id: "55555555-5555-4555-8555-555555555555",
+    email: "ada@campus.local",
+    firstName: "Ada",
+    lastName: "Lovelace",
+    displayName: "Ada Lovelace",
+    avatarUrl: "https://lh3.googleusercontent.com/a/example",
+    systemRole: "user",
+    ...UNEXPECTED,
+  },
+  membership: { cohortId: "c-1", role: "student" },
+  memberships: [
+    {
+      cohortId: "c-1",
+      role: "student",
+      cohort: { name: "Cohort 3", code: "C3", ...UNEXPECTED },
+    },
+  ],
+  ...UNEXPECTED,
+};
+
+describe("Data privacy eval (threshold: every case holds)", () => {
+  describe("API responses reach screens through an allow-list", () => {
+    it("keeps only the session fields routes and screens read", () => {
+      const session = parseSessionBody(JSON.stringify(sessionDto));
+
+      expect(keyPaths(session)).toEqual(SESSION_ALLOW_LIST);
+    });
+
+    it("keeps the invitee's email and every id out of the public preview", () => {
+      const preview = parseInvitePreview({ ...invitePreview(), ...UNEXPECTED });
+
+      expect(keyPaths(preview)).toEqual(INVITE_PREVIEW_ALLOW_LIST);
+    });
+
+    it("keeps only the feedback fields the admin queue renders", () => {
+      const page = parseFeedbackList({
+        items: [
+          {
+            ...FEEDBACK_SUMMARY,
+            ...UNEXPECTED,
+            submittedBy: { ...person, ...UNEXPECTED },
+          },
+        ],
+        meta: { page: 1, totalPages: 1, total: 1, perPage: 20, ...UNEXPECTED },
+      });
+
+      expect(keyPaths(page?.items[0])).toEqual(FEEDBACK_SUMMARY_ALLOW_LIST);
+      expect(Object.keys(page ?? {}).sort()).toEqual([
+        "items",
+        "page",
+        "total",
+        "totalPages",
+      ]);
+    });
+
+    it("keeps only the person fields the People page reads", () => {
+      const page = parsePeopleList(
+        {
+          items: [
+            {
+              id: "u-1",
+              email: "ada@campus.local",
+              firstName: "Ada",
+              lastName: "Lovelace",
+              displayName: null,
+              systemRole: "user",
+              status: "active",
+              lastLoginAt: "2026-10-01T08:15:00.000Z",
+              avatarUrl: null,
+              ...UNEXPECTED,
+              memberships: [
+                {
+                  cohort: {
+                    id: "c-1",
+                    name: "Cohort",
+                    code: "C",
+                    ...UNEXPECTED,
+                  },
+                  track: { id: "t-1", name: "Backend", code: "BE" },
+                  role: "student",
+                  status: "active",
+                  joinedAt: "2026-09-22T12:00:00.000Z",
+                },
+              ],
+            },
+          ],
+          meta: {
+            page: 1,
+            totalPages: 1,
+            total: 1,
+            perPage: 20,
+            ...UNEXPECTED,
+          },
+        },
+        "c-1",
+      );
+
+      expect(keyPaths(page?.people[0])).toEqual(PERSON_ALLOW_LIST);
+    });
+
+    it("keeps only the invite fields the Invites page reads, never who sent it or any link", () => {
+      const page = parseInvites({
+        items: [
+          {
+            id: "i-1",
+            email: "ada@campus.local",
+            status: "pending",
+            cohortId: "c-1",
+            cohortRole: "student",
+            systemRole: "user",
+            expiresAt: "2026-10-10T12:00:00.000Z",
+            invitedBy: "22222222-2222-4222-8222-222222222222",
+            revokedBy: null,
+            revokedAt: null,
+            flaggedAt: null,
+            flagMessage: "typo",
+            createdAt: "2026-10-03T12:00:00.000Z",
+            inviteLink: "https://campus.example/invitation?token=secret",
+            ...UNEXPECTED,
+          },
+        ],
+        meta: { page: 1, totalPages: 1, total: 1, perPage: 20, ...UNEXPECTED },
+      });
+
+      expect(keyPaths(page?.invites[0])).toEqual(INVITE_ALLOW_LIST);
+      expect(
+        parseEmailed({ emailStatus: "sent", inviteLink: "https://x?token=s" }),
+      ).toBe(true);
+    });
+
+    it("keeps only the import result fields the popup reads, never an invite link", () => {
+      const imported = parseImport({
+        invited: 1,
+        ...UNEXPECTED,
+        rows: [
+          {
+            line: 2,
+            email: "ada@campus.local",
+            outcome: "invited",
+            inviteId: "i-1",
+            inviteLink: "https://campus.example/invitation?token=secret",
+            emailStatus: "sent",
+          },
+          {
+            line: 3,
+            email: "grace@campus.local",
+            outcome: "failed",
+            reason: "Unknown track",
+            ...UNEXPECTED,
+          },
+        ],
+      });
+
+      expect(keyPaths(imported)).toEqual(IMPORT_ALLOW_LIST);
+    });
+
+    it("keeps only the group fields the invite popup reads", () => {
+      const [group] =
+        parseGroupOptions({
+          items: [
+            {
+              id: "g-1",
+              cohortId: "c-1",
+              name: "Pod C",
+              description: "private",
+              mentor: {
+                cohortMemberId: "m-1",
+                user: {
+                  id: "u-1",
+                  email: "catherine@campus.local",
+                  firstName: "Catherine",
+                  lastName: "Onyeulo",
+                  displayName: null,
+                  avatarUrl: null,
+                  status: "active",
+                },
+              },
+              students: [{ cohortMemberId: "s-1" }],
+            },
+          ],
+          meta: { page: 1, totalPages: 1, total: 1, perPage: 100 },
+        })?.options ?? [];
+
+      expect(keyPaths(group)).toEqual(GROUP_OPTION_ALLOW_LIST);
+    });
+
+    it("keeps only the profile card fields the person page reads", () => {
+      const card = parsePersonCard({
+        id: "u-1",
+        email: "ada@campus.local",
+        firstName: "Ada",
+        lastName: "Lovelace",
+        displayName: null,
+        bio: "private bio",
+        avatarUrl: null,
+        spriteKey: null,
+        ...UNEXPECTED,
+        memberships: [
+          {
+            cohort: { id: "c-1", name: "Cohort", code: "C" },
+            track: { id: "t-1", name: "Backend", code: "BE" },
+            role: "student",
+          },
+        ],
+      });
+
+      expect(keyPaths(card)).toEqual(PERSON_CARD_ALLOW_LIST);
+    });
+
+    it("keeps only the own-profile fields the account menu and editor read, never consent or the system role", () => {
+      const profile = parseOwnProfile({
+        id: "u-1",
+        email: "ada@campus.local",
+        firstName: "Ada",
+        lastName: "Lovelace",
+        displayName: "Ada L.",
+        bio: "Writes notes on engines.",
+        phone: "+2348000000000",
+        avatarUrl: "https://lh3.googleusercontent.com/a/example",
+        spriteKey: null,
+        systemRole: "admin",
+        analyticsConsent: "granted",
+        createdAt: "2026-09-22T12:00:00.000Z",
+        internalNote: "do not ship",
+        memberships: [
+          {
+            role: "student",
+            status: "active",
+            accessExpiresAt: null,
+            cohort: { id: "c-1", name: "Cohort", code: "C", ...UNEXPECTED },
+            track: { id: "t-1", name: "Backend", code: "BE" },
+          },
+        ],
+      });
+
+      expect(keyPaths(profile)).toEqual(OWN_PROFILE_ALLOW_LIST);
+    });
+
+    it("keeps only the fields another member's card reads, never their email", () => {
+      const card = parseMemberProfile({
+        id: "u-2",
+        email: "grace@campus.local",
+        firstName: "Grace",
+        lastName: "Hopper",
+        displayName: "Grace H.",
+        bio: "Compilers, mostly.",
+        avatarUrl: "https://lh3.googleusercontent.com/a/example",
+        spriteKey: null,
+        ...UNEXPECTED,
+        memberships: [
+          {
+            role: "student",
+            cohort: { id: "c-1", name: "Cohort", code: "C", ...UNEXPECTED },
+            track: { id: "t-1", name: "Backend", code: "BE" },
+          },
+        ],
+      });
+
+      expect(keyPaths(card)).toEqual(MEMBER_PROFILE_ALLOW_LIST);
+    });
+
+    it("keeps only the upload limits a picked file is checked against", () => {
+      const limits = parseUploadLimits({
+        maxAttachments: 10,
+        ...UNEXPECTED,
+        kinds: [
+          {
+            kind: "avatar",
+            contentTypes: ["image/webp"],
+            maxBytes: 2_000_000,
+            ...UNEXPECTED,
+          },
+        ],
+      });
+
+      expect(keyPaths(limits)).toEqual(UPLOAD_LIMITS_ALLOW_LIST);
+    });
+
+    it("keeps only where and how to send an upload, never its expiry or method", () => {
+      const upload = parseSignedUpload({
+        method: "PUT",
+        mediaId: "m-1",
+        uploadUrl: "https://storage.example.test/holding/m-1",
+        headers: { "Content-Type": "image/webp" },
+        expiresAt: "2026-11-14T12:10:00.000Z",
+        ...UNEXPECTED,
+      });
+
+      expect(keyPaths(upload)).toEqual(SIGNED_UPLOAD_ALLOW_LIST);
+    });
+
+    it("keeps only the feedback fields the detail panel renders", () => {
+      const record = parseFeedbackRecord({
+        ...FEEDBACK_SUMMARY,
+        ...UNEXPECTED,
+        cohortId: "c-1",
+        details: "Said something unkind.",
+        userAgent: "Chrome/128",
+        resolvedAt: null,
+        resolvedBy: null,
+        context: { path: "/campus/c-1", mapId: "m", x: 1, y: 2, ...UNEXPECTED },
+      });
+
+      expect(keyPaths(record)).toEqual(FEEDBACK_RECORD_ALLOW_LIST);
+    });
+
+    it("keeps only the id and name of each person the report picker lists", () => {
+      const people = parseCohortPeople([
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          displayName: "Ada L.",
+          spriteKey: "placeholder-1",
+          ...UNEXPECTED,
+        },
+      ]);
+
+      expect(keyPaths(people)).toEqual(["[].displayName", "[].id"]);
+    });
+
+    it("keeps only the id and name of each person the roster lists", () => {
+      const people = parseCohortDirectory([
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          displayName: "Ada L.",
+          spriteKey: "placeholder-1",
+          ...UNEXPECTED,
+        },
+      ]);
+
+      expect(keyPaths(people)).toEqual(["[].displayName", "[].id"]);
+    });
+
+    it("keeps only the id of a sent feedback receipt", () => {
+      expect(
+        parseFeedbackReceipt({ id: "f-1", title: "x", ...UNEXPECTED }),
+      ).toEqual({ id: "f-1" });
+    });
+
+    it("keeps only the pending-invite fields the confirmation renders", () => {
+      const invite = parsePendingInvite({ ...pendingInvite(), ...UNEXPECTED });
+
+      expect(keyPaths(invite)).toEqual(PENDING_INVITE_ALLOW_LIST);
+    });
+  });
+
+  describe("world frames reach the client through an allow-list", () => {
+    function parsedMessage(text: string): ServerMessage | undefined {
+      const result = parseServerMessage(text);
+
+      return result.ok ? result.message : undefined;
+    }
+
+    it.each(Object.values(serverFrames))(
+      "keeps only the protocol fields of a $type frame",
+      (frame) => {
+        const parsed = parsedMessage(
+          JSON.stringify(withUnexpectedFields(frame)),
+        );
+
+        expect(keyPaths(parsed)).toEqual(WORLD_FRAME_ALLOW_LIST[frame.type]);
+      },
+    );
+
+    it("never carries the text of a frame it could not read", () => {
+      const unknownType = parseServerMessage(
+        JSON.stringify({ type: TOKEN, ...UNEXPECTED }),
+      );
+      const corruptedWelcome = parseServerMessage(
+        JSON.stringify({ type: "welcome", userId: TOKEN, ...UNEXPECTED }),
+      );
+
+      expect(JSON.stringify([unknownType, corruptedWelcome])).not.toMatch(
+        new RegExp(`${TOKEN}|${UNEXPECTED.phone.slice(1)}`),
+      );
+    });
+
+    it("keeps only the call grant fields proximity audio reads", () => {
+      const call = parsedMessage(
+        JSON.stringify({
+          ...serverFrames.call,
+          call: {
+            ...serverFrames.call.call,
+            token: TOKEN,
+            participantMetadata: UNEXPECTED,
+          },
+        }),
+      );
+
+      const {
+        room: _room,
+        subscribeRadius: _subscribeRadius,
+        ...expectedCall
+      } = serverFrames.call.call!;
+      expect(call).toEqual({
+        type: "call",
+        call: { ...expectedCall, token: TOKEN },
+      });
+    });
+
+    it("reads an outcome or error code it does not know as unknown, never as the text world sent", () => {
+      const parsed = [
+        parsedMessage(
+          JSON.stringify({ ...serverFrames.moveResult, outcome: TOKEN }),
+        ),
+        parsedMessage(JSON.stringify({ ...serverFrames.error, code: TOKEN })),
+        parsedMessage(
+          JSON.stringify({
+            ...serverFrames.call,
+            call: { ...serverFrames.call.call, hearing: TOKEN },
+          }),
+        ),
+      ];
+
+      expect(parsed).toEqual([
+        { ...serverFrames.moveResult, outcome: "unknown" },
+        { ...serverFrames.error, code: "unknown" },
+        expect.objectContaining({
+          call: expect.objectContaining({ hearing: "unknown" }),
+        }),
+      ]);
+      expect(JSON.stringify(parsed)).not.toContain(TOKEN);
+    });
+
+    it("cannot reach the prototype through a __proto__ key in a frame", () => {
+      const parsed = parsedMessage(
+        '{"type":"left","userId":"u-1","__proto__":{"isAdmin":true}}',
+      );
+
+      expect(parsed).toEqual({ type: "left", userId: "u-1" });
+      expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+      expect(Object.hasOwn(parsed ?? {}, "__proto__")).toBe(false);
+    });
+
+    it("keeps the close event to a bounded code and reason", () => {
+      expect(parseSocketClose(4000, "entered_elsewhere")).toEqual({
+        code: 4000,
+        reason: "entered_elsewhere",
+      });
+      // Each field is judged alone, so losing one cannot erase the other.
+      expect(parseSocketClose(NaN, "")).toEqual({ code: 0, reason: "" });
+      // A close reason past the 123-byte wire limit is dropped, never
+      // reported back the way world sent it.
+      expect(
+        parseSocketClose(1008, `${TOKEN} ${TOKEN} ${TOKEN}`.repeat(20)),
+      ).toEqual({ code: 1008, reason: "" });
+      expect(parseSocketClose(1008, "🙂".repeat(31))).toEqual({
+        code: 1008,
+        reason: "",
+      });
+      expect(
+        JSON.stringify(
+          parseSocketClose(1008, `${TOKEN} ${TOKEN} ${TOKEN} more`),
+        ),
+      ).not.toContain(TOKEN);
+    });
+  });
+
+  describe("analytics events carry only declared properties", () => {
+    it("pins every event's property list", () => {
+      const declared = Object.fromEntries(
+        eventSchemas.map(([name, schema]) => [
+          name,
+          Object.keys(schema.shape).sort(),
+        ]),
+      );
+
+      expect(declared).toEqual(ANALYTICS_ALLOW_LIST);
+    });
+
+    it.each(eventSchemas)(
+      "%s rejects an email in any text property",
+      (_, schema) => {
+        for (const [key, field] of Object.entries(schema.shape)) {
+          expect(
+            field.safeParse("ada@campus.local").success,
+            `${key} accepted an email`,
+          ).toBe(false);
+        }
+      },
+    );
+
+    it.each([
+      ["a LiveKit check name", { result: "failed", failed_step: "websocket" }],
+      ["the check token", { result: "failed", failed_step: TOKEN }],
+      ["a result outside the list", { result: TOKEN, failed_step: null }],
+    ])("keeps %s out of the connection check event", (_, properties) => {
+      expect(
+        analyticsEventSchemas["campus.connection_check_completed"].safeParse(
+          properties,
+        ).success,
+      ).toBe(false);
+    });
+  });
+
+  describe("the analytics identity and cohort carry only declared properties", () => {
+    it("pins the identity and cohort property lists", () => {
+      const declared = Object.fromEntries(
+        analyticsMemberSchemas.map(([name, schema]) => [
+          name,
+          Object.keys(schema.shape).sort(),
+        ]),
+      );
+
+      expect(declared).toEqual(ANALYTICS_MEMBER_ALLOW_LIST);
+    });
+
+    it.each(analyticsMemberSchemas)(
+      "the %s rejects an email in any property",
+      (_, schema) => {
+        for (const [key, field] of Object.entries(schema.shape)) {
+          expect(
+            field.safeParse("ada@campus.local").success,
+            `${key} accepted an email`,
+          ).toBe(false);
+        }
+      },
+    );
+  });
+
+  describe("an invite token never leaves in a URL", () => {
+    it("is moved out of the address bar before any page renders", () => {
+      const response = moveInviteTokenToCookie(
+        new NextRequest(`${ORIGIN}/invitation?token=${TOKEN}`),
+      );
+
+      expect(response.headers.get("location")).toBe(`${ORIGIN}/invitation`);
+      expect(response.headers.get("location")).not.toContain(TOKEN);
+    });
+
+    it("is expired once sign-in spends it", async () => {
+      expect(
+        await completeGoogleSignIn(
+          "/invitation",
+          "campus_session=session-token; Path=/",
+        ),
+      ).toEqual([
+        "campus_invite_token=; HttpOnly; Secure; SameSite=Lax; Path=/invitation; Max-Age=0",
+      ]);
+    });
+
+    it("survives a failed sign-in so the invitee can retry", async () => {
+      expect(
+        await completeGoogleSignIn("/sign-in?error=invite_required"),
+      ).toEqual([]);
+    });
+
+    it("is dropped from a returnTo before it reaches sign-in or the OAuth cookie", () => {
+      expect(parseReturnTo(`/invitation?token=${TOKEN}`)).toBe("/invitation");
+    });
+
+    it("is scrubbed from every PostHog event that still carries one", () => {
+      const tokenUrl = `${ORIGIN}/invitation?token=${TOKEN}`;
+      const event = scrubAnalyticsEvent({
+        uuid: "event-1",
+        event: "$pageview",
+        properties: { $current_url: tokenUrl, $referrer: tokenUrl },
+        $set_once: { $initial_current_url: tokenUrl },
+      });
+
+      expect(JSON.stringify(event)).not.toContain(TOKEN);
+    });
+  });
+
+  describe("an auth response is never cached", () => {
+    it("forbids caching a signed-out OAuth callback the backend marked public", async () => {
+      vi.stubEnv("API_BASE_URL", "https://api.example.test");
+      vi.stubGlobal("fetch", () =>
+        Promise.resolve(
+          new Response(null, {
+            headers: {
+              "cache-control": "public, max-age=60",
+              expires: "Wed, 21 Oct 2026 07:28:00 GMT",
+              location: `${ORIGIN}/sign-in?error=denied`,
+            },
+            status: 302,
+          }),
+        ),
+      );
+      const { GET } = await import("@/app/api/[...path]/route");
+
+      const response = await GET(
+        new Request(`${ORIGIN}/api/v1/auth/google/callback?code=google-code`),
+        {
+          params: Promise.resolve({
+            path: ["v1", "auth", "google", "callback"],
+          }),
+        },
+      );
+
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      expect(response.headers.get("expires")).toBeNull();
+    });
+  });
+
+  describe("the API proxy never logs a requested path", () => {
+    it("keeps an invite token and an email in a mistyped path out of the logs", async () => {
+      const logged: string[] = [];
+      vi.stubEnv("API_BASE_URL", "https://api.example.test");
+      vi.stubGlobal("fetch", () =>
+        Promise.resolve(new Response(null, { status: 204 })),
+      );
+      vi.spyOn(process.stderr, "write").mockImplementation((record) => {
+        logged.push(String(record));
+        return true;
+      });
+      const { GET } = await import("@/app/api/[...path]/route");
+      const path = ["v1", "invites", "invite-token-123", "ada@campus.local"];
+
+      const response = await GET(
+        new Request(`${ORIGIN}/api/${path.join("/")}`),
+        {
+          params: Promise.resolve({ path }),
+        },
+      );
+
+      expect(response.status).toBe(404);
+      expect(logged).toHaveLength(1);
+      expect(logged[0]).not.toContain("invite-token-123");
+      expect(logged[0]).not.toContain("ada@campus.local");
+    });
+  });
+
+  describe("the world origin only names a host the browser can reach", () => {
+    it.each([
+      "http://world.railway.internal:8001",
+      "https://world.railway.internal",
+      "https://WORLD.RAILWAY.INTERNAL",
+      "https://world.railway.internal.",
+    ])("refuses the Railway private host %s", (origin) => {
+      expect(() => readWorldOrigin({ NEXT_PUBLIC_WORLD_URL: origin })).toThrow(
+        "NEXT_PUBLIC_WORLD_URL",
+      );
+    });
+  });
+
+  describe("the connection check only connects to the pinned media host", () => {
+    const MEDIA_ORIGIN = "wss://media.campus.example";
+    const grant = {
+      url: MEDIA_ORIGIN,
+      room: "connection-check-0b9e",
+      token: TOKEN,
+      expiresAt: "2026-10-24T12:02:00.000Z",
+    };
+
+    function accessFor(reply: Response): Promise<ConnectionCheckAccess> {
+      return requestConnectionCheck({
+        fetch: async () => reply,
+        worldOrigin: "https://ws.campus.example",
+        mediaOrigin: MEDIA_ORIGIN,
+      });
+    }
+
+    it.each([
+      "wss://evil.example",
+      "wss://media.campus.example@evil.example",
+      "ws://media.campus.example",
+      "wss://media.campus.example.evil.example",
+      "wss://media.campus.example:8443",
+    ])("never hands the token to the unpinned host %s", async (url) => {
+      const access = await accessFor(Response.json({ ...grant, url }));
+
+      expect(access).toEqual({ kind: "failed" });
+      expect(JSON.stringify(access)).not.toContain(TOKEN);
+    });
+
+    it("keeps only the URL and token from world's answer", async () => {
+      const access = await accessFor(
+        Response.json(withUnexpectedFields(grant)),
+      );
+
+      expect(keyPaths(access)).toEqual(["kind", "token", "url"]);
+    });
+
+    it("never carries or logs the token on a refusal", async () => {
+      const consoleCalls = (
+        ["debug", "error", "info", "log", "warn"] as const
+      ).map((method) => vi.spyOn(console, method).mockImplementation(() => {}));
+      const refusals = await Promise.all(
+        [401, 403, 429, 500, 503].map((status) =>
+          accessFor(
+            Response.json(
+              { error: { code: TOKEN, message: TOKEN }, ...grant },
+              { status, headers: { "retry-after": TOKEN } },
+            ),
+          ),
+        ),
+      );
+
+      expect(refusals.map(({ kind }) => kind)).toEqual([
+        "signed-out",
+        "failed",
+        "rate-limited",
+        "failed",
+        "failed",
+      ]);
+      expect(JSON.stringify(refusals)).not.toContain(TOKEN);
+      expect(consoleCalls.flatMap((spy) => spy.mock.calls)).toEqual([]);
+    });
+  });
+
+  describe("the connection check only uses the devices the member turned on", () => {
+    const GRANT = { url: "wss://media.campus.example", token: TOKEN };
+
+    it("never opens or publishes a source the member turned off", async () => {
+      const livekit = fakeLivekit();
+      const probe = await loadLivekitProbe(GRANT, async () => livekit.module);
+      const onStep = vi.fn();
+
+      await expect(
+        runConnectionCheck(probe, () => null, { onStep }),
+      ).resolves.toEqual({ kind: "passed" });
+      expect(livekit.published).toEqual([]);
+      expect(onStep).toHaveBeenCalledWith("microphone", "skipped");
+      expect(onStep).toHaveBeenCalledWith("camera", "skipped");
+    });
+
+    it.each([
+      ["a track that sends", {}],
+      ["a track that sends nothing", { packetsSent: 0 }],
+      ["a track that cannot be published", { publishFails: true }],
+    ])("never stops the member's own track: %s", async (_, options) => {
+      vi.useFakeTimers();
+      try {
+        const livekit = fakeLivekit(options);
+        const probe = await loadLivekitProbe(GRANT, async () => livekit.module);
+        const microphone = fakeTrack("audio");
+        const published = probe.publish(microphone);
+        await vi.runAllTimersAsync();
+        await published;
+
+        expect(microphone.stop).not.toHaveBeenCalled();
+        expect(microphone.copy.stop).toHaveBeenCalledOnce();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it.each<ConnectionCheckAccess>([
+      { kind: "unavailable" },
+      { kind: "rate-limited", retryAfterSeconds: 60 },
+      { kind: "signed-out" },
+      { kind: "failed" },
+    ])(
+      "never downloads the media SDK when world answers $kind",
+      async (access) => {
+        const loadProbe = vi.fn();
+
+        await checkConnection(
+          {
+            requestAccess: async () => access,
+            loadProbe,
+            captureEvent: () => {},
+          },
+          (step) => fakeTrack(step === "microphone" ? "audio" : "video"),
+          { onStep: () => {} },
+        );
+
+        expect(loadProbe).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+  describe("a protected build only sends traffic to the hosts it names", () => {
+    const protectedBuild = {
+      CI: "true",
+      NEXT_PUBLIC_POSTHOG_HOST: "https://eu.i.posthog.com",
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: "phc_project",
+      NEXT_PUBLIC_SANITY_DATASET: "staging",
+      NEXT_PUBLIC_SANITY_PROJECT_ID: "sj3zsz66",
+      NEXT_PUBLIC_WORLD_URL: "https://ws.campus.example",
+    };
+
+    it("accepts a public HTTPS world origin", () => {
+      expect(() => validateBuildEnvironment(protectedBuild)).not.toThrow();
+    });
+
+    it.each([
+      "http://localhost:8001",
+      "https://world.railway.internal",
+      "https://world.railway.internal.",
+      "https://user:secret@ws.campus.example",
+      "https://ws.campus.example/socket",
+      "https://ws.campus.example/?cohortId=1",
+    ])(
+      "rejects the world URL %s before the browser opens a socket to it",
+      (worldUrl) => {
+        expect(() =>
+          validateBuildEnvironment({
+            ...protectedBuild,
+            NEXT_PUBLIC_WORLD_URL: worldUrl,
+          }),
+        ).toThrow("NEXT_PUBLIC_WORLD_URL");
+      },
+    );
+
+    it.each([
+      "ws://media.campus.example",
+      "ws://localhost:7880",
+      "wss://media.railway.internal",
+      "wss://user:secret@media.campus.example",
+      "wss://media.campus.example/rtc",
+    ])(
+      "rejects the media URL %s before a connection check token is sent to it",
+      (mediaUrl) => {
+        expect(() =>
+          validateBuildEnvironment({
+            ...protectedBuild,
+            NEXT_PUBLIC_MEDIA_URL: mediaUrl,
+          }),
+        ).toThrow("NEXT_PUBLIC_MEDIA_URL");
+      },
+    );
+
+    it.each(["evil.example", "a/b", "x@evil.example", "x#"])(
+      "rejects the Sanity project ID %s before it reaches the map API host",
+      (projectId) => {
+        expect(() =>
+          validateBuildEnvironment({
+            ...protectedBuild,
+            NEXT_PUBLIC_SANITY_PROJECT_ID: projectId,
+          }),
+        ).toThrow("NEXT_PUBLIC_SANITY_PROJECT_ID");
+      },
+    );
+
+    it("rejects an uppercase project ID, which no Sanity asset path would match", () => {
+      expect(() =>
+        validateBuildEnvironment({
+          ...protectedBuild,
+          NEXT_PUBLIC_SANITY_PROJECT_ID: "SJ3ZSZ66",
+        }),
+      ).toThrow("NEXT_PUBLIC_SANITY_PROJECT_ID");
+    });
+
+    it.each(["../production", "a/b", "staging?x"])(
+      "rejects the dataset name %s before it reaches a map URL path",
+      (dataset) => {
+        expect(() =>
+          validateBuildEnvironment({
+            ...protectedBuild,
+            NEXT_PUBLIC_SANITY_DATASET: dataset,
+          }),
+        ).toThrow("NEXT_PUBLIC_SANITY_DATASET");
+      },
+    );
+
+    it("accepts a dataset name Sanity allows, such as production_old", () => {
+      expect(() =>
+        validateBuildEnvironment({
+          ...protectedBuild,
+          NEXT_PUBLIC_SANITY_DATASET: "production_old",
+        }),
+      ).not.toThrow();
+    });
+
+    it("rejects a PostHog host reached over plain HTTP", () => {
+      expect(() =>
+        validateBuildEnvironment({
+          ...protectedBuild,
+          NEXT_PUBLIC_POSTHOG_HOST: "http://eu.i.posthog.com",
+        }),
+      ).toThrow("NEXT_PUBLIC_POSTHOG_HOST");
+    });
+  });
+});

@@ -1,0 +1,181 @@
+import type { Route } from "next";
+
+import { campusJoinHref, SIGN_IN_PATH } from "@/core/navigation";
+
+import { normalizeReturnTo } from "../schemas/return-to";
+import type {
+  CampusRouteRequest,
+  InvitationPath,
+  RouteAuthorizationDecision,
+  RouteAuthorizationRequest,
+  Session,
+  SignInDecision,
+} from "../types/auth.types";
+import type { SessionRead } from "./session.service";
+import { isSystemAdministrator } from "./system-role";
+
+const CAMPUS_HOME_PATH: Route = "/campus";
+const INVITATION_PATH: Route = "/invitation";
+const PREVIEW_PATH: Route = "/preview";
+const INVITE_REQUIRED_PATH = "/sign-in?error=invite_required" as Route;
+const SESSION_REFRESH_PATH = "/session/refresh";
+
+export interface RouteRequestSignals {
+  returnTo: string | undefined;
+  refreshAttempted: boolean;
+}
+
+export type SignedOutSignals = Pick<
+  RouteRequestSignals,
+  "returnTo" | "refreshAttempted"
+>;
+
+function withReturnTo(path: string, returnTo: string | undefined): Route {
+  const search = new URLSearchParams({
+    returnTo: normalizeReturnTo(returnTo),
+  });
+  return `${path}?${search.toString()}` as Route;
+}
+
+export function signInHref(returnTo: string | undefined): Route {
+  return withReturnTo(SIGN_IN_PATH, returnTo);
+}
+
+// One automatic refresh per visit, then sign-in: the refresh-attempt marker is
+// what stops a refresh/redirect loop.
+export function signedOutRedirect({
+  returnTo,
+  refreshAttempted,
+}: SignedOutSignals): Route {
+  return refreshAttempted
+    ? signInHref(returnTo)
+    : withReturnTo(SESSION_REFRESH_PATH, returnTo);
+}
+
+// Admins and members of several cohorts choose at /campus; everyone else is
+// sent through pre-join for their one cohort and never sees the chooser.
+function usesCohortChooser(session: Session): boolean {
+  return (
+    isSystemAdministrator(session.user.systemRole) ||
+    session.memberships.length > 1
+  );
+}
+
+function decideCampusIndex(session: Session): RouteAuthorizationDecision {
+  if (usesCohortChooser(session)) return { kind: "allow", session };
+
+  const [onlyMembership] = session.memberships;
+  if (!onlyMembership) return { kind: "forbidden" };
+
+  return {
+    kind: "redirect",
+    href: campusJoinHref(onlyMembership.cohortId),
+  };
+}
+
+function decideCohort(
+  session: Session,
+  cohortId: string,
+): RouteAuthorizationDecision {
+  const mayEnter =
+    isSystemAdministrator(session.user.systemRole) ||
+    session.memberships.some((membership) => membership.cohortId === cohortId);
+  return mayEnter ? { kind: "allow", session } : { kind: "forbidden" };
+}
+
+function decideFullAccess(
+  request: CampusRouteRequest,
+  session: Session,
+): RouteAuthorizationDecision {
+  switch (request.kind) {
+    case "campus-index":
+      return decideCampusIndex(session);
+    case "cohort":
+      return decideCohort(session, request.cohortId);
+    // Which cohort a link is for is only known by entering it, and campus-api
+    // refuses that, with the same 404 as a dead link, to anybody without a
+    // place there. So any full-access session may arrive.
+    case "room-link":
+      return { kind: "allow", session };
+    case "system-admin":
+      return isSystemAdministrator(session.user.systemRole)
+        ? { kind: "allow", session }
+        : { kind: "forbidden" };
+  }
+}
+
+function decideCampus(
+  request: CampusRouteRequest,
+  session: Session,
+): RouteAuthorizationDecision {
+  return session.scope === "full_access"
+    ? decideFullAccess(request, session)
+    : { kind: "redirect", href: INVITATION_PATH };
+}
+
+// campus-api's OAuth callback lands every invitee on /invitation, which has
+// nothing to show without the link's token: the invite is answered on /preview.
+function decideInvitation(
+  path: InvitationPath,
+  session: Session,
+): RouteAuthorizationDecision {
+  if (session.inviteId) {
+    return path === PREVIEW_PATH
+      ? { kind: "allow", session }
+      : { kind: "redirect", href: PREVIEW_PATH };
+  }
+
+  const href =
+    session.scope === "full_access" ? CAMPUS_HOME_PATH : INVITE_REQUIRED_PATH;
+  return { kind: "redirect", href };
+}
+
+function decideSignedIn(
+  request: RouteAuthorizationRequest,
+  session: Session,
+): RouteAuthorizationDecision {
+  return request.kind === "invitation"
+    ? decideInvitation(request.path, session)
+    : decideCampus(request, session);
+}
+
+export function decideRoute(
+  request: RouteAuthorizationRequest,
+  sessionRead: SessionRead,
+  signals: RouteRequestSignals,
+): RouteAuthorizationDecision {
+  switch (sessionRead.kind) {
+    case "authenticated":
+      return decideSignedIn(request, sessionRead.session);
+
+    case "unauthenticated":
+      return { kind: "redirect", href: signedOutRedirect(signals) };
+
+    case "forbidden":
+      return { kind: "forbidden" };
+
+    case "unavailable":
+      return {
+        ...sessionRead,
+        retryHref: normalizeReturnTo(signals.returnTo),
+      };
+  }
+}
+
+// Sign-in is the way out of every failed state, so anything short of a usable
+// session renders it. A provisional session without an invite renders too:
+// /invitation sends it here, and redirecting back would bounce forever.
+export function decideSignIn(
+  sessionRead: SessionRead,
+  returnTo: string | undefined,
+): SignInDecision {
+  if (sessionRead.kind !== "authenticated") return { kind: "render" };
+
+  const { session } = sessionRead;
+  if (session.scope === "full_access") {
+    return { kind: "redirect", href: normalizeReturnTo(returnTo) as Route };
+  }
+  return session.inviteId
+    ? { kind: "redirect", href: INVITATION_PATH }
+    : { kind: "render" };
+}

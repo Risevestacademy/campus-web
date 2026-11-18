@@ -1,0 +1,26 @@
+[
+  {
+    "selector": "CallExpression > MemberExpression.callee[property.name=/^(looseObject|strictObject)$/]",
+    "message": "Response schemas strip unknown keys: use z.object. See core/api/schemas/README.md."
+  },
+  {
+    "selector": "ImportDeclaration[source.value='zod'] > ImportSpecifier[imported.name=/^(looseObject|strictObject)$/]",
+    "message": "Response schemas strip unknown keys: use z.object. See core/api/schemas/README.md."
+  },
+  {
+    "selector": "CallExpression > MemberExpression.callee[property.name=/^(loose|passthrough|catchall)$/]",
+    "message": "Response schemas strip unknown keys: drop .loose(), .passthrough() and .catchall(). See core/api/schemas/README.md."
+  },
+  {
+    "selector": "CallExpression > MemberExpression.callee[property.name='strict']:has(Identifier[name='z'])",
+    "message": "Response schemas strip unknown keys: drop .strict(). See core/api/schemas/README.md."
+  },
+  {
+    "selector": "CallExpression > MemberExpression.callee[property.name='merge']:has(Identifier[name='z'])",
+    "message": ".merge() is deprecated in Zod 4: use .extend() or spread .shape. See core/api/schemas/README.md."
+  },
+  {
+    "selector": "Property[key.name='reportInput'], Property[key.value='reportInput']",
+    "message": "Never copy raw input into Zod issues. See core/api/schemas/README.md."
+  }
+]

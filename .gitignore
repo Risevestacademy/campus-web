@@ -14,6 +14,7 @@
 /coverage
 /playwright-report
 /test-results
+/.vitest-attachments
 
 # next.js
 /.next/
@@ -21,6 +22,7 @@
 
 # production
 /build
+/storybook-static
 
 # misc
 .DS_Store
@@ -34,6 +36,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -43,4 +46,5 @@ yarn-error.log*
 next-env.d.ts
 
 # Others
-docs/
+docs/*
+!docs/architectural-plan.md

@@ -1,0 +1,23 @@
+"use client";
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { type ReactNode, useState } from "react";
+
+import { MotionPreferenceConfig } from "@/shared/motion/motion-preference-config";
+import { Toaster } from "@/shared/ui/toast";
+
+// Query client and toasts for /campus/**, /preview and
+// /session/refresh, and the member's Reduce motion choice for Motion. The
+// root layout keeps only theme behaviour.
+export function Providers({ children }: { children: ReactNode }) {
+  // One client per browser session; created lazily so server renders never
+  // share a cache between requests.
+  const [queryClient] = useState(() => new QueryClient());
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <MotionPreferenceConfig>{children}</MotionPreferenceConfig>
+      <Toaster />
+    </QueryClientProvider>
+  );
+}

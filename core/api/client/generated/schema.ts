@@ -1,0 +1,10870 @@
+export interface paths {
+  "/v1": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["AppController_getHello"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/health": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Health and performance check
+     * @description Returns process status, uptime, memory, CPU and load averages.
+     */
+    get: operations["HealthController_check"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/auth/google": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Start Google sign-in
+     * @description Redirects to the Google consent screen and leaves a short-lived, httpOnly cookie behind so the callback can prove it reached the same browser. Open it as a top-level navigation, not with fetch.
+     */
+    get: operations["AuthController_start"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/auth/google/callback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Complete Google sign-in
+     * @description Where Google returns the user. Verifies the request, resolves or creates the account behind the Google identity, and issues a session. Every outcome is a redirect into the web app, failures included.
+     */
+    get: operations["AuthController_callback"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/auth/google/token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Sign in from a native app
+     * @description For a client that cannot keep cookies. The app signs the user in with Google's own SDK and posts the id_token it receives; the API makes the same decision the browser callback makes and answers with the session in the body instead of a redirect and cookies. Send `accessToken` as a bearer token from then on, and keep `refreshToken` for POST /v1/auth/refresh. `inviteId` set means there is an invite to answer first.
+     */
+    post: operations["AuthController_tokenSignIn"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/auth/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Who is signed in
+     * @description The session behind the cookie and the account it belongs to. The cookie is httpOnly, so this is how the web app learns whether anyone is signed in, and whether they belong in onboarding or the campus. Accepts either kind of session.
+     */
+    get: operations["AuthController_me"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/auth/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Refresh the access session
+     * @description Rotates both cookies and issues a new full-access session. The body says when the new tokens lapse, so the next refresh can be scheduled rather than guessed; the tokens themselves stay in the cookies. A client that holds its own tokens sends `refreshToken` in the body instead, and gets the new pair back in the body with no cookies set.
+     */
+    post: operations["AuthController_refresh"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/auth/logout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Revoke the refresh session
+     * @description Revokes the refresh cookie and clears both session cookies. A client that holds its own tokens sends `refreshToken` in the body instead.
+     */
+    post: operations["AuthController_logout"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/invites": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List invites
+     * @description Every invite the system has, newest first, paginated. Filter with `status` — `pending` for the open offers, `revoked` to see who cancelled what — and narrow to one intake with `cohortId`, `trackId`, or both.
+     *
+     *     This is the only place a revoked invite stays visible: sign-in cannot find one, so without this route "who revoked that address" would have no answer at all.
+     *
+     *     Deliberately not the same shape as POST /v1/invites. That one returns the raw token and shareable link, because the token is shown exactly once and is unrecoverable afterwards. Listing would hand every unredeemed token in the system to any admin who asked for page 1, so these rows carry ids and audit fields only.
+     */
+    get: operations["InvitesController_list"];
+    put?: never;
+    /**
+     * Create an invite (admin only)
+     * @description Accepts { email, cohortId, cohortRole } for cohort invites — plus guestAccessExpiresAt when that role is guest — or { email, systemRole: admin } for admin invites. Stores only the SHA-256 hash in INVITES.token_hash and returns a one-time shareable link embedding the raw token. A second pending invite for the same email is rejected with 409 (revoke the open one first). expiresAt defaults to now + INVITE_TTL_DAYS and never exceeds it — nor the guest window, since a link must not stay redeemable past the visit it grants. Then emails the link to the invitee through Resend, when FF_EMAIL_ENABLED is on; emailStatus says how that went. A failed send still answers 201 — the invite exists, and inviteLink can be shared by hand.
+     */
+    post: operations["InvitesController_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/invites/import": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Invite a cohort from a CSV file (admin only)
+     * @description Uploads one file and creates one invite per row, all to the cohort named in `cohortId`. Each row is an ordinary invite, held to the same rules as POST /v1/invites and emailed the same way.
+     *
+     *     **The file.** UTF-8, comma-separated, with a header row. Up to 500 rows and 256 KB.
+     *
+     *     | Column | Required | Value |
+     *     | --- | --- | --- |
+     *     | `email` | yes | The address to invite |
+     *     | `role` | yes | `student`, `professor`, `mentor` or `guest` |
+     *     | `track` | for students | A track code the cohort runs, e.g. `SE` |
+     *     | `visit_ends` | for guests | When the visit ends, e.g. `2026-11-30T17:00:00Z` |
+     *
+     *     Columns may come in any order, and other columns are ignored.
+     *
+     *     **The answer.** Always 200 once the file can be read, with one entry per row saying whether it was invited or why it was not. A row that fails does not stop the others: fix it and upload the file again, and the rows already invited are refused the second time as already invited.
+     *
+     *     Each invited row carries its `inviteLink`, shown this once, and `emailStatus`. Share the link by hand where the email did not go.
+     *
+     *     A file that cannot be read as a list of invites at all — empty, no header, a required column missing, too many rows — is a 400 and invites nobody.
+     */
+    post: operations["InvitesController_importCsv"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/invites/{id}/revoke": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Revoke a pending invite
+     * @description Cancels an offer you no longer want to honour, recording which admin did it and when. This is the step POST /v1/invites asks for before re-inviting an address: only one pending invite per address is allowed, and revoking is what frees the slot.
+     *
+     *     Only a live pending invite can be revoked. One already accepted, declined or revoked answers with the same 409 code the invitee would get for trying to redeem it, so a settled invite has one answer whichever side asks. Revoking twice is a 409 rather than a silent success.
+     *
+     *     An invite that has lapsed cannot be revoked — it has already stopped on its own, so there is no cancellation to record. It answers 403 INVITE_EXPIRED, and its status is materialised as expired.
+     *
+     *     Afterwards the invitee can no longer sign in with it. Somebody part way through onboarding gets INVITE_REVOKED (409) on their next call — unless they have been invited again, in which case validate-user-invite shows them the new invite and a decision naming it is accepted.
+     */
+    post: operations["InvitesController_revoke"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/invites/{id}/resend": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Resend an invite with a new link
+     * @description For an invite whose email never arrived, or whose link ran out before anybody used it. Generates a new token, emails the new link, and returns the same receipt as POST /v1/invites, so the link can still be shared by hand if the email fails again.
+     *
+     *     The old link stops working at once. Only the hash of a token is stored, so the original link cannot be sent a second time.
+     *
+     *     Works on a pending or an expired invite, and leaves it pending for as long again as it was created to last: the default window, or the shorter one its `expiresAt` set. For a guest, never past the end of the visit.
+     *
+     *     Resending an expired invite offers it again, so it is checked as a new invite would be and answers 409 CONFLICT when the address already holds another pending invite, the person has joined the cohort since, or the guest visit it offered is over.
+     *
+     *     An accepted, declined or revoked invite is refused with the 409 code every other route gives it.
+     *
+     *     Each resend is recorded in the audit log with the admin who did it.
+     */
+    post: operations["InvitesController_resend"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/invites/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Preview an invite from its link, before signing in
+     * @description Needs no session: the raw token from the invite link is the proof that the caller was sent it. Returns what the invitation screen shows — cohort, track, role, who sent it and the address it went to — and only while the invite is live, using the same codes as GET /v1/invites/validate-user-invite. A POST so the token travels in the body, which is not logged, rather than the URL, which is. Reads nothing that lets the caller act: accepting still takes a Google sign-in as the invited address.
+     */
+    post: operations["InvitesController_preview"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/invites/validate-user-invite": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Validate the invite the signed-in account has to answer
+     * @description For a provisional session, the invite it was issued for. For a full-access session — a member, who can be invited to another cohort — the pending invite addressed to the account. Confirms it is addressed to the signed-in account and returns it only while it is still live. Takes no body: the session identifies both the invite and the caller, so nobody can read someone else's offer. Returns 200 only for a live invite, so the decision screen can be rendered as-is. Not a re-send of the admin create-receipt: the token, the shareable link and mentorshipGroupId are withheld. The address under `invitee` is the signed-in account's own, read from its USERS row — the same string as the invited address, because the two must match to get this far. Note this read is not free of writes — a lapsed-but-still-pending invite has its status materialised here, which is what makes the following 403 truthful.
+     */
+    get: operations["InvitesController_validateUserInvite"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/invites/flag": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Flag a mistake on the invite the signed-in account has
+     * @description For the invitee who can see the offer is wrong — the role, the track, the cohort — to say so before answering. The message is recorded on the invite and emailed to the admin who sent it; every admin can find it with GET /v1/invites?flagged=true.
+     *
+     *     A flag is a note, not an answer. The invite stays pending and POST /v1/invites/decision works exactly as before, so the invitee can flag and still accept. Correcting the offer is the admin’s move: revoke it and send another.
+     *
+     *     Which invite is flagged follows the rule the decision route uses: a provisional session flags its own unless `inviteId` names the live replacement, and a full-access session must name it.
+     *
+     *     One flag per invite. A second is a 409 CONFLICT, and validate-user-invite reports `flaggedAt` so the screen can show that it has already been sent. No cookie is set or cleared.
+     */
+    post: operations["InvitesController_flag"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/invites/decision": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Accept or decline the invite the signed-in account has
+     * @description Answers the invite identified by the signed-in session and request. A provisional session already identifies the invite it was issued for, so `inviteId` may be omitted; when supplied, it must match the session. A full-access session (a member invited to another cohort) must supply the `inviteId` returned by validate-user-invite. This ensures the server answers the invite the member saw rather than a replacement created afterward. Accept enrols the invitee (or revives a membership they previously left) and applies the invite's systemRole; a provisional cookie is replaced with a full-access one. Decline closes the invite; a provisional cookie is cleared, leaving the account row in place. A full-access session keeps its cookies either way: accepting only adds a membership, which never shortens access. A caller authenticated with a bearer token rather than the cookie is answered in the body instead: an accept that upgrades a provisional session returns the new tokens in `session`, and no cookie is set or cleared. An invite that already carries an answer is a 409 — branch on error.code to decide where the caller goes next.
+     */
+    post: operations["InvitesController_decide"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/tracks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List tracks (admin only)
+     * @description Every track in the catalogue, by name.
+     */
+    get: operations["TracksController_list"];
+    put?: never;
+    /**
+     * Create a track (admin only)
+     * @description Adds a programme to the catalogue. A track belongs to no cohort until it is attached to one with POST /v1/cohorts/{id}/tracks. code is trimmed and uppercased, and must be unique.
+     */
+    post: operations["TracksController_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/tracks/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete a track (admin only)
+     * @description Removes a catalogue track no cohort runs. A track still attached to cohorts is refused with a 409.
+     */
+    delete: operations["TracksController_remove"];
+    options?: never;
+    head?: never;
+    /**
+     * Update a track (admin only)
+     * @description A partial edit: only the fields present are written. code is trimmed and uppercased, and must be unique. An empty or null description clears it; name and code cannot be cleared.
+     */
+    patch: operations["TracksController_update"];
+    trace?: never;
+  };
+  "/v1/cohorts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List cohorts (admin only)
+     * @description Every cohort, newest first. Tracks are on the detail route.
+     */
+    get: operations["CohortsController_list"];
+    put?: never;
+    /**
+     * Create a cohort (admin only)
+     * @description Creates an intake with no tracks; attach them with POST /v1/cohorts/{id}/tracks before inviting students, who each need a cohortTrackId. code is trimmed and uppercased, and must be unique. status defaults to upcoming.
+     */
+    post: operations["CohortsController_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get a cohort with its tracks (admin only)
+     * @description Each entry in tracks has the cohortTrackId (its id) a student invite to this cohort names.
+     */
+    get: operations["CohortsController_get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete a cohort (admin only)
+     * @description Removes a cohort with nothing attached to it. A cohort that still has tracks, members, invites or mentorship groups is refused with a 409.
+     */
+    delete: operations["CohortsController_remove"];
+    options?: never;
+    head?: never;
+    /**
+     * Update a cohort (admin only)
+     * @description A partial edit: only the fields present are written. code is trimmed and uppercased, and must be unique. An endDate before the merged startDate is refused. null clears startDate or endDate; name, code and status cannot be cleared.
+     */
+    patch: operations["CohortsController_update"];
+    trace?: never;
+  };
+  "/v1/cohorts/{id}/members": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List a cohort’s members (admin only)
+     * @description The roster: one row per membership, with the person who holds it, paginated. Staff first, then students, then guests, by name within each.
+     *
+     *     By default only the people in the cohort now — `state=live`, the rule sign-in uses. `state=ended` lists those who left, were dismissed, withdrew, deferred or graduated, and guests whose visit is over; `state=all` lists both. Each row says which it is.
+     *
+     *     Filter further with `role`, `trackId` and `status` (a student’s status); they combine with AND. A filter that matches nobody is an empty page; a cohort that does not exist is a 404.
+     *
+     *     A suspended account keeps its place on the roster. The row’s `user.status` says so.
+     */
+    get: operations["CohortsController_listMembers"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{id}/tracks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Attach a track to a cohort (admin only)
+     * @description Makes a catalogue track one this cohort runs. The response id is the cohortTrackId for student invites.
+     */
+    post: operations["CohortsController_attachTrack"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{id}/tracks/{trackId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Detach a track from a cohort (admin only)
+     * @description Stops the cohort running a track: the reverse of POST /v1/cohorts/{id}/tracks, named by the same `trackId`. The track itself stays in the catalogue.
+     *
+     *     Refused with a 409 while anything in the cohort is still on the track — a student placed on it, or an invite that names it, whether pending or already settled. Nothing is moved or removed for you. Refused the same way while the track holds a grant of access to a space that has not ended: end it first. Grants to the track that have ended are cleared with it; the audit log keeps their record, and the detach entry names them.
+     *
+     *     A cohort has to have its tracks detached before it can be deleted.
+     */
+    delete: operations["CohortsController_detachTrack"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/members/{userId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Extend a guest's visit (admin only)
+     * @description Moves when a guest membership ends. The new end must be in the future and later than the end it already has. The guest needs no sign-in: their next refresh reads the new end from the membership. A visit that has already ended is refused with a 409 — send a new invite instead.
+     */
+    patch: operations["CohortsController_extendVisit"];
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/members/{userId}/track": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Move a student to another track (admin only)
+     * @description Changes which track a student in this cohort sits on, to another track the same cohort runs. The cohort and the member come from the URL, so the body carries only the target `trackId`; any other field is ignored.
+     *
+     *     Students only: staff and guests are refused with a 409. The roster shows the new track from the next read — nothing else about the membership changes, and the student needs no sign-in again.
+     *
+     *     Refusals: a 404 when nobody in the cohort holds this membership, or when the track id names no track at all; a 409 when the membership has already ended, when it is not a student, when the student is already on the target track, or when the cohort does not run the track (a track another cohort runs is refused, not moved).
+     */
+    patch: operations["CohortsController_moveMemberTrack"];
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/members/{userId}/dismiss": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Dismiss a student (admin only)
+     * @description Ends a membership by marking it dismissed. The cohort and the member come from the URL; the status and the end date are the server’s, and `status` or `endDate` in the body are ignored.
+     *
+     *     The row is kept. The roster files it under `state=ended` with the status and the reason, and the default roster no longer lists it.
+     *
+     *     Students only: staff and guests are refused with a 409. A `reason` is required.
+     *
+     *     The member’s sessions end with the change, in the same transaction, so their next request is refused; an open `world` socket closes on the next heartbeat. If they cannot be ended, nothing changes and the call answers 500, and it can be tried again. An admin’s sessions are left alone: admins are let in on their role, not on a membership.
+     *
+     *     Refusals: a 404 when nobody in the cohort holds this membership; a 409 when it has already ended, when a student-only status is aimed at staff or a guest, or when the caller targets their own membership; a 400 for a malformed body, or a dismissal with no reason.
+     */
+    post: operations["CohortsController_dismiss"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/members/{userId}/withdraw": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Withdraw a student (admin only)
+     * @description Ends a membership by marking it withdrawn. The cohort and the member come from the URL; the status and the end date are the server’s, and `status` or `endDate` in the body are ignored.
+     *
+     *     The row is kept. The roster files it under `state=ended` with the status and the reason, and the default roster no longer lists it.
+     *
+     *     Students only: staff and guests are refused with a 409. `reason` is optional.
+     *
+     *     The member’s sessions end with the change, in the same transaction, so their next request is refused; an open `world` socket closes on the next heartbeat. If they cannot be ended, nothing changes and the call answers 500, and it can be tried again. An admin’s sessions are left alone: admins are let in on their role, not on a membership.
+     *
+     *     Refusals: a 404 when nobody in the cohort holds this membership; a 409 when it has already ended, when a student-only status is aimed at staff or a guest, or when the caller targets their own membership; a 400 for a malformed body, or a dismissal with no reason.
+     */
+    post: operations["CohortsController_withdraw"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/members/{userId}/defer": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Defer a student (admin only)
+     * @description Ends a membership by marking it deferred. The cohort and the member come from the URL; the status and the end date are the server’s, and `status` or `endDate` in the body are ignored.
+     *
+     *     The row is kept. The roster files it under `state=ended` with the status and the reason, and the default roster no longer lists it.
+     *
+     *     Students only: staff and guests are refused with a 409. `reason` is optional.
+     *
+     *     The member’s sessions end with the change, in the same transaction, so their next request is refused; an open `world` socket closes on the next heartbeat. If they cannot be ended, nothing changes and the call answers 500, and it can be tried again. An admin’s sessions are left alone: admins are let in on their role, not on a membership.
+     *
+     *     Refusals: a 404 when nobody in the cohort holds this membership; a 409 when it has already ended, when a student-only status is aimed at staff or a guest, or when the caller targets their own membership; a 400 for a malformed body, or a dismissal with no reason.
+     */
+    post: operations["CohortsController_defer"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/members/{userId}/graduate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Graduate a student (admin only)
+     * @description Ends a membership by marking it graduated. The cohort and the member come from the URL; the status and the end date are the server’s, and `status` or `endDate` in the body are ignored.
+     *
+     *     The row is kept. The roster files it under `state=ended` with the status and the reason, and the default roster no longer lists it.
+     *
+     *     Students only: staff and guests are refused with a 409. `reason` is optional.
+     *
+     *     The member’s sessions end with the change, in the same transaction, so their next request is refused; an open `world` socket closes on the next heartbeat. If they cannot be ended, nothing changes and the call answers 500, and it can be tried again. An admin’s sessions are left alone: admins are let in on their role, not on a membership.
+     *
+     *     Refusals: a 404 when nobody in the cohort holds this membership; a 409 when it has already ended, when a student-only status is aimed at staff or a guest, or when the caller targets their own membership; a 400 for a malformed body, or a dismissal with no reason.
+     */
+    post: operations["CohortsController_graduate"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/members/{userId}/remove": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Remove a member (admin only)
+     * @description Ends a membership by marking it removed. The cohort and the member come from the URL; the status and the end date are the server’s, and `status` or `endDate` in the body are ignored.
+     *
+     *     The row is kept. The roster files it under `state=ended` with the status and the reason, and the default roster no longer lists it.
+     *
+     *     Applies to any member — student, staff or guest. `reason` is optional.
+     *
+     *     The member’s sessions end with the change, in the same transaction, so their next request is refused; an open `world` socket closes on the next heartbeat. If they cannot be ended, nothing changes and the call answers 500, and it can be tried again. An admin’s sessions are left alone: admins are let in on their role, not on a membership.
+     *
+     *     Refusals: a 404 when nobody in the cohort holds this membership; a 409 when it has already ended, when a student-only status is aimed at staff or a guest, or when the caller targets their own membership; a 400 for a malformed body, or a dismissal with no reason.
+     */
+    post: operations["CohortsController_removeMember"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/mentorship-groups": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List a cohort's mentorship groups (admin only)
+     * @description Every group in the cohort, by name, a page at a time, each with its mentor and all of its current students. A student who has left or whose membership ended is not listed.
+     */
+    get: operations["MentorshipGroupsController_list"];
+    put?: never;
+    /**
+     * Create a mentorship group (admin only)
+     * @description Creates an empty pod in a cohort: one mentor and a name, optionally a description. Students are added separately.
+     *
+     *     The mentor is a cohort membership, not a user: mentorMemberId is the `id` the roster returns. It must be a live mentor of this cohort. Names are unique per cohort, ignoring case. A mentor leads at most one group per cohort.
+     */
+    post: operations["MentorshipGroupsController_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/mentorship-groups/{groupId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get a mentorship group (admin only)
+     * @description One group, with its mentor and current students. The group must belong to the cohort in the URL.
+     */
+    get: operations["MentorshipGroupsController_get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete a mentorship group (admin only)
+     * @description Removes the group and its student links. The students stay in the cohort, and settled invites keep their row but lose the group id. The group must belong to the cohort in the URL. A group that a pending invite still names is refused with a 409: revoke the invite first.
+     */
+    delete: operations["MentorshipGroupsController_remove"];
+    options?: never;
+    head?: never;
+    /**
+     * Rename or edit a mentorship group (admin only)
+     * @description A partial edit: only the fields present are written. name is trimmed and must be unique in the cohort, ignoring case. description accepts null to clear it. Changing the mentor has its own route.
+     */
+    patch: operations["MentorshipGroupsController_update"];
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/mentorship-groups/{groupId}/mentor": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Change a mentorship group's mentor (admin only)
+     * @description Replaces the group’s mentor. The new mentor is a cohort membership: mentorMemberId is the `id` the roster returns, and it must be a live mentor of this cohort. A mentor leads at most one group per cohort.
+     */
+    patch: operations["MentorshipGroupsController_changeMentor"];
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/mentorship-groups/{groupId}/students": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Add a student to a mentorship group (admin only)
+     * @description Adds one live student of the cohort to the group. cohortMemberId is the membership `id` the roster returns, not a user id. A student belongs to at most one group per cohort, and adding them twice is a 409. The response is the updated group.
+     */
+    post: operations["MentorshipGroupsController_addStudent"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/mentorship-groups/{groupId}/students/{cohortMemberId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Remove a student from a mentorship group (admin only)
+     * @description Takes one membership out of the group. It is a 404 if that membership is not in the group, rather than a silent success. The student stays in the cohort.
+     */
+    delete: operations["MentorshipGroupsController_removeStudent"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/notices": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List the notice wall
+     * @description The notices the caller can see, pinned first, then newest, with the id breaking ties. The whole result is ordered before it is paged, so a pinned notice leads the wall rather than jumping to the top of whichever page it lands on.
+     *
+     *     A member sees campus notices, notices for their live cohorts, notices for their exact cohort tracks, and notices for mentorship groups they belong to. Admins see every notice. The filters only narrow that set; a cohort the caller is not in is an empty page, not an error.
+     *
+     *     Offset pagination: a notice inserted while the caller is walking pages can move an item across a page boundary. A hidden notice never does, because it is not in the visible set or the count.
+     */
+    get: operations["NoticesController_list"];
+    put?: never;
+    post: operations["NoticesController_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/notices/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations["NoticesController_remove"];
+    options?: never;
+    head?: never;
+    patch: operations["NoticesController_update"];
+    trace?: never;
+  };
+  "/v1/notices/{id}/pin": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations["NoticesController_pin"];
+    trace?: never;
+  };
+  "/v1/notices/{id}/comments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List a notice’s comments
+     * @description The comments under one notice, oldest first, with the id breaking ties on the same instant. The notice must be one the caller can see; an invisible notice and one that does not exist answer the same 404.
+     */
+    get: operations["NoticeCommentsController_list"];
+    put?: never;
+    /**
+     * Comment on a notice
+     * @description Adds the caller’s comment under a notice they can see. The author comes from the session and the target from the URL; both are ignored in the body. The comment and its audit entry are written together, or neither is written. An admin sees every non-removed notice, so an admin can comment on any of them.
+     */
+    post: operations["NoticeCommentsController_add"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/notifications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List your notifications
+     * @description Your own, newest first, paginated. `unread=true` leaves out the ones already read, which is the badge count in `meta.total`.
+     *
+     *     Each says what happened (`kind`) and what it is about (`referenceType`, `referenceId`), and not the thing itself: fetch the notice when you need its text.
+     *
+     *     New ones also arrive, while a campus socket is open, as world’s `notification` message, with the same fields.
+     */
+    get: operations["NotificationsController_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/notifications/read-all": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Mark all your notifications read
+     * @description Every one of yours not yet read, for "clear all". Answers how many that was; none is not an error.
+     */
+    post: operations["NotificationsController_markAllRead"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/notifications/{id}/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Mark one notification read
+     * @description Answers the notification as it now is. One already read is answered as it is, and changes nothing.
+     */
+    patch: operations["NotificationsController_markRead"];
+    trace?: never;
+  };
+  "/v1/uploads": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Get a URL to upload a file to
+     * @description Signs a PUT straight to storage for one file of this kind, type and size. PUT the file to `uploadUrl` with `headers` within 10 minutes, then hand `mediaId` to the endpoint that uses it. A different type or size is refused by storage. An upload nothing uses within an hour is deleted.
+     */
+    post: operations["UploadsController_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/uploads/limits": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * What each kind of upload may be
+     * @description The types and largest size each kind takes, to check a file before asking for a URL.
+     */
+    get: operations["UploadsController_limits"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/media/{id}/url": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * A fresh link to an attachment
+     * @description For refreshing an attachment link that has expired or answered 403. The link lasts 15 minutes. Images open in the browser; anything else downloads. Only for someone who can see what the file is attached to: a notice they can see, or feedback an admin may read.
+     */
+    get: operations["MediaController_url"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/desks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List a cohort's desks
+     * @description Every desk on the published maps, by map and key, with who holds it in this cohort. Each cohort has its own holder for a desk.
+     *
+     *     For the cohort's live members, guests included, and for admins.
+     */
+    get: operations["DesksController_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/desks/{key}/claim": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Claim a desk
+     * @description The caller takes the desk in this cohort. Claiming the desk they hold changes nothing; claiming another moves them to it, letting go of the first.
+     *
+     *     For admins, and for live members of the cohort but guests. A claim lasts until the holder lets go, an admin frees it, their membership ends, or the desk leaves the map.
+     */
+    post: operations["DesksController_claim"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/desks/{key}/release": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Let go of a desk, or free one (admins)
+     * @description Ends the claim on the desk in this cohort. The holder may let go of their own; only an admin may free somebody else's, which is audited as `desk_freed`. A desk nobody holds is answered as it is, so a retried release succeeds.
+     */
+    post: operations["DesksController_release"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/users": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List users (admin only)
+     * @description Every account, newest first, paginated, each with its live roster memberships.
+     *
+     *     Filters are all optional and combine with AND. `search` matches the address and the names; `systemRole` and `status` are about the account. `cohortId`, `trackId` and `cohortRole` are about a membership, and one membership has to satisfy all of those sent: `cohortId` + `trackId` is one cohort’s students on one track, and `cohortId` + `cohortRole=mentor` is that cohort’s mentors — not people in the cohort who mentor elsewhere.
+     *
+     *     Membership filters read live memberships only, the same rule sign-in uses: somebody who left, was dismissed, or whose guest visit ended is not in the cohort for this purpose. An id that names no cohort or track is an empty page, not a 404.
+     *
+     *     Memberships describe the roster, not access. A suspended account is listed with its memberships and matches the membership filters, but cannot sign in. `status=active` narrows a list to the people who can.
+     */
+    get: operations["UsersController_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/users/{id}/system-role": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Grant or revoke the admin role (admin only)
+     * @description Send `admin` to make somebody an admin, `user` to make them an ordinary user again. Any admin may do either.
+     *
+     *     A grant takes effect on the person’s next request if they are signed in. Somebody signed out, or still answering an invitation, has it from their next sign-in. Revoking the role also signs the person out everywhere.
+     *
+     *     Two people are off limits, both answered with a 409:
+     *
+     *     - **A super admin.** Their role cannot be changed through the API in either direction. Super admins are the accounts in `DEFAULT_ADMIN_EMAIL`, set by the seed.
+     *     - **Yourself.** Ask another admin, so nobody locks themselves out by a slip.
+     *
+     *     Setting the role somebody already has succeeds and changes nothing. `super_admin` is not an accepted value.
+     */
+    patch: operations["UsersController_setSystemRole"];
+    trace?: never;
+  };
+  "/v1/users/{id}/suspend": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Suspend an account (admin only)
+     * @description Takes an account out of service. From the next request it cannot sign in or call the API, its sessions end now rather than when their tokens run out, and an open `world` socket closes on the next heartbeat.
+     *
+     *     The account keeps its cohorts and its role; only its status changes, and it lasts until an admin reinstates it. Suspending records who suspended it and the role they held then, which is what decides who may reinstate it.
+     *
+     *     Who may suspend whom: a super admin may suspend anybody but themselves, so a compromised root account can still be taken out by another; a plain admin may suspend anybody but themselves and super admins, so no single admin account can lock out every super admin and leave recovery to the database.
+     *
+     *     Refusals: a 409 for **yourself** — ask another admin, so nobody locks themselves out by a slip — and for **an account already suspended**, which has nothing left to do. A 403 for a plain admin acting on a super admin, for a caller whose own account is no longer active, and for a caller who is not an admin.
+     *
+     *     `reason` is optional, and is kept in the audit log beside the actor and the target — nowhere else on the account.
+     */
+    post: operations["UsersController_suspend"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/users/{id}/reinstate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reinstate a suspended account (admin only)
+     * @description Puts a suspended account back to active: from the next request it can sign in and call the API again.
+     *
+     *     Its sessions are not restored with it — the person signs in again rather than walking back in with tokens issued before the suspension — and an open `world` socket stays closed.
+     *
+     *     Who may reinstate whom: a super admin may reinstate anybody; a plain admin only an account that a plain admin suspended, so a suspension a super admin made is lifted only by a super admin. The role recorded at suspension time decides, not the role the suspending admin holds now.
+     *
+     *     Refusals: a 409 for **an account that is not suspended**, which has nothing to be put back. A 403 for a plain admin lifting a suspension a super admin made, for a caller whose own account is no longer active, and for a caller who is not an admin.
+     */
+    post: operations["UsersController_reinstate"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/users/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read your own profile
+     * @description Everything on the signed-in account’s profile, including the phone number, which nobody else but an admin sees, and every cohort they hold a live place in.
+     */
+    get: operations["ProfileController_getOwn"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update your own profile
+     * @description A partial update: names, display name, phone, bio and sprite. Leave a field out to keep it; send `null` or an empty string to clear it. Values are trimmed.
+     *
+     *     The address cannot be changed here: it is the Google account the person signs in with. Roles and memberships are not the person’s to edit, and neither, yet, is the photo.
+     */
+    patch: operations["ProfileController_updateOwn"];
+    trace?: never;
+  };
+  "/v1/users/me/analytics-consent": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Choose whether analytics may name you
+     * @description For the consent banner. Decides whether presence, space and call analytics are tied to this account. Without a grant they are still counted, under a random id. Account, invite and membership events do not depend on this. It can be changed at any time.
+     */
+    put: operations["ProfileController_setAnalyticsConsent"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/users/me/avatar": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set your profile picture
+     * @description Takes a picture already uploaded: ask `POST /v1/uploads` for kind `avatar`, PUT the cropped file to the URL it returns, then send its `mediaId` here. The file is checked against the type and size it was signed for before it is shown. The picture it replaces is deleted within minutes.
+     */
+    put: operations["ProfileController_setAvatar"];
+    post?: never;
+    /**
+     * Remove your profile picture
+     * @description Leaves initials. Removes an uploaded picture and the one Google gave, which is not brought back by signing in again.
+     */
+    delete: operations["ProfileController_removeAvatar"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/users/{id}/profile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * View a member’s profile card
+     * @description What one member sees of another: names, photo, bio, address and the cohorts the two share. The phone number is never on a card.
+     *
+     *     A member can open the card of anybody they share a live cohort with, and sees only the shared cohorts. An admin can open any card and sees every live cohort, as does a person opening their own.
+     *
+     *     Anything else answers 404 — no such account, a suspended one, or one the caller shares no cohort with — so a card cannot be used to find out who has an account.
+     */
+    get: operations["ProfileController_getCard"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{id}/profiles": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List a cohort's people
+     * @description Everybody with a live place in the cohort, with their display name and sprite, for the sidebar: the whole cohort in one response, sorted by display name with unnamed people last. Who of them is online, and where, comes from the world socket.
+     *
+     *     For the cohort's live members and for admins. Suspended accounts are listed for admins only.
+     */
+    get: operations["CohortProfilesController_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/audit-log": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List audit entries (admin only)
+     * @description Who changed what: the admin setup (cohorts, tracks, invites) and the changes to people’s access that follow from it. Newest first, paginated. Read-only: entries cannot be edited or removed.
+     *
+     *     Filters are all optional and combine with AND. `subjectType` and `subjectId` together are one thing’s history. `from` and `to` are a half-open range: `from` is included, `to` is not.
+     *
+     *     History starts when the log was introduced. An empty history for something older does not mean nothing happened to it. An id that names nothing is an empty page, not a 404.
+     *
+     *     Sign-ins, reads, and accepting or declining an invite are not recorded, except where an accept revives a membership or grants the admin role.
+     */
+    get: operations["AuditLogController_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/admin/retention/sweep": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Delete rows past their retention period (super admin only)
+     * @description Deletes read notifications older than `NOTIFICATION_RETENTION_DAYS` (90 by default) and audit-log entries older than `AUDIT_LOG_RETENTION_DAYS` (365). Unread notifications are kept at any age.
+     *
+     *     Send `table` to sweep one table only, and `retentionDays` with it for a one-off period. No period may be under 30 days.
+     *
+     *     Each table is swept in a transaction of its own, which also writes a `retention_swept` audit entry. Nothing runs this on a timer: call it daily or weekly from an external scheduler.
+     */
+    post: operations["RetentionController_sweep"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/attendance/classes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List a cohort's tallied classes
+     * @description Each run of a room link that has been tallied, newest first, with how many students were present, partial and absent. Admins see every class of the cohort. A professor sees the classes aimed at their track, a mentor those aimed at their pod; whole-cohort classes are for admins only.
+     */
+    get: operations["CohortAttendanceController_listClasses"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/attendance/students": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Summarise a cohort's students
+     * @description Per student, across the classes the caller may read: how many, how many present, partial and absent, and the percentage of time. Admins see every class of the cohort. A professor sees the classes aimed at their track, a mentor those aimed at their pod; whole-cohort classes are for admins only.
+     */
+    get: operations["CohortAttendanceController_listStudents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/attendance/students/{userId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read one student's attendance
+     * @description A student's summary and each class, newest first. Students read their own, every class. Admins see every class of the cohort. A professor sees the classes aimed at their track, a mentor those aimed at their pod; whole-cohort classes are for admins only.
+     */
+    get: operations["CohortAttendanceController_getStudent"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/attendance/classes/{instanceId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read one class
+     * @description One tallied run with every expected student: time in the call, percentage, status and whether staff corrected it. Admins see every class of the cohort. A professor sees the classes aimed at their track, a mentor those aimed at their pod; whole-cohort classes are for admins only.
+     */
+    get: operations["AttendanceController_getClass"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/attendance/{attendanceId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Correct a student's status at one class
+     * @description Sets the status and keeps the correction, with who made it and why, for good. The tally then leaves the status alone, while still measuring the time. Admins see every class of the cohort. A professor sees the classes aimed at their track, a mentor those aimed at their pod; whole-cohort classes are for admins only.
+     */
+    put: operations["AttendanceController_correct"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/maps/sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Sync the published maps (admin only)
+     * @description Brings what the database holds of the campus maps into line with what is published. Publishing a map and it taking effect here are two steps on purpose: this is the second, and an admin takes it.
+     *
+     *     What it changes:
+     *
+     *     - A map or space that is new gets a row. A space starts with the kind the map suggests, when it suggests one that is known, and that kind’s starting settings. With no kind it is not set up, and only admins may enter: those are listed under `needsKind`.
+     *     - A map or space no longer published is **retired**, never deleted.
+     *     - One that is published again comes back as the same row, with what it had.
+     *     - Every map is given its default space, for the tiles inside no drawn one.
+     *     - Desks are added, retired and restored the same way, by key. A desk drawn on another map keeps its row and moves with it. A desk that leaves its map, retired or moved, ends every open claim on it.
+     *
+     *     What it never changes: a name, a kind or a setting an admin may have set. Beyond ending the claims on a desk that leaves its map, a sync only adds, retires and restores.
+     *
+     *     All of it happens or none of it. The published maps are read whole first, and if they cannot be adopted the database is not touched.
+     *
+     *     `?dryRun=true` answers what would change and keeps none of it. Running it again when nothing has been published since changes nothing: `changed` is false.
+     */
+    post: operations["MapsController_sync"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/maps/{id}/publish": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Publish a synced map to world (admin only)
+     * @description Makes the map live for world, without restarting it. A sync only brings the database level with what is published; this is the separate decision to serve it.
+     *
+     *     The row is locked, checked, given this moment as `publishedAt`, and an audit entry is written in the same transaction. Publishing again moves the timestamp and writes another entry.
+     *
+     *     After the commit, world is told the map’s key on the same channel a space edit uses. That is fire-and-forget: this route does not wait for world, and a failed notification is logged rather than failing the publish.
+     *
+     *     Only the map people enter on can be published: world serves one map, and a different one would leave clients without a spawn. A retired map is refused for the same reason a retired space is.
+     */
+    post: operations["MapsController_publish"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/spaces/{id}/memberships": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List the grants of access to a space (admin only)
+     * @description Every grant on the space, ended ones included — they are the record of who has had access, and when (an ended grant to a track goes when that track is detached from its cohort). `live` says which count right now, read at the moment of the request. Earliest grant first.
+     */
+    get: operations["SpaceMembershipsController_list"];
+    put?: never;
+    /**
+     * Grant access to a space (admin only)
+     * @description Puts an entry on the space’s list: one person, everybody on one cohort track, everybody holding a cohort role, everybody holding a system role, or everybody in a mentorship group — its students and its mentor, in the group’s cohort. A `designated` space admits whoever its list names; a `normal` one admits anybody in the campus, so an entry there has nothing to do.
+     *
+     *     A grant names exactly one subject. It may carry an end date (`validTo`, in the future: a date, read as midnight UTC, or a timestamp with its zone); left out, it has no end until an admin ends it. A grant starts the moment it is given.
+     *
+     *     Ending access later keeps this row: `DELETE` sets its end date and the row stays as the record. Granting again after that opens a new row beside it.
+     *
+     *     Refused with 409 when the space is retired, or when the subject already holds a grant on this space that covers now — end that one first, or wait for it to run out. Each grant writes an audit entry naming the admin, in the same transaction as the row.
+     */
+    post: operations["SpaceMembershipsController_grant"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/spaces/{id}/memberships/{membershipId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * End a grant of access to a space (admin only)
+     * @description Sets the grant’s end date to now. The row stays, so the list keeps saying who had access and until when — until the track an ended grant names is detached from its cohort, which clears it; the audit log keeps the record after that. A grant on a retired space may still be ended — taking access away is not giving it.
+     *
+     *     Writes an audit entry naming the admin, in the same transaction as the change.
+     */
+    delete: operations["SpaceMembershipsController_end"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/spaces": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List spaces (admin only)
+     * @description Every live space, by name. Retired spaces are left out; GET /v1/spaces/{id} still reads one by id.
+     *
+     *     `needsKind=true` narrows the list to spaces with no kind set: the queue of spaces the map drew and no admin has set up yet.
+     */
+    get: operations["SpacesController_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/spaces/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get a space (admin only)
+     * @description One space and its settings. A retired space is still readable: retiring keeps the row, and its history points at it.
+     */
+    get: operations["SpacesController_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update a space’s settings (admin only)
+     * @description A partial edit: only the fields present are written. An edit that moves nothing returns the space as it is and writes no audit entry.
+     *
+     *     The key, the map and the map’s default flag cannot be changed. A request naming one is refused by name rather than having it silently ignored.
+     *
+     *     The database refuses the combinations a space may not be: a default space that is not `normal`, a capacity below 1, or a second town hall or notice board. Each comes back with the rule it broke. A successful edit writes an audit entry naming the admin and every changed field, with its old and new value, in the same transaction as the row.
+     */
+    patch: operations["SpacesController_update"];
+    trace?: never;
+  };
+  "/v1/feedback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List feedback (admin only)
+     * @description Everything members have sent, newest first, paginated. Filters are optional and combine with AND: `type`, `status`, and `submittedBy` for everything one account has sent.
+     *
+     *     Each row has who sent it and, for a report that names an account, who it names. The `details` are on the single read.
+     *
+     *     A report that names the admin asking is left out, and not counted.
+     */
+    get: operations["FeedbackController_list"];
+    put?: never;
+    /**
+     * Send feedback
+     * @description For any signed-in member: a `bug` (something is broken), an `idea` (something could be better) or a `report` (somebody did something they should not have).
+     *
+     *     `title` and `details` are required. `about` is the "who or where" line, offered on every type and required on none: who a report is about, where a bug happened.
+     *
+     *     Who sent it is taken from the session and cannot be set. `context` and `cohortId` are for the client to fill in, not the member: where they were when they sent it. `cohortId` has to be a cohort the sender is in, unless the sender is an admin: admins enter any cohort’s campus without being in it, so any cohort that exists is taken from them.
+     *
+     *     A `report` may also name an account with `reportedUserId`. That person is not told, and nobody but an admin can read what was sent. Admins are emailed that a report has arrived, without what it says; an admin the report names is left out, and cannot read or resolve it.
+     *
+     *     `attachmentIds` carries up to ten screenshots or files: `feedback_attachment` uploads of the sender’s, from `POST /v1/uploads`. Only admins can open them.
+     *
+     *     The answer confirms it arrived. A member cannot read back what they have sent.
+     */
+    post: operations["FeedbackController_send"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/feedback/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read one piece of feedback (admin only)
+     * @description The whole of it: what was written, who sent it, where their client said they were, and who resolved it if anybody has.
+     *
+     *     `context` and `userAgent` are what the sender’s client reported, and are checked against nothing.
+     */
+    get: operations["FeedbackController_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Resolve or reopen feedback (admin only)
+     * @description Marks a piece of feedback `resolved`, recording who did it and when, or puts it back to `open`, which clears both.
+     *
+     *     Setting the status it already has changes nothing and records nothing. A change writes an audit entry naming the admin and the feedback, and nothing of what the feedback says.
+     */
+    patch: operations["FeedbackController_setStatus"];
+    trace?: never;
+  };
+  "/v1/calls/webhook": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Receive a LiveKit webhook (LiveKit only)
+     * @description Where the LiveKit project sends its webhooks. Signed by LiveKit with the key pair in LIVEKIT_WEBHOOK_API_KEY and LIVEKIT_WEBHOOK_API_SECRET; the signature is checked against the raw body. Records when a space’s call opens and closes, who joins and leaves it, and whether they turn their camera on. Events for any other room are acknowledged and ignored.
+     */
+    post: operations["CallsController_receive"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/spaces/{spaceId}/recording": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Start recording a space's call
+     * @description Records the cohort's call in the space as one video of the whole room, until it is stopped or the call ends. Everyone in the call is told by LiveKit: the room reports that it is being recorded. `status` is `starting` until LiveKit confirms.
+     *
+     *     For admins, in any space; and for the cohort’s live professors and mentors, in a designated space whose list names them.
+     */
+    post: operations["RecordingsController_start"];
+    /**
+     * Stop recording a space's call
+     * @description Stops the recording going on in the space, including one started as its call ended and began again. The video is saved once LiveKit finishes uploading it; `status` turns `complete` then.
+     */
+    delete: operations["RecordingsController_stop"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/calendar/connect": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Connect my Google Calendar (web)
+     * @description Open as a top-level navigation with a live session cookie: refresh first if the access token is close to running out, since the callback needs the same session. Redirects to Google’s consent screen for read-only calendar access. The Google account must be the one the member signs in to campus with.
+     */
+    get: operations["CalendarController_connect"];
+    put?: never;
+    /**
+     * Connect my Google Calendar (native app)
+     * @description The app asks Google’s SDK for calendar access and posts the server auth code it receives. Replaces any calendar connection already held.
+     */
+    post: operations["CalendarController_connectFromApp"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/calendar/connect/callback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Complete connecting my Google Calendar (web)
+     * @description Where Google returns the member. Needs the session that started the connection. Every outcome is a redirect into the web app.
+     */
+    get: operations["CalendarController_callback"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/calendar/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * My Google Calendar events
+     * @description Read from Google when asked, never stored here. Read-only: campus cannot create or change events. Without a connected calendar the answer is still 200, with `connected: false`.
+     */
+    get: operations["CalendarController_events"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/calendar": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Disconnect my Google Calendar
+     * @description Stops using the calendar access campus holds and revokes it at Google, which also takes campus off the member’s Google account connections. If Google does not confirm the revocation, campus keeps trying, unused, until it does. Works while the calendar is switched off.
+     */
+    delete: operations["CalendarController_disconnect"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/calendar/notifications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Receive a Google Calendar push notification (Google only)
+     * @description Where Google reports that a watched calendar changed. The channel id and its token are checked; anything else is acknowledged and ignored. Each notification syncs that calendar.
+     */
+    post: operations["CalendarNotificationsController_notify"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/cohorts/{cohortId}/spaces/{spaceId}/links": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List a space's room links
+     * @description The space's live links in this cohort, newest first. Revoked links are left out.
+     *
+     *     For admins, and for the cohort's live professors and mentors.
+     */
+    get: operations["SpaceRoomLinksController_list"];
+    put?: never;
+    /**
+     * Make a room link for an event
+     * @description A short link to the space in this cohort's campus, named for one event. A space may have any number of live links. Paste `url` into the location or description of a Google Calendar event you organise. Each run of that event is synced from your calendar once you have connected it, and whoever enters through the link from ten minutes before a run starts until it ends may enter the space. A link no synced event carries only shows the way.
+     *
+     *     For admins, and for the cohort's live professors and mentors.
+     */
+    post: operations["SpaceRoomLinksController_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/room-links/{code}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Open a room link
+     * @description Which cohort and space a link leads to, and the event it was made for. Opening it lets nobody into the space; entering it (`POST /room-links/{code}/enter`) does.
+     *
+     *     For anybody with a live place in the cohort, and for admins.
+     */
+    get: operations["RoomLinksController_open"];
+    put?: never;
+    post?: never;
+    /**
+     * Revoke a room link
+     * @description The link stops opening. Revoking one already revoked changes nothing.
+     *
+     *     For admins, and for the cohort's live professors and mentors.
+     */
+    delete: operations["RoomLinksController_revoke"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/room-links/{code}/enter": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Enter through a room link
+     * @description Call when somebody follows a link, then walk them to `spaceKey` with world's `goToSpace`.
+     *
+     *     While a run of the link is open (from ten minutes before it starts until it ends), the caller may enter the space whenever a run is open, whatever its list says; `admitted` says so, and `startsAt` and `endsAt` are that run. Admins are always admitted.
+     *
+     *     For anybody with a live place in the cohort, and for admins.
+     */
+    post: operations["RoomLinksController_enter"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/dashboard": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard figures (admin only)
+     * @description Live members, in total and by cohort role, and invites still waiting for an answer: across the campus, or in one cohort with `cohortId`. A live membership has not ended, is an active student or another role, and has not run out (a guest’s visit).
+     *
+     *     A suspended account still counts as a member, as it does on the roster, though world never lets it in: so members can include people who can never show as online.
+     *
+     *     Who is online now is not here: world answers that, at `GET /admin/online`, taking `cohortId` too. For a cohort that does not exist this route answers 404, while world, which does not know which cohorts exist, answers `{ "online": 0 }`.
+     */
+    get: operations["DashboardController_figures"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+}
+export type webhooks = Record<string, never>;
+export interface components {
+  schemas: {
+    /**
+     * @description Overall health state of the service.
+     * @enum {string}
+     */
+    HealthStatus: "ok" | "degraded" | "unavailable";
+    UptimeMetricsDto: {
+      /**
+       * @description Process uptime in seconds.
+       * @example 86400.12
+       */
+      seconds: number;
+    };
+    MemoryMetricsDto: {
+      /**
+       * @description Total resident set size in bytes.
+       * @example 123456789
+       */
+      rss: number;
+      /**
+       * @description Total size of the heap in bytes.
+       * @example 98304000
+       */
+      heapTotal: number;
+      /**
+       * @description Heap actually used in bytes.
+       * @example 61440000
+       */
+      heapUsed: number;
+      /**
+       * @description Memory used by C++ objects bound to JS in bytes.
+       * @example 8912896
+       */
+      external: number;
+    };
+    CpuMetricsDto: {
+      /**
+       * @description Process CPU time in user mode (microseconds).
+       * @example 823456
+       */
+      user: number;
+      /**
+       * @description Process CPU time in system mode (microseconds).
+       * @example 123456
+       */
+      system: number;
+      /**
+       * @description Combined user+system CPU time (microseconds).
+       * @example 946912
+       */
+      total: number;
+    };
+    LoadAverageDto: {
+      /**
+       * @description Load average over the last 1 minute.
+       * @example 1.5
+       */
+      "1m": number;
+      /**
+       * @description Load average over the last 5 minutes.
+       * @example 1.2
+       */
+      "5m": number;
+      /**
+       * @description Load average over the last 15 minutes.
+       * @example 1.1
+       */
+      "15m": number;
+    };
+    HealthResponseDto: {
+      /**
+       * @description Overall health state of the service.
+       * @example ok
+       */
+      status: components["schemas"]["HealthStatus"];
+      /** @description Timestamp of the health check (ISO 8601). */
+      timestamp: string;
+      /** @description Process uptime. */
+      uptime: components["schemas"]["UptimeMetricsDto"];
+      /** @description Memory usage of the Node.js process. */
+      memory: components["schemas"]["MemoryMetricsDto"];
+      /** @description CPU time consumed by the Node.js process. */
+      cpu: components["schemas"]["CpuMetricsDto"];
+      /** @description System load average. */
+      loadAverage: components["schemas"]["LoadAverageDto"];
+    };
+    /**
+     * @description Machine-readable error code. Always one of the ExceptionCode enum.
+     * @enum {string}
+     */
+    ExceptionCode:
+      | "INVALID_ARGUMENT"
+      | "UNAUTHORIZED"
+      | "FORBIDDEN"
+      | "NOT_FOUND"
+      | "CONFLICT"
+      | "INVITE_ALREADY_ACCEPTED"
+      | "INVITE_ALREADY_DECLINED"
+      | "INVITE_REVOKED"
+      | "INVITE_EXPIRED"
+      | "SPACE_AT_CAPACITY"
+      | "INVITE_REQUIRED"
+      | "ACCOUNT_SUSPENDED"
+      | "RATE_LIMITED"
+      | "UPLOAD_TOO_LARGE"
+      | "UPLOAD_TYPE_NOT_ALLOWED"
+      | "UPLOAD_MISMATCH"
+      | "SERVICE_UNAVAILABLE"
+      | "INTERNAL_ERROR";
+    ApiErrorBodyDto: {
+      /**
+       * @description Machine-readable error code. Always one of the ExceptionCode enum.
+       * @example NOT_FOUND
+       */
+      code: components["schemas"]["ExceptionCode"];
+      /**
+       * @description Human-readable description of the error.
+       * @example Resource not found
+       */
+      message: string;
+      /** @description Optional structured context about the error (e.g. offending field). */
+      details?: {
+        [key: string]: unknown;
+      };
+    };
+    ApiErrorResponseDto: {
+      /** @description The error envelope. */
+      error: components["schemas"]["ApiErrorBodyDto"];
+    };
+    GoogleTokenSignInDto: {
+      /**
+       * @description The id_token Google's sign-in SDK gave the app, unmodified. It must be
+       *     addressed to this deployment's web client or to one of its native app
+       *     clients.
+       */
+      idToken: string;
+    };
+    /**
+     * @description `full_access` belongs in the campus. `provisional` still has an invite to
+     *     answer, and every route but onboarding refuses it.
+     * @enum {string}
+     */
+    SessionScope: "provisional" | "full_access";
+    TokenSignInResponseDto: {
+      /**
+       * @description `full_access` belongs in the campus. `provisional` still has an invite to
+       *     answer, and every route but onboarding refuses it.
+       */
+      scope: components["schemas"]["SessionScope"];
+      /**
+       * @description The invite to answer, if any: for a provisional session, the one it was
+       *     issued for; for a full-access session, a pending invite to another cohort.
+       *     Load it with GET /v1/invites/validate-user-invite.
+       * @example 66666666-6666-4666-8666-666666666666
+       */
+      inviteId: string | null;
+      /** @description Send as `Authorization: Bearer <accessToken>` on every call. */
+      accessToken: string;
+      /**
+       * Format: date-time
+       * @description When the access token lapses. Refresh a little before this.
+       * @example 2026-09-30T12:15:00.000Z
+       */
+      expiresAt: string;
+      /**
+       * @description Exchange at POST /v1/auth/refresh for a new pair. Works once: keep the one
+       *     each refresh returns. Null for a provisional session, which cannot be
+       *     refreshed.
+       */
+      refreshToken: string | null;
+      /**
+       * Format: date-time
+       * @description When the refresh token lapses. Past this, the user signs in again. Null for
+       *     a provisional session.
+       * @example 2026-10-30T12:00:00.000Z
+       */
+      refreshExpiresAt: string | null;
+    };
+    /** @enum {string} */
+    CohortRole: "student" | "professor" | "mentor" | "guest";
+    SessionMembershipDto: {
+      role: components["schemas"]["CohortRole"];
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId: string;
+    };
+    /** @enum {string} */
+    SystemRole: "user" | "admin" | "super_admin";
+    SessionUserDto: {
+      /** @example Ada */
+      firstName?: string | null;
+      /** @example Lovelace */
+      lastName?: string | null;
+      /** @example Ada Lovelace */
+      displayName?: string | null;
+      /** @example https://lh3.googleusercontent.com/a/example */
+      avatarUrl?: string | null;
+      systemRole: components["schemas"]["SystemRole"];
+      /** @example 55555555-5555-4555-8555-555555555555 */
+      id: string;
+      /** @example ada@campus.local */
+      email: string;
+    };
+    SessionCohortDto: {
+      /** @example Cohort 3 */
+      name: string;
+      /** @example C3 */
+      code: string;
+    };
+    SessionCohortPlaceDto: {
+      role: components["schemas"]["CohortRole"];
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId: string;
+      cohort: components["schemas"]["SessionCohortDto"];
+    };
+    SessionResponseDto: {
+      /**
+       * @description `full_access` belongs in the campus. `provisional` still has an invite to
+       *     answer, and every route but onboarding refuses it.
+       */
+      scope: components["schemas"]["SessionScope"];
+      /**
+       * @description The invite to answer, if any: for a provisional session, the one it was
+       *     issued for, or the live invite that replaced it if that one was revoked or
+       *     lapsed; for a full-access session, a pending invite to another cohort. Load
+       *     it with GET /v1/invites/validate-user-invite.
+       * @example 66666666-6666-4666-8666-666666666666
+       */
+      inviteId?: string | null;
+      /**
+       * @description The first of `memberships` — only one, so it cannot describe somebody in
+       *     several cohorts; read `memberships` instead. Null for a provisional
+       *     session, and for an admin who holds no cohort place.
+       */
+      membership?: components["schemas"]["SessionMembershipDto"] | null;
+      /**
+       * Format: date-time
+       * @description When the access token lapses. A full-access session renews it with POST
+       *     /v1/auth/refresh; a provisional one has to sign in again.
+       * @example 2026-09-30T12:15:00.000Z
+       */
+      expiresAt: string;
+      user: components["schemas"]["SessionUserDto"];
+      /**
+       * @description Every cohort this account may enter, most recently joined first — a person
+       *     can belong to several, in any mix of roles. Empty for a provisional session
+       *     and for an admin with no cohort place. `membership` is the first entry,
+       *     kept while clients move to this.
+       */
+      memberships: components["schemas"]["SessionCohortPlaceDto"][];
+    };
+    RefreshTokenDto: {
+      /**
+       * @description The refresh token, for a client that holds its tokens itself. Ignored when
+       *     the refresh cookie is present.
+       */
+      refreshToken?: string;
+    };
+    RefreshResponseDto: {
+      /**
+       * Format: date-time
+       * @description When the new access token lapses. Refresh a little before this. It can be
+       *     sooner than AUTH_SESSION_TTL_MINUTES: a guest whose visit ends first gets a
+       *     token that ends with it.
+       * @example 2026-09-30T12:15:00.000Z
+       */
+      expiresAt: string;
+      /**
+       * Format: date-time
+       * @description When the new refresh token lapses. Past this, the user signs in again.
+       * @example 2026-10-30T12:00:00.000Z
+       */
+      refreshExpiresAt: string;
+      /**
+       * @description The new access token. Only when the refresh token came in the request body;
+       *     a cookie refresh answers in cookies.
+       */
+      accessToken?: string;
+      /**
+       * @description The new refresh token, replacing the one just spent. Only when the refresh
+       *     token came in the request body.
+       */
+      refreshToken?: string;
+    };
+    CreateInviteDto: {
+      /**
+       * @description Required for every invite but an admin one.
+       * @example student
+       */
+      cohortRole?: components["schemas"]["CohortRole"];
+      /**
+       * @description Defaults to 'user'. Admin invites pass 'admin' with no cohort fields. An
+       *     invite cannot make a super admin: only the seed does.
+       * @example user
+       * @enum {string}
+       */
+      systemRole?: "user" | "admin";
+      /**
+       * Format: email
+       * @description Invitee address. Stored lowercase.
+       * @example new.student@campus.local
+       */
+      email: string;
+      /**
+       * Format: uuid
+       * @description Required for every invite but an admin one.
+       * @example 11111111-1111-4111-8111-111111111111
+       */
+      cohortId?: string;
+      /**
+       * Format: uuid
+       * @description Required when cohortRole is student. Must belong to cohortId.
+       * @example 22222222-2222-4222-8222-222222222222
+       */
+      cohortTrackId?: string;
+      /**
+       * Format: uuid
+       * @description Optional pod assignment. Requires cohortId.
+       * @example 33333333-3333-4333-8333-333333333333
+       */
+      mentorshipGroupId?: string;
+      /**
+       * @description Defaults to now + INVITE_TTL_DAYS. Must be in the future.
+       * @example 2026-10-01T00:00:00.000Z
+       */
+      expiresAt?: string;
+      /**
+       * @description When the guest stops being one — required for cohortRole guest, and
+       *     rejected for every other role. Not the same as expiresAt, which is how long
+       *     this invite stays redeemable.
+       * @example 2026-12-01T00:00:00.000Z
+       */
+      guestAccessExpiresAt?: string;
+    };
+    /** @enum {string} */
+    InviteStatus: "pending" | "accepted" | "declined" | "revoked" | "expired";
+    /**
+     * @description `sent`: Resend accepted the email. `failed`: it was not confirmed sent —
+     *     share inviteLink by hand; the invite exists either way. `disabled`: this
+     *     deployment sends no email (FF_EMAIL_ENABLED off).
+     * @enum {string}
+     */
+    InviteEmailStatus: "sent" | "failed" | "disabled";
+    InviteResponseDto: {
+      /**
+       * Format: uuid
+       * @description Null for an invite that grants a system role only.
+       * @example 11111111-1111-4111-8111-111111111111
+       */
+      cohortId: string | null;
+      /** @description Null for an invite that grants a system role only. */
+      cohortRole: components["schemas"]["CohortRole"] | null;
+      /**
+       * Format: uuid
+       * @description The cohort’s own link to a track, not the catalogue track. Null when the
+       *     invite places nobody on a track.
+       * @example 22222222-2222-4222-8222-222222222222
+       */
+      cohortTrackId: string | null;
+      /**
+       * Format: uuid
+       * @description Null when the invite assigns no mentorship group.
+       * @example 33333333-3333-4333-8333-333333333333
+       */
+      mentorshipGroupId: string | null;
+      systemRole: components["schemas"]["SystemRole"];
+      status: components["schemas"]["InviteStatus"];
+      /**
+       * Format: date-time
+       * @description Guest invites only; null otherwise. When the visit itself ends, which is
+       *     not expiresAt above — that is how long the link stays redeemable, and it is
+       *     clamped to never outlast this.
+       * @example 2026-10-05T17:00:00.000Z
+       */
+      guestAccessExpiresAt: string | null;
+      /**
+       * @description Raw token. Never stored; only its hash lives in the DB.
+       * @example abc123
+       */
+      token: string;
+      /**
+       * @description `sent`: Resend accepted the email. `failed`: it was not confirmed sent —
+       *     share inviteLink by hand; the invite exists either way. `disabled`: this
+       *     deployment sends no email (FF_EMAIL_ENABLED off).
+       * @example sent
+       */
+      emailStatus: components["schemas"]["InviteEmailStatus"];
+      /** @example 44444444-4444-4444-8444-444444444444 */
+      id: string;
+      /** @example new.student@campus.local */
+      email: string;
+      /** @example 2026-09-29T12:00:00.000Z */
+      expiresAt: string;
+      /**
+       * @description Shareable link embedding the RAW unhashed token. Shown exactly once — only
+       *     the SHA-256 hash is stored in INVITES.token_hash.
+       * @example http://localhost:3000/invitation?token=abc123
+       */
+      inviteLink: string;
+      /** @example 2026-09-22T12:00:00.000Z */
+      createdAt: string;
+    };
+    /** @enum {string} */
+    InviteImportOutcome: "invited" | "failed";
+    InviteImportRowDto: {
+      outcome: components["schemas"]["InviteImportOutcome"];
+      /** @description Invited rows only: whether the invite email went out. */
+      emailStatus?: components["schemas"]["InviteEmailStatus"];
+      /**
+       * @description The line in the file, counting the header as line 1, as a spreadsheet
+       *     numbers it.
+       * @example 2
+       */
+      line: number;
+      /**
+       * @description The address as the file gave it, lowercased.
+       * @example ada@campus.local
+       */
+      email: string;
+      /**
+       * @description Invited rows only.
+       * @example 44444444-4444-4444-8444-444444444444
+       */
+      inviteId?: string;
+      /**
+       * @description Invited rows only. Shown once, as it is when one invite is created: share
+       *     it by hand if `emailStatus` is not `sent`.
+       * @example https://campus.example/invitation?token=…
+       */
+      inviteLink?: string;
+      /**
+       * @description Failed rows only: why, in words for the admin.
+       * @example A pending invite already exists for ada@campus.local
+       */
+      reason?: string;
+    };
+    InviteImportResponseDto: {
+      /**
+       * @description Rows in the file, header aside.
+       * @example 3
+       */
+      total: number;
+      /** @example 2 */
+      invited: number;
+      /** @example 1 */
+      failed: number;
+      /** @description One entry per row, in the order of the file. */
+      rows: components["schemas"]["InviteImportRowDto"][];
+    };
+    AdminInviteListItemDto: {
+      /**
+       * @description Read against expiresAt, not off the stored column: a lapsed invite is
+       *     `expired` here even before anything has materialised the flip, so `pending`
+       *     always means still redeemable.
+       */
+      status: components["schemas"]["InviteStatus"];
+      /**
+       * Format: uuid
+       * @description Null for an invite that grants a system role only.
+       * @example 11111111-1111-4111-8111-111111111111
+       */
+      cohortId: string | null;
+      /** @description Null for an invite that grants a system role only. */
+      cohortRole: components["schemas"]["CohortRole"] | null;
+      systemRole: components["schemas"]["SystemRole"];
+      /**
+       * Format: uuid
+       * @description Who sent it. Never null — an invite always has an author.
+       * @example 22222222-2222-4222-8222-222222222222
+       */
+      invitedBy: string;
+      /**
+       * Format: uuid
+       * @description Who revoked it. Null unless status is `revoked`: accepted and declined
+       *     invites have no actor to name. Also null on the few invites a data
+       *     migration revoked, which nobody did by hand.
+       * @example 33333333-3333-4333-8333-333333333333
+       */
+      revokedBy: string | null;
+      /**
+       * Format: date-time
+       * @description When it was revoked. Null unless status is `revoked`.
+       * @example 2026-09-25T09:30:00.000Z
+       */
+      revokedAt: string | null;
+      /**
+       * Format: date-time
+       * @description When the invitee flagged a mistake on it. Null if they never did. A flag
+       *     changes nothing else: the invite can still be accepted.
+       * @example null
+       */
+      flaggedAt: string | null;
+      /**
+       * @description What the invitee said is wrong. Null unless flagged.
+       * @example null
+       */
+      flagMessage: string | null;
+      /** @example 44444444-4444-4444-8444-444444444444 */
+      id: string;
+      /** @example new.student@campus.local */
+      email: string;
+      /**
+       * @description When the link stops being redeemable.
+       * @example 2026-09-29T12:00:00.000Z
+       */
+      expiresAt: string;
+      /** @example 2026-09-22T12:00:00.000Z */
+      createdAt: string;
+    };
+    PaginationMetaDto: {
+      /**
+       * @description Current page number (1-based).
+       * @example 1
+       */
+      page: number;
+      /**
+       * @description Number of items per page.
+       * @example 20
+       */
+      perPage: number;
+      /**
+       * @description Total number of items across all pages.
+       * @example 152
+       */
+      total: number;
+      /**
+       * @description Total number of pages.
+       * @example 8
+       */
+      totalPages: number;
+    };
+    PaginatedAdminInviteListItemDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["AdminInviteListItemDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    RevokeInviteResponseDto: {
+      /**
+       * @description Read against expiresAt, not off the stored column: a lapsed invite is
+       *     `expired` here even before anything has materialised the flip, so `pending`
+       *     always means still redeemable.
+       */
+      status: components["schemas"]["InviteStatus"];
+      /**
+       * Format: uuid
+       * @description Null for an invite that grants a system role only.
+       * @example 11111111-1111-4111-8111-111111111111
+       */
+      cohortId: string | null;
+      /** @description Null for an invite that grants a system role only. */
+      cohortRole: components["schemas"]["CohortRole"] | null;
+      systemRole: components["schemas"]["SystemRole"];
+      /**
+       * Format: uuid
+       * @description Who sent it. Never null — an invite always has an author.
+       * @example 22222222-2222-4222-8222-222222222222
+       */
+      invitedBy: string;
+      /**
+       * Format: uuid
+       * @description Who revoked it. Null unless status is `revoked`: accepted and declined
+       *     invites have no actor to name. Also null on the few invites a data
+       *     migration revoked, which nobody did by hand.
+       * @example 33333333-3333-4333-8333-333333333333
+       */
+      revokedBy: string | null;
+      /**
+       * Format: date-time
+       * @description When it was revoked. Null unless status is `revoked`.
+       * @example 2026-09-25T09:30:00.000Z
+       */
+      revokedAt: string | null;
+      /**
+       * Format: date-time
+       * @description When the invitee flagged a mistake on it. Null if they never did. A flag
+       *     changes nothing else: the invite can still be accepted.
+       * @example null
+       */
+      flaggedAt: string | null;
+      /**
+       * @description What the invitee said is wrong. Null unless flagged.
+       * @example null
+       */
+      flagMessage: string | null;
+      /** @example 44444444-4444-4444-8444-444444444444 */
+      id: string;
+      /** @example new.student@campus.local */
+      email: string;
+      /**
+       * @description When the link stops being redeemable.
+       * @example 2026-09-29T12:00:00.000Z
+       */
+      expiresAt: string;
+      /** @example 2026-09-22T12:00:00.000Z */
+      createdAt: string;
+    };
+    InvitePreviewRequestDto: {
+      /**
+       * @description The `token` from the invite link, exactly as it arrived.
+       * @example hFiA6EvJBOTvjt53b6SuvRAOCUiWl7umU4OWZl08WnU
+       */
+      token: string;
+    };
+    InvitePreviewCohortDto: {
+      /** @example 2026-09-01 */
+      startDate?: string | null;
+      /** @example 2027-06-30 */
+      endDate?: string | null;
+      /** @example Product Design 2026 */
+      name: string;
+      /** @example PD26 */
+      code: string;
+    };
+    InvitePreviewTrackDto: {
+      /** @example Product Design */
+      name: string;
+      /** @example PD */
+      code: string;
+    };
+    InvitePreviewInviterDto: {
+      /** @example Jerry */
+      firstName?: string | null;
+      /** @example Smith */
+      lastName?: string | null;
+    };
+    InvitePreviewResponseDto: {
+      /** @description Null for an admin invite — show systemRole instead. */
+      cohortRole?: components["schemas"]["CohortRole"] | null;
+      systemRole: components["schemas"]["SystemRole"];
+      /**
+       * Format: date-time
+       * @description Guests only: when the visit being offered ends. Say so before they accept.
+       * @example null
+       */
+      guestAccessExpiresAt?: string | null;
+      /**
+       * @description The address the invite was sent to. Show it beside "Continue with Google":
+       *     signing in with any other account is refused with invite_required.
+       * @example ada@campus.local
+       */
+      email: string;
+      /** @description Null for an admin invite, which joins no cohort. */
+      cohort: components["schemas"]["InvitePreviewCohortDto"] | null;
+      /** @description Set for students; null for every other role. */
+      track: components["schemas"]["InvitePreviewTrackDto"] | null;
+      invitedBy: components["schemas"]["InvitePreviewInviterDto"];
+      /**
+       * Format: date-time
+       * @description When the link stops working.
+       * @example 2026-10-07T12:00:00.000Z
+       */
+      expiresAt: string;
+    };
+    /** @enum {string} */
+    CohortStatus: "upcoming" | "active" | "completed";
+    InviteCohortDto: {
+      /** @example 2026-09-01 */
+      startDate?: string | null;
+      /** @example 2027-06-30 */
+      endDate?: string | null;
+      status: components["schemas"]["CohortStatus"];
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      id: string;
+      /** @example Cohort 1 */
+      name: string;
+      /** @example C1 */
+      code: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      createdAt: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      updatedAt: string;
+    };
+    InviteCohortTrackDto: {
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      id: string;
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId: string;
+      /** @example 33333333-3333-4333-8333-333333333333 */
+      trackId: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      createdAt: string;
+    };
+    InviteTrackDto: {
+      /** @example Backend and infra */
+      description?: string | null;
+      /** @example 33333333-3333-4333-8333-333333333333 */
+      id: string;
+      /** @example Software Engineering */
+      name: string;
+      /** @example SE */
+      code: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      createdAt: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      updatedAt: string;
+    };
+    InvitedByDto: {
+      /** @example Ada */
+      firstName?: string | null;
+      /** @example Lovelace */
+      lastName?: string | null;
+      /** @example 44444444-4444-4444-8444-444444444444 */
+      id: string;
+    };
+    /** @enum {string} */
+    UserStatus: "active" | "suspended";
+    InviteInviteeDto: {
+      /** @example New */
+      firstName?: string | null;
+      /** @example Student */
+      lastName?: string | null;
+      /** @example New Student */
+      displayName?: string | null;
+      systemRole: components["schemas"]["SystemRole"];
+      status: components["schemas"]["UserStatus"];
+      /** @example 55555555-5555-4555-8555-555555555555 */
+      id: string;
+      /** @example new.student@campus.local */
+      email: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      createdAt: string;
+    };
+    InviteOnboardingResponseDto: {
+      cohortRole?: components["schemas"]["CohortRole"] | null;
+      systemRole: components["schemas"]["SystemRole"];
+      status: components["schemas"]["InviteStatus"];
+      /**
+       * Format: date-time
+       * @description Guest invites only; null otherwise. When the access being offered ends —
+       *     the decision screen should say so before anyone accepts, since a guest is
+       *     agreeing to a visit rather than a place.
+       * @example null
+       */
+      guestAccessExpiresAt?: string | null;
+      /**
+       * Format: date-time
+       * @description When the invitee flagged a mistake on this invite with POST
+       *     /v1/invites/flag; null if they have not. An invite takes one flag, so once
+       *     this is set the button has nothing left to do. Accepting works either way.
+       * @example null
+       */
+      flaggedAt?: string | null;
+      /** @example 66666666-6666-4666-8666-666666666666 */
+      id: string;
+      cohort: components["schemas"]["InviteCohortDto"] | null;
+      cohortTrack: components["schemas"]["InviteCohortTrackDto"] | null;
+      track: components["schemas"]["InviteTrackDto"] | null;
+      /**
+       * Format: date-time
+       * @description When the offer lapses. Not a deadline on the user, but the boundary at
+       *     which this endpoint starts answering 403.
+       * @example 2026-09-29T12:00:00.000Z
+       */
+      expiresAt: string;
+      invitedBy: components["schemas"]["InvitedByDto"];
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      createdAt: string;
+      user: components["schemas"]["InviteInviteeDto"];
+    };
+    InviteFlagDto: {
+      /**
+       * @description What is wrong with the invite, in the invitee’s own words. Sent to the
+       *     admin as written, so it has to say something: blank is refused.
+       * @example I applied for the Product Design track, not Software Engineering.
+       */
+      message: string;
+      /**
+       * Format: uuid
+       * @description The invite being flagged — the id GET /v1/invites/validate-user-invite
+       *     returned. Named under the same rule as POST /v1/invites/decision: required
+       *     for a full-access session, optional for a provisional one, which otherwise
+       *     flags the invite its session was issued for.
+       * @example 66666666-6666-4666-8666-666666666666
+       */
+      inviteId?: string;
+    };
+    InviteFlagResponseDto: {
+      /** @example 66666666-6666-4666-8666-666666666666 */
+      inviteId: string;
+      /**
+       * Format: date-time
+       * @example 2026-10-03T12:00:00.000Z
+       */
+      flaggedAt: string;
+    };
+    /**
+     * @description Accept admits the invitee: cohort membership is created and the session is
+     *     upgraded to full access. Decline closes the invite and ends the provisional
+     *     session.
+     * @enum {string}
+     */
+    InviteDecision: "accept" | "decline";
+    InviteDecisionDto: {
+      /**
+       * @description Accept admits the invitee: cohort membership is created and the session is
+       *     upgraded to full access. Decline closes the invite and ends the provisional
+       *     session.
+       */
+      decision: components["schemas"]["InviteDecision"];
+      /**
+       * Format: uuid
+       * @description The invite being answered — the id GET /v1/invites/validate-user-invite
+       *     returned. Required for a full-access session (a member invited to another
+       *     cohort), so an invite replaced since the member read it is never accepted
+       *     unseen. A provisional session may omit it to answer the invite its session
+       *     was issued for. If that one was revoked and replaced, validate-user-invite
+       *     shows the replacement, and answering it means naming it here; any other id
+       *     is refused.
+       * @example 66666666-6666-4666-8666-666666666666
+       */
+      inviteId?: string;
+    };
+    /** @enum {string} */
+    InviteDecisionStatus: "accepted" | "declined";
+    /** @enum {string} */
+    StudentStatus:
+      "active" | "dismissed" | "graduated" | "withdrawn" | "deferred";
+    MembershipGrantedDto: {
+      role: components["schemas"]["CohortRole"];
+      /** @example null */
+      cohortTrackId?: string | null;
+      status?: components["schemas"]["StudentStatus"] | null;
+      /**
+       * Format: date-time
+       * @description When this membership stops counting. Set for guests and null for everyone
+       *     else, so a client can tell a visitor they are here until a date rather than
+       *     indefinitely.
+       * @example null
+       */
+      accessExpiresAt?: string | null;
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      joinedAt: string;
+    };
+    SessionTokensDto: {
+      /**
+       * @description `full_access` belongs in the campus. `provisional` still has an invite to
+       *     answer, and every route but onboarding refuses it.
+       */
+      scope: components["schemas"]["SessionScope"];
+      /** @description Send as `Authorization: Bearer <accessToken>` on every call. */
+      accessToken: string;
+      /**
+       * Format: date-time
+       * @description When the access token lapses. Refresh a little before this.
+       * @example 2026-09-30T12:15:00.000Z
+       */
+      expiresAt: string;
+      /**
+       * @description Exchange at POST /v1/auth/refresh for a new pair. Works once: keep the one
+       *     each refresh returns. Null for a provisional session, which cannot be
+       *     refreshed.
+       */
+      refreshToken: string | null;
+      /**
+       * Format: date-time
+       * @description When the refresh token lapses. Past this, the user signs in again. Null for
+       *     a provisional session.
+       * @example 2026-10-30T12:00:00.000Z
+       */
+      refreshExpiresAt: string | null;
+    };
+    InviteDecisionResponseDto: {
+      status: components["schemas"]["InviteDecisionStatus"];
+      /** @description Null for a cohort-less admin invite, and for a decline. */
+      membership?: components["schemas"]["MembershipGrantedDto"] | null;
+      /**
+       * @description The account's role after accepting — the invite is the only channel that
+       *     can grant anything above the default a provisional sign-in gets. Null on
+       *     decline.
+       */
+      systemRole?: components["schemas"]["SystemRole"] | null;
+      /** @example 66666666-6666-4666-8666-666666666666 */
+      inviteId: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      decidedAt: string;
+      /**
+       * @description The full-access session an accept upgraded a provisional one to. Present
+       *     only when the request was authenticated with a bearer token rather than the
+       *     cookie; replace the provisional token with it. Absent on a decline, and for
+       *     a full-access caller, who keeps the session they came with.
+       */
+      session?: components["schemas"]["SessionTokensDto"];
+    };
+    CreateTrackDto: {
+      /**
+       * @description Unique across tracks. Stored uppercase.
+       * @example SE
+       */
+      code: string;
+      /** @example Software Engineering */
+      name: string;
+      /** @example Backend and infra */
+      description?: string;
+    };
+    TrackResponseDto: {
+      /** @example 33333333-3333-4333-8333-333333333333 */
+      id: string;
+      /** @example Software Engineering */
+      name: string;
+      /** @example SE */
+      code: string;
+      /** @example Backend and infra */
+      description: string | null;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      createdAt: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      updatedAt: string;
+    };
+    PaginatedTrackResponseDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["TrackResponseDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    UpdateTrackDto: {
+      /**
+       * @description Unique across tracks. Stored uppercase.
+       * @example SE
+       */
+      code?: string;
+      /** @example Software Engineering */
+      name?: string;
+      /**
+       * @description An empty string or null clears it.
+       * @example Backend and infra
+       */
+      description?: string | null;
+    };
+    CreateCohortDto: {
+      /**
+       * @description Unique across cohorts. Stored uppercase.
+       * @example C1
+       */
+      code: string;
+      /**
+       * Format: date
+       * @example 2026-09-01
+       */
+      startDate?: string;
+      /**
+       * Format: date
+       * @description On or after startDate.
+       * @example 2027-06-30
+       */
+      endDate?: string;
+      /** @default upcoming */
+      status: components["schemas"]["CohortStatus"];
+      /** @example Cohort 1 */
+      name: string;
+    };
+    CohortResponseDto: {
+      /**
+       * Format: date
+       * @example 2026-09-01
+       */
+      startDate: string | null;
+      /**
+       * Format: date
+       * @example 2027-06-30
+       */
+      endDate: string | null;
+      status: components["schemas"]["CohortStatus"];
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      id: string;
+      /** @example Cohort 1 */
+      name: string;
+      /** @example C1 */
+      code: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      createdAt: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      updatedAt: string;
+    };
+    PaginatedCohortResponseDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["CohortResponseDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    CohortTrackResponseDto: {
+      /**
+       * @description The cohortTrackId to put on a student invite.
+       * @example 22222222-2222-4222-8222-222222222222
+       */
+      id: string;
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId: string;
+      track: components["schemas"]["TrackResponseDto"];
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      createdAt: string;
+    };
+    CohortDetailResponseDto: {
+      /**
+       * Format: date
+       * @example 2026-09-01
+       */
+      startDate: string | null;
+      /**
+       * Format: date
+       * @example 2027-06-30
+       */
+      endDate: string | null;
+      status: components["schemas"]["CohortStatus"];
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      id: string;
+      /** @example Cohort 1 */
+      name: string;
+      /** @example C1 */
+      code: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      createdAt: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      updatedAt: string;
+      /** @description The tracks this cohort runs, by track name. */
+      tracks: components["schemas"]["CohortTrackResponseDto"][];
+    };
+    /**
+     * @description Whether the membership counts now, read against the clock rather than off a
+     *     column: a guest whose visit ended a minute ago is `ended` here.
+     * @enum {string}
+     */
+    MembershipState: "live" | "ended";
+    RosterUserDto: {
+      /** @example null */
+      avatarUrl: string | null;
+      /**
+       * @description The account’s own status. A suspended account keeps its place on the roster
+       *     but cannot sign in.
+       */
+      status: components["schemas"]["UserStatus"];
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      id: string;
+      /** @example ada@campus.local */
+      email: string;
+      /** @example Ada */
+      firstName: string | null;
+      /** @example Lovelace */
+      lastName: string | null;
+      /** @example Ada L. */
+      displayName: string | null;
+    };
+    RosterTrackDto: {
+      /** @example 33333333-3333-4333-8333-333333333333 */
+      id: string;
+      /** @example Software Engineering */
+      name: string;
+      /** @example SE */
+      code: string;
+    };
+    RosterMemberDto: {
+      role: components["schemas"]["CohortRole"];
+      /** @description Students only; null for every other role. */
+      status: components["schemas"]["StudentStatus"] | null;
+      /**
+       * @description Whether the membership counts now, read against the clock rather than off a
+       *     column: a guest whose visit ended a minute ago is `ended` here.
+       */
+      state: components["schemas"]["MembershipState"];
+      /**
+       * @description Why a dismissed student was dismissed. Null otherwise.
+       * @example null
+       */
+      dismissalReason: string | null;
+      /**
+       * @description The membership, not the person: one per person per cohort.
+       * @example 77777777-7777-4777-8777-777777777777
+       */
+      id: string;
+      user: components["schemas"]["RosterUserDto"];
+      /**
+       * @description Always set for a student. Staff and guests have one only when they were
+       *     placed on a track; otherwise null.
+       */
+      track: components["schemas"]["RosterTrackDto"] | null;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      joinedAt: string;
+      /** Format: date-time */
+      leftAt: string | null;
+      /**
+       * Format: date-time
+       * @description Guests only: when the visit ends.
+       */
+      accessExpiresAt: string | null;
+    };
+    PaginatedRosterMemberDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["RosterMemberDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    /** @enum {string} */
+    RosterScope: "live" | "ended" | "all";
+    AttachTrackDto: {
+      /**
+       * Format: uuid
+       * @description A track from GET /v1/tracks.
+       * @example 33333333-3333-4333-8333-333333333333
+       */
+      trackId: string;
+    };
+    ExtendGuestVisitDto: {
+      /**
+       * Format: date-time
+       * @description When the visit now ends: in the future, and later than the end it already
+       *     has.
+       * @example 2026-10-20T12:00:00.000Z
+       */
+      accessExpiresAt: string;
+    };
+    CohortMemberResponseDto: {
+      role: components["schemas"]["CohortRole"];
+      /**
+       * @description The membership's own id.
+       * @example 55555555-5555-4555-8555-555555555555
+       */
+      id: string;
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId: string;
+      /** @example 44444444-4444-4444-8444-444444444444 */
+      userId: string;
+      /**
+       * Format: date-time
+       * @description When the visit now ends.
+       * @example 2026-10-20T12:00:00.000Z
+       */
+      accessExpiresAt: string;
+    };
+    MoveMemberTrackDto: {
+      /**
+       * Format: uuid
+       * @description A track from GET /v1/tracks that this cohort runs.
+       * @example 33333333-3333-4333-8333-333333333333
+       */
+      trackId: string;
+    };
+    MoveMemberTrackResponseDto: {
+      role: components["schemas"]["CohortRole"];
+      /**
+       * @description The membership's own id.
+       * @example 55555555-5555-4555-8555-555555555555
+       */
+      id: string;
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId: string;
+      /** @example 44444444-4444-4444-8444-444444444444 */
+      userId: string;
+      /** @description The track the student is on now. */
+      track: components["schemas"]["RosterTrackDto"];
+    };
+    EndMembershipDto: {
+      /**
+       * @description Why, in the admin’s own words. Required for a dismissal, optional for the
+       *     other four. Kept on the membership and in the audit log, so the roster
+       *     shows it under state=ended. Blank is taken as no reason rather than
+       *     refused.
+       * @example Posted the answer to a live assessment.
+       */
+      reason?: string;
+    };
+    EndMembershipResponseDto: {
+      role: components["schemas"]["CohortRole"];
+      /**
+       * @description The student status the end set; null for a removal, which carries no
+       *     student status.
+       */
+      status: components["schemas"]["StudentStatus"] | null;
+      /**
+       * @description The membership's own id.
+       * @example 55555555-5555-4555-8555-555555555555
+       */
+      id: string;
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId: string;
+      /** @example 44444444-4444-4444-8444-444444444444 */
+      userId: string;
+      /**
+       * Format: date-time
+       * @description When the membership ended.
+       * @example 2026-10-13T12:00:00.000Z
+       */
+      leftAt: string;
+      /**
+       * @description What the admin wrote, or null when they wrote nothing.
+       * @example Posted the answer to a live assessment.
+       */
+      reason: string | null;
+    };
+    UpdateCohortDto: {
+      /**
+       * @description Unique across cohorts. Stored uppercase.
+       * @example C1
+       */
+      code?: string;
+      /**
+       * Format: date
+       * @description Null clears it.
+       * @example 2026-09-01
+       */
+      startDate?: string | null;
+      /**
+       * Format: date
+       * @description On or after startDate. Null clears it.
+       * @example 2027-06-30
+       */
+      endDate?: string | null;
+      status?: components["schemas"]["CohortStatus"];
+      /** @example Cohort 1 */
+      name?: string;
+    };
+    CreateMentorshipGroupDto: {
+      /**
+       * @description Unique within the cohort, whatever its case.
+       * @example Pod A
+       */
+      name: string;
+      /**
+       * Format: uuid
+       * @description The cohort membership of the mentor. Must be a live mentor of this cohort.
+       * @example 77777777-7777-4777-8777-777777777777
+       */
+      mentorMemberId: string;
+      /** @example Mentors the backend track. */
+      description?: string | null;
+    };
+    MentorshipGroupMentorDto: {
+      /**
+       * @description The cohort membership, not the person.
+       * @example 77777777-7777-4777-8777-777777777777
+       */
+      cohortMemberId: string;
+      user: components["schemas"]["RosterUserDto"];
+    };
+    MentorshipGroupStudentDto: {
+      /**
+       * @description The cohort membership, not the person.
+       * @example 99999999-9999-4999-8999-999999999999
+       */
+      cohortMemberId: string;
+      /**
+       * Format: date-time
+       * @example 2026-10-20T12:00:00.000Z
+       */
+      joinedAt: string;
+      user: components["schemas"]["RosterUserDto"];
+    };
+    MentorshipGroupResponseDto: {
+      /** @example aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa */
+      id: string;
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId: string;
+      /** @example Pod A */
+      name: string;
+      /** @example Mentors the backend track. */
+      description: string | null;
+      mentor: components["schemas"]["MentorshipGroupMentorDto"];
+      /** @description Current students, by name. */
+      students: components["schemas"]["MentorshipGroupStudentDto"][];
+      /**
+       * Format: date-time
+       * @example 2026-10-20T12:00:00.000Z
+       */
+      createdAt: string;
+      /**
+       * Format: date-time
+       * @example 2026-10-20T12:00:00.000Z
+       */
+      updatedAt: string;
+    };
+    PaginatedMentorshipGroupResponseDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["MentorshipGroupResponseDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    UpdateMentorshipGroupDto: {
+      /**
+       * @description Unique within the cohort, whatever its case.
+       * @example Pod A
+       */
+      name?: string;
+      /**
+       * @description null clears it.
+       * @example Mentors the backend track.
+       */
+      description?: string | null;
+    };
+    ChangeMentorDto: {
+      /**
+       * Format: uuid
+       * @description The cohort membership of the new mentor. Must be a live mentor of this
+       *     cohort.
+       * @example 77777777-7777-4777-8777-777777777777
+       */
+      mentorMemberId: string;
+    };
+    AddStudentDto: {
+      /**
+       * Format: uuid
+       * @description The cohort membership of the student. Must be a live student of this
+       *     cohort.
+       * @example 99999999-9999-4999-8999-999999999999
+       */
+      cohortMemberId: string;
+    };
+    AttachmentDto: {
+      /** Format: uuid */
+      id: string;
+      /** @example timetable.pdf */
+      fileName: string | null;
+      /** @example application/pdf */
+      contentType: string;
+      /** @example 48213 */
+      sizeBytes: number;
+      /**
+       * @description Where to read it. Images open in the browser; anything else downloads.
+       *     Ask `GET /v1/media/{id}/url` for another once it expires.
+       */
+      url: string;
+      /** Format: date-time */
+      urlExpiresAt: string;
+    };
+    NoticeResponseDto: {
+      /** @example 44444444-4444-4444-8444-444444444444 */
+      id: string;
+      /** @example 99999999-9999-4999-8999-999999999999 */
+      authorId: string;
+      /**
+       * @example campus
+       * @enum {string}
+       */
+      scope: "campus" | "cohort" | "cohort-track" | "mentorship-group";
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId?: string | null;
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      cohortTrackId?: string | null;
+      /** @example 33333333-3333-4333-8333-333333333333 */
+      mentorshipGroupId?: string | null;
+      /** @example Campus closed Friday */
+      title: string;
+      /** @example The campus will be closed for maintenance. */
+      body: string;
+      /** @example false */
+      pinned: boolean;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      createdAt: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      updatedAt: string;
+      attachments: components["schemas"]["AttachmentDto"][];
+    };
+    PaginatedNoticeResponseDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["NoticeResponseDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    /** @enum {string} */
+    NoticeScope: "campus" | "cohort" | "cohort-track" | "mentorship-group";
+    CreateNoticeDto: {
+      /** @example Campus closed Friday */
+      title: string;
+      /** @example The campus will be closed for maintenance. */
+      body: string;
+      /**
+       * @example campus
+       * @enum {string}
+       */
+      scope: "campus" | "cohort" | "cohort-track" | "mentorship-group";
+      /**
+       * Format: uuid
+       * @description Required for every scope but campus.
+       * @example 11111111-1111-4111-8111-111111111111
+       */
+      cohortId?: string;
+      /**
+       * Format: uuid
+       * @description Required for cohort-track scope.
+       * @example 22222222-2222-4222-8222-222222222222
+       */
+      cohortTrackId?: string;
+      /**
+       * Format: uuid
+       * @description Required for mentorship-group scope.
+       * @example 33333333-3333-4333-8333-333333333333
+       */
+      mentorshipGroupId?: string;
+      /**
+       * @description Files to show with it, in this order: `notice_attachment` uploads of
+       *     yours.
+       */
+      attachmentIds?: string[];
+    };
+    UpdateNoticeDto: {
+      /** @example Updated title */
+      title?: string;
+      /** @example Updated body text. */
+      body?: string;
+      /**
+       * @description The whole list of files to show with it, in this order. Files left out
+       *     are removed; new ones are `notice_attachment` uploads of yours.
+       */
+      attachmentIds?: string[];
+    };
+    PinNoticeDto: {
+      /** @example true */
+      pinned: boolean;
+    };
+    NoticeCommentDto: {
+      /**
+       * Format: uuid
+       * @example 99999999-9999-4999-8999-999999999999
+       */
+      authorId: string;
+      /** @example aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa */
+      id: string;
+      /** @example I can help with the setup on Friday. */
+      body: string;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      createdAt: string;
+    };
+    PaginatedNoticeCommentDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["NoticeCommentDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    CreateNoticeCommentDto: {
+      /** @example I can help with the setup on Friday. */
+      body: string;
+    };
+    /**
+     * @description What happened. More kinds will be added; show a plain alert for one you
+     *     do not know rather than dropping it.
+     * @enum {string}
+     */
+    NotificationKind:
+      "notice_posted" | "entry_request_admitted" | "entry_request_declined";
+    /**
+     * @description What `referenceId` names. Grows with `kind`.
+     * @enum {string}
+     */
+    NotificationReferenceType: "notice" | "entry_request";
+    EntryRequestContextDto: {
+      /** Format: uuid */
+      cohortId: string;
+      /** @example lounge */
+      spaceKey: string;
+    };
+    NotificationDto: {
+      /** Format: uuid */
+      id: string;
+      /**
+       * @description What happened. More kinds will be added; show a plain alert for one you
+       *     do not know rather than dropping it.
+       * @example notice_posted
+       */
+      kind: components["schemas"]["NotificationKind"];
+      /**
+       * @description What `referenceId` names. Grows with `kind`.
+       * @example notice
+       */
+      referenceType: components["schemas"]["NotificationReferenceType"];
+      /**
+       * @description For an entry request, the cohort and space it was for. Null for a
+       *     notice, which is fetched by `referenceId` instead.
+       */
+      context: components["schemas"]["EntryRequestContextDto"] | null;
+      /**
+       * @description The notice's id, or for an entry request world's own id for it, which
+       *     names nothing campus-api can fetch.
+       * @example 3f0e1c2a-8b4d-4e6f-9a1b-2c3d4e5f6a7b
+       */
+      referenceId: string;
+      /** @example false */
+      read: boolean;
+      /**
+       * Format: date-time
+       * @example 2026-11-05T09:30:00.000Z
+       */
+      createdAt: string;
+    };
+    PaginatedNotificationDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["NotificationDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    MarkAllReadResponseDto: {
+      /**
+       * @description How many were unread and are read now. Zero when there were none.
+       * @example 4
+       */
+      marked: number;
+    };
+    /** @enum {string} */
+    MediaKind: "avatar" | "notice_attachment" | "feedback_attachment";
+    CreateUploadDto: {
+      kind: components["schemas"]["MediaKind"];
+      /**
+       * @description The file's type, sent again as the PUT's `Content-Type`.
+       * @example image/webp
+       */
+      contentType: string;
+      /**
+       * @description The file's exact size in bytes. The PUT must carry exactly this many.
+       * @example 48213
+       */
+      sizeBytes: number;
+      /**
+       * @description The file's name, shown with an attachment and used when it is
+       *     downloaded. Ignored for a profile picture.
+       * @example timetable.pdf
+       */
+      fileName?: string;
+    };
+    UploadDto: {
+      /** @enum {string} */
+      method: "PUT";
+      /**
+       * @description Send these with the PUT, exactly. The browser sets Content-Length itself.
+       * @example {
+       *       "Content-Type": "image/webp"
+       *     }
+       */
+      headers: {
+        [key: string]: string;
+      };
+      /**
+       * @description Hand this to the endpoint that uses the file.
+       * @example 88888888-8888-4888-8888-888888888888
+       */
+      mediaId: string;
+      /**
+       * @description Where to PUT the file: a private holding place, signed for this type and
+       *     size only. The file is served from elsewhere once it is checked, so a
+       *     second PUT here changes nothing that is served.
+       */
+      uploadUrl: string;
+      /**
+       * Format: date-time
+       * @description After this the URL no longer works; ask for another.
+       */
+      expiresAt: string;
+    };
+    UploadKindLimitsDto: {
+      kind: components["schemas"]["MediaKind"];
+      /**
+       * @example [
+       *       "image/jpeg",
+       *       "image/png",
+       *       "image/webp"
+       *     ]
+       */
+      contentTypes: string[];
+      /** @example 2097152 */
+      maxBytes: number;
+    };
+    UploadLimitsDto: {
+      kinds: components["schemas"]["UploadKindLimitsDto"][];
+      /**
+       * @description The most files one notice or piece of feedback may carry.
+       * @example 10
+       */
+      maxAttachments: number;
+    };
+    SignedReadDto: {
+      /** @description Where to read the file, until `expiresAt`. */
+      url: string;
+      /** Format: date-time */
+      expiresAt: string;
+    };
+    DeskHolderDto: {
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      id: string;
+      /** @example Ada Lovelace */
+      displayName: string | null;
+    };
+    DeskDto: {
+      /** @description Null when nobody holds it in this cohort. */
+      holder: components["schemas"]["DeskHolderDto"] | null;
+      /** @example desk_a1 */
+      key: string;
+      /**
+       * @description The map the desk is drawn on.
+       * @example campus
+       */
+      mapKey: string;
+      /**
+       * Format: date-time
+       * @description When the holder claimed it. Null when nobody holds it.
+       * @example 2026-11-03T09:00:00.000Z
+       */
+      claimedAt: string | null;
+    };
+    UserMembershipCohortDto: {
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      id: string;
+      /** @example Product Design 2026 */
+      name: string;
+      /** @example PD26 */
+      code: string;
+    };
+    UserMembershipTrackDto: {
+      /** @example 55555555-5555-4555-8555-555555555555 */
+      id: string;
+      /** @example Product Design */
+      name: string;
+      /** @example PD */
+      code: string;
+    };
+    UserMembershipDto: {
+      role: components["schemas"]["CohortRole"];
+      /** @description Students only; null for every other role. */
+      status: components["schemas"]["StudentStatus"] | null;
+      /**
+       * Format: date-time
+       * @description Guests only: when the visit ends.
+       * @example null
+       */
+      accessExpiresAt: string | null;
+      cohort: components["schemas"]["UserMembershipCohortDto"];
+      /** @description Set for students; null for every other role. */
+      track: components["schemas"]["UserMembershipTrackDto"] | null;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      joinedAt: string;
+    };
+    UserListItemDto: {
+      /** @example null */
+      avatarUrl: string | null;
+      systemRole: components["schemas"]["SystemRole"];
+      status: components["schemas"]["UserStatus"];
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      id: string;
+      /** @example ada@campus.local */
+      email: string;
+      /** @example Ada */
+      firstName: string | null;
+      /** @example Lovelace */
+      lastName: string | null;
+      /** @example Ada Lovelace */
+      displayName: string | null;
+      /**
+       * Format: date-time
+       * @description Null for an account that has never signed in.
+       * @example 2026-10-01T08:15:00.000Z
+       */
+      lastLoginAt: string | null;
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      createdAt: string;
+      /**
+       * @description Every live place this person holds on a roster, most recently joined first.
+       *     All of them, whatever the filters: a filter chooses who is listed, not how
+       *     much of them is shown. Empty for somebody with no live membership — an
+       *     admin with no cohort, or a member who has left.
+       *
+       *     This is the roster, not
+       *     access. A suspended account keeps its memberships and is listed with them,
+       *     so an admin can see where the person belongs, but it cannot sign in: read
+       *     `status` for that.
+       */
+      memberships: components["schemas"]["UserMembershipDto"][];
+    };
+    PaginatedUserListItemDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["UserListItemDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    SetSystemRoleDto: {
+      /**
+       * @description `admin` to grant the admin role, `user` to revoke it. `super_admin` is not
+       *     accepted: only the seed grants it.
+       * @example admin
+       * @enum {string}
+       */
+      systemRole: "user" | "admin";
+    };
+    UserSystemRoleDto: {
+      systemRole: components["schemas"]["SystemRole"];
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      id: string;
+      /** @example ada@campus.local */
+      email: string;
+    };
+    SuspendUserDto: {
+      /**
+       * @description Why, in the admin’s own words. Kept in the audit log beside the actor and
+       *     the target — nowhere else on the account — so a list or a card never shows
+       *     it. Blank is taken as no reason rather than refused, since the field is
+       *     optional.
+       * @example Posted the answer to a live assessment.
+       */
+      reason?: string;
+    };
+    UserStatusDto: {
+      status: components["schemas"]["UserStatus"];
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      id: string;
+      /** @example ada@campus.local */
+      email: string;
+    };
+    /**
+     * @description What they chose for presence, space and call analytics. Null until they
+     *     choose, which counts as not granted.
+     * @enum {string}
+     */
+    AnalyticsConsent: "granted" | "denied";
+    OwnProfileDto: {
+      /** @example null */
+      phone: string | null;
+      /** @example null */
+      bio: string | null;
+      /**
+       * @description The character they walk the campus as. Null when they have picked none, or
+       *     picked one that is no longer offered.
+       * @example null
+       * @enum {string|null}
+       */
+      spriteKey:
+        | "placeholder-1"
+        | "placeholder-2"
+        | "placeholder-3"
+        | "placeholder-4"
+        | null;
+      systemRole: components["schemas"]["SystemRole"];
+      /**
+       * @description What they chose for presence, space and call analytics. Null until they
+       *     choose, which counts as not granted.
+       */
+      analyticsConsent: components["schemas"]["AnalyticsConsent"] | null;
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      id: string;
+      /**
+       * @description The Google account they sign in with. Not editable.
+       * @example ada@campus.local
+       */
+      email: string;
+      /** @example Ada */
+      firstName: string | null;
+      /** @example Lovelace */
+      lastName: string | null;
+      /** @example Ada L. */
+      displayName: string | null;
+      /**
+       * @description The picture they uploaded, else the one Google gave at first sign-in.
+       *     Null for initials: none was ever set, or they removed it.
+       * @example https://media.campusbyrise.com/avatars/3f6c…/9b1e….webp
+       */
+      avatarUrl: string | null;
+      /** @description Every cohort they hold a live place in. */
+      memberships: components["schemas"]["UserMembershipDto"][];
+      /**
+       * Format: date-time
+       * @example 2026-09-22T12:00:00.000Z
+       */
+      createdAt: string;
+    };
+    UpdateProfileDto: {
+      /**
+       * @description The character they walk the campus as. Anybody in the campus with them sees
+       *     the change straight away.
+       * @example placeholder-1
+       * @enum {string|null}
+       */
+      spriteKey?:
+        | "placeholder-1"
+        | "placeholder-2"
+        | "placeholder-3"
+        | "placeholder-4"
+        | null;
+      /** @example Ada */
+      firstName?: string | null;
+      /** @example Lovelace */
+      lastName?: string | null;
+      /**
+       * @description The name shown beside the avatar in the campus.
+       * @example Ada L.
+       */
+      displayName?: string | null;
+      /**
+       * @description Digits, with an optional leading + and spaces, hyphens or brackets between
+       *     them. Seen by the owner and admins only.
+       * @example +234 801 234 5678
+       */
+      phone?: string | null;
+      bio?: string | null;
+    };
+    SetAnalyticsConsentDto: {
+      /** @example granted */
+      consent: components["schemas"]["AnalyticsConsent"];
+    };
+    SetAvatarDto: {
+      /**
+       * Format: uuid
+       * @description From `POST /v1/uploads` with kind `avatar`, after the file was PUT.
+       */
+      mediaId: string;
+    };
+    ProfileCardMembershipDto: {
+      role: components["schemas"]["CohortRole"];
+      cohort: components["schemas"]["UserMembershipCohortDto"];
+      /** @description Set for students; null for every other role. */
+      track: components["schemas"]["UserMembershipTrackDto"] | null;
+    };
+    ProfileCardDto: {
+      /** @example null */
+      bio: string | null;
+      /** @example null */
+      avatarUrl: string | null;
+      /**
+       * @description The character they walk the campus as. Null when they have picked none, or
+       *     picked one that is no longer offered.
+       * @example null
+       * @enum {string|null}
+       */
+      spriteKey:
+        | "placeholder-1"
+        | "placeholder-2"
+        | "placeholder-3"
+        | "placeholder-4"
+        | null;
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      id: string;
+      /** @example ada@campus.local */
+      email: string;
+      /** @example Ada */
+      firstName: string | null;
+      /** @example Lovelace */
+      lastName: string | null;
+      /** @example Ada L. */
+      displayName: string | null;
+      /**
+       * @description The cohorts the viewer shares with this person, most recently joined first.
+       *     An admin, and the person themselves, see every live one.
+       */
+      memberships: components["schemas"]["ProfileCardMembershipDto"][];
+    };
+    CohortProfileDto: {
+      /**
+       * @description Null when they have picked none, or picked one that is no longer offered.
+       * @example null
+       * @enum {string|null}
+       */
+      spriteKey:
+        | "placeholder-1"
+        | "placeholder-2"
+        | "placeholder-3"
+        | "placeholder-4"
+        | null;
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      id: string;
+      /** @example Ada L. */
+      displayName: string | null;
+    };
+    /** @enum {string} */
+    AuditAction:
+      | "membership_revived"
+      | "system_role_changed"
+      | "user_suspended"
+      | "user_reinstated"
+      | "invite_created"
+      | "cohort_created"
+      | "cohort_track_attached"
+      | "cohort_track_detached"
+      | "track_created"
+      | "cohort_updated"
+      | "track_updated"
+      | "cohort_deleted"
+      | "track_deleted"
+      | "invite_revoked"
+      | "invite_flagged"
+      | "invite_resent"
+      | "guest_visit_extended"
+      | "map_synced"
+      | "map_retired"
+      | "map_published"
+      | "membership_ended"
+      | "member_track_changed"
+      | "feedback_resolved"
+      | "feedback_reopened"
+      | "space_membership_granted"
+      | "space_membership_ended"
+      | "space_updated"
+      | "mentorship_group_created"
+      | "mentorship_group_updated"
+      | "mentorship_group_mentor_changed"
+      | "mentorship_group_student_added"
+      | "mentorship_group_student_removed"
+      | "mentorship_group_deleted"
+      | "notice_created"
+      | "notice_updated"
+      | "notice_pinned"
+      | "notice_unpinned"
+      | "notice_removed"
+      | "room_link_created"
+      | "room_link_revoked"
+      | "room_link_window_changed"
+      | "desk_freed"
+      | "retention_swept"
+      | "attendance_corrected"
+      | "comment_created";
+    /** @enum {string} */
+    AuditSubjectType:
+      | "cohort_member"
+      | "user"
+      | "invite"
+      | "cohort"
+      | "cohort_track"
+      | "track"
+      | "map"
+      | "space"
+      | "feedback"
+      | "space_membership"
+      | "mentorship_group"
+      | "notice"
+      | "room_link"
+      | "desk_claim"
+      | "attendance"
+      | "comment";
+    AuditLogEntryDto: {
+      /** Format: uuid */
+      id: string;
+      /**
+       * Format: uuid
+       * @description The account that did it. Null when no person did: the seed, a migration.
+       *     Not always an admin: an invitee is the actor when they flag an invite or
+       *     accept one.
+       */
+      actorUserId: string | null;
+      action: components["schemas"]["AuditAction"];
+      subjectType: components["schemas"]["AuditSubjectType"] | null;
+      /**
+       * Format: uuid
+       * @description Not checked against anything: the thing may since have been deleted.
+       */
+      subjectId: string | null;
+      /**
+       * @description What the action records beyond its subject. The shape is fixed per
+       *     `action`; dates are ISO 8601 strings. Ids of people, never addresses or
+       *     names — except free text an admin wrote about a person:
+       *     `membership_revived.previous.dismissalReason` and `user_suspended.reason`.
+       * @example {
+       *       "name": "Software Engineering",
+       *       "code": "SE"
+       *     }
+       */
+      details: {
+        [key: string]: unknown;
+      } | null;
+      /**
+       * @description The request’s correlation id, which leads to its log lines. Null for
+       *     entries written outside a request. A UUID the caller may have chosen: a
+       *     pointer, not proof.
+       */
+      correlationId: string | null;
+      /**
+       * Format: date-time
+       * @description When the change committed.
+       * @example 2026-10-07T09:30:00.000Z
+       */
+      createdAt: string;
+    };
+    PaginatedAuditLogEntryDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["AuditLogEntryDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    /**
+     * @description The one table to sweep. Omitted, both are, each with its configured
+     *     period. Required with `retentionDays`.
+     * @enum {string}
+     */
+    RetentionTable: "notifications" | "audit_log";
+    SweepRetentionDto: {
+      /**
+       * @description The one table to sweep. Omitted, both are, each with its configured
+       *     period. Required with `retentionDays`.
+       */
+      table?: components["schemas"]["RetentionTable"];
+      /**
+       * @description Overrides the configured period for this one sweep, for a one-off
+       *     cleanup. Rows younger than this are never deleted. At least 30.
+       * @example 60
+       */
+      retentionDays?: number;
+    };
+    RetentionSweepResultDto: {
+      table: components["schemas"]["RetentionTable"];
+      /** @example 128 */
+      deleted: number;
+      /**
+       * Format: date-time
+       * @description Rows created before this instant were deleted.
+       * @example 2026-08-07T09:30:00.000Z
+       */
+      cutoff: string;
+      /** @example 90 */
+      retentionDays: number;
+    };
+    SweepRetentionResponseDto: {
+      /** @description One per table swept, in the order they ran. */
+      swept: components["schemas"]["RetentionSweepResultDto"][];
+    };
+    /** @enum {string} */
+    RoomLinkAudience: "cohort" | "cohort-track" | "mentorship-group";
+    AttendanceClassDto: {
+      audience: components["schemas"]["RoomLinkAudience"];
+      /**
+       * Format: date-time
+       * @description Set when the class was cancelled; a class cancelled before it ended keeps only corrected rows.
+       */
+      cancelledAt?: string | null;
+      /** @example 66666666-6666-4666-8666-666666666666 */
+      instanceId: string;
+      roomLinkId: string;
+      /** @example Design review */
+      title: string;
+      cohortTrackId: string | null;
+      mentorshipGroupId: string | null;
+      /**
+       * Format: date-time
+       * @example 2026-11-05T10:00:00.000Z
+       */
+      startsAt: string;
+      /**
+       * Format: date-time
+       * @example 2026-11-05T11:00:00.000Z
+       */
+      endsAt: string;
+      /** Format: date-time */
+      talliedAt: string;
+      /** @example 24 */
+      expected: number;
+      /** @example 18 */
+      present: number;
+      /** @example 4 */
+      partial: number;
+      /** @example 2 */
+      absent: number;
+      /**
+       * @description Time in the call across the expected students, as a share of the time
+       *     they could have been there, rounded down.
+       * @example 81
+       */
+      percentage: number;
+    };
+    PaginatedAttendanceClassDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["AttendanceClassDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    StudentAttendanceSummaryDto: {
+      userId: string;
+      firstName: string | null;
+      lastName: string | null;
+      displayName: string | null;
+      /** @example 12 */
+      classes: number;
+      /** @example 9 */
+      present: number;
+      /** @example 2 */
+      partial: number;
+      /** @example 1 */
+      absent: number;
+      /**
+       * @description Time in the call across those classes, as a share of their length,
+       *     rounded down.
+       * @example 78
+       */
+      percentage: number;
+    };
+    /** @enum {string} */
+    AttendanceStatus: "present" | "partial" | "absent";
+    /**
+     * @description `override` once staff corrected the status; the tally then leaves it.
+     * @enum {string}
+     */
+    AttendanceSource: "derived" | "override";
+    StudentClassAttendanceDto: {
+      status: components["schemas"]["AttendanceStatus"];
+      /** @description `override` once staff corrected the status; the tally then leaves it. */
+      source: components["schemas"]["AttendanceSource"];
+      audience: components["schemas"]["RoomLinkAudience"];
+      instanceId: string;
+      roomLinkId: string;
+      title: string;
+      /** Format: date-time */
+      startsAt: string;
+      /** Format: date-time */
+      endsAt: string;
+      /** @example 77777777-7777-4777-8777-777777777777 */
+      id: string;
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      userId: string;
+      /**
+       * @description Time in the space's call during the class, as measured.
+       * @example 2700
+       */
+      presentSeconds: number;
+      /**
+       * @description presentSeconds as a share of the class, rounded down.
+       * @example 75
+       */
+      percentage: number;
+    };
+    StudentAttendanceDto: {
+      /** @description Newest first. */
+      runs: components["schemas"]["StudentClassAttendanceDto"][];
+      userId: string;
+      classes: number;
+      present: number;
+      partial: number;
+      absent: number;
+      percentage: number;
+    };
+    AttendanceStudentRowDto: {
+      status: components["schemas"]["AttendanceStatus"];
+      /** @description `override` once staff corrected the status; the tally then leaves it. */
+      source: components["schemas"]["AttendanceSource"];
+      firstName: string | null;
+      lastName: string | null;
+      displayName: string | null;
+      /** @example 77777777-7777-4777-8777-777777777777 */
+      id: string;
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      userId: string;
+      /**
+       * @description Time in the space's call during the class, as measured.
+       * @example 2700
+       */
+      presentSeconds: number;
+      /**
+       * @description presentSeconds as a share of the class, rounded down.
+       * @example 75
+       */
+      percentage: number;
+    };
+    AttendanceClassDetailDto: {
+      audience: components["schemas"]["RoomLinkAudience"];
+      /**
+       * Format: date-time
+       * @description Set when the class was cancelled; a class cancelled before it ended keeps only corrected rows.
+       */
+      cancelledAt?: string | null;
+      students: components["schemas"]["AttendanceStudentRowDto"][];
+      /** @example 66666666-6666-4666-8666-666666666666 */
+      instanceId: string;
+      roomLinkId: string;
+      /** @example Design review */
+      title: string;
+      cohortTrackId: string | null;
+      mentorshipGroupId: string | null;
+      /**
+       * Format: date-time
+       * @example 2026-11-05T10:00:00.000Z
+       */
+      startsAt: string;
+      /**
+       * Format: date-time
+       * @example 2026-11-05T11:00:00.000Z
+       */
+      endsAt: string;
+      /** Format: date-time */
+      talliedAt: string;
+      /** @example 24 */
+      expected: number;
+      /** @example 18 */
+      present: number;
+      /** @example 4 */
+      partial: number;
+      /** @example 2 */
+      absent: number;
+      /**
+       * @description Time in the call across the expected students, as a share of the time
+       *     they could have been there, rounded down.
+       * @example 81
+       */
+      percentage: number;
+    };
+    CorrectAttendanceDto: {
+      status: components["schemas"]["AttendanceStatus"];
+      /**
+       * @description Why, kept with the correction for good.
+       * @example Joined from the mobile app; confirmed with the professor
+       */
+      reason: string;
+    };
+    AttendanceRowDto: {
+      status: components["schemas"]["AttendanceStatus"];
+      /** @description `override` once staff corrected the status; the tally then leaves it. */
+      source: components["schemas"]["AttendanceSource"];
+      /** @example 77777777-7777-4777-8777-777777777777 */
+      id: string;
+      /** @example 22222222-2222-4222-8222-222222222222 */
+      userId: string;
+      /**
+       * @description Time in the space's call during the class, as measured.
+       * @example 2700
+       */
+      presentSeconds: number;
+      /**
+       * @description presentSeconds as a share of the class, rounded down.
+       * @example 75
+       */
+      percentage: number;
+    };
+    /** @enum {string} */
+    MapSyncOutcome:
+      "created" | "restored" | "updated" | "unchanged" | "retired";
+    /**
+     * @description Null when the map suggested no kind this knows. The space is then not set
+     *     up, and nobody but admins may enter it.
+     * @enum {string}
+     */
+    SpaceKind:
+      | "open"
+      | "classroom"
+      | "meeting_room"
+      | "mentor_pod"
+      | "live_coding"
+      | "desk"
+      | "town_hall"
+      | "notice_board"
+      | "stage"
+      | "help_desk";
+    SyncedSpaceDto: {
+      /**
+       * @description Null when the map suggested no kind this knows. The space is then not set
+       *     up, and nobody but admins may enter it.
+       */
+      kind: components["schemas"]["SpaceKind"] | null;
+      /** @example library */
+      key: string;
+      /** @example Library */
+      name: string;
+    };
+    MapSyncSpacesDto: {
+      /** @description Spaces new to the database, with the kind each was given. */
+      added: components["schemas"]["SyncedSpaceDto"][];
+      /**
+       * @description Spaces that were retired and are on the map again, with the settings they
+       *     had.
+       * @example [
+       *       "library"
+       *     ]
+       */
+      restored: string[];
+      /**
+       * @description Spaces no longer on the map. Their rows stay, marked retired.
+       * @example [
+       *       "old-lab"
+       *     ]
+       */
+      retired: string[];
+      /**
+       * @description Every live space on the map with no kind set, after this sync: the ones
+       *     waiting for an admin, whenever they were added.
+       * @example [
+       *       "room_space_1"
+       *     ]
+       */
+      needsKind: string[];
+    };
+    MapSyncDesksDto: {
+      /**
+       * @example [
+       *       "desk_a1"
+       *     ]
+       */
+      added: string[];
+      /**
+       * @description Desks that were retired and are on the map again, or that were on another
+       *     map before and are drawn on this one now.
+       */
+      restored: string[];
+      /**
+       * @description Desks no longer on the map, gone or drawn on another map now, which then
+       *     lists them as restored. Their rows stay, and every open claim on them
+       *     ends.
+       */
+      retired: string[];
+    };
+    MapSyncMapDto: {
+      outcome: components["schemas"]["MapSyncOutcome"];
+      /**
+       * @description The map’s ID in Sanity.
+       * @example campus
+       */
+      key: string;
+      /**
+       * @description The published version that was read. Null for a map that is no longer
+       *     published.
+       * @example d686dbad05445e71
+       */
+      version: string | null;
+      /** @description Whether this is the map people enter on. */
+      isEntry: boolean;
+      spaces: components["schemas"]["MapSyncSpacesDto"];
+      desks: components["schemas"]["MapSyncDesksDto"];
+    };
+    MapSyncResultDto: {
+      /** @description True when nothing was kept: this was a look, not a sync. */
+      dryRun: boolean;
+      /**
+       * @description Whether anything changed, or would have. False means the database already
+       *     matched what is published.
+       */
+      changed: boolean;
+      maps: components["schemas"]["MapSyncMapDto"][];
+    };
+    MapPublishedResponseDto: {
+      /**
+       * Format: date-time
+       * @description When this publish made it live.
+       */
+      publishedAt: string;
+      /** @example 55555555-5555-4555-8555-555555555555 */
+      id: string;
+      /**
+       * @description The map's ID in Sanity.
+       * @example campus
+       */
+      key: string;
+    };
+    GrantSpaceMembershipDto: {
+      /**
+       * @description Give access to everybody holding this role, in whichever cohort they walk
+       *     the campus as. Exactly one subject is required.
+       */
+      cohortRole?: components["schemas"]["CohortRole"];
+      /**
+       * @description Give access to everybody holding this system role. Admins enter every space
+       *     anyway, so this matters for any other role. Exactly one subject is
+       *     required.
+       */
+      systemRole?: components["schemas"]["SystemRole"];
+      /**
+       * Format: date-time
+       * @description When access ends, which has to be in the future. A bare date (`2026-12-01`)
+       *     is midnight UTC; a timestamp must carry its zone. Left out, access has no
+       *     end until an admin ends it.
+       * @example 2026-12-01T00:00:00.000Z
+       */
+      validTo?: string;
+      /**
+       * Format: uuid
+       * @description Give access to this one person. Exactly one of `userId`, `cohortTrackId`,
+       *     `cohortRole`, `systemRole` and `mentorshipGroupId` is required: an entry
+       *     names one subject, never two and never none.
+       * @example 22222222-2222-4222-8222-222222222222
+       */
+      userId?: string;
+      /**
+       * Format: uuid
+       * @description Give access to everybody on this cohort track — a track a cohort runs, as
+       *     named by `cohort_tracks.id`. Exactly one subject is required.
+       * @example 33333333-3333-4333-8333-333333333333
+       */
+      cohortTrackId?: string;
+      /**
+       * Format: uuid
+       * @description Give access to this mentorship group: its students and its mentor, in the
+       *     group’s own cohort. Exactly one subject is required.
+       * @example 77777777-7777-4777-8777-777777777777
+       */
+      mentorshipGroupId?: string;
+    };
+    /** @enum {string} */
+    SpaceMembershipSubjectType:
+      | "user"
+      | "cohort_track"
+      | "cohort_role"
+      | "system_role"
+      | "mentorship_group";
+    SpaceMembershipSubjectDto: {
+      type: components["schemas"]["SpaceMembershipSubjectType"];
+      /**
+       * Format: uuid
+       * @description Present when the grant is to a person.
+       * @example 22222222-2222-4222-8222-222222222222
+       */
+      userId?: string;
+      /**
+       * Format: email
+       * @description Present when the grant is to a person.
+       * @example ada@campus.local
+       */
+      email?: string | null;
+      /**
+       * Format: uuid
+       * @description Present when the grant is to a track.
+       * @example 33333333-3333-4333-8333-333333333333
+       */
+      cohortTrackId?: string;
+      /**
+       * Format: uuid
+       * @description The cohort behind it: the one whose track runs it, or the one the
+       *     mentorship group belongs to.
+       * @example 44444444-4444-4444-8444-444444444444
+       */
+      cohortId?: string;
+      /** @description Present when the entry names a cohort role. */
+      cohortRole?: components["schemas"]["CohortRole"];
+      /** @description Present when the entry names a system role. */
+      systemRole?: components["schemas"]["SystemRole"];
+      /**
+       * Format: uuid
+       * @description Present when the grant is to a mentorship group.
+       * @example 77777777-7777-4777-8777-777777777777
+       */
+      mentorshipGroupId?: string;
+      /**
+       * @description What they go by, or null if they have not chosen one.
+       * @example Ada L.
+       */
+      displayName?: string | null;
+      /**
+       * @description Present when the grant is to a track.
+       * @example Frontend
+       */
+      trackName?: string | null;
+      /**
+       * @description Present when the grant is to a track.
+       * @example FE
+       */
+      trackCode?: string | null;
+      /**
+       * @description The cohort behind it: the one whose track runs it, or the one the
+       *     mentorship group belongs to.
+       * @example Cohort 1
+       */
+      cohortName?: string | null;
+      /**
+       * @description Present when the grant is to a mentorship group.
+       * @example The Ravens
+       */
+      groupName?: string;
+    };
+    SpaceMembershipResponseDto: {
+      /**
+       * Format: uuid
+       * @description The grant’s own row. Ending access keeps the row, so this is what a grant
+       *     is known by for good.
+       * @example 66666666-6666-4666-8666-666666666666
+       */
+      id: string;
+      /**
+       * Format: uuid
+       * @example 55555555-5555-4555-8555-555555555555
+       */
+      spaceId: string;
+      /**
+       * Format: uuid
+       * @description The admin who granted it. Null only for a grant written without one: a
+       *     seed, a sync.
+       */
+      grantedBy: string | null;
+      subject: components["schemas"]["SpaceMembershipSubjectDto"];
+      /**
+       * Format: date-time
+       * @description When the grant started counting.
+       */
+      validFrom: string;
+      /**
+       * Format: date-time
+       * @description When it stopped, or null while it has no end.
+       */
+      validTo: string | null;
+      /**
+       * @description Whether it counts right now: started, and not yet ended. Read at the moment
+       *     of the request, not stored.
+       */
+      live: boolean;
+    };
+    /** @enum {string} */
+    SpaceAccess: "normal" | "designated";
+    /** @enum {string} */
+    AudioMode: "proximity" | "boundary";
+    SpaceResponseDto: {
+      /** Format: uuid */
+      id: string;
+      /**
+       * Format: uuid
+       * @description The map that drew this space.
+       */
+      mapId: string;
+      /** @description Null when no admin has said what the space is yet. */
+      kind: components["schemas"]["SpaceKind"] | null;
+      access: components["schemas"]["SpaceAccess"];
+      audioMode: components["schemas"]["AudioMode"];
+      /**
+       * @description The object’s name in Tiled, unique on its map.
+       * @example library
+       */
+      key: string;
+      /** @example Library */
+      name: string;
+      /**
+       * @description Whether this is its map’s default space: the one for tiles inside no drawn
+       *     space.
+       */
+      isMapDefault: boolean;
+      /**
+       * @description Null means no limit.
+       * @example 25
+       */
+      capacity: number | null;
+      /**
+       * @description In tiles, or null when it is unset.
+       * @example 8.50
+       */
+      audibleRadius: string | null;
+      /**
+       * @description In tiles, or null when it is unset.
+       * @example 10.00
+       */
+      subscribeRadius: string | null;
+      /** @example 1.20 */
+      hysteresisFactor: string;
+      /**
+       * Format: date-time
+       * @description Set when the space is no longer on its map.
+       */
+      retiredAt: string | null;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    PaginatedSpaceResponseDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["SpaceResponseDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    UpdateSpaceDto: {
+      /**
+       * @description Null puts the space back in the queue: no kind, and nobody but admins may
+       *     enter it.
+       */
+      kind?: components["schemas"]["SpaceKind"] | null;
+      /**
+       * @description `normal` admits anybody in the campus; `designated` admits whoever the
+       *     space’s list names. The default space stays normal.
+       */
+      access?: components["schemas"]["SpaceAccess"];
+      /**
+       * @description `proximity` fades voices by distance; `boundary` lets everybody in the
+       *     space hear everybody.
+       */
+      audioMode?: components["schemas"]["AudioMode"];
+      /**
+       * @description Null means no limit. At least 1 and at most 2147483647 when set.
+       * @example 25
+       */
+      capacity?: number | null;
+      /**
+       * @description How far a voice carries, in tiles. Null leaves it unset. At least 0. The database stores two decimal places.
+       * @example 8.5
+       */
+      audibleRadius?: number | null;
+      /**
+       * @description The radius the media server subscribes people by, in tiles. Null leaves it unset. At least 0. The database stores two decimal places.
+       * @example 10
+       */
+      subscribeRadius?: number | null;
+      /** @example Reading Room */
+      name?: string;
+      /**
+       * @description How much further than subscribeRadius somebody must go before they are
+       *     unsubscribed. Must be greater than 0. The database stores two decimal
+       *     places.
+       * @example 1.2
+       */
+      hysteresisFactor?: number;
+      /**
+       * @description The object’s name in Tiled. Read-only: sending it is refused, because
+       *     renaming it there makes it a different space.
+       */
+      key?: string;
+      /** @description Read-only: a space belongs to the map that drew it. */
+      mapId?: string;
+      /**
+       * @description Read-only: whether a space is its map’s default is set by the map, not
+       *     here.
+       */
+      isMapDefault?: boolean;
+    };
+    /** @enum {string} */
+    FeedbackType: "bug" | "idea" | "report";
+    FeedbackContextDto: {
+      /**
+       * @description The page or screen they were on.
+       * @example /campus
+       */
+      path?: string;
+      /**
+       * @description The map they were on, from `snapshot.map.id`.
+       * @example campus
+       */
+      mapId?: string;
+      /**
+       * @description That map’s version, from `snapshot.map.version`.
+       * @example d686dbad05445e71
+       */
+      mapVersion?: string;
+      /**
+       * @description The tile they stood on.
+       * @example 75
+       */
+      x?: number;
+      /** @example 59 */
+      y?: number;
+    };
+    CreateFeedbackDto: {
+      type: components["schemas"]["FeedbackType"];
+      /**
+       * @description Screenshots or files, in this order: `feedback_attachment` uploads of
+       *     yours. Only admins can open them.
+       */
+      attachmentIds?: string[];
+      /** @example The library door will not open */
+      title: string;
+      /** @example I walk up to it from the courtyard and nothing happens. */
+      details: string;
+      /**
+       * @description Who or where, in the member’s own words: who a report is about, where a bug
+       *     happened. Offered on every type and required on none. Blank is taken as not
+       *     given.
+       * @example The library, by the east door
+       */
+      about?: string;
+      /**
+       * Format: uuid
+       * @description The account a report is about, when the member picked a person rather than
+       *     typing a name. Only on a `report`. That person is not told.
+       * @example 22222222-2222-4222-8222-222222222222
+       */
+      reportedUserId?: string;
+      /**
+       * Format: uuid
+       * @description The cohort they were in when they sent it. One the sender is in, or any
+       *     cohort from an admin.
+       * @example 11111111-1111-4111-8111-111111111111
+       */
+      cohortId?: string;
+      /**
+       * @description Where they were, filled in by the client rather than typed. A hint for
+       *     whoever reads a bug.
+       */
+      context?: components["schemas"]["FeedbackContextDto"];
+    };
+    FeedbackReceiptDto: {
+      /** Format: uuid */
+      id: string;
+      type: components["schemas"]["FeedbackType"];
+      /** @example The library door will not open */
+      title: string;
+      /**
+       * Format: date-time
+       * @example 2026-10-12T09:30:00.000Z
+       */
+      createdAt: string;
+    };
+    /** @enum {string} */
+    FeedbackStatus: "open" | "resolved";
+    FeedbackPersonDto: {
+      /** Format: uuid */
+      id: string;
+      /** @example ada@campus.local */
+      email: string;
+      /** @example Ada Lovelace */
+      displayName: string | null;
+    };
+    FeedbackListItemDto: {
+      /** Format: uuid */
+      id: string;
+      type: components["schemas"]["FeedbackType"];
+      status: components["schemas"]["FeedbackStatus"];
+      /** @example The library door will not open */
+      title: string;
+      /**
+       * @description Who or where, as the member put it. Null when not given.
+       * @example The library, by the east door
+       */
+      about: string | null;
+      submittedBy: components["schemas"]["FeedbackPersonDto"];
+      /** @description The account a report names, if it names one. */
+      reportedUser: components["schemas"]["FeedbackPersonDto"] | null;
+      /**
+       * Format: date-time
+       * @example 2026-10-12T09:30:00.000Z
+       */
+      createdAt: string;
+    };
+    PaginatedFeedbackListItemDto: {
+      /** @description The page of items. */
+      items: components["schemas"]["FeedbackListItemDto"][];
+      /** @description Pagination metadata. */
+      meta: components["schemas"]["PaginationMetaDto"];
+    };
+    FeedbackDto: {
+      /** Format: uuid */
+      id: string;
+      type: components["schemas"]["FeedbackType"];
+      status: components["schemas"]["FeedbackStatus"];
+      /**
+       * Format: uuid
+       * @description The cohort they were in, if their client said.
+       */
+      cohortId: string | null;
+      attachments: components["schemas"]["AttachmentDto"][];
+      /** @example I walk up to it from the courtyard and nothing happens. */
+      details: string;
+      /** @description Where the member’s client said they were. Not checked against anything. */
+      context: components["schemas"]["FeedbackContextDto"] | null;
+      /**
+       * @description The browser or app that sent it.
+       * @example Mozilla/5.0 (Macintosh; …) Chrome/141.0
+       */
+      userAgent: string | null;
+      /** @description The admin who marked it resolved. Null while it is open. */
+      resolvedBy: components["schemas"]["FeedbackPersonDto"] | null;
+      /**
+       * Format: date-time
+       * @example 2026-10-13T11:00:00.000Z
+       */
+      resolvedAt: string | null;
+      /** @example The library door will not open */
+      title: string;
+      /**
+       * @description Who or where, as the member put it. Null when not given.
+       * @example The library, by the east door
+       */
+      about: string | null;
+      submittedBy: components["schemas"]["FeedbackPersonDto"];
+      /** @description The account a report names, if it names one. */
+      reportedUser: components["schemas"]["FeedbackPersonDto"] | null;
+      /**
+       * Format: date-time
+       * @example 2026-10-12T09:30:00.000Z
+       */
+      createdAt: string;
+    };
+    UpdateFeedbackStatusDto: {
+      status: components["schemas"]["FeedbackStatus"];
+    };
+    RecordingDto: {
+      /** @enum {string} */
+      status: "starting" | "active" | "complete" | "failed";
+      /** @example 55555555-5555-4555-8555-555555555555 */
+      id: string;
+      /**
+       * @description The call it records.
+       * @example 66666666-6666-4666-8666-666666666666
+       */
+      sessionId: string;
+      /** @example 77777777-7777-4777-8777-777777777777 */
+      startedBy: string;
+      /** @description Null unless somebody stopped it before the call ended. */
+      stoppedBy: string | null;
+      /**
+       * Format: date-time
+       * @example 2026-11-12T10:00:00.000Z
+       */
+      requestedAt: string;
+      /**
+       * Format: date-time
+       * @description When LiveKit began recording; null until it has.
+       */
+      startedAt: string | null;
+      /** Format: date-time */
+      endedAt: string | null;
+      /** @example 3600000 */
+      durationMs: number | null;
+    };
+    CalendarAppConnectDto: {
+      /**
+       * @description The server auth code Google’s SDK gave the app for
+       *     `calendar.events.readonly` and `openid`, with offline access and
+       *     force-refresh-token on, for the web client (GOOGLE_CLIENT_ID).
+       */
+      serverAuthCode: string;
+    };
+    RoomLinkTargetDto: {
+      /** @example k3F9xQ2pLm */
+      code: string;
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId: string;
+      /** @example 33333333-3333-4333-8333-333333333333 */
+      spaceId: string;
+      /**
+       * @description The space's key, as world names it.
+       * @example pod-a
+       */
+      spaceKey: string;
+      /** @example Pod A */
+      spaceName: string;
+      /**
+       * @description The event the link was made for.
+       * @example Design review
+       */
+      title: string;
+    };
+    CalendarEventDto: {
+      /**
+       * @example confirmed
+       * @enum {string}
+       */
+      status: "confirmed" | "tentative";
+      /**
+       * @description The member’s answer to the invitation. Null when they are the only person
+       *     on it.
+       * @example accepted
+       * @enum {string|null}
+       */
+      response: "accepted" | "tentative" | "declined" | "needsAction" | null;
+      /**
+       * @description The campus room the event is held in, when its location or description
+       *     holds a room link (`{APP_PUBLIC_URL}/join/{code}`) the member may open.
+       *     Null otherwise, or when the link could not be looked up.
+       */
+      room: components["schemas"]["RoomLinkTargetDto"] | null;
+      /** @example 7cbh8rpc10lrc0ckih9tafss99_20261027T090000Z */
+      id: string;
+      /**
+       * @description Null for an event with no title.
+       * @example Backend standup
+       */
+      title: string | null;
+      /**
+       * @description A timestamp with the zone Google gave it, or a date (`2026-10-27`) for an
+       *     all-day event.
+       * @example 2026-10-27T10:00:00+01:00
+       */
+      start: string;
+      /**
+       * @description Like `start`. For an all-day event, the day after the last one.
+       * @example 2026-10-27T10:30:00+01:00
+       */
+      end: string;
+      /** @example false */
+      allDay: boolean;
+      /** @example Room 2 */
+      location: string | null;
+      /** @example https://meet.google.com/abc-defg-hij */
+      meetingUrl: string | null;
+      /**
+       * @description The event in Google Calendar.
+       * @example https://www.google.com/calendar/event?eid=N2NiaDhycGMxMGxy
+       */
+      url: string | null;
+    };
+    CalendarEventsDto: {
+      /**
+       * @description False when the member has not connected their calendar, or Google has
+       *     withdrawn access: offer GET /v1/calendar/connect (a native app: POST
+       *     /v1/calendar/connect).
+       * @example true
+       */
+      connected: boolean;
+      /**
+       * @description From the member’s primary calendar, soonest first, recurring events as one
+       *     entry per occurrence. Cancelled events are left out.
+       */
+      events: components["schemas"]["CalendarEventDto"][];
+      /**
+       * @description True when the window held more than the 1,000 events campus reads: `events`
+       *     are the first 1,000. Ask for a shorter window.
+       * @example false
+       */
+      truncated: boolean;
+    };
+    CreateRoomLinkDto: {
+      /**
+       * @description Whose event it is: the students expected at it. Defaults to the whole cohort.
+       * @default cohort
+       * @enum {string}
+       */
+      audience: "cohort" | "cohort-track" | "mentorship-group";
+      /**
+       * @description The event the link is for.
+       * @example Design review
+       */
+      title: string;
+      /**
+       * Format: uuid
+       * @description The cohort-track, for `cohort-track`.
+       * @example 44444444-4444-4444-8444-444444444444
+       */
+      cohortTrackId?: string;
+      /**
+       * Format: uuid
+       * @description The pod, for `mentorship-group`.
+       * @example 55555555-5555-4555-8555-555555555555
+       */
+      mentorshipGroupId?: string;
+    };
+    RoomLinkDto: {
+      /** @enum {string} */
+      audience: "cohort" | "cohort-track" | "mentorship-group";
+      /** @example k3F9xQ2pLm */
+      code: string;
+      /** @example https://campus.example.com/join/k3F9xQ2pLm */
+      url: string;
+      /** @example Design review */
+      title: string;
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId: string;
+      /** @example 33333333-3333-4333-8333-333333333333 */
+      spaceId: string;
+      /**
+       * @description The space's key, as world names it.
+       * @example pod-a
+       */
+      spaceKey: string;
+      /** @example Pod A */
+      spaceName: string;
+      /** @description Set for a `cohort-track` link. */
+      cohortTrackId: string | null;
+      /** @description Set for a `mentorship-group` link. */
+      mentorshipGroupId: string | null;
+      /**
+       * Format: date-time
+       * @description When the run going on now, else the next one, starts, as synced from the
+       *     organiser's Google Calendar; null when none is coming. The link lets
+       *     people in from ten minutes before.
+       * @example 2026-11-05T10:00:00.000Z
+       */
+      startsAt: string | null;
+      /**
+       * Format: date-time
+       * @example 2026-11-05T11:00:00.000Z
+       */
+      endsAt: string | null;
+      /**
+       * Format: date-time
+       * @example 2026-11-03T09:00:00.000Z
+       */
+      createdAt: string;
+    };
+    RoomLinkEntryDto: {
+      /** @enum {string} */
+      audience: "cohort" | "cohort-track" | "mentorship-group";
+      /** @example k3F9xQ2pLm */
+      code: string;
+      /** @example https://campus.example.com/join/k3F9xQ2pLm */
+      url: string;
+      /** @example Design review */
+      title: string;
+      /** @example 11111111-1111-4111-8111-111111111111 */
+      cohortId: string;
+      /** @example 33333333-3333-4333-8333-333333333333 */
+      spaceId: string;
+      /**
+       * @description The space's key, as world names it.
+       * @example pod-a
+       */
+      spaceKey: string;
+      /** @example Pod A */
+      spaceName: string;
+      /** @description Set for a `cohort-track` link. */
+      cohortTrackId: string | null;
+      /** @description Set for a `mentorship-group` link. */
+      mentorshipGroupId: string | null;
+      /**
+       * Format: date-time
+       * @description When the run going on now, else the next one, starts, as synced from the
+       *     organiser's Google Calendar; null when none is coming. The link lets
+       *     people in from ten minutes before.
+       * @example 2026-11-05T10:00:00.000Z
+       */
+      startsAt: string | null;
+      /**
+       * Format: date-time
+       * @example 2026-11-05T11:00:00.000Z
+       */
+      endsAt: string | null;
+      /**
+       * Format: date-time
+       * @example 2026-11-03T09:00:00.000Z
+       */
+      createdAt: string;
+      /**
+       * @description Whether world will let the caller into the space now: a run is open
+       *     (from ten minutes before it starts until it ends), or the caller is an
+       *     admin. When false, walk there anyway; a closed door can still be asked.
+       * @example true
+       */
+      admitted: boolean;
+    };
+    MembersByRoleDto: {
+      /** @example 30 */
+      student: number;
+      /** @example 2 */
+      professor: number;
+      /** @example 4 */
+      mentor: number;
+      /** @example 3 */
+      guest: number;
+    };
+    MemberFiguresDto: {
+      /**
+       * @description People with a live membership, suspended accounts included, as on the
+       *     roster. Across the campus, somebody in two cohorts counts once.
+       * @example 38
+       */
+      total: number;
+      /**
+       * @description People with a live membership in each cohort role. Across the campus,
+       *     somebody holding two roles counts under both, so these can add up to more
+       *     than `total`.
+       */
+      byRole: components["schemas"]["MembersByRoleDto"];
+    };
+    DashboardFiguresDto: {
+      members: components["schemas"]["MemberFiguresDto"];
+      /**
+       * @description Invites still waiting for an answer: pending and not yet expired. Across
+       *     the campus this includes admin invites, which name no cohort.
+       * @example 7
+       */
+      pendingInvites: number;
+    };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
+}
+export type $defs = Record<string, never>;
+export interface operations {
+  AppController_getHello: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  HealthController_check: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The service is healthy. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HealthResponseDto"];
+        };
+      };
+      /** @description The service failed to produce a health check. */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  AuthController_start: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Redirect to Google. */
+      302: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AuthController_callback: {
+    parameters: {
+      query?: {
+        /** @description One-time authorization code to exchange with Google. */
+        code?: string;
+        /** @description The signed state issued when the sign-in started. */
+        state?: string;
+        /** @description Set when the user declined at the Google consent screen. */
+        error?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description On success, sets the session cookie and redirects to /invitation when an invite is still to be answered — including for somebody already a member, invited to another cohort — otherwise to /campus. On failure, redirects to /sign-in?error=<code>, where code is one of invite_required, account_suspended, denied, invalid_state, expired_state, missing_code, exchange_failed, unverified_email, incomplete_profile, invalid_request, rate_limited, server_error. */
+      302: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Google sign-in is switched off on this deployment. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  AuthController_tokenSignIn: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GoogleTokenSignInDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TokenSignInResponseDto"];
+        };
+      };
+      /** @description UNAUTHORIZED: the id_token could not be verified, is addressed to a client this deployment does not name, or carries no verified email address. `details.reason` says which: exchange_failed, unverified_email or incomplete_profile. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description INVITE_REQUIRED: nobody invited this address. ACCOUNT_SUSPENDED: the account exists but has been closed. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Google sign-in is switched off on this deployment. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  AuthController_me: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SessionResponseDto"];
+        };
+      };
+      /** @description No usable session. For a full-access session, try POST /v1/auth/refresh once before sending the user to sign in. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  AuthController_refresh: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RefreshTokenDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RefreshResponseDto"];
+        };
+      };
+      /** @description The refresh token is missing, spent, revoked or expired, or the account no longer has access. Send the user to sign in. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  AuthController_logout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RefreshTokenDto"];
+      };
+    };
+    responses: {
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  InvitesController_list: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based, up to 10000. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+        /**
+         * @description Restrict to one status. Omit for all of them. `pending` is what an admin
+         *     wants most often — the open offers that are still redeemable — and
+         *     `revoked` is the answer to "who killed this invite".
+         */
+        status?: components["schemas"]["InviteStatus"];
+        /**
+         * @description `true` for the invites an invitee has flagged as wrong, `false` for the
+         *     ones nobody has. Omit for both. Combine with `status=pending` for the flags
+         *     still worth acting on.
+         */
+        flagged?: boolean;
+        /**
+         * @description Invites to this cohort. An admin invite names no cohort, so it never
+         *     matches. A cohort that does not exist matches nothing: an empty page, not a
+         *     404.
+         */
+        cohortId?: string;
+        /**
+         * @description Invites placed on this track, in whichever cohort runs it: the catalogue
+         *     track id, as the roster takes it. Add `cohortId` for one cohort’s intake on
+         *     the track.
+         */
+        trackId?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedAdminInviteListItemDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  InvitesController_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateInviteDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InviteResponseDto"];
+        };
+      };
+      /** @description A malformed body, or a shape the INVITES CHECK constraints would reject. Mirrored in InvitesService.assertValidShape so the caller sees which pairing rule was broken rather than a constraint name. Note that { email } alone is no longer accepted: every invite but an admin one names a cohort, since an invite naming neither accepts into nothing. mentorshipGroupId is only for a student invite, and the group must belong to the same cohort. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session. Three distinct causes, all refused the same way: the cookie is absent or unparseable, the account behind it no longer exists, or the account is suspended. Suspension is a 401 rather than a 403 because it is decided by SessionGuard, before authorization is reached. A provisional session cannot get here either — the scope check fails first. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Authenticated but not an admin. Note that a suspended account is NOT a 403 here: SessionGuard rejects it with 401 ACCOUNT_SUSPENDED before AdminGuard ever runs, so 403 means exactly one thing on this route. A provisional session is likewise refused as 401 by the scope check. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description A referenced cohort, cohort track or mentorship group does not exist. A track or group that exists but belongs to a different cohort is a 400 instead — the reference is well-formed, it is just the wrong pairing. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description A pending invite already exists for this address, enforced by the partial unique index invites_email_pending_unique. The open invite must be revoked or allowed to lapse first — it is never reused or rotated, since a link the first recipient still holds would stop working. Also refused: an invite to a cohort the address is already a live member of, which could never be accepted. Membership of other cohorts is no obstacle, and nor is one that has ended. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  InvitesController_importCsv: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          /**
+           * Format: uuid
+           * @description The cohort every row is invited to.
+           */
+          cohortId: string;
+          /**
+           * Format: binary
+           * @description The CSV file.
+           */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InviteImportResponseDto"];
+        };
+      };
+      /** @description No file, a cohortId that is not a UUID, or a file that cannot be read as a list of invites. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No cohort has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The file is larger than 256 KB. */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  InvitesController_revoke: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RevokeInviteResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /**
+       * @description Signed in, but not an admin.
+       *
+       *     FORBIDDEN: signed in, but not an admin. INVITE_EXPIRED: the invite has expired, so there is nothing to revoke.
+       */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No invite with this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description INVITE_ALREADY_ACCEPTED, INVITE_ALREADY_DECLINED, or INVITE_REVOKED (this invite is already revoked). */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  InvitesController_resend: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InviteResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No invite with this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description INVITE_ALREADY_ACCEPTED, INVITE_ALREADY_DECLINED or INVITE_REVOKED: the invite has been answered or cancelled. CONFLICT: an expired invite that can no longer be offered again — see the message. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  InvitesController_preview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["InvitePreviewRequestDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InvitePreviewResponseDto"];
+        };
+      };
+      /** @description INVITE_EXPIRED: the invite has expired. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No invite matches this token — mistyped or truncated. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description INVITE_ALREADY_ACCEPTED (send them to sign in), INVITE_ALREADY_DECLINED, or INVITE_REVOKED. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  InvitesController_validateUserInvite: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InviteOnboardingResponseDto"];
+        };
+      };
+      /** @description No usable session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The invite was still pending but its expiresAt has passed. The status is materialised to expired before this is thrown, and a replay answers the same INVITE_EXPIRED: lapsed and materialised are one outcome, so the code does not depend on what read the invite first. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The session carries an inviteId but no such invite exists, the provisional session has no inviteId at all, or a full-access session has no pending invite addressed to it. All three mean there is nothing here to answer. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The invite reached a terminal state — accepted, declined or revoked — so there is no decision left to make. Distinct from the 403 above: that one was live and ran out of time, this one was resolved by somebody. Retrying cannot change the answer. error.code names which answer stands (INVITE_ALREADY_ACCEPTED, INVITE_ALREADY_DECLINED, INVITE_REVOKED) and is the same on the decision route, so a caller that validates before deciding sees one vocabulary. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  InvitesController_flag: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["InviteFlagDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InviteFlagResponseDto"];
+        };
+      };
+      /** @description The message is missing, blank or too long, or a full-access session did not name the invite in `inviteId`. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description INVITE_EXPIRED: the invite has expired. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No invite matches this session, or the one named. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description CONFLICT: this invite is already flagged. INVITE_ALREADY_ACCEPTED, INVITE_ALREADY_DECLINED or INVITE_REVOKED: the invite is settled, with the same code every other route gives it. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  InvitesController_decide: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["InviteDecisionDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InviteDecisionResponseDto"];
+        };
+      };
+      /** @description The body is not one of the two decisions (an absent or empty body reports the same way), or a full-access session did not name the invite it is answering in `inviteId`. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session. A suspended account is a 401 rather than a 403 because the guard rejects it before the route runs. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The invite lapsed before it was answered. Applies to decline as well as accept: an expired offer cannot be turned down either. The same 403 comes back whether or not the expiry has already been materialised by a read, so the code does not depend on what the caller did earlier. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description A provisional session names no invite or one that does not exist, or a full-access caller names an invite that does not exist or is addressed to another account. All mean there is nothing here to decide. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The invite already carries an answer, so there is nothing to decide. Branch on error.code, not on the 409: INVITE_ALREADY_ACCEPTED means the offer was taken, so send the caller back through sign-in to pick up the membership. INVITE_ALREADY_DECLINED and INVITE_REVOKED both mean the offer is closed — leave the flow. A plain CONFLICT is a different thing: the invite is still live, but the account already holds a standing membership of that cohort which an invite must not overwrite, so it stays pending for an admin to resolve. details.status repeats the same fact for logging. Re-sending the same decision is never the recovery: a lost response is indistinguishable from a deliberate second answer, and treating them alike would let a retry reopen an invite that was already settled. The validation route reports the same codes for the same states. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  TracksController_list: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based, up to 10000. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedTrackResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  TracksController_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateTrackDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TrackResponseDto"];
+        };
+      };
+      /** @description A missing or malformed field. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Another track already has this code. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  TracksController_remove: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The track was deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No track has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The track is still attached to cohorts. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  TracksController_update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateTrackDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TrackResponseDto"];
+        };
+      };
+      /** @description A malformed or null name or code, or id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No track has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Another track already has this code. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_list: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based, up to 10000. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedCohortResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateCohortDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CohortResponseDto"];
+        };
+      };
+      /** @description A missing or malformed field, or an endDate before startDate. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Another cohort already has this code. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CohortDetailResponseDto"];
+        };
+      };
+      /** @description id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No cohort has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_remove: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The cohort was deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No cohort has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The cohort still has tracks, members, invites or mentorship groups. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateCohortDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CohortResponseDto"];
+        };
+      };
+      /** @description A malformed field, a null name, code or status, or an endDate before startDate. id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No cohort has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Another cohort already has this code. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_listMembers: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based, up to 10000. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+        /**
+         * @description `live` (the default) for the people in the cohort now; `ended` for those
+         *     who left, were dismissed, withdrew, deferred, graduated, or whose guest
+         *     visit is over; `all` for both.
+         */
+        state?: components["schemas"]["RosterScope"];
+        role?: components["schemas"]["CohortRole"];
+        /**
+         * @description Students with this status. Anything but `active` is an ended membership, so
+         *     combine it with `state=ended` or `state=all`.
+         */
+        status?: components["schemas"]["StudentStatus"];
+        /**
+         * @description Members on this track: its students, and any staff or guest who was placed
+         *     on it. Add `role=student` for the students alone.
+         */
+        trackId?: string;
+      };
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedRosterMemberDto"];
+        };
+      };
+      /** @description The id or a filter is malformed. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No cohort has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_attachTrack: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AttachTrackDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CohortTrackResponseDto"];
+        };
+      };
+      /** @description id or trackId is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The cohort or the track does not exist. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The cohort already runs this track. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_detachTrack: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+        /** @description The track, as attached: the same id POST took as trackId. */
+        trackId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The track was detached. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description id or trackId is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No cohort has this id, or the cohort does not run this track. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Students or invites in the cohort are still on the track, or it holds a grant of access to a space that has not ended. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_extendVisit: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExtendGuestVisitDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CohortMemberResponseDto"];
+        };
+      };
+      /** @description cohortId or userId is not a UUID, accessExpiresAt is not a date, is not in the future, or is not later than the current end. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nobody in that cohort has this membership. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The membership has left, is not a guest, or the visit has ended. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_moveMemberTrack: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MoveMemberTrackDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MoveMemberTrackResponseDto"];
+        };
+      };
+      /** @description cohortId or userId is not a UUID, or trackId is missing. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nobody in that cohort holds this membership, or no track has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The membership has ended or is not a student, the student is already on the track, or the cohort does not run it. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_dismiss: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EndMembershipDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EndMembershipResponseDto"];
+        };
+      };
+      /** @description cohortId or userId is not a UUID, reason is not a string of at most 500 characters, or reason is missing on a dismissal. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nobody in that cohort holds this membership. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The membership has already ended, the status does not apply to its role, or the caller is ending their own membership. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_withdraw: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EndMembershipDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EndMembershipResponseDto"];
+        };
+      };
+      /** @description cohortId or userId is not a UUID, reason is not a string of at most 500 characters, or reason is missing on a dismissal. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nobody in that cohort holds this membership. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The membership has already ended, the status does not apply to its role, or the caller is ending their own membership. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_defer: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EndMembershipDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EndMembershipResponseDto"];
+        };
+      };
+      /** @description cohortId or userId is not a UUID, reason is not a string of at most 500 characters, or reason is missing on a dismissal. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nobody in that cohort holds this membership. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The membership has already ended, the status does not apply to its role, or the caller is ending their own membership. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_graduate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EndMembershipDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EndMembershipResponseDto"];
+        };
+      };
+      /** @description cohortId or userId is not a UUID, reason is not a string of at most 500 characters, or reason is missing on a dismissal. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nobody in that cohort holds this membership. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The membership has already ended, the status does not apply to its role, or the caller is ending their own membership. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortsController_removeMember: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EndMembershipDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EndMembershipResponseDto"];
+        };
+      };
+      /** @description cohortId or userId is not a UUID, reason is not a string of at most 500 characters, or reason is missing on a dismissal. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nobody in that cohort holds this membership. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The membership has already ended, the status does not apply to its role, or the caller is ending their own membership. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  MentorshipGroupsController_list: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based, up to 10000. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+      };
+      header?: never;
+      path: {
+        cohortId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedMentorshipGroupResponseDto"];
+        };
+      };
+      /** @description cohortId is not a UUID, or a page parameter is invalid. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No cohort has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  MentorshipGroupsController_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateMentorshipGroupDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MentorshipGroupResponseDto"];
+        };
+      };
+      /** @description A malformed body, a blank or too-long name, or a mentor/student from another cohort or with the wrong role. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The cohort or the mentor membership does not exist. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The name is already used in this cohort, or the mentor already leads a group there. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  MentorshipGroupsController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        groupId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MentorshipGroupResponseDto"];
+        };
+      };
+      /** @description cohortId or groupId is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The cohort does not exist, or it has no such group. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  MentorshipGroupsController_remove: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        groupId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The group was deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description cohortId or groupId is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The cohort does not exist, or it has no such group. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description A pending invite still names the group, or a live entry on a space’s list does. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  MentorshipGroupsController_update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        groupId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateMentorshipGroupDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MentorshipGroupResponseDto"];
+        };
+      };
+      /** @description A malformed field, a blank name, or a group that does not belong here. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The cohort or group does not exist. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Another group in the cohort has that name. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  MentorshipGroupsController_changeMentor: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        groupId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ChangeMentorDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MentorshipGroupResponseDto"];
+        };
+      };
+      /** @description A malformed body, or a membership that is not a mentor of this cohort. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The cohort, group or mentor membership does not exist. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The mentor membership has ended, or the mentor already leads another group in this cohort. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  MentorshipGroupsController_addStudent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        groupId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AddStudentDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MentorshipGroupResponseDto"];
+        };
+      };
+      /** @description A malformed body, or a membership that is not a student of this cohort. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The cohort, group or student membership does not exist. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The student is already in this group, is in another group in the cohort, or their membership is no longer live. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  MentorshipGroupsController_removeStudent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        groupId: string;
+        /** @description The cohort membership, not the user. */
+        cohortMemberId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The student was removed. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description cohortId, groupId or cohortMemberId is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The cohort or group does not exist, or the student is not in the group. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  NoticesController_list: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based, up to 10000. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+        scope?: components["schemas"]["NoticeScope"];
+        /**
+         * @description A cohort to narrow to. It matches the notice's own `cohort_id`, so a
+         *     campus notice is not included. A cohort the caller is not in simply
+         *     matches nothing: the filter never reveals a notice outside their
+         *     visibility.
+         */
+        cohortId?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedNoticeResponseDto"];
+        };
+      };
+      /** @description A page, perPage, scope or cohortId is malformed. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  NoticesController_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateNoticeDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  NoticesController_remove: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  NoticesController_update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateNoticeDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  NoticesController_pin: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PinNoticeDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  NoticeCommentsController_list: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based, up to 10000. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+      };
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedNoticeCommentDto"];
+        };
+      };
+      /** @description The notice id is not a UUID, or paging is malformed. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No such notice, or one the caller may not see. Both are the same answer, so existence does not leak. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  NoticeCommentsController_add: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateNoticeCommentDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NoticeCommentDto"];
+        };
+      };
+      /** @description The notice id is not a UUID, or the body is blank or over 2000 characters. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No such notice, or one the caller may not see. Both are the same answer, so existence does not leak. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description More than 30 comments from one client in a minute. */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  NotificationsController_list: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based, up to 10000. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+        /** @description Only the ones not yet read. */
+        unread?: boolean;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedNotificationDto"];
+        };
+      };
+      /** @description `unread` is not true or false, or a page is out of range. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  NotificationsController_markAllRead: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MarkAllReadResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  NotificationsController_markRead: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationDto"];
+        };
+      };
+      /** @description The id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No notification of yours has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  UploadsController_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateUploadDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadDto"];
+        };
+      };
+      /** @description An unknown kind, or a size that is not a whole number above 0. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Larger than this kind allows (`UPLOAD_TOO_LARGE`, `details.maxBytes`). */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description A type this kind does not take (`UPLOAD_TYPE_NOT_ALLOWED`, `details.allowed`). */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Twenty of your uploads from the last hour are still unused, or more than 30 asked for in a minute. */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Uploads are not configured here. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  UploadsController_limits: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadLimitsDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  MediaController_url: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SignedReadDto"];
+        };
+      };
+      /** @description An id that is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No such file, or not one you may read: the same answer either way. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Uploads are not configured here. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  DesksController_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeskDto"][];
+        };
+      };
+      /** @description The cohort id is not a UUID, or the key is blank or too long. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The caller holds no live place in this cohort and is not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No cohort with that id (admins only; others get 403). */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  DesksController_claim: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        /** @description The desk's key: its object's name in Tiled. */
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeskDto"];
+        };
+      };
+      /** @description The cohort id is not a UUID, or the key is blank or too long. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The caller is a guest, or holds no live place in this cohort and is not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No desk with that key on the map, or (admins) no such cohort. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Somebody else holds the desk, or it changed hands while claiming. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  DesksController_release: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        /** @description The desk's key: its object's name in Tiled. */
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeskDto"];
+        };
+      };
+      /** @description The cohort id is not a UUID, or the key is blank or too long. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The desk is somebody else's and the caller is not an admin, or the caller holds no live place in this cohort. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No desk with that key on the map, or (admins) no such cohort. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  UsersController_list: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based, up to 10000. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+        systemRole?: components["schemas"]["SystemRole"];
+        /** @description The account’s own status, not a membership’s. */
+        status?: components["schemas"]["UserStatus"];
+        /** @description People holding this role in a live membership. */
+        cohortRole?: components["schemas"]["CohortRole"];
+        /**
+         * @description Matches any part of the email address, first name, last name, full name or
+         *     display name, ignoring case.
+         */
+        search?: string;
+        /** @description People with a live membership in this cohort. */
+        cohortId?: string;
+        /**
+         * @description People with a live membership on this track, in any cohort that runs it.
+         *     Send `cohortId` as well for one cohort’s intake of the track. Only students
+         *     are placed on a track, so this finds students.
+         */
+        trackId?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedUserListItemDto"];
+        };
+      };
+      /** @description A filter is malformed: not a UUID, or not one of the enum. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  UsersController_setSystemRole: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetSystemRoleDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserSystemRoleDto"];
+        };
+      };
+      /** @description The id is not a UUID, or systemRole is not `user` or `admin`. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No user has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The target is a super admin, or is the caller. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  UsersController_suspend: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SuspendUserDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserStatusDto"];
+        };
+      };
+      /** @description The id is not a UUID, or reason is not a string of at most 500 characters. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /**
+       * @description Signed in, but not an admin.
+       *
+       *     These routes also refuse an admin: one whose rank is not high enough for the change, or whose own account is no longer active.
+       */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No user has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The target is the caller, or is already suspended. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  UsersController_reinstate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserStatusDto"];
+        };
+      };
+      /** @description The id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /**
+       * @description Signed in, but not an admin.
+       *
+       *     These routes also refuse an admin: one whose rank is not high enough for the change, or whose own account is no longer active.
+       */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No user has this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The account is not suspended. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  ProfileController_getOwn: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OwnProfileDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  ProfileController_updateOwn: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateProfileDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OwnProfileDto"];
+        };
+      };
+      /** @description A field is too long, the phone is not a phone number, or the sprite is not one of the allowed keys. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  ProfileController_setAnalyticsConsent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetAnalyticsConsentDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OwnProfileDto"];
+        };
+      };
+      /** @description `consent` is not `granted` or `denied`. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  ProfileController_setAvatar: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetAvatarDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OwnProfileDto"];
+        };
+      };
+      /** @description `mediaId` is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No picture of yours with that id is waiting: it was never asked for, is someone else’s, was already used, or is over 30 minutes old. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nothing was uploaded, or the file is not the type and size it was signed for (`UPLOAD_MISMATCH`). Upload it again. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Uploads are not configured here. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  ProfileController_removeAvatar: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OwnProfileDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  ProfileController_getCard: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProfileCardDto"];
+        };
+      };
+      /** @description The id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No profile the caller may see under this id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortProfilesController_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CohortProfileDto"][];
+        };
+      };
+      /** @description The cohort id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The caller holds no live place in this cohort and is not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No cohort with that id (admins only; others get 403). */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  AuditLogController_list: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based, up to 10000. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+        action?: components["schemas"]["AuditAction"];
+        /** @description Entries about this kind of thing. */
+        subjectType?: components["schemas"]["AuditSubjectType"];
+        /**
+         * @description Entries written at or after this instant. A bare date (`2026-10-01`) is
+         *     midnight UTC; a timestamp must carry its zone.
+         */
+        from?: string;
+        /**
+         * @description Entries written before this instant, which is left out, so ranges placed
+         *     end to end never count an entry twice. All of 7 October is
+         *     `from=2026-10-07&to=2026-10-08`. Must be after `from`.
+         */
+        to?: string;
+        /** @description Entries written by this account. */
+        actorUserId?: string;
+        /**
+         * @description Entries about the thing with this id. Send `subjectType` as well for one
+         *     thing’s history.
+         */
+        subjectId?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedAuditLogEntryDto"];
+        };
+      };
+      /** @description A filter is malformed: not a UUID, not one of the enum, not a date or a timestamp with a zone, or `to` is not after `from`. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  RetentionController_sweep: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SweepRetentionDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SweepRetentionResponseDto"];
+        };
+      };
+      /** @description `table` is not a known table, `retentionDays` is under 30 or not a whole number, or `retentionDays` was sent without `table`. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not a super admin. A plain admin is refused. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortAttendanceController_listClasses: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based, up to 10000. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+        /** @description Classes starting at or after this instant. */
+        from?: string;
+        /** @description Classes starting before this instant. */
+        to?: string;
+      };
+      header?: never;
+      path: {
+        cohortId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedAttendanceClassDto"];
+        };
+      };
+      /** @description An id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Not an admin, nor a live professor on a track or a mentor of a pod in this cohort; or the class is not aimed at the caller's track or pod. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description (Admins) no such cohort. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortAttendanceController_listStudents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudentAttendanceSummaryDto"][];
+        };
+      };
+      /** @description An id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Not an admin, nor a live professor on a track or a mentor of a pod in this cohort; or the class is not aimed at the caller's track or pod. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description (Admins) no such cohort. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CohortAttendanceController_getStudent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudentAttendanceDto"];
+        };
+      };
+      /** @description An id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Not an admin, nor a live professor on a track or a mentor of a pod in this cohort; or the class is not aimed at the caller's track or pod. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description (Admins) no such cohort. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  AttendanceController_getClass: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        instanceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttendanceClassDetailDto"];
+        };
+      };
+      /** @description An id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Not an admin, nor a live professor on a track or a mentor of a pod in this cohort; or the class is not aimed at the caller's track or pod. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No tallied class with that id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  AttendanceController_correct: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        attendanceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CorrectAttendanceDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttendanceRowDto"];
+        };
+      };
+      /** @description An id is not a UUID, the status is unknown, the reason is blank or over 500 characters, or the row already has that status. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Not an admin, nor a live professor on a track or a mentor of a pod in this cohort; or the class is not aimed at the caller's track or pod. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No attendance row with that id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  MapsController_sync: {
+    parameters: {
+      query?: {
+        /**
+         * @description Work out what a sync would change, and change nothing. The answer is
+         *     exactly what the real one would be, because it is the real one, undone
+         *     before it is kept.
+         */
+        dryRun?: boolean;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MapSyncResultDto"];
+        };
+      };
+      /** @description `dryRun` is not `true` or `false`. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The published maps were read and cannot be adopted: nothing is published, a map is broken, the maps do not fit together, a key is too long or kept for something else, or a retired town hall or notice board is published again while another space is one. `details.problems` lists everything wrong, map by map, for whoever publishes maps to put right. Also answered, with no details, when another sync is running. Nothing was changed. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The published maps could not be read at all. `details.reason` is `not_configured` when this deployment is not told where they are, or `unreachable` when Sanity did not answer; that one is worth trying again. Nothing was changed. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  MapsController_publish: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MapPublishedResponseDto"];
+        };
+      };
+      /** @description The id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No map with that id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The map is retired, or it is not the map people enter on. Nothing was changed and no audit entry was written. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  SpaceMembershipsController_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The grants, oldest first. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SpaceMembershipResponseDto"][];
+        };
+      };
+      /** @description The space id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No space with that id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  SpaceMembershipsController_grant: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GrantSpaceMembershipDto"];
+      };
+    };
+    responses: {
+      /** @description The grant, with `live` read at this moment. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SpaceMembershipResponseDto"];
+        };
+      };
+      /** @description More than one of `userId`, `cohortTrackId`, `cohortRole`, `systemRole` and `mentorshipGroupId` was sent, or none; an id is not a UUID; a role is not one there is; or `validTo` is not a date or zoned timestamp in the future. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No space with that id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The space is retired, or the subject already holds a live grant on it. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  SpaceMembershipsController_end: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+        membershipId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The grant has been ended. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The space id or the grant id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No such grant on that space. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The grant has already ended — its row stays as it is — or it has not started yet, and a window cannot close before it opens. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  SpacesController_list: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based, up to 10000. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+        /**
+         * @description Only live spaces with no kind set: the queue of spaces waiting to be set
+         *     up.
+         */
+        needsKind?: boolean;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedSpaceResponseDto"];
+        };
+      };
+      /** @description A page or `needsKind` is malformed. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  SpacesController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SpaceResponseDto"];
+        };
+      };
+      /** @description The id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No space with that id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  SpacesController_update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateSpaceDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SpaceResponseDto"];
+        };
+      };
+      /** @description A malformed field, a null where one is not allowed, an immutable field (`key`, `mapId`, `isMapDefault`), a default space that is not normal, a capacity below 1 or above 2147483647, a negative audio radius, or a hysteresis factor that is not positive. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No space with that id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The campus already has a town hall or a notice board, and this space is being made one. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  FeedbackController_list: {
+    parameters: {
+      query?: {
+        /** @description Page to fetch, 1-based, up to 10000. */
+        page?: number;
+        /** @description Number of items per page. */
+        perPage?: number;
+        type?: components["schemas"]["FeedbackType"];
+        status?: components["schemas"]["FeedbackStatus"];
+        /** @description Everything this account has sent. */
+        submittedBy?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedFeedbackListItemDto"];
+        };
+      };
+      /** @description A filter is not one of its values, or not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  FeedbackController_send: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateFeedbackDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FeedbackReceiptDto"];
+        };
+      };
+      /** @description A field is missing, blank or too long; `type` is not one of the three; `reportedUserId` is on something that is not a report or names no account; `cohortId` names no cohort, or, from anybody but an admin, a cohort the sender is not in; or `context` is not one object; or `attachmentIds` has more than ten, a repeat, or something that is not an id. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description An attachment that is not a waiting `feedback_attachment` upload of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description An attachment is not the file it was signed for, or nothing was uploaded (`UPLOAD_MISMATCH`). */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description This account has sent ten in the last hour. Counted per account, whatever the type. */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Attachments were sent, and uploads are not configured here. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  FeedbackController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FeedbackDto"];
+        };
+      };
+      /** @description The id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No feedback has this id, or it is a report that names the admin asking. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  FeedbackController_setStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateFeedbackStatusDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FeedbackDto"];
+        };
+      };
+      /** @description The id is not a UUID, or `status` is not one of the two. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No feedback has this id, or it is a report that names the admin asking. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CallsController_receive: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Received. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signature is missing, or does not match the body. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No webhook key pair is configured here. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  RecordingsController_start: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        spaceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RecordingDto"];
+        };
+      };
+      /** @description An id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The caller is not an admin, nor one of the cohort's live professors or mentors on the list of this designated space. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No space with that id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No call is going on in the space, or it is already being recorded. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Recording is not configured here; LiveKit would not start it (for example, the plan’s recording minutes are used up); or LiveKit did not answer. After no answer the recording may have started: starting again answers 409 for a couple of minutes, until LiveKit has been asked. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  RecordingsController_stop: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        spaceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RecordingDto"];
+        };
+      };
+      /** @description An id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The caller is not an admin, nor one of the cohort's live professors or mentors on the list of this designated space. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No space with that id, or nothing is being recorded in it. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The recording is still starting; try again in a moment. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Recording is not configured here. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CalendarController_connect: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description To Google; on failure to APP_PUBLIC_URL/campus?calendar=<outcome>, where outcome is one of connected, invalid_state, expired_state, denied, missing_code, exchange_failed, wrong_account, not_granted, no_refresh_token, unauthorized, not_available, unavailable, invalid_request, rate_limited, server_error. */
+      302: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  CalendarController_connectFromApp: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CalendarAppConnectDto"];
+      };
+    };
+    responses: {
+      /** @description Connected. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description INVALID_ARGUMENT, with `details.reason`: exchange_failed (Google did not accept the code), wrong_account (another Google account than the member signs in with), not_granted (calendar access unticked) or no_refresh_token (asked without offline access or force-refresh-token). */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Google Calendar is switched off on this deployment. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Google did not answer in time. Worth trying again shortly. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CalendarController_callback: {
+    parameters: {
+      query?: {
+        /** @description Authorization code from Google. */
+        code?: string;
+        /** @description The state issued by GET /v1/calendar/connect. */
+        state?: string;
+        /** @description Set when the member declined at Google. */
+        error?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description To APP_PUBLIC_URL/campus?calendar=<outcome>, where outcome is one of connected, invalid_state, expired_state, denied, missing_code, exchange_failed, wrong_account, not_granted, no_refresh_token, unauthorized, not_available, unavailable, invalid_request, rate_limited, server_error. */
+      302: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  CalendarController_events: {
+    parameters: {
+      query?: {
+        /** @description Events that end after this. A bare date is midnight UTC. Left out, now. */
+        from?: string;
+        /**
+         * @description Events that start before this. At most 62 days after `from`. Left out, 7
+         *     days after `from`.
+         */
+        to?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CalendarEventsDto"];
+        };
+      };
+      /** @description `from` or `to` is not a date or a zoned timestamp, `to` is not after `from`, or they are more than 62 days apart. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Google Calendar is switched off on this deployment. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Google did not answer in time. Worth trying again shortly. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CalendarController_disconnect: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Forgotten, or there was none. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CalendarNotificationsController_notify: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Received. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  SpaceRoomLinksController_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        spaceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RoomLinkDto"][];
+        };
+      };
+      /** @description An id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The caller is not an admin, nor a professor or mentor with a live place in this cohort. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No space with that id is set up on the entry map (retired, no kind yet, a map's corridors, or on another map), or (admins) no such cohort. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  SpaceRoomLinksController_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        spaceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateRoomLinkDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RoomLinkDto"];
+        };
+      };
+      /** @description An id is not a UUID, or the title is blank or over 128 characters. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The caller is not an admin, nor a professor or mentor with a live place in this cohort. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No space with that id is set up on the entry map (retired, no kind yet, a map's corridors, or on another map), or (admins) no such cohort. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  RoomLinksController_open: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        code: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RoomLinkDto"];
+        };
+      };
+      /** @description The code is not ten letters and digits. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No such link, it was revoked, its space is no longer set up on the entry map, or the caller holds no live place in its cohort. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  RoomLinksController_revoke: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        code: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Revoked. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The code is not ten letters and digits. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The caller is a member of the cohort, but not staff. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No such link, or the caller holds no live place in its cohort. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  RoomLinksController_enter: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        code: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RoomLinkEntryDto"];
+        };
+      };
+      /** @description The code is not ten letters and digits. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No such link, it was revoked, its space is no longer set up on the entry map, or the caller holds no live place in its cohort. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  DashboardController_figures: {
+    parameters: {
+      query?: {
+        /** @description One cohort’s figures. Left out, the whole campus. */
+        cohortId?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardFiguresDto"];
+        };
+      };
+      /** @description `cohortId` is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No cohort has that id. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+}

@@ -1,17 +1,18 @@
 import "./globals.css";
 
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { BrowserPageview } from "@/core/analytics/browser-pageview";
+import {
+  AnalyticsConsentBanner,
+  PrivacyChoicesButton,
+} from "@/core/analytics/consent";
+import { sidebarInitializerScript } from "@/features/campus/document";
+import { motionInitializerScript } from "@/shared/motion";
+import { fontVariableClasses } from "@/shared/styles/fonts";
+import { themeInitializerScript } from "@/shared/theme";
+import { ThemeToggle } from "@/shared/ui/theme-toggle";
 
 export const metadata: Metadata = {
   title: "Campus by Rise",
@@ -27,9 +28,26 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      data-scroll-behavior="smooth"
+      className={`${fontVariableClasses} h-full font-sans antialiased`}
+      suppressHydrationWarning
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body data-surface-role="background" className="flex min-h-full flex-col">
+        <Script id="theme-initializer" strategy="beforeInteractive">
+          {themeInitializerScript}
+        </Script>
+        <Script id="motion-initializer" strategy="beforeInteractive">
+          {motionInitializerScript}
+        </Script>
+        <Script id="sidebar-initializer" strategy="beforeInteractive">
+          {sidebarInitializerScript}
+        </Script>
+        <ThemeToggle />
+        <PrivacyChoicesButton />
+        {children}
+        <AnalyticsConsentBanner />
+        <BrowserPageview />
+      </body>
     </html>
   );
 }

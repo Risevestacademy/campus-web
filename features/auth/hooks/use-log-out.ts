@@ -1,0 +1,59 @@
+import { useMutation } from "@tanstack/react-query";
+import { useRef } from "react";
+
+import { ANALYTICS_EVENTS } from "@/core/analytics";
+import {
+  captureBrowserAnalyticsEvent,
+  resetAnalyticsUser,
+} from "@/core/analytics/client";
+import { browserApi } from "@/core/api/client/browser";
+import { SIGN_IN_PATH } from "@/core/navigation";
+import { replaceDocument } from "@/shared/lib/document-navigation";
+import { toast } from "@/shared/ui/toast";
+
+import { sharedSessionExpiry } from "../services/browser-session";
+import { endSession, type SessionEnd } from "../services/session.service";
+
+function leaveCampus() {
+  captureBrowserAnalyticsEvent(ANALYTICS_EVENTS.AUTH_LOGOUT, {
+    logout_source: "user_action",
+  });
+  resetAnalyticsUser();
+  sharedSessionExpiry.clear();
+  replaceDocument(SIGN_IN_PATH);
+}
+
+function explainFailure() {
+  toast.add({
+    title: "We couldn't log you out",
+    description:
+      "You are still signed in. Check your connection and try again.",
+    type: "error",
+  });
+}
+
+function settle(outcome: SessionEnd) {
+  if (outcome.kind === "ended") leaveCampus();
+  else explainFailure();
+}
+
+export function useLogOut() {
+  const isSending = useRef(false);
+  // Logging out revokes the refresh token, so it is never replayed for us.
+  const logout = useMutation({
+    mutationFn: () => endSession(browserApi),
+    retry: false,
+    onSuccess: settle,
+    onSettled: () => {
+      isSending.current = false;
+    },
+  });
+
+  function logOut() {
+    if (isSending.current) return;
+    isSending.current = true;
+    logout.mutate();
+  }
+
+  return { logOut, isPending: logout.isPending };
+}

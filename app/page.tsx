@@ -1,3 +1,23 @@
+import {
+  CTASection,
+  ExploreCampusSection,
+  FAQsSection,
+  FeaturesSection,
+  FooterSection,
+  HeroSection,
+  HowToJoinSection,
+} from "@/features/home";
+
 export default function Home() {
-  return null;
+  return (
+    <main>
+      <HeroSection />
+      <ExploreCampusSection />
+      <FeaturesSection />
+      <HowToJoinSection />
+      <FAQsSection />
+      <CTASection />
+      <FooterSection />
+    </main>
+  );
 }

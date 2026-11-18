@@ -1,0 +1,127 @@
+import type {
+  GoToMessage,
+  GoToSpaceMessage,
+  GoToTileMessage,
+  MoveMessage,
+  StopWalkingMessage,
+} from "./generated/world-protocol";
+import type { ServerMessage } from "./server-message.schema";
+
+type WorldWalkMessage =
+  GoToMessage | GoToSpaceMessage | GoToTileMessage | StopWalkingMessage;
+
+export type WorldMovementMessage = Extract<
+  ServerMessage,
+  {
+    type:
+      | "welcome"
+      | "snapshot"
+      | "joined"
+      | "left"
+      | "moved"
+      | "moveResult"
+      | "walking"
+      | "walkEnded";
+  }
+>;
+
+export interface WorldMovement {
+  readStepMs(): number | null;
+  sendGoTo(userId: GoToMessage["userId"]): boolean;
+  sendGoToSpace(spaceKey: GoToSpaceMessage["spaceKey"]): boolean;
+  sendGoToTile(tile: Pick<GoToTileMessage, "x" | "y">): boolean;
+  sendMove(move: Pick<MoveMessage, "direction" | "seq">): boolean;
+  sendStopWalking(): boolean;
+  subscribe(listener: (message: WorldMovementMessage) => void): () => void;
+}
+
+export interface WorldMovementChannel extends WorldMovement {
+  apply(message: ServerMessage): void;
+  bind(send: (message: MoveMessage | WorldWalkMessage) => boolean): () => void;
+  disconnect(): void;
+}
+
+export function createWorldMovementChannel(): WorldMovementChannel {
+  const listeners = new Set<(message: WorldMovementMessage) => void>();
+  let binding = 0;
+  let ready = false;
+  let send: ((message: MoveMessage | WorldWalkMessage) => boolean) | undefined;
+  let stepMs: number | null = null;
+
+  function publish(message: WorldMovementMessage) {
+    for (const listener of listeners) listener(message);
+  }
+
+  return {
+    apply(message) {
+      if (message.type === "welcome") {
+        ready = false;
+        stepMs = message.stepMs;
+        publish(message);
+      } else if (message.type === "snapshot") {
+        ready = stepMs !== null;
+        publish(message);
+      } else if (
+        message.type === "joined" ||
+        message.type === "left" ||
+        message.type === "moved" ||
+        message.type === "moveResult" ||
+        message.type === "walking" ||
+        message.type === "walkEnded"
+      ) {
+        publish(message);
+      }
+    },
+    bind(nextSend) {
+      binding += 1;
+      const currentBinding = binding;
+      send = nextSend;
+
+      return () => {
+        if (binding !== currentBinding) return;
+        send = undefined;
+        ready = false;
+        stepMs = null;
+      };
+    },
+    disconnect() {
+      ready = false;
+    },
+    readStepMs: () => (ready ? stepMs : null),
+    sendGoTo(userId) {
+      if (!ready || !send) return false;
+      return send({ type: "goTo", userId });
+    },
+    sendGoToSpace(spaceKey) {
+      if (!ready || !send) return false;
+      return send({ type: "goToSpace", spaceKey });
+    },
+    sendGoToTile({ x, y }) {
+      if (!ready || !send) return false;
+      return send({ type: "goToTile", x, y });
+    },
+    sendMove(move) {
+      if (!ready || !send) return false;
+      return send({ type: "move", ...move });
+    },
+    sendStopWalking() {
+      if (!ready || !send) return false;
+      return send({ type: "stopWalking" });
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+const cohortChannels = new Map<string, WorldMovementChannel>();
+
+export function movementFor(cohortId: string): WorldMovementChannel {
+  let channel = cohortChannels.get(cohortId);
+  if (!channel) {
+    channel = createWorldMovementChannel();
+    cohortChannels.set(cohortId, channel);
+  }
+  return channel;
+}
