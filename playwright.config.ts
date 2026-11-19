@@ -1,4 +1,11 @@
+import { existsSync } from "node:fs";
+
 import { defineConfig, devices } from "@playwright/test";
+
+// The E2E stubs mirror the build's public variables. CI exports them; locally
+// they come from .env, which Next reads but Playwright does not. Variables
+// already set win, as in Next.
+if (existsSync(".env")) process.loadEnvFile(".env");
 
 const E2E_PORT = 3100;
 const FAKE_API_PORT = 3101;
