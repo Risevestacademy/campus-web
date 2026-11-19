@@ -1,4 +1,3 @@
-import { ChatIcon } from "@phosphor-icons/react/dist/ssr/Chat";
 import { HandPalmIcon } from "@phosphor-icons/react/dist/ssr/HandPalm";
 import type { ReactNode } from "react";
 
@@ -8,14 +7,10 @@ import { Separator } from "@/shared/ui/separator";
 import { BackToCampusesControl } from "./back-to-campuses-control";
 import { BroadcastControl } from "./broadcast-control";
 import type { CampusViewer } from "./campus-shell/feedback-layer";
+import { ChatToggleButton } from "./chat/chat-toggle-button";
 import { MeetingMediaControls } from "./meeting-media-controls";
 import { ScreenShareControl } from "./screen-share-control";
 import { StatusDock } from "./status-dock";
-
-const campusActions = [
-  { Icon: ChatIcon, label: "Open chat" },
-  { Icon: HandPalmIcon, label: "Raise hand" },
-] as const;
 
 const CAMPUS_ACTION_CLASS_NAME =
   "bg-surface hover:ring-primary hover:ring-offset-background hover:ring hover:ring-offset-1 [&_svg:not([class*='size-'])]:size-5";
@@ -37,19 +32,17 @@ function CampusActionControls({ cohortId }: Readonly<{ cohortId: string }>) {
         className={CAMPUS_ACTION_CLASS_NAME}
         cohortId={cohortId}
       />
-      {campusActions.map(({ Icon, label }) => (
-        <Button
-          key={label}
-          type="button"
-          size="icon"
-          variant="ghost"
-          aria-label={label}
-          title={label}
-          className={CAMPUS_ACTION_CLASS_NAME}
-        >
-          <Icon aria-hidden />
-        </Button>
-      ))}
+      <ChatToggleButton className={CAMPUS_ACTION_CLASS_NAME} />
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        aria-label="Raise hand"
+        title="Raise hand"
+        className={CAMPUS_ACTION_CLASS_NAME}
+      >
+        <HandPalmIcon aria-hidden />
+      </Button>
     </div>
   );
 }

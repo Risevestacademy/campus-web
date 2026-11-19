@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { closeChat, getChatOpenSnapshot, openChat } from "./chat-panel-store";
 import { SIDEBAR_STORAGE_KEY } from "./sidebar-preferences";
 import {
   getActivePanelSnapshot,
@@ -12,6 +13,7 @@ import {
 } from "./sidebar-store";
 
 beforeEach(() => {
+  closeChat();
   window.localStorage.clear();
   Reflect.deleteProperty(document.documentElement.dataset, "sidebarOpen");
 });
@@ -29,22 +31,22 @@ describe("sidebar store", () => {
     expect(getSidebarModeSnapshot()).toBe("admin");
     expect(getSidebarOpenSnapshot()).toBe(true);
 
-    setActivePanel("chat");
+    setActivePanel("tasks");
 
     expect(getSidebarModeSnapshot()).toBe("campus");
-    expect(getActivePanelSnapshot()).toBe("chat");
+    expect(getActivePanelSnapshot()).toBe("tasks");
   });
 
   it("persists the active panel and reopens the sidebar", () => {
     setSidebarOpen(false);
 
-    setActivePanel("chat");
+    setActivePanel("tasks");
 
-    expect(getActivePanelSnapshot()).toBe("chat");
+    expect(getActivePanelSnapshot()).toBe("tasks");
     expect(getSidebarOpenSnapshot()).toBe(true);
     expect(
       JSON.parse(window.localStorage.getItem(SIDEBAR_STORAGE_KEY) ?? "{}"),
-    ).toMatchObject({ activePanel: "chat", sidebarOpen: true });
+    ).toMatchObject({ activePanel: "tasks", sidebarOpen: true });
   });
 
   it("ignores a corrupted value stored for another key", () => {
@@ -80,5 +82,38 @@ describe("sidebar store", () => {
     );
 
     expect(onStoreChange).toHaveBeenCalledOnce();
+  });
+});
+
+describe("sidebar and chat panel", () => {
+  it("leaves the saved sidebar choice alone while chat opens and closes", () => {
+    setSidebarOpen(true);
+    const saved = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
+
+    openChat();
+    closeChat();
+
+    expect(window.localStorage.getItem(SIDEBAR_STORAGE_KEY)).toBe(saved);
+    expect(getSidebarOpenSnapshot()).toBe(true);
+  });
+
+  it.each([
+    ["opening the sidebar", () => setSidebarOpen(true)],
+    ["choosing a panel", () => setActivePanel("tasks")],
+    ["choosing the administration mode", () => setSidebarMode("admin")],
+  ])("closes chat when %s", (_, show) => {
+    openChat();
+
+    show();
+
+    expect(getChatOpenSnapshot()).toBe(false);
+  });
+
+  it("keeps chat open when the sidebar is collapsed", () => {
+    openChat();
+
+    setSidebarOpen(false);
+
+    expect(getChatOpenSnapshot()).toBe(true);
   });
 });
