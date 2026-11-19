@@ -10,6 +10,7 @@ import type {
   BroadcastMessage as PublishedBroadcastMessage,
   Call as PublishedCall,
   CallMessage as PublishedCallMessage,
+  ChatAttachment,
   Direction,
   EntryRequestedMessage as PublishedEntryRequestedMessage,
   EntryRequestEndedMessage as PublishedEntryRequestEndedMessage,
@@ -100,8 +101,9 @@ export type EntryRequestOutcome = OrUnknown<PublishedEntryRequestOutcome>;
 export type StaffAction = OrUnknown<PublishedStaffActionMessage["action"]>;
 export type SaidMessage = Pick<
   PublishedSaidMessage,
-  "type" | "id" | "userId" | "spaceKey" | "text" | "at"
+  "type" | "id" | "userId" | "spaceKey" | "text" | "attachment" | "at"
 >;
+export type { ChatAttachment };
 export type EntryRequestedMessage = Pick<
   PublishedEntryRequestedMessage,
   "type" | "requestId" | "userId" | "spaceKey"
@@ -138,8 +140,14 @@ export type JoinedMessage = Simplify<
   Pick<PublishedJoinedMessage, "type"> & { player: Avatar }
 >;
 type Hearing = OrUnknown<PublishedCall["hearing"]>;
+// `room` names the call's room; a space's is `space:<cohort id>:<space id>`,
+// which is how a feature finds the campus-api space the call belongs to
+// (`spaceIdOfRoom`). It is not a secret, unlike the token.
 export type Call = Simplify<
-  Pick<PublishedCall, "url" | "token" | "audibleRadius"> & { hearing: Hearing }
+  Pick<PublishedCall, "url" | "token" | "audibleRadius"> & {
+    hearing: Hearing;
+    room?: string;
+  }
 >;
 export type CallMessage = Simplify<
   Pick<PublishedCallMessage, "type"> & { call: Call | null }
@@ -363,9 +371,20 @@ const spacesMessageSchema = z.toZod<SpacesMessage>()(
   z.object({ type: z.literal("spaces"), spaces: z.array(spaceNameSchema) }),
 );
 
+// A space's room is named `space:<cohort id>:<space id>`: the space id is what
+// campus-api's routes for a call, such as its chat files, are keyed by. Only a
+// space that has an id has a call, so the corridors name none.
+const SPACE_ROOM =
+  /^space:[^:]+:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+export function spaceIdOfRoom(room: string): string | null {
+  return SPACE_ROOM.exec(room)?.[1] ?? null;
+}
+
 const callSchema = z.toZod<Call>()(
   z.object({
     url: z.string().min(1),
+    room: z.string().optional(),
     token: z.string().min(1),
     hearing: orUnknown(["room", "proximity"]),
     audibleRadius: z.number().nonnegative(),
@@ -388,6 +407,17 @@ const entryRequestOutcomeSchema = z.toZod<EntryRequestOutcome>()(
   ]),
 );
 
+// A file sent with a line, as the speaker gave it: world passes it on without
+// checking it, so what it says about itself is capped here.
+const chatAttachmentSchema = z.toZod<ChatAttachment>()(
+  z.object({
+    mediaId: z.string().min(1),
+    fileName: z.string().max(255).nullable(),
+    contentType: z.string().min(1).max(255),
+    sizeBytes: z.number().int().min(0),
+  }),
+);
+
 const saidMessageSchema = z.toZod<SaidMessage>()(
   z.object({
     type: z.literal("said"),
@@ -395,6 +425,7 @@ const saidMessageSchema = z.toZod<SaidMessage>()(
     userId: z.string(),
     spaceKey: z.string(),
     text: z.string(),
+    attachment: chatAttachmentSchema.nullable(),
     at: z.string(),
   }),
 );

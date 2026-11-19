@@ -19,7 +19,7 @@ export const ERROR_LIMIT = 10;
 // leave drop out of the participants, and their lines should keep their name.
 export type ChatLine = Pick<
   Of<"said">,
-  "id" | "userId" | "spaceKey" | "text" | "at"
+  "id" | "userId" | "spaceKey" | "text" | "attachment" | "at"
 > & { senderName: string | null };
 export type EntryRequest = Pick<
   Of<"entryRequested">,
@@ -135,9 +135,10 @@ export function socialChangeOf(
         ),
       };
     case "said":
-      // A line with no text carries only a file, which this client does not
-      // read yet.
-      if (message.text.trim() === "") return undefined;
+      // A line says something, or sends a file.
+      if (message.text.trim() === "" && message.attachment === null) {
+        return undefined;
+      }
       if (social.chat.some(({ id }) => id === message.id)) return undefined;
       return {
         chat: newest(
@@ -148,6 +149,7 @@ export function socialChangeOf(
               userId: message.userId,
               spaceKey: message.spaceKey,
               text: message.text,
+              attachment: message.attachment,
               at: message.at,
               senderName: nameOf(message.userId),
             },

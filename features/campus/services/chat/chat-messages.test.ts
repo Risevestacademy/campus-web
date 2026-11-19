@@ -40,6 +40,7 @@ function line(
     userId,
     spaceKey: "library",
     text: `line ${id}`,
+    attachment: null,
     at: "2026-11-17T15:01:10.000Z",
     senderName: null,
     ...overrides,

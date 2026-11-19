@@ -51,7 +51,7 @@ import {
   `sendAnswerEntryRequest`, `sendMute` and `sendRemoveFromSpace`. Each
   returns whether the frame reached the socket: false before `welcome` and
   `snapshot`, after a close, and for a value world would refuse (a line of
-  0 or over `SAY_MAX_LENGTH` characters, a timed status outside
+  0 or over `SAY_MAX_LENGTH` characters, with no file; a timed status outside
   `STATUS_DURATION_MIN_SECONDS` to `STATUS_DURATION_MAX_SECONDS`). A line is
   trimmed before it is sent. A view checks the limits itself to tell the
   member why; the channel only keeps a bad frame off the socket.
@@ -135,6 +135,13 @@ result.
   are not logged as skipped, and nothing unread travels on: `broadcast`'s
   media token is dropped with the rest. The feature that reads one gives it a
   real schema.
+- `said` keeps `attachment`, the file sent with a line, or null: its
+  `mediaId`, `fileName` (at most 255 characters, or null), `contentType` and
+  `sizeBytes` (a whole number, never negative). World passes a file on without
+  checking it, so these are capped here, and nothing else it says about the
+  file is kept. Nothing reads it yet.
+- `moveResult.outcome` and `walkEnded.reason` can be `full`: a space the member
+  may enter holds as many people as its capacity allows.
 - `walking` keeps `player`. `walkEnded` keeps `reason`, `player` and
   `spaceKey`; whom you walked to and `mayAsk` are stripped until a feature
   reads them. A reason world adds later reads as `unknown`, so the frame still
@@ -145,11 +152,12 @@ result.
 - `snapshot.spaces` and the `spaces` frame keep each space's `spaceKey` and
   `name`. A `snapshot` whose `spaces` is missing or malformed reads as `[]`,
   so a label never fails the handshake.
-- `call` keeps `url` and `token` (both non-empty), `hearing` and
-  `audibleRadius` (non-negative);
-  `call: null` means no call. `room` and `subscribeRadius` are stripped: the
-  token already names the room. A `hearing` world added later reads as
-  `"unknown"`.
+- `call` keeps `url` and `token` (both non-empty), `hearing`, `audibleRadius`
+  (non-negative) and `room`; `call: null` means no call. `subscribeRadius` is
+  stripped. A space's `room` is `space:<cohort id>:<space id>`, and
+  `spaceIdOfRoom(room)` reads the space id from it (null for any other room),
+  which is how presence knows the campus-api space whose call you are in. A
+  `hearing` world added later reads as `"unknown"`.
   The token is a media secret: call media holds it only for the join
   that uses it.
 - Objects strip unknown fields rather than reject them. The schema's

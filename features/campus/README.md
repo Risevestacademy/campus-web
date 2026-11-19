@@ -79,14 +79,35 @@ What is typed and not sent survives closing the panel in
 `store/chat-panel-store.ts`, in memory only. Lines from other people arriving
 while the Chat tab is not showing count as unread (`hooks/use-chat-unread.ts`)
 on the control bar button, capped at 99+, and as a dot on the Chat tab while
-the panel is on another tab. Resources is a placeholder until its feature
-lands. Whether it is open
+the panel is on another tab. Whether it is open
 and which tab shows live in `store/chat-panel-store.ts`, never saved: the sidebar
 and the chat panel are never open together, so `useSidebarVisible` is the saved
 sidebar choice and not chat open. Chat opening or closing never writes the saved
 sidebar choice, so the sidebar returns by itself; showing the sidebar (`setSidebarOpen(true)`,
 `setActivePanel`, `setSidebarMode`) closes chat. The panel is as wide as the sidebar, so
 swapping them does not move the meeting.
+
+Files in chat: a call's members can send a file with a line. The paperclip
+opens the picker only where the space has a call (`presence.spaceId`, read from
+the call's room name), and says so in the corridors, which hold none. Before any
+work is done, `useSendChatFile` checks a line could go out (the socket is up and
+the send budget has one), then uploads with `core/uploads` (`call_chat_attachment`,
+with progress and Cancel), ties the upload to the call (`attachToCall`:
+`POST /v1/cohorts/{cohortId}/spaces/{spaceId}/call/attachments`), and says the
+line through world with the file, whatever is typed riding as its caption. Each
+refusal has its own words: a wrong type or a size over the limit, too many
+uploads, no call going on (409), not allowed in the space, or an upload that did
+not arrive whole. A file arrives on a line as a card (`chat-file-card.tsx`): its
+icon (from a small allow-list of content types, else a plain file), name and size
+and an Open button. Opening asks campus-api for a fresh link, which lasts fifteen
+minutes and is never kept (`GET /v1/media/{id}/url`, `useOpenChatFile`), in a tab
+opened during the click so a browser does not take the wait as a popup. A file
+that answers 410 is let go: the call ended, and the card says "This file is no
+longer available" (remembered for the session in `store/chat-panel-store.ts`). The
+Resources tab lists the files seen in the space, newest first, with who sent
+each and when, counted on its tab; there is no list route, so it is what this
+device has seen since the member came into the space, and it clears with the
+chat.
 
 The rail's avatar opens the member's account menu (`rail-account.tsx`): their
 name, track and cohort, and status; the status choices (the tray's `menu`

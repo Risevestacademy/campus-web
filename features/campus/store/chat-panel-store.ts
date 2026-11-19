@@ -10,6 +10,8 @@ export type ChatTab = (typeof CHAT_TABS)[number];
 // chat it stays in memory and never reaches storage.
 type ChatPanelState = Readonly<{
   draft: string;
+  // Files that answered 410 when opened: the call ended and let them go.
+  goneFileIds: readonly string[];
   open: boolean;
   // The newest line the member has seen with the Chat tab showing.
   readThroughId: string | null;
@@ -18,6 +20,7 @@ type ChatPanelState = Readonly<{
 
 const INITIAL_STATE: ChatPanelState = {
   draft: "",
+  goneFileIds: [],
   open: false,
   readThroughId: null,
   tab: "chat",
@@ -29,6 +32,7 @@ let state: ChatPanelState = INITIAL_STATE;
 function update(next: ChatPanelState): void {
   if (
     next.draft === state.draft &&
+    next.goneFileIds === state.goneFileIds &&
     next.open === state.open &&
     next.readThroughId === state.readThroughId &&
     next.tab === state.tab
@@ -70,6 +74,19 @@ export function getChatReadThroughSnapshot(): string | null {
 
 export function getServerChatReadThroughSnapshot(): string | null {
   return null;
+}
+
+export function getGoneFileIdsSnapshot(): readonly string[] {
+  return state.goneFileIds;
+}
+
+export function getServerGoneFileIdsSnapshot(): readonly string[] {
+  return INITIAL_STATE.goneFileIds;
+}
+
+export function markFileGone(mediaId: string): void {
+  if (state.goneFileIds.includes(mediaId)) return;
+  update({ ...state, goneFileIds: [...state.goneFileIds, mediaId] });
 }
 
 export function setChatDraft(draft: string): void {

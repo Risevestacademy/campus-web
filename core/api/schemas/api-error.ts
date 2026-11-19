@@ -22,6 +22,7 @@ export const exceptionCodeSchema = z.toZod<Schemas["ExceptionCode"]>()(
     "UPLOAD_TOO_LARGE",
     "UPLOAD_TYPE_NOT_ALLOWED",
     "UPLOAD_MISMATCH",
+    "MEDIA_GONE",
     "SERVICE_UNAVAILABLE",
     "INTERNAL_ERROR",
   ]),

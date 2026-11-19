@@ -22,6 +22,19 @@ describe("parseUploadLimits", () => {
     ).toStrictEqual([avatar]);
   });
 
+  it("reads the limits of a file sent in a call's chat", () => {
+    const chat = {
+      kind: "call_chat_attachment",
+      contentTypes: ["application/pdf", "image/png"],
+      maxBytes: 26_214_400,
+    };
+
+    expect(parseUploadLimits({ kinds: [avatar, chat] })).toStrictEqual([
+      avatar,
+      chat,
+    ]);
+  });
+
   it("skips a kind this client does not know yet", () => {
     expect(
       parseUploadLimits({

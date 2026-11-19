@@ -64,4 +64,21 @@ describe("send budget", () => {
 
     expect(budget.take()).toBe(false);
   });
+
+  it("says whether there is a line to spend without spending it", () => {
+    const time = clock();
+    const budget = createSendBudget(time.now);
+
+    for (let line = 0; line < 5; line += 1) {
+      expect(budget.available()).toBe(true);
+      budget.take();
+    }
+    expect(budget.available()).toBe(false);
+    expect(budget.available()).toBe(false);
+
+    time.advance(1000);
+    expect(budget.available()).toBe(true);
+    expect(budget.take()).toBe(true);
+    expect(budget.available()).toBe(false);
+  });
 });

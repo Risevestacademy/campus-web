@@ -24,6 +24,7 @@ interface AvatarLayerOptions {
   movement: WorldMovement;
   onMoveCorrected: (outcome: MoveCorrection) => void;
   onEntryRefused?: (refusal: EntryRefusal) => void;
+  onSpaceFull?: (spaceKey: string | null) => void;
   // Hands the member's own movement to whoever steps them on world's behalf.
   onOwnMovement?: (movement: Pick<OwnAvatarMovement, "stepInto">) => void;
   readPresence: () => Presence;
@@ -61,6 +62,7 @@ export function addAvatarLayer(
     movement,
     onMoveCorrected,
     onEntryRefused,
+    onSpaceFull,
     onOwnMovement,
     readPresence,
   }: AvatarLayerOptions,
@@ -79,6 +81,7 @@ export function addAvatarLayer(
     movement,
     onMoveCorrected,
     onEntryRefused,
+    onSpaceFull,
     prefersReducedMotion,
     readPresence,
   });

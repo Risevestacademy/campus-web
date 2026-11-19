@@ -6,6 +6,7 @@ import {
   type ChatGroup,
   formatChatTime,
 } from "../../services/chat/chat-messages";
+import { ChatFileCard } from "./chat-file-card";
 
 // One person's lines from the same minute: their avatar, name and time once,
 // then each line. Text is only ever drawn as text.
@@ -32,12 +33,16 @@ export function ChatMessageGroup({ group }: Readonly<{ group: ChatGroup }>) {
           </time>
         </p>
         {messages.map((message) => (
-          <p
-            key={message.id}
-            className="text-sm [overflow-wrap:anywhere] break-words whitespace-pre-wrap"
-          >
-            {message.text}
-          </p>
+          <div key={message.id} className="flex flex-col gap-1">
+            {message.text ? (
+              <p className="text-sm [overflow-wrap:anywhere] break-words whitespace-pre-wrap">
+                {message.text}
+              </p>
+            ) : null}
+            {message.attachment ? (
+              <ChatFileCard attachment={message.attachment} />
+            ) : null}
+          </div>
         ))}
       </div>
     </div>

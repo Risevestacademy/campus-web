@@ -2,17 +2,32 @@
 
 import { PaperclipIcon } from "@phosphor-icons/react/dist/ssr/Paperclip";
 import { PaperPlaneRightIcon } from "@phosphor-icons/react/dist/ssr/PaperPlaneRight";
-import { type FormEvent, type KeyboardEvent, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  useRef,
+  useState,
+} from "react";
 
 import { Button } from "@/shared/ui/button";
 import { Textarea } from "@/shared/ui/textarea";
 
 import { useChatDraft } from "../../hooks/use-chat-panel";
 import { CHAT_LINE_MAX_LENGTH, useSendChat } from "../../hooks/use-send-chat";
+import {
+  NO_ROOM_MESSAGE,
+  useSendChatFile,
+} from "../../hooks/use-send-chat-file";
 import { setChatDraft } from "../../store/chat-panel-store";
 
 // The counter shows only near the limit, where it matters.
 const COUNTER_FROM = 400;
+
+// What a file can be, for the picker: the browser offers these first, and the
+// upload is checked against campus-api's own list all the same.
+const FILE_PICKER_TYPES =
+  "image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx";
 
 const REFUSALS = {
   "not-ready": "Reconnecting…",
@@ -20,7 +35,8 @@ const REFUSALS = {
 } as const;
 
 // Where the member writes. A line that cannot go out stays in the box with
-// the reason beneath it, so nothing they typed is lost.
+// the reason beneath it, so nothing they typed is lost. A file goes with
+// whatever is typed as its caption.
 export function ChatComposer({
   cohortId,
   placeholder,
@@ -28,15 +44,19 @@ export function ChatComposer({
 }: Readonly<{ cohortId: string; placeholder: string; synced: boolean }>) {
   const draft = useChatDraft();
   const { send } = useSendChat(cohortId);
+  const file = useSendChatFile(cohortId);
+  const picker = useRef<HTMLInputElement>(null);
   const [refusal, setRefusal] = useState<keyof typeof REFUSALS>();
+  const [attachNotice, setAttachNotice] = useState<string>();
   const length = draft.length;
   const tooLong = draft.trim().length > CHAT_LINE_MAX_LENGTH;
-  const canSend = synced && draft.trim().length > 0 && !tooLong;
-  const reason = refusal
-    ? REFUSALS[refusal]
-    : synced
-      ? ""
-      : REFUSALS["not-ready"];
+  const sending = file.activity.kind !== "idle";
+  const canSend = synced && draft.trim().length > 0 && !tooLong && !sending;
+  const reason =
+    file.problem ??
+    attachNotice ??
+    (refusal ? REFUSALS[refusal] : synced ? "" : REFUSALS["not-ready"]);
+  const isProblem = Boolean(file.problem ?? refusal);
 
   function submit(event?: FormEvent) {
     event?.preventDefault();
@@ -59,16 +79,81 @@ export function ChatComposer({
     submit();
   }
 
+  function pickFile() {
+    setAttachNotice(undefined);
+    file.clearProblem();
+    if (!file.canAttach) {
+      setAttachNotice(NO_ROOM_MESSAGE);
+      return;
+    }
+    picker.current?.click();
+  }
+
+  async function sendPickedFile(event: ChangeEvent<HTMLInputElement>) {
+    const picked = event.target.files?.[0];
+    event.target.value = "";
+    if (!picked || tooLong) return;
+
+    setRefusal(undefined);
+    if (await file.sendFile(picked, draft)) setChatDraft("");
+  }
+
   return (
     <form onSubmit={submit} className="flex shrink-0 flex-col gap-1.5 p-3 pt-2">
+      {file.activity.kind === "idle" ? null : (
+        <div className="bg-surface-hover flex items-center gap-2 rounded-xl px-3 py-2 text-xs">
+          <p className="min-w-0 flex-1 truncate" role="status">
+            {file.activity.kind === "uploading"
+              ? `Uploading ${file.activity.fileName}`
+              : `Sending ${file.activity.fileName}`}
+          </p>
+          {file.activity.kind === "uploading" ? (
+            <>
+              <div
+                role="progressbar"
+                aria-label="Uploading your file"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(file.activity.progress * 100)}
+                className="bg-border h-1.5 w-16 shrink-0 overflow-hidden rounded-full"
+              >
+                <div
+                  className="bg-primary h-full transition-[width]"
+                  style={{ width: `${file.activity.progress * 100}%` }}
+                />
+              </div>
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                onClick={file.cancel}
+                className="shrink-0"
+              >
+                Cancel upload
+              </Button>
+            </>
+          ) : null}
+        </div>
+      )}
       <div className="bg-surface border-shell-line focus-within:border-ring flex items-end gap-1 rounded-2xl border p-1.5">
+        <input
+          ref={picker}
+          type="file"
+          accept={FILE_PICKER_TYPES}
+          aria-label="Choose a file to send"
+          tabIndex={-1}
+          onChange={(event) => void sendPickedFile(event)}
+          className="sr-only"
+        />
         <Button
           type="button"
           size="icon-xs"
           variant="ghost"
           aria-label="Attach a file"
-          title="File sharing is coming soon"
-          aria-disabled="true"
+          title={file.canAttach ? "Attach a file" : NO_ROOM_MESSAGE}
+          aria-disabled={!file.canAttach || sending || undefined}
+          disabled={sending}
+          onClick={pickFile}
           className="text-icon-muted shrink-0 aria-disabled:opacity-50"
         >
           <PaperclipIcon aria-hidden />
@@ -78,6 +163,8 @@ export function ChatComposer({
           value={draft}
           onChange={(event) => {
             setRefusal(undefined);
+            setAttachNotice(undefined);
+            file.clearProblem();
             setChatDraft(event.target.value);
           }}
           onKeyDown={submitOnEnter}
@@ -99,7 +186,7 @@ export function ChatComposer({
       <div className="text-foreground-secondary flex min-h-4 justify-between gap-2 text-xs">
         <p
           role="status"
-          className={refusal ? "text-error-foreground" : undefined}
+          className={isProblem ? "text-error-foreground" : undefined}
         >
           {reason}
         </p>

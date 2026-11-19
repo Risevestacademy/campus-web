@@ -72,6 +72,11 @@ status, statusUntil, spaceKey }>`. `status` is `available`, `busy`, `away` (or `
 - `encounter`: how many times somebody joined `meetingRoster` after nobody
   was. A view opened during one encounter (the meeting grid) checks it, so it
   does not reopen by itself when the next one starts.
+- `spaceId`: the campus-api space whose call you are in, read from the `call`
+  frame's room name (`spaceIdOfRoom`), for routes keyed by it, such as a call's
+  chat files. It is null where the space has no call (the corridors), after the
+  call ends, and from your own crossing or a `snapshot` until world sends the
+  new call.
 - `spaceEnteredAt`: when, by this device's clock, you came into the space you
   stand in (`Date.now()`), set by your first `snapshot` and by your own
   `spaceChanged` into another space, and kept through a reconnect that puts
@@ -132,8 +137,9 @@ the map state above. `Presence` extends its `Social` fields:
 - A chat line is `{ id, userId, spaceKey, text, at, senderName }`.
   `senderName` is the speaker's `displayName` when the line arrived, or null
   for someone presence does not know: people who leave drop out of
-  `participants`, and their lines keep their name. A line with no text can
-  only carry a file, which is not read yet, and is ignored.
+  `participants`, and their lines keep their name. A line is kept when it says
+  something or sends a file (`attachment`, parsed and capped by the realtime
+  schema, or null); one that does neither is ignored.
 - Leaving a space leaves its chat behind: when you cross into another space
   (your own `spaceChanged`), or a `snapshot` places you in one other than
   before, `chat` keeps only the lines said in the space you are in now and
