@@ -47,6 +47,7 @@ export {
   type BroadcastMessage,
   type Call,
   type CallMessage,
+  type ChatAttachment,
   type EntryRequestedMessage,
   type EntryRequestEndedMessage,
   type EntryRequestOutcome,

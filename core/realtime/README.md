@@ -135,6 +135,13 @@ result.
   are not logged as skipped, and nothing unread travels on: `broadcast`'s
   media token is dropped with the rest. The feature that reads one gives it a
   real schema.
+- `said` keeps `attachment`, the file sent with a line, or null: its
+  `mediaId`, `fileName` (at most 255 characters, or null), `contentType` and
+  `sizeBytes` (a whole number, never negative). World passes a file on without
+  checking it, so these are capped here, and nothing else it says about the
+  file is kept. Nothing reads it yet.
+- `moveResult.outcome` and `walkEnded.reason` can be `full`: a space the member
+  may enter holds as many people as its capacity allows.
 - `walking` keeps `player`. `walkEnded` keeps `reason`, `player` and
   `spaceKey`; whom you walked to and `mayAsk` are stripped until a feature
   reads them. A reason world adds later reads as `unknown`, so the frame still

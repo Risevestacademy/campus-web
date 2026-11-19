@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createPresenceStore } from "@/core/presence";
 import { createWorldMovementChannel } from "@/core/realtime";
+import { toast } from "@/shared/ui/toast";
 
 import type { CampusGame, CampusRuntime } from "../game/campus-runtime";
 import type { CampusWorldDependencies } from "../hooks/campus-world-dependencies";
@@ -375,6 +376,33 @@ describe("CampusWorld", () => {
       "campus_world.move_corrected",
       { outcome: "blocked" },
     );
+  });
+
+  it("tells the member a space is full when a step into it is turned back", () => {
+    const addToast = vi.spyOn(toast, "add");
+    const game = startedGame();
+    renderWorld({ runtime: game.runtime });
+    const [, , options] = game.start.mock.calls[0]!;
+
+    options.onSpaceFull?.("library");
+    options.onSpaceFull?.(null);
+
+    expect(addToast).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        id: "space-full",
+        title: "library is full",
+        type: "warning",
+      }),
+    );
+    expect(addToast).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        id: "space-full",
+        title: "That space is full",
+      }),
+    );
+    addToast.mockRestore();
   });
 
   it("reports each zoom level the camera settles on", () => {

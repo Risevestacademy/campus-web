@@ -32,6 +32,7 @@ export {
 export {
   claimEntryRefusals,
   entryRefusalsClaimed,
+  fullSpaceNotice,
   isSpaceLocked,
   ownSpaceKeyOf,
   refusedEntryNotice,

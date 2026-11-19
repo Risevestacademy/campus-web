@@ -29,6 +29,7 @@ export interface CampusGameOptions {
   onMoveCorrected: (outcome: MoveCorrection) => void;
   onRenderError: () => void;
   onEntryRefused?: (refusal: EntryRefusal) => void;
+  onSpaceFull?: (spaceKey: string | null) => void;
   onZoomChanged: (level: ZoomLevel) => void;
   readPresence: () => Presence;
   signal: AbortSignal;
@@ -210,6 +211,7 @@ export function createCampusRuntime(
       | "movement"
       | "onMoveCorrected"
       | "onEntryRefused"
+      | "onSpaceFull"
       | "onZoomChanged"
       | "readPresence"
     >,
