@@ -2,10 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   closeChat,
+  getChatDraftSnapshot,
   getChatOpenSnapshot,
+  getChatReadThroughSnapshot,
   getChatTabSnapshot,
   getServerChatOpenSnapshot,
+  markChatReadThrough,
   openChat,
+  setChatDraft,
   setChatTab,
   subscribeToChatPanel,
   toggleChat,
@@ -14,6 +18,8 @@ import {
 afterEach(() => {
   closeChat();
   setChatTab("chat");
+  setChatDraft("");
+  markChatReadThrough(null);
 });
 
 describe("chat panel store", () => {
@@ -63,11 +69,33 @@ describe("chat panel store", () => {
     expect(listener).toHaveBeenCalledTimes(3);
   });
 
-  it("keeps nothing in browser storage", () => {
+  it("keeps a draft while the panel is closed", () => {
+    openChat();
+    setChatDraft("half a thought");
+
+    closeChat();
+    openChat();
+
+    expect(getChatDraftSnapshot()).toBe("half a thought");
+  });
+
+  it("remembers the newest line read", () => {
+    expect(getChatReadThroughSnapshot()).toBeNull();
+
+    markChatReadThrough("line-7");
+
+    expect(getChatReadThroughSnapshot()).toBe("line-7");
+  });
+
+  it("keeps nothing in browser storage, a draft included", () => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
 
     openChat("people");
+    setChatDraft("a private word");
+    markChatReadThrough("line-7");
 
     expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.length).toBe(0);
   });
 });

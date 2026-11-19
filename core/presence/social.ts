@@ -15,10 +15,12 @@ export const ENTRY_OUTCOME_LIMIT = 20;
 export const STAFF_ACTION_LIMIT = 10;
 export const ERROR_LIMIT = 10;
 
+// `senderName` is who the speaker was called when they said it: people who
+// leave drop out of the participants, and their lines should keep their name.
 export type ChatLine = Pick<
   Of<"said">,
   "id" | "userId" | "spaceKey" | "text" | "at"
->;
+> & { senderName: string | null };
 export type EntryRequest = Pick<
   Of<"entryRequested">,
   "requestId" | "userId" | "spaceKey"
@@ -119,6 +121,7 @@ export function withoutSocketState(): Pick<
 export function socialChangeOf(
   social: Social,
   message: ServerMessage,
+  nameOf: (userId: string) => string | null = () => null,
 ): Partial<Social> | undefined {
   switch (message.type) {
     case "lockableSpaces":
@@ -132,6 +135,9 @@ export function socialChangeOf(
         ),
       };
     case "said":
+      // A line with no text carries only a file, which this client does not
+      // read yet.
+      if (message.text.trim() === "") return undefined;
       if (social.chat.some(({ id }) => id === message.id)) return undefined;
       return {
         chat: newest(
@@ -143,6 +149,7 @@ export function socialChangeOf(
               spaceKey: message.spaceKey,
               text: message.text,
               at: message.at,
+              senderName: nameOf(message.userId),
             },
           ],
           CHAT_LINE_LIMIT,
