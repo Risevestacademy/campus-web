@@ -18,6 +18,10 @@ import {
 } from "@/core/realtime";
 import { readWorldOrigin } from "@/core/realtime/configuration";
 import {
+  parseSignedUpload,
+  parseUploadLimits,
+} from "@/core/uploads/upload.schema";
+import {
   parseFeedbackList,
   parseFeedbackRecord,
 } from "@/features/admin/feedback/schemas/feedback.schema";
@@ -48,6 +52,8 @@ import {
   parsePendingInvite,
 } from "@/features/invitation/schemas/invite.schema";
 import { moveInviteTokenToCookie } from "@/features/invitation/services/invite-token-proxy.service";
+import { parseMemberProfile } from "@/features/profile/schemas/member-profile.schema";
+import { parseOwnProfile } from "@/features/profile/schemas/own-profile.schema";
 import { parseCohortDirectory } from "@/features/roster/schemas/directory.schema";
 import { invitePreview, pendingInvite } from "@/tests/fixtures/invites";
 import { serverFrames } from "@/tests/fixtures/world-frames";
@@ -103,6 +109,7 @@ const FEEDBACK_RECORD_ALLOW_LIST = [
 ].sort();
 
 const PERSON_ALLOW_LIST = [
+  "avatarUrl",
   "displayName",
   "email",
   "firstName",
@@ -131,6 +138,7 @@ const INVITE_ALLOW_LIST = [
   "status",
 ];
 const PERSON_CARD_ALLOW_LIST = [
+  "avatarUrl",
   "displayName",
   "email",
   "firstName",
@@ -142,6 +150,45 @@ const PERSON_CARD_ALLOW_LIST = [
   "memberships[].track.name",
 ];
 
+const MEMBER_PROFILE_ALLOW_LIST = [
+  "avatarUrl",
+  "bio",
+  "displayName",
+  "firstName",
+  "id",
+  "lastName",
+  "memberships[].cohort.id",
+  "memberships[].role",
+  "memberships[].track.name",
+];
+
+const UPLOAD_LIMITS_ALLOW_LIST = [
+  "[].contentTypes[]",
+  "[].kind",
+  "[].maxBytes",
+];
+
+const SIGNED_UPLOAD_ALLOW_LIST = [
+  "headers.Content-Type",
+  "mediaId",
+  "uploadUrl",
+];
+
+const OWN_PROFILE_ALLOW_LIST = [
+  "avatarUrl",
+  "bio",
+  "displayName",
+  "email",
+  "firstName",
+  "id",
+  "lastName",
+  "memberships[].cohort.id",
+  "memberships[].cohort.name",
+  "memberships[].role",
+  "memberships[].track.name",
+  "phone",
+];
+
 const SESSION_ALLOW_LIST = [
   "expiresAt",
   "inviteId",
@@ -150,6 +197,7 @@ const SESSION_ALLOW_LIST = [
   "memberships[].cohortId",
   "memberships[].role",
   "scope",
+  "user.avatarUrl",
   "user.displayName",
   "user.email",
   "user.id",
@@ -594,6 +642,88 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       });
 
       expect(keyPaths(card)).toEqual(PERSON_CARD_ALLOW_LIST);
+    });
+
+    it("keeps only the own-profile fields the account menu and editor read, never consent or the system role", () => {
+      const profile = parseOwnProfile({
+        id: "u-1",
+        email: "ada@campus.local",
+        firstName: "Ada",
+        lastName: "Lovelace",
+        displayName: "Ada L.",
+        bio: "Writes notes on engines.",
+        phone: "+2348000000000",
+        avatarUrl: "https://lh3.googleusercontent.com/a/example",
+        spriteKey: null,
+        systemRole: "admin",
+        analyticsConsent: "granted",
+        createdAt: "2026-09-22T12:00:00.000Z",
+        internalNote: "do not ship",
+        memberships: [
+          {
+            role: "student",
+            status: "active",
+            accessExpiresAt: null,
+            cohort: { id: "c-1", name: "Cohort", code: "C", ...UNEXPECTED },
+            track: { id: "t-1", name: "Backend", code: "BE" },
+          },
+        ],
+      });
+
+      expect(keyPaths(profile)).toEqual(OWN_PROFILE_ALLOW_LIST);
+    });
+
+    it("keeps only the fields another member's card reads, never their email", () => {
+      const card = parseMemberProfile({
+        id: "u-2",
+        email: "grace@campus.local",
+        firstName: "Grace",
+        lastName: "Hopper",
+        displayName: "Grace H.",
+        bio: "Compilers, mostly.",
+        avatarUrl: "https://lh3.googleusercontent.com/a/example",
+        spriteKey: null,
+        ...UNEXPECTED,
+        memberships: [
+          {
+            role: "student",
+            cohort: { id: "c-1", name: "Cohort", code: "C", ...UNEXPECTED },
+            track: { id: "t-1", name: "Backend", code: "BE" },
+          },
+        ],
+      });
+
+      expect(keyPaths(card)).toEqual(MEMBER_PROFILE_ALLOW_LIST);
+    });
+
+    it("keeps only the upload limits a picked file is checked against", () => {
+      const limits = parseUploadLimits({
+        maxAttachments: 10,
+        ...UNEXPECTED,
+        kinds: [
+          {
+            kind: "avatar",
+            contentTypes: ["image/webp"],
+            maxBytes: 2_000_000,
+            ...UNEXPECTED,
+          },
+        ],
+      });
+
+      expect(keyPaths(limits)).toEqual(UPLOAD_LIMITS_ALLOW_LIST);
+    });
+
+    it("keeps only where and how to send an upload, never its expiry or method", () => {
+      const upload = parseSignedUpload({
+        method: "PUT",
+        mediaId: "m-1",
+        uploadUrl: "https://storage.example.test/holding/m-1",
+        headers: { "Content-Type": "image/webp" },
+        expiresAt: "2026-11-14T12:10:00.000Z",
+        ...UNEXPECTED,
+      });
+
+      expect(keyPaths(upload)).toEqual(SIGNED_UPLOAD_ALLOW_LIST);
     });
 
     it("keeps only the feedback fields the detail panel renders", () => {

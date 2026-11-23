@@ -1,9 +1,7 @@
 import { AdminSidebar } from "@/features/admin";
 import {
-  AccountMenu,
   isSystemAdministrator,
   LogOutAction,
-  logsOutFromRail,
   requireRouteAccess,
   SessionUnavailable,
 } from "@/features/auth";
@@ -15,8 +13,9 @@ import {
 } from "@/features/campus";
 import { CampusZoomControls } from "@/features/campus-world";
 import { FeedbackPopup } from "@/features/feedback";
-import { CampusOverviewPanel } from "@/features/roster";
+import { OwnProfileAction } from "@/features/profile";
 
+import { OverviewPanelWithProfiles } from "../campus-overview-panel";
 import { cohortContextOf } from "../cohort-context";
 import { requireCohortId } from "../require-cohort-id";
 
@@ -34,19 +33,16 @@ export default async function ActiveCampusLayout({
     return <SessionUnavailable retryHref={access.retryHref} />;
   }
 
-  // Admins and members of several cohorts log out from the /campus chooser;
-  // the rail offers it only to members who never see that page.
-  const logsOutHere = logsOutFromRail(access.session);
   const isAdministrator = isSystemAdministrator(access.session.user.systemRole);
   const viewer = {
     id: access.session.user.id,
     displayName: access.session.user.displayName,
+    avatarUrl: access.session.user.avatarUrl,
   };
 
   return (
     <PresenceSessionGate cohortId={id}>
       <CampusShell
-        AccountMenu={logsOutHere ? AccountMenu : undefined}
         administrationPanel={
           isAdministrator ? (
             <AdminSidebar
@@ -57,7 +53,8 @@ export default async function ActiveCampusLayout({
         }
         FeedbackPopup={FeedbackPopup}
         LogOutAction={LogOutAction}
-        OverviewPanel={CampusOverviewPanel}
+        OwnProfileAction={OwnProfileAction}
+        OverviewPanel={OverviewPanelWithProfiles}
         cohort={cohortContextOf(access.session, id)}
         cohortId={id}
         viewer={viewer}

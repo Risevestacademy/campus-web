@@ -29,6 +29,7 @@ export type PersonListItem = Simplify<
     | "firstName"
     | "lastName"
     | "displayName"
+    | "avatarUrl"
     | "systemRole"
     | "status"
   > & { memberships: ListMembership[] }
@@ -81,7 +82,7 @@ type CardMembership = Simplify<
 export type PersonCard = Simplify<
   Pick<
     Schemas["ProfileCardDto"],
-    "id" | "email" | "firstName" | "lastName" | "displayName"
+    "id" | "email" | "firstName" | "lastName" | "displayName" | "avatarUrl"
   > & { memberships: CardMembership[] }
 >;
 

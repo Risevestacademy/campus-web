@@ -9,5 +9,6 @@ export const noopMeetingMediaTransport: MeetingMediaTransport = {
   },
   handleLocalPublicationChange(_change: LocalPublicationChange) {},
   retry() {},
+  setBroadcastSpeaking() {},
   setVideoDemand() {},
 };

@@ -180,8 +180,9 @@ layout and its page in parallel, and keeps layouts across soft navigation.
   cohort access.
 - Client modules import auth siblings directly, never `index.ts` (it
   re-exports server-only modules).
-- Other features never import auth; routes pass `AccountMenu`, `LogOutAction`
-  and gates in.
+- Other features never import auth; routes pass `AccountMenu` (the cohort
+  chooser's), `LogOutAction` (Log out in the Campus Shell's account menu) and
+  gates in.
 - Navigation that must drop the media session uses `replaceDocument`.
 - Shared `useMountEffect` is the only sanctioned `useEffect` wrapper.
 - Comment only a non-obvious why.

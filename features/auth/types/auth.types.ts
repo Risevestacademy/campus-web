@@ -11,7 +11,7 @@ export type Session = Simplify<
   Pick<Schemas["SessionResponseDto"], "scope" | "expiresAt" | "inviteId"> & {
     user: Pick<
       Schemas["SessionUserDto"],
-      "id" | "email" | "displayName" | "systemRole"
+      "id" | "email" | "displayName" | "avatarUrl" | "systemRole"
     >;
     memberships: Simplify<
       Pick<Schemas["SessionCohortPlaceDto"], "cohortId" | "cohort"> &

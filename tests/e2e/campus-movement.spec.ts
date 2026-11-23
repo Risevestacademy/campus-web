@@ -302,7 +302,7 @@ test("says why a walk stopped at a closed space", async ({
   });
 
   await expect(
-    page.getByLabel("Notifications").getByText("You can't enter Library"),
+    page.getByLabel("Notifications").getByText("Library is private"),
   ).toBeVisible();
 });
 

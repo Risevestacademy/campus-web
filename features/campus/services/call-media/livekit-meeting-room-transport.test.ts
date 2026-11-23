@@ -363,15 +363,26 @@ describe("createLivekitMeetingRoomTransport", () => {
     },
   );
 
-  it("leaves a microphone's element alone when its track mutes", async () => {
+  it("tells the media session when a microphone mutes and unmutes, keeping its stream", async () => {
     const { connection, events, room } = await joinedRoom();
     const grace = room.join(`${GRACE}:tab-1`, ["microphone"]);
     connection.applyAudience(audience([GRACE]));
     room.deliver(grace, "microphone");
 
     room.mute(grace, "microphone", true);
+    room.mute(grace, "microphone", false);
 
-    expect(events.onRemotePublicationChange).toHaveBeenCalledOnce();
+    const handovers = events.onRemotePublicationChange.mock.calls.map(
+      ([change]) => (change.type === "upserted" ? change.publication : null),
+    );
+    expect(handovers.map((publication) => publication?.enabled)).toEqual([
+      true,
+      false,
+      true,
+    ]);
+    expect(
+      new Set(handovers.map((publication) => publication?.stream)).size,
+    ).toBe(1);
   });
 
   it("tells the media session when a subscribed camera mutes and unmutes", async () => {

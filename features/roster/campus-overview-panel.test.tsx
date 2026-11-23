@@ -42,6 +42,7 @@ import { CampusOverview } from "./campus-overview";
 import { CampusOverviewPanel } from "./campus-overview-panel";
 import { toRosterParticipants } from "./presence-participants";
 import { avatar, snapshot, welcome } from "./testing/world-messages";
+import type { ProfileCardComponent } from "./types";
 
 let nextCohort = 0;
 
@@ -691,6 +692,103 @@ describe("going to somebody", () => {
       screen.queryByRole("button", { name: "Go to me" }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Go to ada" })).toBeVisible();
+  });
+});
+
+describe("profile cards", () => {
+  const ProfileCardStub: ProfileCardComponent = ({
+    actions,
+    cohortId,
+    name,
+    presence,
+    userId,
+  }) => (
+    <div>
+      <p>{`${name} (${userId}) in ${cohortId}`}</p>
+      <p>{presence.label}</p>
+      {actions}
+    </div>
+  );
+
+  function joined() {
+    const { apply, cohortId } = newCohort();
+    everyoneIn(cohortId, [{ id: "yemi", displayName: "Yemi" }]);
+    apply(
+      welcome("me"),
+      snapshot(avatar("me"), avatar("ada", { status: "busy" })),
+    );
+    return cohortId;
+  }
+
+  function openCard(name: string) {
+    fireEvent.click(
+      screen.getByRole("button", { name: `View ${name}'s profile` }),
+    );
+    return screen.findByRole("dialog");
+  }
+
+  it("opens a person's card from their row, with their status and actions", async () => {
+    const cohortId = joined();
+    renderPanel(cohortId, { ProfileCard: ProfileCardStub });
+
+    const card = await openCard("ada");
+
+    expect(within(card).getByText(`ada (ada) in ${cohortId}`)).toBeVisible();
+    expect(within(card).getByText("Busy")).toBeVisible();
+    expect(
+      within(card)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Wave", "Message", "Go to"]);
+  });
+
+  it("walks to them from the card and closes it", async () => {
+    const cohortId = joined();
+    navigation.pathname = `/campus/${cohortId}`;
+    const send = vi.fn(() => true);
+    const movement = movementFor(cohortId);
+    movement.bind(send);
+    movement.apply(welcome("me"));
+    movement.apply(snapshot(avatar("me"), avatar("ada")));
+    renderPanel(cohortId, { ProfileCard: ProfileCardStub });
+
+    const card = await openCard("ada");
+    fireEvent.click(within(card).getByRole("button", { name: "Go to" }));
+
+    expect(send).toHaveBeenCalledExactlyOnceWith({
+      type: "goTo",
+      userId: "ada",
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("offers no actions on the member's own card or an offline one", async () => {
+    const cohortId = joined();
+    renderPanel(cohortId, { ProfileCard: ProfileCardStub });
+
+    const own = await openCard("me");
+    expect(within(own).queryByRole("button")).not.toBeInTheDocument();
+    fireEvent.keyDown(own, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    await screen.findByRole("button", { name: "Offline 1" });
+    rows("Offline");
+    const offline = await openCard("Yemi");
+    expect(within(offline).getByText("Offline")).toBeVisible();
+    expect(within(offline).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("opens nothing when the route passes no card", () => {
+    const cohortId = joined();
+    renderPanel(cohortId);
+
+    expect(
+      screen.queryByRole("button", { name: "View ada's profile" }),
+    ).not.toBeInTheDocument();
   });
 });
 

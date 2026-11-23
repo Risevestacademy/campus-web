@@ -36,6 +36,7 @@ async function connectedStore() {
       timeline.push(change.type);
     },
     retry: vi.fn(),
+    setBroadcastSpeaking: vi.fn(),
     setVideoDemand: vi.fn(),
   };
   const store = createMediaSessionStore({ mediaDevices, transport });

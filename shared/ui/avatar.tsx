@@ -24,10 +24,13 @@ function Avatar({
   );
 }
 
+// No referrer: a picture's host (Google, or campus-api's storage) has no need
+// to learn which page drew it, and Google's can refuse a request naming one.
 function AvatarImage({ className, ...props }: AvatarPrimitive.Image.Props) {
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
+      referrerPolicy="no-referrer"
       className={cn(
         "aspect-square size-full rounded-full object-cover",
         className,

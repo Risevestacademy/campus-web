@@ -6,6 +6,7 @@ import { Button } from "@/shared/ui/button";
 import { Separator } from "@/shared/ui/separator";
 
 import { BackToCampusesControl } from "./back-to-campuses-control";
+import { BroadcastControl } from "./broadcast-control";
 import type { CampusViewer } from "./campus-shell/feedback-layer";
 import { MeetingMediaControls } from "./meeting-media-controls";
 import { ScreenShareControl } from "./screen-share-control";
@@ -28,6 +29,10 @@ type CampusControlBarProps = Readonly<{
 function CampusActionControls({ cohortId }: Readonly<{ cohortId: string }>) {
   return (
     <div role="group" aria-label="Campus actions" className="flex gap-1.25">
+      <BroadcastControl
+        className={CAMPUS_ACTION_CLASS_NAME}
+        cohortId={cohortId}
+      />
       <ScreenShareControl
         className={CAMPUS_ACTION_CLASS_NAME}
         cohortId={cohortId}

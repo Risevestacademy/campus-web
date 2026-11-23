@@ -2,9 +2,11 @@ import {
   isTheme,
   resolveTheme,
   SERVER_THEME,
+  SERVER_THEME_PREFERENCE,
   type Theme,
   THEME_CHANGE_EVENT,
   THEME_STORAGE_KEY,
+  type ThemePreference,
 } from "./theme";
 
 function readStoredTheme(): string | null {
@@ -56,6 +58,43 @@ export function setTheme(theme: Theme): void {
   window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
 }
 
+export function getThemePreferenceSnapshot(): ThemePreference {
+  const storedTheme = readStoredTheme();
+  return isTheme(storedTheme) ? storedTheme : "system";
+}
+
+export function getServerThemePreferenceSnapshot(): ThemePreference {
+  return SERVER_THEME_PREFERENCE;
+}
+
+function forgetStoredTheme(): void {
+  try {
+    window.localStorage.removeItem(THEME_STORAGE_KEY);
+  } catch {
+    // Without storage the operating-system theme already applies next visit.
+  }
+}
+
+function applyThemePreference(preference: ThemePreference): void {
+  if (preference !== "system") {
+    setTheme(preference);
+    return;
+  }
+
+  forgetStoredTheme();
+  applyTheme(resolveTheme(null, prefersDarkMode()));
+  window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+}
+
+export function setThemePreference(preference: ThemePreference): void {
+  if (!supportsViewTransitions()) {
+    applyThemePreference(preference);
+    return;
+  }
+
+  document.startViewTransition(() => applyThemePreference(preference));
+}
+
 export function toggleTheme(): void {
   const nextTheme = getThemeSnapshot() === "dark" ? "light" : "dark";
 
@@ -77,11 +116,26 @@ export function subscribeToTheme(onStoreChange: () => void): () => void {
     onStoreChange();
   }
 
+  // A member who follows the operating system sees its theme change live.
+  function handleSystemThemeChange(): void {
+    if (isTheme(readStoredTheme())) return;
+
+    applyTheme(resolveTheme(null, prefersDarkMode()));
+    onStoreChange();
+  }
+
+  const systemTheme =
+    typeof window.matchMedia === "function"
+      ? window.matchMedia("(prefers-color-scheme: dark)")
+      : null;
+
   window.addEventListener(THEME_CHANGE_EVENT, onStoreChange);
   window.addEventListener("storage", handleStorage);
+  systemTheme?.addEventListener("change", handleSystemThemeChange);
 
   return () => {
     window.removeEventListener(THEME_CHANGE_EVENT, onStoreChange);
     window.removeEventListener("storage", handleStorage);
+    systemTheme?.removeEventListener("change", handleSystemThemeChange);
   };
 }

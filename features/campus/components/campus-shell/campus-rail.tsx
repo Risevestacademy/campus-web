@@ -2,39 +2,28 @@
 
 import { ChatCenteredDotsIcon } from "@phosphor-icons/react/dist/ssr/ChatCenteredDots";
 import { GearSixIcon } from "@phosphor-icons/react/dist/ssr/GearSix";
-import { MoonIcon } from "@phosphor-icons/react/dist/ssr/Moon";
 import { ShieldCheckIcon } from "@phosphor-icons/react/dist/ssr/ShieldCheck";
-import { SignOutIcon } from "@phosphor-icons/react/dist/ssr/SignOut";
 import { SquaresFourIcon } from "@phosphor-icons/react/dist/ssr/SquaresFour";
-import { SunIcon } from "@phosphor-icons/react/dist/ssr/Sun";
 import { cn } from "cn";
 import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { type ComponentType, type ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import logoMark from "@/assets/icon-inverse.svg";
 import { useAnalyticsConsent } from "@/core/analytics/consent";
 import { campusHref } from "@/core/navigation";
 import { badgeVariants } from "@/shared/ui/badge";
-import { Button, buttonVariants } from "@/shared/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/ui/dialog";
+import { buttonVariants } from "@/shared/ui/button";
 import { Separator } from "@/shared/ui/separator";
-import { useThemeToggle } from "@/shared/ui/theme-toggle/use-theme-toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
 import { useActivePanel, useSidebarMode } from "../../hooks/use-sidebar-state";
 import { openFeedbackPanel } from "../../store/feedback-panel-store";
 import type { SidebarMode } from "../../store/sidebar-preferences";
 import { useCampusView } from "../campus-view-provider";
+import { SettingsDialog } from "../settings/settings-dialog";
+import type { LogOutActionComponent } from "./log-out-confirm-dialog";
 import { railPanelItems } from "./rail-items";
 
 function RailButton({
@@ -87,17 +76,6 @@ function RailButton({
   );
 }
 
-function ThemeRailButton() {
-  const { isDark, label, toggle } = useThemeToggle();
-  const Icon = isDark ? SunIcon : MoonIcon;
-
-  return (
-    <RailButton label={label} isPressed={isDark} onClick={toggle}>
-      <Icon aria-hidden size="1.3rem" weight="bold" />
-    </RailButton>
-  );
-}
-
 // The rail hides the floating Privacy choices control, so it offers its own.
 function PrivacyRailButton() {
   const { canReopen, isOpen, toggle } = useAnalyticsConsent();
@@ -111,60 +89,27 @@ function PrivacyRailButton() {
   );
 }
 
-export type LogOutActionComponent = ComponentType<{
-  children: (action: { logOut: () => void; isPending: boolean }) => ReactNode;
-}>;
-
-// Logging out ends the session everywhere, so the item asks first. The dialog
-// closes on confirming: success leaves the page, and a failure explains itself
-// in a toast that the open dialog would cover.
-function LogOutRailButton({
-  logOut,
-  isPending,
+function SettingsRailButton({
+  LogOutAction,
 }: {
-  logOut: () => void;
-  isPending: boolean;
+  LogOutAction?: LogOutActionComponent;
 }) {
-  const [isAsking, setIsAsking] = useState(false);
-
-  function confirm() {
-    if (!isAsking || isPending) return;
-    setIsAsking(false);
-    logOut();
-  }
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <>
       <RailButton
-        label={isPending ? "Logging out…" : "Log out"}
-        disabled={isPending}
-        onClick={() => setIsAsking(true)}
+        label="Settings"
+        isPressed={isOpen}
+        onClick={() => setIsOpen(true)}
       >
-        <SignOutIcon aria-hidden size="1.3rem" weight="bold" />
+        <GearSixIcon aria-hidden size="1.3rem" weight="bold" />
       </RailButton>
-      <Dialog open={isAsking} onOpenChange={setIsAsking}>
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>Log out of Campus?</DialogTitle>
-            <DialogDescription>
-              You will leave your room and need to sign in again to come back.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="sm:justify-center">
-            <DialogClose render={<Button variant="outline" />}>
-              Stay signed in
-            </DialogClose>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={!isAsking || isPending}
-              onClick={confirm}
-            >
-              Log out
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SettingsDialog
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        LogOutAction={LogOutAction}
+      />
     </>
   );
 }
@@ -234,16 +179,8 @@ export function CampusRail({
         <RailButton label="Report an issue" onClick={openFeedbackPanel}>
           <ChatCenteredDotsIcon aria-hidden size="1.3rem" weight="bold" />
         </RailButton>
-        <ThemeRailButton />
         <PrivacyRailButton />
-        <RailButton label="Settings">
-          <GearSixIcon aria-hidden size="1.3rem" weight="bold" />
-        </RailButton>
-        {LogOutAction ? (
-          <LogOutAction>
-            {(action) => <LogOutRailButton {...action} />}
-          </LogOutAction>
-        ) : null}
+        <SettingsRailButton LogOutAction={LogOutAction} />
         <div className="mt-2 flex">{account}</div>
       </div>
     </nav>

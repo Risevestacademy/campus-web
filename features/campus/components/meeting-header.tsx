@@ -4,7 +4,7 @@ import { LockSimpleIcon } from "@phosphor-icons/react/dist/ssr/LockSimple";
 import { LockSimpleOpenIcon } from "@phosphor-icons/react/dist/ssr/LockSimpleOpen";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/dist/ssr/SidebarSimple";
 import { cn } from "cn";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotionConfig } from "motion/react";
 
 import { Button } from "@/shared/ui/button";
 
@@ -61,7 +61,7 @@ function StackAvatar({
 function MeetingParticipantStack({
   participants,
 }: Readonly<{ participants: readonly MeetingParticipant[] }>) {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = Boolean(useReducedMotionConfig());
   const { shown, remaining } = splitAtCap(participants, STACK_CAP);
 
   return (
@@ -126,7 +126,7 @@ export function MeetingHeader({
 }: Readonly<{ lock?: SpaceLock | null; meeting: Meeting | null }>) {
   const { openSidebar } = useCampusView();
   const sidebarOpen = useSidebarOpen();
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = Boolean(useReducedMotionConfig());
   const title = meeting?.title ?? lock?.spaceName;
 
   return (

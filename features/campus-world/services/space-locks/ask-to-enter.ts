@@ -20,6 +20,7 @@ export const ASK_AGAIN_AFTER_S = 30;
 
 export type EntryLook =
   | "locked"
+  | "private"
   | "refused"
   | "asking"
   | "admitted"
@@ -300,16 +301,22 @@ export function createAskToEnter({
       if (state.kind === "asking" || state.kind === "leaving") return;
       const current = presence.getState();
       const title = refusedEntryNotice(current, spaceKey);
-      const locked = spaceKey !== null && isSpaceLocked(current, spaceKey);
-      // A refused step says nothing about asking, so only a lock offers it.
-      if (spaceKey === null || !(mayAsk ?? locked)) {
+      const look: EntryLook =
+        spaceKey === null
+          ? "refused"
+          : isSpaceLocked(current, spaceKey)
+            ? "locked"
+            : "private";
+      // World refuses a step only into a space that can be asked: locked, or
+      // designated without the member on its list. A walk says for itself.
+      if (spaceKey === null || mayAsk === false) {
         state = { kind: "idle" };
-        show({ look: locked ? "locked" : "refused", title, priority: "high" });
+        show({ look, title, priority: "high" });
         return;
       }
       state = { kind: "offered", spaceKey };
       show({
-        look: locked ? "locked" : "refused",
+        look,
         title,
         description: "Someone inside can let you in",
         priority: "high",

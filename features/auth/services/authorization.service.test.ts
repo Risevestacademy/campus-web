@@ -26,7 +26,6 @@ import {
   CohortGate,
   InvitationGate,
   isSignedOut,
-  logsOutFromRail,
   redirectSignedInVisitor,
   requireRouteAccess,
   resolveSignIn,
@@ -192,6 +191,7 @@ interface SessionReply {
     id: string;
     email: string;
     displayName: string | null;
+    avatarUrl?: string | null;
     systemRole: string;
   };
   memberships: readonly CohortPlace[];
@@ -213,6 +213,7 @@ function seenByRoutes({
       id: user.id,
       email: user.email,
       displayName: user.displayName,
+      ...(user.avatarUrl === undefined ? {} : { avatarUrl: user.avatarUrl }),
       systemRole: user.systemRole,
     },
     memberships: memberships.map(({ cohortId, role, cohort }) => ({
@@ -1091,32 +1092,5 @@ describe("InvitationGate", () => {
     expect(markup).toContain('role="alert"');
     expect(markup).toContain('href="/preview"');
     expect(markup).not.toContain("<main");
-  });
-});
-
-describe("logsOutFromRail", () => {
-  const asSession = (body: object) =>
-    body as Parameters<typeof logsOutFromRail>[0];
-
-  it("puts log out in the rail for a member with one cohort, who never sees the chooser", () => {
-    expect(logsOutFromRail(asSession(fullAccess("user", [COHORT_A])))).toBe(
-      true,
-    );
-  });
-
-  it.each([
-    ["a member with several cohorts", fullAccess("user", [COHORT_A, COHORT_B])],
-    ["an admin with no cohort place", fullAccess("admin", [])],
-    ["an admin with one cohort place", fullAccess("admin", [COHORT_A])],
-    [
-      "a Super Administrator with no cohort place",
-      fullAccess("super_admin", []),
-    ],
-    [
-      "a Super Administrator with one cohort place",
-      fullAccess("super_admin", [COHORT_A]),
-    ],
-  ])("leaves log out to the campus chooser for %s", (_, session) => {
-    expect(logsOutFromRail(asSession(session))).toBe(false);
   });
 });

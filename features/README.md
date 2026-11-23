@@ -28,7 +28,8 @@ route hierarchy. `campus` owns the member-facing Cohort chooser, the Campus
 Shell (rail, sidebar, panel switching, and collapse/reopen state), and the
 Active Campus inside it — not a class or mentorship session,
 which is a distinct, later concept. `home` owns the public landing page. `invitation` owns Invite Preview and
-Invitation acceptance. `feedback` owns the member Feedback popup and its list. `roster` owns the participant directory UI
+Invitation acceptance. `feedback` owns the member Feedback popup and its list. `profile` owns the member's own profile: reading and editing it, and the
+summary the rail's account menu shows. `roster` owns the participant directory UI
 (search, filters, and online/offline lists); once real-time status lands, it
 will consume that status from `presence` rather than own it.
 

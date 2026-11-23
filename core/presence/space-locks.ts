@@ -20,7 +20,8 @@ export function isSpaceLocked(
 }
 
 // What the member is told when world refuses them a space: a refused step
-// looks the same for a locked space and a listed one, so the locks say which.
+// looks the same for a locked space and a designated one whose list does not
+// name them, so the locks say which. Either way they may ask to enter.
 export function refusedEntryNotice(
   presence: LockView,
   spaceKey: string | null,
@@ -29,7 +30,7 @@ export function refusedEntryNotice(
   const name = spaceNameOf(presence, spaceKey);
   return isSpaceLocked(presence, spaceKey)
     ? `${name} is locked`
-    : `You can't enter ${name}`;
+    : `${name} is private`;
 }
 
 // The mounted map answers a refused entry itself, with the offer to ask to

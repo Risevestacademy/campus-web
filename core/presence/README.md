@@ -47,8 +47,8 @@ status, statusUntil, spaceKey }>`. `status` is `available`, `busy`, `away` (or `
 - Locks: `ownSpaceKeyOf(presence)` is the space you stand in,
   `isSpaceLocked(presence, spaceKey)` reads `lockedSpaces`, and
   `refusedEntryNotice(presence, spaceKey)` words a refusal ("Room 1 is
-  locked" or "You can't enter Room 1"), since a refused step looks the same
-  for a locked space and a listed one. `claimEntryRefusals(cohortId)` is held
+  locked" or "Room 1 is private"), since a refused step looks the same for a
+  locked space and a designated one whose list does not name you. `claimEntryRefusals(cohortId)` is held
   by the mounted map, which answers refusals itself; while nothing holds it,
   `entryRefusalsClaimed` is false and walk feedback says a refused walk.
 - `nearby`: the `userId`s world says are close enough to hear you, once each,

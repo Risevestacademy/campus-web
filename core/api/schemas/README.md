@@ -21,6 +21,9 @@ import {
   to the generated types.
 - `feedbackTypeSchema`, `feedbackStatusSchema`: the feedback vocabulary read
   by both the member popup and the admin page.
+- `avatarUrlSchema`: a person's picture address, kept only when it is https
+  and read as `null` otherwise, so the initial shows instead of the body
+  failing.
 - `paginationMetaSchema`: `{ page, totalPages }` of a paginated list; other
   meta fields are stripped.
 - `paginationMetaWithTotalSchema`: the same plus `total`, for a screen that
