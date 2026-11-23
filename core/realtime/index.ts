@@ -60,6 +60,7 @@ export {
   type MoveResultMessage,
   parseServerMessage,
   type PlayerStatus,
+  type PositionCorrectedMessage,
   type SaidMessage,
   type ServerMessage,
   type ServerMessageResult,
