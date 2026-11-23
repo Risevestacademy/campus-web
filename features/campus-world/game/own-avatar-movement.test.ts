@@ -328,6 +328,42 @@ describe("createOwnAvatarMovement", () => {
     expect(controller.readPlayer()).toEqual(facingFull);
   });
 
+  it("stops predicting steps into a full space for a few seconds, then tries again", () => {
+    const { controller, onMoveCorrected, receive, sent, update } =
+      startMovement(false, () => true, ROOM_LAYOUT);
+    const facingFull = {
+      userId: "ada",
+      x: 0,
+      y: 0,
+      facing: "right" as const,
+    };
+    update(0, "right", ["right"]);
+    receive({
+      type: "moveResult",
+      seq: sent.length,
+      outcome: "full",
+      player: facingFull,
+    });
+
+    // Held against the door: the avatar stays put, so there is nothing for
+    // world's answers to snap back.
+    update(150, null, ["right"]);
+    expect(controller.readPlayer()).toMatchObject({ x: 0, y: 0 });
+    receive({
+      type: "moveResult",
+      seq: sent.length,
+      outcome: "full",
+      player: facingFull,
+    });
+    expect(controller.readPlayer()).toMatchObject({ x: 0, y: 0 });
+    expect(onMoveCorrected).toHaveBeenCalledTimes(1);
+
+    // Someone may have left by now, so the next press goes through.
+    update(3000, null, ["right"]);
+    update(150, null, ["right"]);
+    expect(controller.readPlayer()?.x).toBeGreaterThan(0);
+  });
+
   it("does not say a space is full for any other answer", () => {
     const { onSpaceFull, receive, sent, update } = startMovement(
       false,

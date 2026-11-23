@@ -14,7 +14,10 @@ import type {
 import { interpolatePlayer } from "../services/movement/interpolate-player";
 import { type PendingMove, reconcile } from "../services/movement/reconcile";
 import {
+  forgetStaleFullTiles,
+  type FullTile,
   learnRefusedTiles,
+  rememberFullTile,
   withRefusedTiles,
 } from "../services/movement/refused-tiles";
 import { predictStep, stepFrom } from "../services/movement/step";
@@ -90,12 +93,14 @@ export function createOwnAvatarMovement({
   let onWalk = false;
   let pending: PendingMove[] = [];
   let predicted: Player | undefined;
+  let clockMs = 0;
+  let full: readonly FullTile[] = [];
   let refused: readonly Tile[] = [];
   let sequence = 0;
   let walkStarted = false;
 
   function walkable(): MapLayout {
-    return withRefusedTiles(layout, refused);
+    return withRefusedTiles(layout, [...refused, ...full]);
   }
 
   function takePresencePosition() {
@@ -110,6 +115,7 @@ export function createOwnAvatarMovement({
     buffered = undefined;
     pending = [];
     refused = [];
+    full = [];
   }
 
   function showWorldStep(player: Player) {
@@ -146,6 +152,7 @@ export function createOwnAvatarMovement({
     if (!predicted) return;
 
     refused = [];
+    full = [];
     predicted = pending.reduce(
       (position, move) => predictStep(position, move.direction, walkable()),
       player,
@@ -218,6 +225,7 @@ export function createOwnAvatarMovement({
       );
     }
     refused = learnRefusedTiles(refused, message);
+    full = rememberFullTile(full, message, clockMs);
     const before = predicted;
     const reconciled = reconcile(pending, message, walkable());
     pending = reconciled.pending;
@@ -323,6 +331,8 @@ export function createOwnAvatarMovement({
         if (animation) buffered = pressed;
       }
 
+      clockMs += Math.max(0, deltaMs);
+      full = forgetStaleFullTiles(full, clockMs);
       const carriedMs = advanceAnimation(deltaMs);
       const direction = buffered ?? pressed ?? heldOrder.at(-1);
       // World's steps arrive back to back, so waiting for one to finish could
