@@ -133,18 +133,40 @@ export function createOwnAvatarMovement({
   }
 
   // A new map put the tile under the avatar inside a wall and world moved it.
-  // Nothing predicted from the old tile still holds, and the tiles learned as
-  // refused belong to the old map, so the avatar starts over where world says.
+  // Frames arrive in order, so a step still pending here has not been answered:
+  // world runs it from the corrected tile, and so does the prediction. Some
+  // refused tiles were learned on the old map and may be open now, and they
+  // cannot be told apart from ones learned since, so all are forgotten; a wall
+  // still there is learned again on the next bump.
   function snapTo(player: Player) {
     if (!predicted) return;
 
-    predicted = player;
+    refused = [];
+    predicted = pending.reduce(
+      (position, move) => predictStep(position, move.direction, walkable()),
+      player,
+    );
     displayed = player;
     animation = undefined;
     buffered = undefined;
-    pending = [];
-    refused = [];
     walkStarted = true;
+
+    const stepMs = movement.readStepMs();
+    if (samePlayer(predicted, player)) return;
+    if (stepMs === null) {
+      displayed = predicted;
+      return;
+    }
+    // The snap itself is not animated; the steps still in flight walk on
+    // from the new tile.
+    animation = {
+      durationMs: stepMs,
+      elapsedMs: 0,
+      from: { ...player, facing: predicted.facing },
+      fromWorld: false,
+      to: predicted,
+    };
+    advanceAnimation(0);
   }
 
   function followWalk(message: WalkingMessage | WalkEndedMessage) {

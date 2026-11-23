@@ -181,10 +181,15 @@ initialized`. The runtime moves its one canvas between containers, clears
   placed you, the camera follows your drawn, predicted position each frame,
   clamped to the map, so it never waits for world's answer.
 - A `positionCorrected` frame (a new map put your tile inside a wall) snaps
-  the avatar to the tile world chose: no animation, the steps predicted from
-  the old tile dropped, the refused tiles learned on the old map forgotten, and
-  the camera brought back to you once, as a walk's start does. Sequence
-  numbers carry on. Others see the move as `moved`.
+  the avatar to the tile world chose, with no animation. Steps world has not
+  answered yet are replayed from that tile, as world runs them from there, so
+  their `moveResult`s land where the avatar already is. Refused tiles are
+  forgotten, since some were learned on the old map, and the camera is brought
+  back to you once, as a walk's start does. Sequence numbers carry on. Others
+  see the move as `moved`.
+- The web does not read `mapChanged` yet, so after a republish the avatar keeps
+  predicting against the walls it loaded until a reload. A step into a wall the
+  new map added is predicted, then snapped back with the bump feedback.
 - A link that names a space (`?goToSpace=` on the map's URL, from a room link)
   mounts `WalkOnArrival`: it sends `goToSpace` once world is ready, then drops
   the parameter so a reload does not walk again.

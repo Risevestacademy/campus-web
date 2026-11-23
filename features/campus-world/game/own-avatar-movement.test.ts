@@ -590,19 +590,82 @@ describe("createOwnAvatarMovement", () => {
       });
     });
 
-    it("drops the steps predicted from the old tile, and the animation", () => {
+    it("replays the steps world has not answered from the new tile", () => {
       const { controller, receive, sent, update } = startMovement();
       update(0, "right", ["right"]);
       update(20, null, []);
       expect(sent).toHaveLength(1);
 
       receive(corrected(3, 2));
-      update(50, null, []);
-
       expect(controller.readPlayer()).toEqual({
         userId: "ada",
         x: 3,
         y: 2,
+        facing: "right",
+      });
+
+      update(100, null, []);
+      expect(controller.readPlayer()).toEqual({
+        userId: "ada",
+        x: 4,
+        y: 2,
+        facing: "right",
+      });
+    });
+
+    it("does not jump when world answers a step sent before the snap", () => {
+      const { controller, onMoveCorrected, receive, update } = startMovement();
+      update(0, "right", ["right"]);
+      receive(corrected(3, 2));
+      update(50, null, []);
+
+      receive({
+        type: "moveResult",
+        seq: 1,
+        outcome: "moved",
+        player: { userId: "ada", x: 4, y: 2, facing: "right" },
+      });
+
+      expect(controller.readPlayer()?.x).toBe(3.5);
+      update(50, null, []);
+      expect(controller.readPlayer()).toEqual({
+        userId: "ada",
+        x: 4,
+        y: 2,
+        facing: "right",
+      });
+      expect(onMoveCorrected).not.toHaveBeenCalled();
+    });
+
+    it("keeps a step pressed after the snap ahead of the replayed one", () => {
+      const { controller, receive, sent, update } = startMovement();
+      update(0, "down", ["down"]);
+      receive(corrected(3, 1));
+      update(100, null, []);
+      update(0, "down", ["down"]);
+      update(100, null, []);
+      expect(sent).toEqual([
+        { direction: "down", seq: 1 },
+        { direction: "down", seq: 2 },
+      ]);
+      expect(controller.readPlayer()).toEqual({
+        userId: "ada",
+        x: 3,
+        y: 3,
+        facing: "down",
+      });
+
+      receive({
+        type: "moveResult",
+        seq: 1,
+        outcome: "moved",
+        player: { userId: "ada", x: 3, y: 2, facing: "down" },
+      });
+
+      expect(controller.readPlayer()).toEqual({
+        userId: "ada",
+        x: 3,
+        y: 3,
         facing: "down",
       });
     });
