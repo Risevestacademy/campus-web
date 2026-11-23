@@ -199,19 +199,22 @@ describe("Railway IaC eval (required threshold: 8/8)", () => {
     });
   });
 
-  it("keeps production frontends always-on and byte-identical to the imported configuration", async () => {
+  it("keeps production frontends always-on, with the same web start, healthcheck and telemetry as staging", async () => {
     const production = await evaluateRailwayDefinition("production");
 
     expect(findService(production, "campus-storybook").deploy).toEqual({
       ...alwaysOnRegions,
       healthcheckPath: "/",
     });
-    expect(findService(production, "campus-web").deploy).toEqual(
-      alwaysOnRegions,
-    );
-    expect(findService(production, "campus-web").variables).toEqual(
-      campusWebBaseVariables,
-    );
+    expect(findService(production, "campus-web").deploy).toEqual({
+      ...alwaysOnRegions,
+      healthcheckPath: "/",
+      startCommand: "pnpm start",
+    });
+    expect(findService(production, "campus-web").variables).toEqual({
+      ...campusWebBaseVariables,
+      NEXT_TELEMETRY_DISABLED: { type: "literal", value: "1" },
+    });
   });
 
   it("fails closed when the target Railway environment is unsupported", async () => {

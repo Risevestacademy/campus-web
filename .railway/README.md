@@ -118,7 +118,7 @@ IaC for every environment instead of maintaining it only in the dashboard.
 - `NEXT_PUBLIC_SANITY_PROJECT_ID`
 - `NEXT_PUBLIC_WORLD_URL`
 
-In staging only, `campus-web` also owns:
+In every environment, `campus-web` also owns:
 
 ```text
 NEXT_TELEMETRY_DISABLED=1
@@ -185,11 +185,12 @@ After an approved apply:
 ## Staging serverless
 
 Staging `campus-web` and `campus-storybook` sleep after sustained inactivity
-and wake on the next request. Production stays always-on; the eval proves its
-output is unchanged.
+and wake on the next request. Production stays always-on; the eval proves it
+never sleeps.
 
-- `campus-web`: `sleepApplication`, `startCommand: pnpm start`,
-  `healthcheck: /`, `NEXT_TELEMETRY_DISABLED=1`.
+- `campus-web`: `sleepApplication`. Sleeping relies on `startCommand: pnpm
+start`, `healthcheck: /` and `NEXT_TELEMETRY_DISABLED=1`, which every
+  environment has.
 - `campus-storybook`: `sleepApplication`. Railpack already serves
   `storybook-static` through Caddy, never `storybook dev`.
 
@@ -290,9 +291,10 @@ billing figures stay out of this public repository.
 
 ## Production
 
-Production stays always-on. Serverless, the pinned start command, the web
-healthcheck, and `NEXT_TELEMETRY_DISABLED` are staging-only until production
-gets its own cost review.
+Production stays always-on. Serverless is staging-only until production gets
+its own cost review. The pinned start command, the web healthcheck and
+`NEXT_TELEMETRY_DISABLED` apply to production too: they keep `next dev` from
+being inferred, hold traffic until a deploy answers, and keep telemetry off.
 
 Production currently has no `campus-storybook` service instance. Railway CLI
 issue [#1170](https://github.com/railwayapp/cli/issues/1170) can return exit

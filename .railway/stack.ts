@@ -23,15 +23,16 @@ const idleSleep = {
   deploy: { sleepApplication: true },
 } satisfies IntentServiceConfig;
 
-// Railway judges inactivity by outbound packets, so Next.js telemetry would
-// keep the container awake; `next dev` must never be the inferred start.
-const sleepFriendlyWebRuntime = {
-  ...idleSleep,
+// Every environment: `next dev` must never be the inferred start, and a
+// deploy only takes traffic once it answers. Telemetry stays off as well,
+// which also lets staging sleep, since Railway judges inactivity by outbound
+// packets.
+const webRuntime = {
   startCommand: "pnpm start",
   healthcheck: "/",
 } satisfies IntentServiceConfig;
 
-const sleepFriendlyWebEnvironment = {
+const webEnvironment = {
   NEXT_TELEMETRY_DISABLED: "1",
 };
 
@@ -91,7 +92,8 @@ export function createFrontendProject(environment: RailwayEnvironment) {
     },
   });
   const campusWeb = service("campus-web", {
-    ...(sleepsWhenIdle ? sleepFriendlyWebRuntime : {}),
+    ...webRuntime,
+    ...(sleepsWhenIdle ? idleSleep : {}),
     source: frontendSource,
     build: {
       buildEnvironment: "V3",
@@ -108,7 +110,7 @@ export function createFrontendProject(environment: RailwayEnvironment) {
       NEXT_PUBLIC_SANITY_DATASET: preserve(),
       NEXT_PUBLIC_SANITY_PROJECT_ID: preserve(),
       NEXT_PUBLIC_WORLD_URL: preserve(),
-      ...(sleepsWhenIdle ? sleepFriendlyWebEnvironment : {}),
+      ...webEnvironment,
     },
   });
 
