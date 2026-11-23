@@ -220,6 +220,15 @@ describe("parseServerMessage", () => {
       });
     });
 
+    it("reads a line from a world that sends no attachment field", () => {
+      const { attachment: _omitted, ...frame } = serverFrames.said;
+
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: true,
+        message: { ...serverFrames.said, attachment: null },
+      });
+    });
+
     it("keeps a file with no name", () => {
       const nameless = { ...attachment, fileName: null };
 
@@ -243,6 +252,7 @@ describe("parseServerMessage", () => {
       ["a negative size", { sizeBytes: -1 }],
       ["a fractional size", { sizeBytes: 1.5 }],
       ["no media id", { mediaId: "" }],
+      ["a media id that is not a uuid", { mediaId: "../cohorts/x" }],
       ["no content type", { contentType: "" }],
       ["a content type over 255 characters", { contentType: "x".repeat(256) }],
     ])("refuses %s", (_, change) => {

@@ -397,10 +397,11 @@ const entryRequestOutcomeSchema = z.toZod<EntryRequestOutcome>()(
 );
 
 // A file sent with a line, as the speaker gave it: world passes it on without
-// checking it, so what it says about itself is capped here.
+// checking it, so what it says about itself is capped here. The media id goes
+// into a campus-api path, so it must be a uuid and nothing else.
 const chatAttachmentSchema = z.toZod<ChatAttachment>()(
   z.object({
-    mediaId: z.string().min(1),
+    mediaId: z.uuid(),
     fileName: z.string().max(255).nullable(),
     contentType: z.string().min(1).max(255),
     sizeBytes: z.number().int().min(0),
@@ -414,7 +415,8 @@ const saidMessageSchema = z.toZod<SaidMessage>()(
     userId: z.string(),
     spaceKey: z.string(),
     text: z.string(),
-    attachment: chatAttachmentSchema.nullable(),
+    // A world that does not send the field yet means no file.
+    attachment: chatAttachmentSchema.nullable().default(null),
     at: z.string(),
   }),
 );
