@@ -19,6 +19,12 @@ const sleepsWhenIdleByEnvironment: Record<RailwayEnvironment, boolean> = {
   staging: true,
 };
 
+// Storybook is for the team reviewing components, so only staging runs it.
+const hasStorybookByEnvironment: Record<RailwayEnvironment, boolean> = {
+  production: false,
+  staging: true,
+};
+
 const idleSleep = {
   deploy: { sleepApplication: true },
 } satisfies IntentServiceConfig;
@@ -115,6 +121,8 @@ export function createFrontendProject(environment: RailwayEnvironment) {
   });
 
   return project("campus-by-rise", {
-    resources: [campusStorybook, campusWeb],
+    resources: hasStorybookByEnvironment[environment]
+      ? [campusStorybook, campusWeb]
+      : [campusWeb],
   });
 }
