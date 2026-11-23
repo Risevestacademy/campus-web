@@ -84,6 +84,18 @@ describe("createWorldMovementChannel", () => {
     expect(channel.sendGoToTile({ x: 4, y: 7 })).toBe(false);
   });
 
+  it("publishes a position correction to the movement listeners", () => {
+    const channel = createWorldMovementChannel();
+    const received = vi.fn();
+    channel.subscribe(received);
+
+    channel.apply(serverFrames.positionCorrected);
+
+    expect(received).toHaveBeenCalledExactlyOnceWith(
+      serverFrames.positionCorrected,
+    );
+  });
+
   it("sends stopWalking once the channel is ready", () => {
     const channel = createWorldMovementChannel();
     const send = vi.fn(() => true);

@@ -36,8 +36,9 @@ export interface OwnAvatarMovement {
   // lets only the next step through. False when no side of the member touches
   // the space.
   stepInto(spaceKey: string): boolean;
-  // True once for each walk world starts, so the camera returns to the avatar
-  // without taking back a drag made mid-walk.
+  // True once for each walk world starts, and each time world moves the avatar
+  // itself, so the camera returns to the avatar without taking back a drag
+  // made mid-walk.
   takeWalkStarted(): boolean;
   update(input: MovementInput): void;
 }
@@ -131,6 +132,43 @@ export function createOwnAvatarMovement({
     advanceAnimation(0);
   }
 
+  // A new map put the tile under the avatar inside a wall and world moved it.
+  // Frames arrive in order, so a step still pending here has not been answered:
+  // world runs it from the corrected tile, and so does the prediction. Some
+  // refused tiles were learned on the old map and may be open now, and they
+  // cannot be told apart from ones learned since, so all are forgotten; a wall
+  // still there is learned again on the next bump.
+  function snapTo(player: Player) {
+    if (!predicted) return;
+
+    refused = [];
+    predicted = pending.reduce(
+      (position, move) => predictStep(position, move.direction, walkable()),
+      player,
+    );
+    displayed = player;
+    animation = undefined;
+    buffered = undefined;
+    walkStarted = true;
+
+    const stepMs = movement.readStepMs();
+    if (samePlayer(predicted, player)) return;
+    if (stepMs === null) {
+      displayed = predicted;
+      return;
+    }
+    // The snap itself is not animated; the steps still in flight walk on
+    // from the new tile.
+    animation = {
+      durationMs: stepMs,
+      elapsedMs: 0,
+      from: { ...player, facing: predicted.facing },
+      fromWorld: false,
+      to: predicted,
+    };
+    advanceAnimation(0);
+  }
+
   function followWalk(message: WalkingMessage | WalkEndedMessage) {
     if (message.type === "walkEnded" && message.reason === "refused") {
       onEntryRefused?.({ mayAsk: message.mayAsk, spaceKey: message.spaceKey });
@@ -153,6 +191,10 @@ export function createOwnAvatarMovement({
     }
     if (message.type === "walking" || message.type === "walkEnded") {
       followWalk(message);
+      return;
+    }
+    if (message.type === "positionCorrected") {
+      snapTo(message.player);
       return;
     }
     if (message.type !== "moveResult" || !predicted) return;
