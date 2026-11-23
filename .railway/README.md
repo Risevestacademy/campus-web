@@ -4,7 +4,7 @@ The shared topology in `.railway/stack.ts` owns the `campus-frontends`
 partial:
 
 - `campus-web`
-- `campus-storybook`
+- `campus-storybook` (staging only)
 
 It does not own `campus-api`, `campus-world`, PostgreSQL, volumes, generated
 domains, or other project resources.
@@ -118,7 +118,7 @@ IaC for every environment instead of maintaining it only in the dashboard.
 - `NEXT_PUBLIC_SANITY_PROJECT_ID`
 - `NEXT_PUBLIC_WORLD_URL`
 
-In staging only, `campus-web` also owns:
+In every environment, `campus-web` also owns:
 
 ```text
 NEXT_TELEMETRY_DISABLED=1
@@ -185,11 +185,12 @@ After an approved apply:
 ## Staging serverless
 
 Staging `campus-web` and `campus-storybook` sleep after sustained inactivity
-and wake on the next request. Production stays always-on; the eval proves its
-output is unchanged.
+and wake on the next request. Production stays always-on; the eval proves it
+never sleeps.
 
-- `campus-web`: `sleepApplication`, `startCommand: pnpm start`,
-  `healthcheck: /`, `NEXT_TELEMETRY_DISABLED=1`.
+- `campus-web`: `sleepApplication`. Sleeping relies on `startCommand: pnpm
+start`, `healthcheck: /` and `NEXT_TELEMETRY_DISABLED=1`, which every
+  environment has.
 - `campus-storybook`: `sleepApplication`. Railpack already serves
   `storybook-static` through Caddy, never `storybook dev`.
 
@@ -290,24 +291,16 @@ billing figures stay out of this public repository.
 
 ## Production
 
-Production stays always-on. Serverless, the pinned start command, the web
-healthcheck, and `NEXT_TELEMETRY_DISABLED` are staging-only until production
-gets its own cost review.
+Production stays always-on: it never sleeps. Serverless is staging-only. The
+pinned start command, the web healthcheck and `NEXT_TELEMETRY_DISABLED` apply
+to production too: they keep `next dev` from being inferred, hold traffic until
+a deploy answers, and keep telemetry off.
 
-Production currently has no `campus-storybook` service instance. Railway CLI
-issue [#1170](https://github.com/railwayapp/cli/issues/1170) can return exit
-code zero when an IaC apply fails to add a service that exists elsewhere in the
-project. Reconcile the topology before approving production:
+Production does not run `campus-storybook`. Storybook is for the team
+reviewing components, so it stays in staging only. Do not sync it into
+production.
 
-1. Complete and verify the staging canary.
-2. In the Railway dashboard, switch to production and use Environment Sync to
-   bring only `campus-storybook` from staging into production.
-3. Review the staged Railway change and obtain separate production approval
-   before deploying it.
-4. Refresh the production pull request after the sync so its plan captures the
-   new production configuration etag.
-
-Then verify the target locally if needed:
+To check the target locally:
 
 ```bash
 railway link \
@@ -317,11 +310,9 @@ railway status
 railway config plan
 ```
 
-The production plan should set `campus-web` `API_BASE_URL` to the
-environment-local `campus-api` private-network reference, otherwise leave
-`campus-web` unchanged, and reconcile `campus-storybook` to `main` with Wait for
-CI enabled and always-on runtime settings. The protected production apply job
-requires approval after merge.
+The production plan should change nothing. Any change to `campus-web`, or any
+`campus-storybook` change, needs review before the protected production apply
+job is approved.
 
 After an approved production apply, verify the deployment and generate a
 Railway domain if Railway did not create one automatically. Domain creation is
@@ -339,6 +330,4 @@ If a staging apply is wrong:
 3. Restore removed variables from the environment's secure source if needed.
 4. Review a new plan before another apply.
 
-If the new production Storybook service is wrong, stop its deployments and
-review the rollback plan. Do not delete production resources without explicit
-confirmation.
+Do not delete production resources without explicit confirmation.
