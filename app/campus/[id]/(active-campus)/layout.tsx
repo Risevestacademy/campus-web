@@ -5,6 +5,7 @@ import {
   requireRouteAccess,
   SessionUnavailable,
 } from "@/features/auth";
+import { CalendarPanel } from "@/features/calendar";
 import {
   ActiveCampus,
   CampusShell,
@@ -51,6 +52,7 @@ export default async function ActiveCampusLayout({
             />
           ) : undefined
         }
+        CalendarPanel={CalendarPanel}
         FeedbackPopup={FeedbackPopup}
         LogOutAction={LogOutAction}
         OwnProfileAction={OwnProfileAction}

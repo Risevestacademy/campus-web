@@ -26,6 +26,14 @@ vi.mock("@/features/auth", () => ({
     }),
   SessionUnavailable: () => null,
 }));
+vi.mock("@/features/calendar", () => ({
+  CalendarPanel: ({ collapseButton }: { collapseButton: ReactNode }) => (
+    <section>
+      <h2>Calendar</h2>
+      {collapseButton}
+    </section>
+  ),
+}));
 vi.mock("server-only", () => ({}));
 
 afterEach(() => {
@@ -71,24 +79,27 @@ describe("administration Campus layout", () => {
     expect(within(dock).getByText("A")).toBeInTheDocument();
   });
 
-  it.each(["Search", "Chat", "Tasks", "Calendar"])(
-    "%s restores Campus sidebar mode",
-    async (panel) => {
-      setSidebarMode("campus");
-      render(await administrationLayout(<p>Administration content</p>));
-      const campusRail = screen.getByRole("navigation", { name: "Campus" });
+  it.each([
+    ["Search", "button"],
+    ["Chat", "button"],
+    ["Tasks", "button"],
+    ["Calendar", "link"],
+  ] as const)("%s restores Campus sidebar mode", async (panel, role) => {
+    setSidebarMode("campus");
+    render(await administrationLayout(<p>Administration content</p>));
+    const campusRail = screen.getByRole("navigation", { name: "Campus" });
 
-      fireEvent.click(within(campusRail).getByRole("button", { name: panel }));
+    fireEvent.click(within(campusRail).getByRole(role, { name: panel }));
 
-      expect(
-        screen.queryByRole("navigation", {
-          name: "Administration pages",
-        }),
-      ).not.toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: panel })).toBeInTheDocument();
-      expect(
-        within(campusRail).getByRole("button", { name: panel }),
-      ).toHaveAttribute("aria-current", "page");
-    },
-  );
+    expect(
+      screen.queryByRole("navigation", {
+        name: "Administration pages",
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: panel })).toBeInTheDocument();
+    expect(within(campusRail).getByRole(role, { name: panel })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
 });

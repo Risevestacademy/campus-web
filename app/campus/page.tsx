@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import logoMark from "@/assets/icon-inverse.svg";
+import { calendarHref } from "@/core/navigation";
 import { AdministrationCatalogue } from "@/features/admin";
 import {
   AccountMenu,
@@ -10,20 +11,39 @@ import {
   requireRouteAccess,
   SessionUnavailable,
 } from "@/features/auth";
+import {
+  CALENDAR_OUTCOME_PARAMETER,
+  CalendarOutcomeNotice,
+  parseConnectOutcome,
+} from "@/features/calendar";
 import { CohortChooser } from "@/features/campus";
 import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 import { firstSearchParameter } from "@/shared/lib/search-params";
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
 
 interface CampusPageProps {
-  searchParams: Promise<{ view?: string | string[]; page?: string | string[] }>;
+  searchParams: Promise<{
+    calendar?: string | string[];
+    view?: string | string[];
+    page?: string | string[];
+  }>;
 }
 
 export default async function CampusPage({ searchParams }: CampusPageProps) {
-  const [access, { view, page }] = await Promise.all([
-    requireRouteAccess({ kind: "campus-index" }),
-    searchParams,
-  ]);
+  const { calendar, view, page } = await searchParams;
+  // Google sends the member here after connecting a calendar. A member with
+  // one cohort has no choice to make, so they go on to its calendar, which
+  // says how it went; one with several, or an administrator, is told here.
+  const outcome = parseConnectOutcome(firstSearchParameter(calendar));
+  const access = await requireRouteAccess({
+    kind: "campus-index",
+    destination: outcome
+      ? (cohortId) =>
+          `${calendarHref(cohortId)}?${new URLSearchParams({
+            [CALENDAR_OUTCOME_PARAMETER]: outcome,
+          })}`
+      : undefined,
+  });
 
   if (access.kind === "unavailable") {
     return <SessionUnavailable retryHref={access.retryHref} />;
@@ -74,6 +94,7 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
         </AccountMenu>
       </header>
 
+      {outcome ? <CalendarOutcomeNotice outcome={outcome} /> : null}
       <div className="px-10">{cohortSelection}</div>
     </div>
   );

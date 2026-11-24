@@ -33,6 +33,10 @@ type OverviewCohort = {
 
 type CampusShellProps = Readonly<{
   administrationPanel?: ReactNode;
+  CalendarPanel?: ComponentType<{
+    cohortId: string;
+    collapseButton: ReactNode;
+  }>;
   FeedbackPopup?: FeedbackPopupComponent;
   LogOutAction?: LogOutActionComponent;
   OwnProfileAction?: OwnProfileActionComponent;
@@ -44,6 +48,7 @@ type CampusShellProps = Readonly<{
   children: ReactNode;
   cohort?: OverviewCohort;
   cohortId: string;
+  initialPanel?: SidebarPanelId;
   initialSidebarMode?: SidebarMode;
   viewer?: CampusViewer;
 }>;
@@ -65,6 +70,7 @@ const comingSoonPanels = Object.fromEntries(
 ) as Record<Exclude<SidebarPanelId, "map">, ReactNode>;
 
 export function CampusShell({
+  CalendarPanel,
   LogOutAction,
   OwnProfileAction,
   administrationPanel,
@@ -73,6 +79,7 @@ export function CampusShell({
   children,
   cohort,
   cohortId,
+  initialPanel,
   initialSidebarMode,
   viewer,
 }: CampusShellProps) {
@@ -98,14 +105,24 @@ export function CampusShell({
               }
               cohortId={cohortId}
               hasAdministration={administrationPanel !== undefined}
+              initialPanel={initialPanel}
               initialSidebarMode={initialSidebarMode}
               LogOutAction={LogOutAction}
             />
             <CampusSidebar
               administrationPanel={administrationPanel}
               initialMode={initialSidebarMode}
+              initialPanel={initialPanel}
               panels={{
                 ...comingSoonPanels,
+                ...(CalendarPanel && {
+                  calendar: (
+                    <CalendarPanel
+                      cohortId={cohortId}
+                      collapseButton={collapseButton}
+                    />
+                  ),
+                }),
                 map: (
                   <OverviewPanel
                     cohort={cohort}

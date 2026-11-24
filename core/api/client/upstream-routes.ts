@@ -54,13 +54,17 @@ const PUBLISHED_ROUTES = {
   "/v1/feedback": true,
   "/v1/feedback/{id}": true,
   "/v1/dashboard": true,
+  // The calendar page reads a member's events and disconnects. Connecting is
+  // a full-page navigation: the connect route answers 302 to Google, and the
+  // callback answers 302 back into the web app, so the proxy only passes the
+  // redirects and the session cookie through.
+  "/v1/calendar": true,
+  "/v1/calendar/connect": true,
+  "/v1/calendar/connect/callback": true,
+  "/v1/calendar/events": true,
   // Published, but no browser code calls them yet, so the proxy does not
   // forward them. Server code reaches them directly (a room link's page
   // enters through its code on the server). Forward one when a browser needs it.
-  "/v1/calendar": false,
-  "/v1/calendar/connect": false,
-  "/v1/calendar/connect/callback": false,
-  "/v1/calendar/events": false,
   "/v1/attendance/classes/{instanceId}": false,
   "/v1/attendance/{attendanceId}": false,
   "/v1/cohorts/{cohortId}/attendance/classes": false,

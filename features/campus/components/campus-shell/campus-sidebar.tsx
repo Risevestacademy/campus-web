@@ -28,16 +28,18 @@ const SIDEBAR_CONTENT_TRANSITION = {
 type CampusSidebarProps = {
   administrationPanel?: ReactNode;
   initialMode?: SidebarMode;
+  initialPanel?: SidebarPanelId;
   panels: Record<SidebarPanelId, ReactNode>;
 };
 
 export function CampusSidebar({
   administrationPanel,
   initialMode,
+  initialPanel,
   panels,
 }: CampusSidebarProps) {
   const isOpen = useSidebarOpen();
-  const activePanel = useActivePanel();
+  const activePanel = useActivePanel(initialPanel);
   const sidebarMode = useSidebarMode(
     initialMode,
     administrationPanel !== undefined,

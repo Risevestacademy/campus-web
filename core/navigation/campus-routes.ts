@@ -9,6 +9,10 @@ export function campusHref(cohortId: string): Route {
   return `/campus/${encodeURIComponent(cohortId)}` as Route;
 }
 
+export function calendarHref(cohortId: string): Route {
+  return `${campusHref(cohortId)}/calendar` as Route;
+}
+
 export function campusJoinHref(cohortId: string): Route {
   return `${campusHref(cohortId)}/join` as Route;
 }

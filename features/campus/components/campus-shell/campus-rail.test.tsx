@@ -51,6 +51,72 @@ async function chooseLogOut() {
 }
 
 describe("CampusRail", () => {
+  describe("the Calendar item", () => {
+    function CalendarPanelStub({
+      cohortId,
+      collapseButton,
+    }: {
+      cohortId: string;
+      collapseButton: ReactNode;
+    }) {
+      return (
+        <section aria-label={`Calendar panel for ${cohortId}`}>
+          {collapseButton}
+        </section>
+      );
+    }
+
+    it("is a link to the cohort's calendar page", () => {
+      renderWithLogOut({ logOut: vi.fn(), isPending: false });
+
+      expect(screen.getByRole("link", { name: "Calendar" })).toHaveAttribute(
+        "href",
+        "/campus/c-1/calendar",
+      );
+    });
+
+    it("shows the real panel when the page passes one, and marks the item current", () => {
+      window.localStorage.clear();
+      render(
+        <CampusShell
+          CalendarPanel={CalendarPanelStub}
+          OverviewPanel={OverviewPanelStub}
+          cohortId="c-1"
+          initialPanel="calendar"
+          initialSidebarMode="campus"
+          viewer={VIEWER}
+        >
+          <p>Route content</p>
+        </CampusShell>,
+      );
+
+      expect(
+        screen.getByRole("region", { name: "Calendar panel for c-1" }),
+      ).toBeVisible();
+      expect(screen.getByRole("link", { name: "Calendar" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+      expect(screen.queryByText("Coming soon.")).toBeNull();
+    });
+
+    it("says coming soon when no page passes a panel", () => {
+      window.localStorage.clear();
+      render(
+        <CampusShell
+          OverviewPanel={OverviewPanelStub}
+          cohortId="c-1"
+          initialPanel="calendar"
+          viewer={VIEWER}
+        >
+          <p>Route content</p>
+        </CampusShell>,
+      );
+
+      expect(screen.getByText("Coming soon.")).toBeVisible();
+    });
+  });
+
   it("asks before logging out, and logs out only once the visitor confirms", async () => {
     const logOut = vi.fn();
     renderWithLogOut({ logOut, isPending: false });

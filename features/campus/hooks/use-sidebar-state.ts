@@ -21,12 +21,23 @@ export function useSidebarOpen(): boolean {
   );
 }
 
-export function useActivePanel(): SidebarPanelId {
-  return useSyncExternalStore(
+// A page that is one of the panels (the calendar) names it as `routePanel`, so
+// landing there shows it whatever was stored, until the member picks another.
+export function useActivePanel(routePanel?: SidebarPanelId): SidebarPanelId {
+  const storedPanel = useSyncExternalStore(
     subscribeToSidebar,
     getActivePanelSnapshot,
     getServerActivePanelSnapshot,
   );
+  const revision = useSyncExternalStore(
+    subscribeToSidebar,
+    getSidebarModeRevisionSnapshot,
+    getServerSidebarModeRevisionSnapshot,
+  );
+  const [entryRevision] = useState(revision);
+
+  if (routePanel && revision === entryRevision) return routePanel;
+  return storedPanel;
 }
 
 export function useSidebarMode(

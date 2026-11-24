@@ -35,6 +35,13 @@ access.session;
 | none, refresh not yet attempted     | redirect `/session/refresh?returnTo=…` | same                                        | same                   |
 | none, refresh already attempted     | redirect `/sign-in?returnTo=…`         | same                                        | same                   |
 
+A `campus-index` request may carry a `destination(cohortId)`. A member with
+exactly one cohort is then sent through that cohort's pre-join to it
+(`/join?returnTo=…`) instead of to its map, so a visit that means something
+more than "take me to my campus" is not lost on the way: coming back from
+Google with `/campus?calendar=<outcome>` lands on that cohort's calendar. The
+page builds it from values it parsed; every other session is unaffected.
+
 ## Modules
 
 | Module                                    | Owns                                                                                         | Seam                                           |

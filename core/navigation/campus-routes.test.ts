@@ -1,12 +1,18 @@
 import type { Route } from "next";
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { campusHref, campusJoinHref, campusPreJoinHref } from "./campus-routes";
+import {
+  calendarHref,
+  campusHref,
+  campusJoinHref,
+  campusPreJoinHref,
+} from "./campus-routes";
 
 describe("Campus routes", () => {
   it("returns typed routes so callers never cast", () => {
     expectTypeOf(campusHref).returns.toEqualTypeOf<Route>();
     expectTypeOf(campusJoinHref).returns.toEqualTypeOf<Route>();
+    expectTypeOf(calendarHref).returns.toEqualTypeOf<Route>();
     expectTypeOf(campusPreJoinHref).returns.toEqualTypeOf<Route>();
   });
 
@@ -26,6 +32,11 @@ describe("Campus routes", () => {
   ])("keeps %s inside one path segment", (_, cohortId, campus, join) => {
     expect(campusHref(cohortId)).toBe(campus);
     expect(campusJoinHref(cohortId)).toBe(join);
+  });
+
+  it("puts the calendar under its cohort, inside one path segment", () => {
+    expect(calendarHref("cohort-1")).toBe("/campus/cohort-1/calendar");
+    expect(calendarHref("a/b c")).toBe("/campus/a%2Fb%20c/calendar");
   });
 
   it("sends an unmarked deep link through its cohort pre-join route", () => {

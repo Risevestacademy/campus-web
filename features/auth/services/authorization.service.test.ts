@@ -542,6 +542,32 @@ describe("authorizeRoute: campus index membership routing", () => {
     });
   });
 
+  it("sends a member with one cohort to the destination the page asked for, through pre-join", async () => {
+    backendReplies(ok(fullAccess("user", [COHORT_A])));
+
+    await expect(
+      authorize({
+        kind: "campus-index",
+        destination: (cohortId) =>
+          `/campus/${cohortId}/calendar?calendar=denied`,
+      }),
+    ).resolves.toEqual({
+      kind: "redirect",
+      href: `/campus/${COHORT_A.cohortId}/join?returnTo=${encodeURIComponent(
+        `/campus/${COHORT_A.cohortId}/calendar?calendar=denied`,
+      )}`,
+    });
+  });
+
+  it("still lets a member with several cohorts choose, whatever destination was asked for", async () => {
+    const session = fullAccess("user", [COHORT_A, COHORT_B]);
+    backendReplies(ok(session));
+
+    await expect(
+      authorize({ kind: "campus-index", destination: () => "/campus/x" }),
+    ).resolves.toEqual({ kind: "allow", session: seenByRoutes(session) });
+  });
+
   it("does not let a stale campus-entry cookie bypass pre-join", async () => {
     browserCookies({
       "campus_entry_11111111-1111-4111-8111-111111111111": "1",

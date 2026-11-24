@@ -26,6 +26,17 @@ vi.mock("@/features/auth", () => ({
   requireRouteAccess: routeAccess.requireRouteAccess,
   SessionUnavailable: () => null,
 }));
+vi.mock("@/features/calendar", async () => {
+  const actual = await vi.importActual<typeof import("@/features/calendar")>(
+    "@/features/calendar",
+  );
+  return {
+    ...actual,
+    CalendarOutcomeNotice: ({ outcome }: { outcome: string }) => (
+      <p role="status">Calendar outcome: {outcome}</p>
+    ),
+  };
+});
 vi.mock("server-only", () => ({}));
 
 const memberSession = {
@@ -91,5 +102,79 @@ describe("CampusPage", () => {
     expect(
       screen.getByRole("navigation", { name: "Campus catalogues" }),
     ).toBeInTheDocument();
+  });
+  describe("coming back from connecting Google Calendar", () => {
+    function destinationAskedFor(): ((cohortId: string) => string) | undefined {
+      const [request] = routeAccess.requireRouteAccess.mock.calls[0] as [
+        { destination?: (cohortId: string) => string },
+      ];
+      return request.destination;
+    }
+
+    it("asks for a member with one cohort to land on that cohort's calendar, with the outcome", async () => {
+      await CampusPage({
+        searchParams: Promise.resolve({ calendar: "connected" }),
+      });
+
+      expect(destinationAskedFor()?.("cohort-3")).toBe(
+        "/campus/cohort-3/calendar?calendar=connected",
+      );
+    });
+
+    it("asks for nothing special on an ordinary visit", async () => {
+      await CampusPage({ searchParams: Promise.resolve({}) });
+
+      expect(destinationAskedFor()).toBeUndefined();
+    });
+
+    it("says the outcome here when there is more than one cohort to choose from", async () => {
+      render(
+        await CampusPage({
+          searchParams: Promise.resolve({ calendar: "denied" }),
+        }),
+      );
+
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Calendar outcome: denied",
+      );
+      expect(screen.getByRole("link", { name: /Cohort 3/ })).toBeVisible();
+    });
+
+    it("says it here for an administrator, who belongs to no cohort", async () => {
+      routeAccess.requireRouteAccess.mockResolvedValue({
+        kind: "allow",
+        session: {
+          ...memberSession,
+          user: { ...memberSession.user, systemRole: "super_admin" },
+          memberships: [],
+        },
+      });
+
+      render(
+        await CampusPage({
+          searchParams: Promise.resolve({ calendar: "connected" }),
+        }),
+      );
+
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Calendar outcome: connected",
+      );
+    });
+
+    it.each([
+      ["a word campus-api does not send", "hacked"],
+      ["a list that starts with one", ["hacked", "connected"]],
+    ])("ignores %s", async (_, calendar) => {
+      render(
+        await CampusPage({
+          searchParams: Promise.resolve({
+            calendar: calendar as string | string[],
+          }),
+        }),
+      );
+
+      expect(destinationAskedFor()).toBeUndefined();
+      expect(screen.queryByRole("status")).toBeNull();
+    });
   });
 });

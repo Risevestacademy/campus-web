@@ -1,6 +1,10 @@
 import type { Route } from "next";
 
-import { campusJoinHref, SIGN_IN_PATH } from "@/core/navigation";
+import {
+  campusJoinHref,
+  campusPreJoinHref,
+  SIGN_IN_PATH,
+} from "@/core/navigation";
 
 import { normalizeReturnTo } from "../schemas/return-to";
 import type {
@@ -61,15 +65,21 @@ function usesCohortChooser(session: Session): boolean {
   );
 }
 
-function decideCampusIndex(session: Session): RouteAuthorizationDecision {
+function decideCampusIndex(
+  session: Session,
+  destination: ((cohortId: string) => string) | undefined,
+): RouteAuthorizationDecision {
   if (usesCohortChooser(session)) return { kind: "allow", session };
 
   const [onlyMembership] = session.memberships;
   if (!onlyMembership) return { kind: "forbidden" };
 
+  const { cohortId } = onlyMembership;
   return {
     kind: "redirect",
-    href: campusJoinHref(onlyMembership.cohortId),
+    href: destination
+      ? campusPreJoinHref(cohortId, destination(cohortId))
+      : campusJoinHref(cohortId),
   };
 }
 
@@ -89,7 +99,7 @@ function decideFullAccess(
 ): RouteAuthorizationDecision {
   switch (request.kind) {
     case "campus-index":
-      return decideCampusIndex(session);
+      return decideCampusIndex(session, request.destination);
     case "cohort":
       return decideCohort(session, request.cohortId);
     // Which cohort a link is for is only known by entering it, and campus-api

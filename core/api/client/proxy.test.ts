@@ -627,6 +627,112 @@ describe("createApiProxy", () => {
     );
   });
 
+  describe("connecting Google Calendar", () => {
+    it("sends the session on and passes the redirect to Google through", async () => {
+      let outboundRequest: Request | undefined;
+      const handler = createApiProxy({
+        ...baseOptions,
+        fetch: (request) => {
+          outboundRequest = request;
+          return Promise.resolve(
+            new Response(null, {
+              headers: {
+                location: "https://accounts.google.com/o/oauth2/v2/auth",
+              },
+              status: 302,
+            }),
+          );
+        },
+      });
+
+      const response = await handler(
+        new Request("https://frontend.example.test/api/v1/calendar/connect", {
+          headers: { cookie: "campus_session=session-token" },
+        }),
+        { params: Promise.resolve({ path: ["v1", "calendar", "connect"] }) },
+      );
+
+      expect(outboundRequest?.url).toBe(
+        "https://api.example.test/v1/calendar/connect",
+      );
+      expect(outboundRequest?.redirect).toBe("manual");
+      expect(outboundRequest?.headers.get("cookie")).toBe(
+        "campus_session=session-token",
+      );
+      expect(response.status).toBe(302);
+      expect(response.headers.get("location")).toBe(
+        "https://accounts.google.com/o/oauth2/v2/auth",
+      );
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+    });
+
+    it("passes the way back into the web app through untouched", async () => {
+      let outboundRequest: Request | undefined;
+      const handler = createApiProxy({
+        ...baseOptions,
+        fetch: (request) => {
+          outboundRequest = request;
+          return Promise.resolve(
+            new Response(null, {
+              headers: {
+                location:
+                  "https://frontend.example.test/campus?calendar=connected",
+              },
+              status: 302,
+            }),
+          );
+        },
+      });
+
+      const response = await handler(
+        new Request(
+          "https://frontend.example.test/api/v1/calendar/connect/callback?code=g-code&state=signed-state",
+          { headers: { cookie: "campus_session=session-token" } },
+        ),
+        {
+          params: Promise.resolve({
+            path: ["v1", "calendar", "connect", "callback"],
+          }),
+        },
+      );
+
+      expect(outboundRequest?.url).toBe(
+        "https://api.example.test/v1/calendar/connect/callback?code=g-code&state=signed-state",
+      );
+      expect(outboundRequest?.headers.get("cookie")).toBe(
+        "campus_session=session-token",
+      );
+      expect(response.status).toBe(302);
+      expect(response.headers.get("location")).toBe(
+        "https://frontend.example.test/campus?calendar=connected",
+      );
+    });
+
+    it("does not forward Google's push route, which no browser sends", async () => {
+      const handler = createApiProxy({
+        ...baseOptions,
+        fetch: () => Promise.reject(new Error("must not be forwarded")),
+      });
+
+      const response = await handler(
+        new Request(
+          "https://frontend.example.test/api/v1/calendar/notifications",
+          {
+            method: "POST",
+            headers: { origin: "https://frontend.example.test" },
+          },
+        ),
+        {
+          params: Promise.resolve({
+            path: ["v1", "calendar", "notifications"],
+          }),
+        },
+      );
+
+      expect(response.status).toBe(404);
+    });
+  });
+
   it("starts Google OAuth with backend state and the parsed frontend return destination", async () => {
     let outboundRequest: Request | undefined;
     const headers = new Headers({

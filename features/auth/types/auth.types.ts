@@ -23,7 +23,13 @@ export type Session = Simplify<
 export type InvitationPath = "/invitation" | "/preview";
 
 export type CampusRouteRequest =
-  | { kind: "campus-index" }
+  | {
+      kind: "campus-index";
+      // Where a member with only one cohort should land inside it, when the
+      // visit means something more than "take me to my campus" (coming back
+      // from Google with a calendar). Built by the page from values it parsed.
+      destination?: (cohortId: string) => string;
+    }
   | { kind: "cohort"; cohortId: string }
   | { kind: "room-link" }
   | { kind: "system-admin" };
