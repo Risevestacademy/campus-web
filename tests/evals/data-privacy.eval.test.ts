@@ -37,7 +37,7 @@ import {
 } from "@/features/admin/people/schemas/people.schema";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
-import { parseCalendarStatus } from "@/features/calendar/schemas/calendar-status.schema";
+import { parseCalendarEvents } from "@/features/calendar/schemas/calendar-events.schema";
 import { checkConnection } from "@/features/campus/services/connection-check/check-connection";
 import {
   type ConnectionCheckAccess,
@@ -224,6 +224,34 @@ const PENDING_INVITE_ALLOW_LIST = [
   "user.email",
   "user.firstName",
   "user.lastName",
+];
+
+const CALENDAR_BUSY_ALLOW_LIST = [
+  "connected",
+  "events[].allDay",
+  "events[].end",
+  "events[].id",
+  "events[].kind",
+  "events[].response",
+  "events[].start",
+  "events[].status",
+  "truncated",
+];
+const CALENDAR_CAMPUS_ALLOW_LIST = [
+  "connected",
+  "events[].allDay",
+  "events[].end",
+  "events[].googleUrl",
+  "events[].id",
+  "events[].kind",
+  "events[].location",
+  "events[].response",
+  "events[].room.code",
+  "events[].room.spaceName",
+  "events[].start",
+  "events[].status",
+  "events[].title",
+  "truncated",
 ];
 
 const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
@@ -782,27 +810,76 @@ describe("Data privacy eval (threshold: every case holds)", () => {
   });
 
   describe("a member's calendar never reaches a screen beyond what it shows", () => {
-    it("keeps only whether the calendar is connected, never the events read with it", () => {
-      const status = parseCalendarStatus({
-        connected: true,
-        truncated: false,
-        events: [
-          {
-            id: "e-1",
-            title: "Private dentist appointment",
-            location: "12 Hospital Road",
-            meetingUrl: "https://meet.google.com/abc-defg-hij",
-            htmlLink: "https://www.google.com/calendar/event?eid=abc",
-            room: null,
-          },
-        ],
-        ...UNEXPECTED,
-      });
+    const room = {
+      code: "k3F9xQ2pLm",
+      cohortId: "c-1",
+      spaceId: "s-1",
+      spaceKey: "pod-a",
+      spaceName: "Pod A",
+      title: "Design review",
+    };
+    const rawEvent = (overrides: Record<string, unknown> = {}) => ({
+      id: "e-1",
+      title: "Private dentist appointment",
+      start: "2026-09-30T14:00:00+01:00",
+      end: "2026-09-30T15:00:00+01:00",
+      allDay: false,
+      status: "confirmed",
+      response: "accepted",
+      location: "12 Hospital Road",
+      meetingUrl: "https://meet.google.com/abc-defg-hij",
+      url: "https://www.google.com/calendar/event?eid=abc",
+      room: null,
+      ...UNEXPECTED,
+      ...overrides,
+    });
+    const answer = (events: unknown[]) => ({
+      connected: true,
+      truncated: false,
+      events,
+      ...UNEXPECTED,
+    });
 
-      expect(status).toStrictEqual({ connected: true });
-      expect(JSON.stringify(status)).not.toMatch(
+    it("keeps only the times of an event with no room", () => {
+      const parsed = parseCalendarEvents(answer([rawEvent()]), "c-1");
+
+      expect(keyPaths(parsed)).toEqual(CALENDAR_BUSY_ALLOW_LIST);
+      expect(JSON.stringify(parsed)).not.toMatch(
         /dentist|Hospital|meet\.google|calendar\/event/,
       );
+    });
+
+    it("keeps only the times of an event whose room is in another cohort", () => {
+      const parsed = parseCalendarEvents(
+        answer([rawEvent({ room: { ...room, cohortId: "c-2" } })]),
+        "c-1",
+      );
+
+      expect(keyPaths(parsed)).toEqual(CALENDAR_BUSY_ALLOW_LIST);
+      expect(JSON.stringify(parsed)).not.toMatch(/dentist|Hospital|Pod A|k3F9/);
+    });
+
+    it("keeps only the fields shown for an event in this cohort's room, and never the meeting link", () => {
+      const parsed = parseCalendarEvents(
+        answer([rawEvent({ room: { ...room, ...UNEXPECTED } })]),
+        "c-1",
+      );
+
+      expect(keyPaths(parsed)).toEqual(CALENDAR_CAMPUS_ALLOW_LIST);
+      expect(JSON.stringify(parsed)).not.toMatch(/meet\.google|spaceId|pod-a/);
+    });
+
+    it.each([
+      "http://www.google.com/calendar/event?eid=abc",
+      "https://evil.example/calendar/event",
+      "javascript:alert(1)",
+    ])("never keeps %s as a link to follow", (url) => {
+      const parsed = parseCalendarEvents(
+        answer([rawEvent({ room, url })]),
+        "c-1",
+      );
+
+      expect(JSON.stringify(parsed)).not.toContain(url);
     });
   });
 

@@ -48,12 +48,40 @@ redirects and the session cookie through.
 - **`CalendarOutcomeNotice`** shows the outcome once, then takes the
   parameter off the address.
 
-### What is read of the events answer
+### The calendar
 
-Only `connected`. The events route is read for this week to learn whether the
-member has a calendar connected, and everything else in the answer is dropped
-where it is parsed. The next step reads the events themselves, and an event
-that carries no room the member may open is kept only as a time.
+The main area shows the days the member picked: Day, Week (Monday first) or
+Month (six weeks), in their own time zone. Times are read as the zone Google
+gave and drawn on the wall clock, so a day the clocks change keeps its hours.
+An event across midnight is drawn on each day, cut at midnight, and an
+all-day event is a pair of dates read as days, never as timestamps. Events
+that overlap share the column.
+
+- **One read per range.** `readCalendarEvents` asks campus-api for the range on
+  screen (never more than the 62 days it reads), and TanStack Query keeps each
+  range for a minute. The days before stay on screen while the next load.
+- **What the panel and the page share** lives in `store/calendar-view-store`:
+  the view, the day it is built around and the two filters. Nothing of it is
+  saved. `hooks/use-calendar-model` joins it to the read for both.
+- **LIVE and Join.** An event with a room is live from ten minutes before it
+  starts until it ends, and shows LIVE in words (not colour alone) with a Join
+  link to `/join/{code}`. The clock is a hook (`use-now`, every 30 seconds) and
+  every rule takes `now`, so tests do not depend on the time.
+- **Details** open in a popover: the room, the member's own answer, Copy room
+  link, Go to room, and Open in Google Calendar.
+- **States.** Not answering (dims what was shown, with Retry), connection ended
+  (told once, then the connect card), more than 1,000 events, and nothing in
+  the range.
+
+### What is kept of an event
+
+Only an event whose room belongs to the cohort being viewed keeps its words:
+title, place, a Google link and the room's code and name. Every other event,
+whether it has no room or a room in another cohort, is reduced to its times
+and answer when the answer is parsed, and shows as Busy. The meeting link is
+never kept. The Google link is kept only if it is `https` on a Google host,
+and is opened with `rel="noopener noreferrer"`. A single event campus cannot
+read is skipped, not the whole answer.
 
 ### Decisions
 
@@ -67,18 +95,19 @@ that carries no room the member may open is kept only as a time.
 
 ## Modules
 
-| Module        | Owns                                                             | Seam                |
-| ------------- | ---------------------------------------------------------------- | ------------------- |
-| `schemas/`    | the outcomes of connecting, and the status fields the page reads | `@/core/api/client` |
-| `services/`   | the events and disconnect calls, the week window, outcome words  | `@/core/api/client` |
-| `hooks/`      | the status query, disconnecting, and the connect link's renewal  | `@/core/session`    |
-| `components/` | the panel, the page, the connect card, the gear and the notice   | none                |
+| Module        | Owns                                                               | Seam                |
+| ------------- | ------------------------------------------------------------------ | ------------------- |
+| `schemas/`    | the outcomes of connecting and the events, parsed from campus-api  | `@/core/api/client` |
+| `services/`   | the events and disconnect calls, ranges, placement, labels, words  | `@/core/api/client` |
+| `store/`      | the view, the day shown and the filters, shared by panel and page  | none                |
+| `hooks/`      | the events query, the model, the clock, disconnecting, connecting  | `@/core/session`    |
+| `components/` | the panel, the page, the grids, event blocks and details, the gear | none                |
 
 ## Contributing
 
-Keep a field out of `calendarStatusSchema` until something renders or
+Keep a field out of `calendar-events.schema.ts` until something renders or
 computes with it, and update `tests/evals/data-privacy.eval.test.ts` when you
-widen it. The title, location, description and links of an event belong to the
+widen it. Add a field to a Busy event only if it is a time. The title, location, description and links of an event belong to the
 member: never keep them for an event with no room, never log them, never send
 them to analytics or storage.
 
