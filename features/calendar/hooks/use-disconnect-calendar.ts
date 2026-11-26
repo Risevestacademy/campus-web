@@ -4,7 +4,7 @@ import { browserApi } from "@/core/api/client/browser";
 import { toast } from "@/shared/ui/toast";
 
 import { disconnectCalendar } from "../services/calendar-api.adapter";
-import { CALENDAR_STATUS_KEY } from "./use-calendar-status";
+import { CALENDAR_EVENTS_KEY } from "./use-calendar-events";
 
 export function useDisconnectCalendar() {
   const queryClient = useQueryClient();
@@ -14,9 +14,10 @@ export function useDisconnectCalendar() {
     retry: false,
     onSuccess(outcome) {
       if (outcome === "disconnected") {
-        queryClient.setQueryData(CALENDAR_STATUS_KEY, {
-          kind: "not-connected",
-        });
+        queryClient.setQueriesData(
+          { queryKey: CALENDAR_EVENTS_KEY },
+          { kind: "not-connected", by: "member" },
+        );
         toast.add({ title: "Google Calendar disconnected.", type: "success" });
         return;
       }

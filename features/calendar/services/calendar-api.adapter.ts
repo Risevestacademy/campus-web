@@ -1,21 +1,32 @@
 import type { ApiClient } from "@/core/api/client";
 
-import { parseCalendarStatus } from "../schemas/calendar-status.schema";
+import {
+  type CalendarEvent,
+  parseCalendarEvents,
+} from "../schemas/calendar-events.schema";
 import type { CalendarWindow } from "./calendar-window";
 
-export type CalendarStatusRead =
-  | { kind: "connected" }
+export type CalendarRead =
+  | {
+      kind: "connected";
+      events: readonly CalendarEvent[];
+      truncated: boolean;
+    }
   // No grant, or Google withdrew it: campus-api answers 200 with
-  // `connected: false` for both.
-  | { kind: "not-connected" }
+  // `connected: false` for both. `by: "member"` is set when the member
+  // disconnected here, so it is not mistaken for Google ending the connection.
+  | { kind: "not-connected"; by?: "member" }
   | { kind: "signed-out" }
   | { kind: "unavailable" };
 
-export async function readCalendarStatus(
+// The member's events for a window, as this cohort may show them: an event
+// with no room of the cohort's keeps only its times.
+export async function readCalendarEvents(
   api: ApiClient,
   { from, to }: CalendarWindow,
+  cohortId: string,
   signal?: AbortSignal,
-): Promise<CalendarStatusRead> {
+): Promise<CalendarRead> {
   try {
     const { data, response } = await api.GET("/v1/calendar/events", {
       params: { query: { from, to } },
@@ -23,9 +34,11 @@ export async function readCalendarStatus(
     });
     if (response.status === 401) return { kind: "signed-out" };
 
-    const status = response.ok ? parseCalendarStatus(data) : undefined;
-    if (!status) return { kind: "unavailable" };
-    return { kind: status.connected ? "connected" : "not-connected" };
+    const read = response.ok ? parseCalendarEvents(data, cohortId) : undefined;
+    if (!read) return { kind: "unavailable" };
+    return read.connected
+      ? { kind: "connected", events: read.events, truncated: read.truncated }
+      : { kind: "not-connected" };
   } catch {
     return { kind: "unavailable" };
   }

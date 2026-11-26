@@ -24,7 +24,7 @@ export default async function CohortCalendarPage({
   return (
     <CohortGate cohortId={id}>
       {outcome ? <CalendarOutcomeNotice outcome={outcome} /> : null}
-      <CalendarPage />
+      <CalendarPage cohortId={id} />
     </CohortGate>
   );
 }

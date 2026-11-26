@@ -13,6 +13,14 @@ const EVENTS = "GET /v1/calendar/events";
 const DISCONNECT = "DELETE /v1/calendar";
 const CALENDAR = "/campus/c-1/calendar";
 
+const ROOM = {
+  code: "k3F9xQ2pLm",
+  cohortId: "c-1",
+  spaceId: "s-1",
+  spaceKey: "pod-a",
+  spaceName: "Pod A",
+  title: "Design review",
+};
 const connected = {
   status: 200,
   body: {
@@ -20,7 +28,20 @@ const connected = {
     truncated: false,
     events: [
       {
-        id: "e-1",
+        id: "e-live",
+        title: "Design review",
+        start: "2026-09-30T10:00:00+01:00",
+        end: "2026-09-30T11:00:00+01:00",
+        allDay: false,
+        status: "confirmed",
+        response: "accepted",
+        room: ROOM,
+        location: "Room 2",
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+        url: "https://www.google.com/calendar/event?eid=abc",
+      },
+      {
+        id: "e-private",
         title: "Private dentist appointment",
         start: "2026-09-30T14:00:00+01:00",
         end: "2026-09-30T15:00:00+01:00",
@@ -30,7 +51,20 @@ const connected = {
         room: null,
         location: "12 Hospital Road",
         meetingUrl: null,
-        htmlLink: "https://www.google.com/calendar/event?eid=abc",
+        url: "https://www.google.com/calendar/event?eid=def",
+      },
+      {
+        id: "e-other",
+        title: "Other cohort secret",
+        start: "2026-10-01T09:00:00+01:00",
+        end: "2026-10-01T10:00:00+01:00",
+        allDay: false,
+        status: "confirmed",
+        response: null,
+        room: { ...ROOM, cohortId: "c-2", spaceName: "Their pod" },
+        location: null,
+        meetingUrl: null,
+        url: null,
       },
     ],
   },
@@ -40,7 +74,11 @@ const notConnected = {
   body: { connected: false, truncated: false, events: [] },
 };
 
+// Wednesday 30 September 2026, five minutes before the first event opens.
+test.use({ timezoneId: "Europe/London" });
+
 test.beforeEach(async ({ baseURL, context, fakeApi, page }) => {
+  await page.clock.setFixedTime(new Date("2026-09-30T09:55:00+01:00"));
   await installSanityMapStub(page);
   await signIn(context, baseURL);
   await fakeApi.scriptSession(
@@ -74,7 +112,7 @@ test("a member who has not connected is offered Google Calendar, promising only 
   ).toHaveAttribute("href", "/api/v1/calendar/connect");
 });
 
-test("a connected member sees it, and nothing of their events reaches the page", async ({
+test("a connected member sees their week, with Busy for what has no room of this cohort", async ({
   fakeApi,
   page,
 }) => {
@@ -84,10 +122,71 @@ test("a connected member sees it, and nothing of their events reaches the page",
 
   await expect(page.getByText(/^Connected to Google · loaded/)).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Your calendar is connected" }),
+    page.getByRole("button", { name: /^Design review/ }),
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Busy/ })).toHaveCount(2);
   await expect(page.getByText("Private dentist appointment")).toHaveCount(0);
   await expect(page.getByText("Hospital Road")).toHaveCount(0);
+  await expect(page.getByText("Other cohort secret")).toHaveCount(0);
+  await expect(page.getByText("Their pod")).toHaveCount(0);
+});
+
+test("an event with a room that is open shows LIVE, and Join walks to the room", async ({
+  fakeApi,
+  page,
+}) => {
+  await fakeApi.scriptRoutes({ [EVENTS]: connected });
+  await openCalendar(page);
+
+  await expect(page.getByText(/LIVE/).first()).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /^Join/ }).first(),
+  ).toHaveAttribute("href", "/join/k3F9xQ2pLm");
+});
+
+test("an event opens its details, and a Busy one shows only a time", async ({
+  fakeApi,
+  page,
+}) => {
+  await fakeApi.scriptRoutes({ [EVENTS]: connected });
+  await openCalendar(page);
+
+  await page.getByRole("button", { name: /^Design review/ }).click();
+  await expect(page.getByText("Room: Pod A")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Open in Google Calendar" }),
+  ).toHaveAttribute("rel", "noopener noreferrer");
+  await page.keyboard.press("Escape");
+  await expect(page.getByText("Room: Pod A")).toHaveCount(0);
+
+  await page.getByRole("button", { name: /^Busy/ }).first().click();
+  await expect(page.getByText("Busy · From Google")).toBeVisible();
+  await expect(page.getByText("Room:")).toHaveCount(0);
+});
+
+test("the view switches between Day, Week and Month and asks for what it shows", async ({
+  fakeApi,
+  page,
+}) => {
+  await fakeApi.scriptRoutes({ [EVENTS]: connected });
+  await openCalendar(page);
+
+  await page.getByRole("button", { name: "Month", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: /September 2026/, level: 2 }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Design review/ }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Day", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Busy/ })).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Next day" }).click();
+  await expect(page.getByRole("button", { name: /^Busy/ })).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: /^Design review/ }),
+  ).toHaveCount(0);
 });
 
 test("disconnecting asks what it does, then shows the not-connected screen", async ({
@@ -130,7 +229,7 @@ test("Google not answering says so, and Retry asks again", async ({
   await page.getByRole("button", { name: "Retry" }).click();
 
   await expect(
-    page.getByRole("heading", { name: "Your calendar is connected" }),
+    page.getByRole("button", { name: /^Design review/ }),
   ).toBeVisible();
 });
 
@@ -149,7 +248,7 @@ test("coming back from Google lands on the calendar, says how it went once and c
   await expect(page).toHaveURL(CALENDAR);
   await expect(page.getByText("Google Calendar connected.")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Your calendar is connected" }),
+    page.getByRole("button", { name: /^Design review/ }),
   ).toBeVisible();
 });
 
