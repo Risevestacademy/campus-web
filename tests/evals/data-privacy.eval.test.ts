@@ -38,6 +38,10 @@ import {
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
 import { parseCalendarEvents } from "@/features/calendar/schemas/calendar-events.schema";
+import {
+  parseCreatedRoomLink,
+  parseLinkableSpacePage,
+} from "@/features/calendar/schemas/room-link.schema";
 import { checkConnection } from "@/features/campus/services/connection-check/check-connection";
 import {
   type ConnectionCheckAccess,
@@ -254,6 +258,14 @@ const CALENDAR_CAMPUS_ALLOW_LIST = [
   "truncated",
 ];
 
+const ROOM_LINK_ALLOW_LIST = ["code", "spaceName", "title", "url"];
+const LINKABLE_SPACES_ALLOW_LIST = [
+  "page",
+  "spaces[].id",
+  "spaces[].name",
+  "totalPages",
+];
+
 const ANALYTICS_ALLOW_LIST: Record<string, string[]> = {
   "auth.login_failed": ["auth_method", "error_code"],
   "auth.login_submitted": ["auth_method", "entry_source", "platform"],
@@ -338,6 +350,7 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   call: [
     "call.audibleRadius",
     "call.hearing",
+    "call.room",
     "call.token",
     "call.url",
     "type",
@@ -883,6 +896,51 @@ describe("Data privacy eval (threshold: every case holds)", () => {
     });
   });
 
+  describe("a room link and the spaces offered for one carry only what the dialog shows", () => {
+    it("keeps only the words to paste, never who the link is for or its runs", () => {
+      const link = parseCreatedRoomLink({
+        audience: "mentorship-group",
+        code: "k3F9xQ2pLm",
+        url: "https://campus.example/join/k3F9xQ2pLm",
+        title: "Design review",
+        cohortId: "c-1",
+        spaceId: "s-1",
+        spaceKey: "pod-a",
+        spaceName: "Pod A",
+        cohortTrackId: null,
+        mentorshipGroupId: "g-1",
+        startsAt: "2026-11-05T10:00:00.000Z",
+        ...UNEXPECTED,
+      });
+
+      expect(keyPaths(link)).toEqual(ROOM_LINK_ALLOW_LIST);
+    });
+
+    it("keeps only the id and name of a space, and drops one that takes no link", () => {
+      const page = parseLinkableSpacePage({
+        items: [
+          {
+            id: "s-1",
+            mapId: "m-1",
+            kind: "classroom",
+            access: "designated",
+            key: "pod-a",
+            name: "Pod A",
+            isMapDefault: false,
+            capacity: 25,
+            ...UNEXPECTED,
+          },
+          { id: "s-2", name: "Corridors", kind: "open", isMapDefault: true },
+          { id: "s-3", name: "Not set up", kind: null, isMapDefault: false },
+        ],
+        meta: { page: 1, perPage: 100, total: 3, totalPages: 1 },
+      });
+
+      expect(keyPaths(page)).toEqual(LINKABLE_SPACES_ALLOW_LIST);
+      expect(page?.spaces).toEqual([{ id: "s-1", name: "Pod A" }]);
+    });
+  });
+
   describe("world frames reach the client through an allow-list", () => {
     function parsedMessage(text: string): ServerMessage | undefined {
       const result = parseServerMessage(text);
@@ -946,7 +1004,7 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       );
     });
 
-    it("keeps only the call grant fields proximity audio reads", () => {
+    it("keeps only the call grant fields proximity audio and the space id read", () => {
       const call = parsedMessage(
         JSON.stringify({
           ...serverFrames.call,
@@ -958,11 +1016,8 @@ describe("Data privacy eval (threshold: every case holds)", () => {
         }),
       );
 
-      const {
-        room: _room,
-        subscribeRadius: _subscribeRadius,
-        ...expectedCall
-      } = serverFrames.call.call!;
+      const { subscribeRadius: _subscribeRadius, ...expectedCall } =
+        serverFrames.call.call!;
       expect(call).toEqual({
         type: "call",
         call: { ...expectedCall, token: TOKEN },

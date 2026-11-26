@@ -78,7 +78,7 @@ export const serverFrames: ServerFrames = {
     type: "call",
     call: {
       url: "wss://media.example.test",
-      room: "cohort-1:library",
+      room: "space:cohort-1:s-library",
       token: "media-token",
       hearing: "proximity",
       audibleRadius: 6,

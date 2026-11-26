@@ -39,6 +39,7 @@ function renderPanel() {
     withQueryClient(
       <RefreshSessionContext value={async () => ({ kind: "refreshed" })}>
         <CalendarPanel
+          administrator={false}
           cohortId="c-1"
           collapseButton={<button type="button">Collapse sidebar</button>}
         />

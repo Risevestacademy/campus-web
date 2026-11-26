@@ -37,6 +37,10 @@ export interface Presence extends Social {
   spaceNames: ReadonlyMap<string, string>;
   nearby: readonly string[];
   hearing: PresenceHearing;
+  // The media room of the call for the space they stand in, which names that
+  // space's id (see `spaceIdOfRoom`). Null until World sends the space's call,
+  // and wherever there is none. Never the call's token.
+  spaceRoom: string | null;
   meetingRoster: readonly string[];
   // A view opened for one encounter must not reopen by itself for the next.
   encounter: number;
@@ -51,6 +55,7 @@ export const EMPTY_PRESENCE: Presence = {
   spaceNames: new Map(),
   nearby: [],
   hearing: null,
+  spaceRoom: null,
   meetingRoster: [],
   encounter: 0,
   ...EMPTY_SOCIAL,
@@ -185,7 +190,12 @@ function withSpaceChange(
     userId === presence.selfId &&
     presence.participants.get(userId)?.spaceKey !== spaceKey;
   const next = withParticipantChange(presence, userId, { spaceKey });
-  return crossed ? withHearing(next, awaitingCall(presence.hearing)) : next;
+  return crossed
+    ? {
+        ...withHearing(next, awaitingCall(presence.hearing)),
+        spaceRoom: null,
+      }
+    : next;
 }
 
 function roomMateIds({ selfId, participants }: Presence): string[] {
@@ -264,6 +274,7 @@ function applyFrame(presence: Presence, message: ServerMessage): Presence {
         spaceNames: namesBySpaceKey(message.spaces),
         nearby: [],
         hearing: awaitingCall(presence.hearing),
+        spaceRoom: null,
         ...socialOfSnapshot(message),
       };
     case "spaces":
@@ -313,11 +324,26 @@ function applyFrame(presence: Presence, message: ServerMessage): Presence {
         : presence;
     case "nearby":
       return withNearby(presence, message.userIds);
-    case "call":
-      return withHearing(presence, hearingOf(message.call));
+    case "call": {
+      const spaceRoom = message.call?.room ?? null;
+      const next = withHearing(presence, hearingOf(message.call));
+      return next.spaceRoom === spaceRoom ? next : { ...next, spaceRoom };
+    }
     default:
       return presence;
   }
+}
+
+const SPACE_ROOM = /^space:([^:]+):([^:]+)$/;
+
+// A space's call room is named `space:{cohortId}:{spaceId}`. The id of the
+// space a member stands in is only known from it, and only for this cohort.
+export function spaceIdOfRoom(
+  room: string | null,
+  cohortId: string,
+): string | null {
+  const match = room === null ? null : SPACE_ROOM.exec(room);
+  return match && match[1] === cohortId ? (match[2] ?? null) : null;
 }
 
 // The key of the corridors and grounds: every tile outside a drawn space.

@@ -34,8 +34,10 @@ type OverviewCohort = {
 type CampusShellProps = Readonly<{
   administrationPanel?: ReactNode;
   CalendarPanel?: ComponentType<{
+    administrator: boolean;
     cohortId: string;
     collapseButton: ReactNode;
+    role?: components["schemas"]["CohortRole"];
   }>;
   FeedbackPopup?: FeedbackPopupComponent;
   LogOutAction?: LogOutActionComponent;
@@ -118,8 +120,10 @@ export function CampusShell({
                 ...(CalendarPanel && {
                   calendar: (
                     <CalendarPanel
+                      administrator={administrationPanel !== undefined}
                       cohortId={cohortId}
                       collapseButton={collapseButton}
+                      role={cohort?.role}
                     />
                   ),
                 }),

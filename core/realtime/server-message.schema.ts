@@ -146,7 +146,9 @@ export type JoinedMessage = Simplify<
 >;
 type Hearing = OrUnknown<PublishedCall["hearing"]>;
 export type Call = Simplify<
-  Pick<PublishedCall, "url" | "token" | "audibleRadius"> & { hearing: Hearing }
+  Pick<PublishedCall, "url" | "room" | "token" | "audibleRadius"> & {
+    hearing: Hearing;
+  }
 >;
 export type CallMessage = Simplify<
   Pick<PublishedCallMessage, "type"> & { call: Call | null }
@@ -374,6 +376,7 @@ const spacesMessageSchema = z.toZod<SpacesMessage>()(
 const callSchema = z.toZod<Call>()(
   z.object({
     url: z.string().min(1),
+    room: z.string().min(1),
     token: z.string().min(1),
     hearing: orUnknown(["room", "proximity"]),
     audibleRadius: z.number().nonnegative(),

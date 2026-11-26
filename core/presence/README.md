@@ -61,6 +61,11 @@ status, statusUntil, spaceKey }>`. `status` is `available`, `busy`, `away` (or `
   frame, and the old call says nothing about the new space. Only the hearing
   is kept, never the call's token. `hearingOf(call)` is the one rule for
   which calls are heard; the audio session uses it too.
+- `spaceRoom`: the media room of World's `call` for your space,
+  `space:{cohortId}:{spaceId}`. It is the only place the web app learns a
+  space's id; `spaceIdOfRoom(room, cohortId)` reads it. It is cleared by your
+  own step into another space, a `snapshot` and `call: null`, so it never names
+  the space you left. The call's token is never kept.
 - `meetingRoster`: who you meet, in the order they arrived, without you.
   Under `room` hearing it is everyone presence knows in your space; while
   `awaiting` it is nobody; otherwise it is whoever `nearby` names that
@@ -78,22 +83,22 @@ rendering on every `moved` tick. A `spaceChanged` does replace the person's
 entry, since it is the one movement the roster shows. KAPLAY reads `positions` each frame and
 keeps anything finer (pixels, walking) itself.
 
-| Message             | participants                | positions                    |
-| ------------------- | --------------------------- | ---------------------------- |
-| `welcome`           | (sets `selfId`)             |                              |
-| `snapshot`          | replaced, with `spaceNames` | replaced, with the map       |
-| `joined`            | set, replacing any entry    | set                          |
-| `appearance`        | name and sprite updated     |                              |
-| `statusChanged`     | status and end updated ²    |                              |
-| `spaceChanged`      | space updated if present ¹  |                              |
-| `left`              | removed                     | removed                      |
-| `moved`             |                             | updated for known ids        |
-| `moveResult`        |                             | yours, from world's answer   |
-| `walking`           |                             | yours, each step of a walk   |
-| `walkEnded`         |                             | yours, where the walk ended  |
-| `positionCorrected` |                             | yours, where world moved you |
-| `spaces`            | (replaces `spaceNames`)     |                              |
-| `call`              | (sets `hearing`)            |                              |
+| Message             | participants                  | positions                    |
+| ------------------- | ----------------------------- | ---------------------------- |
+| `welcome`           | (sets `selfId`)               |                              |
+| `snapshot`          | replaced, with `spaceNames`   | replaced, with the map       |
+| `joined`            | set, replacing any entry      | set                          |
+| `appearance`        | name and sprite updated       |                              |
+| `statusChanged`     | status and end updated ²      |                              |
+| `spaceChanged`      | space updated if present ¹    |                              |
+| `left`              | removed                       | removed                      |
+| `moved`             |                               | updated for known ids        |
+| `moveResult`        |                               | yours, from world's answer   |
+| `walking`           |                               | yours, each step of a walk   |
+| `walkEnded`         |                               | yours, where the walk ended  |
+| `positionCorrected` |                               | yours, where world moved you |
+| `spaces`            | (replaces `spaceNames`)       |                              |
+| `call`              | (sets `hearing`, `spaceRoom`) |                              |
 
 ¹ Your own `spaceChanged` into another space sets a held `hearing` to
 `awaiting`, and the roster is empty until World's next `call`. Otherwise
