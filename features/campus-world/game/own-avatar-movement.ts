@@ -14,7 +14,10 @@ import type {
 import { interpolatePlayer } from "../services/movement/interpolate-player";
 import { type PendingMove, reconcile } from "../services/movement/reconcile";
 import {
+  forgetStaleFullTiles,
+  type FullTile,
   learnRefusedTiles,
+  rememberFullTile,
   withRefusedTiles,
 } from "../services/movement/refused-tiles";
 import { predictStep, stepFrom } from "../services/movement/step";
@@ -36,8 +39,9 @@ export interface OwnAvatarMovement {
   // lets only the next step through. False when no side of the member touches
   // the space.
   stepInto(spaceKey: string): boolean;
-  // True once for each walk world starts, so the camera returns to the avatar
-  // without taking back a drag made mid-walk.
+  // True once for each walk world starts, and each time world moves the avatar
+  // itself, so the camera returns to the avatar without taking back a drag
+  // made mid-walk.
   takeWalkStarted(): boolean;
   update(input: MovementInput): void;
 }
@@ -47,6 +51,9 @@ interface OwnAvatarMovementOptions {
   movement: WorldMovement;
   onMoveCorrected: (outcome: MoveCorrection) => void;
   onEntryRefused?: (refusal: EntryRefusal) => void;
+  // A step into a space that is full: the avatar turns to face it, and the
+  // space is named when the map knows which one it is.
+  onSpaceFull?: (spaceKey: string | null) => void;
   prefersReducedMotion: () => boolean;
   readPresence: () => Presence;
 }
@@ -75,6 +82,7 @@ export function createOwnAvatarMovement({
   movement,
   onMoveCorrected,
   onEntryRefused,
+  onSpaceFull,
   prefersReducedMotion,
   readPresence,
 }: OwnAvatarMovementOptions): OwnAvatarMovement {
@@ -85,12 +93,14 @@ export function createOwnAvatarMovement({
   let onWalk = false;
   let pending: PendingMove[] = [];
   let predicted: Player | undefined;
+  let clockMs = 0;
+  let full: readonly FullTile[] = [];
   let refused: readonly Tile[] = [];
   let sequence = 0;
   let walkStarted = false;
 
   function walkable(): MapLayout {
-    return withRefusedTiles(layout, refused);
+    return withRefusedTiles(layout, [...refused, ...full]);
   }
 
   function takePresencePosition() {
@@ -105,6 +115,7 @@ export function createOwnAvatarMovement({
     buffered = undefined;
     pending = [];
     refused = [];
+    full = [];
   }
 
   function showWorldStep(player: Player) {
@@ -127,6 +138,44 @@ export function createOwnAvatarMovement({
       from: { ...from, facing: player.facing },
       fromWorld: true,
       to: player,
+    };
+    advanceAnimation(0);
+  }
+
+  // A new map put the tile under the avatar inside a wall and world moved it.
+  // Frames arrive in order, so a step still pending here has not been answered:
+  // world runs it from the corrected tile, and so does the prediction. Some
+  // refused tiles were learned on the old map and may be open now, and they
+  // cannot be told apart from ones learned since, so all are forgotten; a wall
+  // still there is learned again on the next bump.
+  function snapTo(player: Player) {
+    if (!predicted) return;
+
+    refused = [];
+    full = [];
+    predicted = pending.reduce(
+      (position, move) => predictStep(position, move.direction, walkable()),
+      player,
+    );
+    displayed = player;
+    animation = undefined;
+    buffered = undefined;
+    walkStarted = true;
+
+    const stepMs = movement.readStepMs();
+    if (samePlayer(predicted, player)) return;
+    if (stepMs === null) {
+      displayed = predicted;
+      return;
+    }
+    // The snap itself is not animated; the steps still in flight walk on
+    // from the new tile.
+    animation = {
+      durationMs: stepMs,
+      elapsedMs: 0,
+      from: { ...player, facing: predicted.facing },
+      fromWorld: false,
+      to: predicted,
     };
     advanceAnimation(0);
   }
@@ -155,6 +204,10 @@ export function createOwnAvatarMovement({
       followWalk(message);
       return;
     }
+    if (message.type === "positionCorrected") {
+      snapTo(message.player);
+      return;
+    }
     if (message.type !== "moveResult" || !predicted) return;
 
     if (message.outcome === "refused") {
@@ -166,7 +219,13 @@ export function createOwnAvatarMovement({
         ),
       });
     }
+    if (message.outcome === "full") {
+      onSpaceFull?.(
+        spaceAt(layout.spaces, stepFrom(message.player, message.player.facing)),
+      );
+    }
     refused = learnRefusedTiles(refused, message);
+    full = rememberFullTile(full, message, clockMs);
     const before = predicted;
     const reconciled = reconcile(pending, message, walkable());
     pending = reconciled.pending;
@@ -272,6 +331,8 @@ export function createOwnAvatarMovement({
         if (animation) buffered = pressed;
       }
 
+      clockMs += Math.max(0, deltaMs);
+      full = forgetStaleFullTiles(full, clockMs);
       const carriedMs = advanceAnimation(deltaMs);
       const direction = buffered ?? pressed ?? heldOrder.at(-1);
       // World's steps arrive back to back, so waiting for one to finish could

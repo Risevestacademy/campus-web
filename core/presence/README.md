@@ -78,21 +78,22 @@ rendering on every `moved` tick. A `spaceChanged` does replace the person's
 entry, since it is the one movement the roster shows. KAPLAY reads `positions` each frame and
 keeps anything finer (pixels, walking) itself.
 
-| Message         | participants                | positions                   |
-| --------------- | --------------------------- | --------------------------- |
-| `welcome`       | (sets `selfId`)             |                             |
-| `snapshot`      | replaced, with `spaceNames` | replaced, with the map      |
-| `joined`        | set, replacing any entry    | set                         |
-| `appearance`    | name and sprite updated     |                             |
-| `statusChanged` | status and end updated ²    |                             |
-| `spaceChanged`  | space updated if present ¹  |                             |
-| `left`          | removed                     | removed                     |
-| `moved`         |                             | updated for known ids       |
-| `moveResult`    |                             | yours, from world's answer  |
-| `walking`       |                             | yours, each step of a walk  |
-| `walkEnded`     |                             | yours, where the walk ended |
-| `spaces`        | (replaces `spaceNames`)     |                             |
-| `call`          | (sets `hearing`)            |                             |
+| Message             | participants                | positions                    |
+| ------------------- | --------------------------- | ---------------------------- |
+| `welcome`           | (sets `selfId`)             |                              |
+| `snapshot`          | replaced, with `spaceNames` | replaced, with the map       |
+| `joined`            | set, replacing any entry    | set                          |
+| `appearance`        | name and sprite updated     |                              |
+| `statusChanged`     | status and end updated ²    |                              |
+| `spaceChanged`      | space updated if present ¹  |                              |
+| `left`              | removed                     | removed                      |
+| `moved`             |                             | updated for known ids        |
+| `moveResult`        |                             | yours, from world's answer   |
+| `walking`           |                             | yours, each step of a walk   |
+| `walkEnded`         |                             | yours, where the walk ended  |
+| `positionCorrected` |                             | yours, where world moved you |
+| `spaces`            | (replaces `spaceNames`)     |                              |
+| `call`              | (sets `hearing`)            |                              |
 
 ¹ Your own `spaceChanged` into another space sets a held `hearing` to
 `awaiting`, and the roster is empty until World's next `call`. Otherwise
