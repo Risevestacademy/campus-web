@@ -20,6 +20,7 @@ describe("analytics contract evaluation", () => {
     expect(outcome.options).toEqual([
       "blocked",
       "refused",
+      "full",
       "too_fast",
       "unknown",
     ]);

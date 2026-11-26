@@ -1,4 +1,4 @@
-// From world's protocol.schema.json, sha256 acab337c72f34c6c11e9f5efcce19f7e41bc88615ce6857ca05054f4d4cb5cb7.
+// From world's protocol.schema.json, sha256 cb47ea56aacf858e0b27bc662bfc516182cf08fafae4b0e9bec8d503de56e385.
 // Find the campus-server commit: git show <ref>:apps/world/protocol.schema.json | shasum -a 256
 
 export type paths = Record<string, never>;
@@ -77,18 +77,19 @@ export interface components {
       canSpeak: boolean;
     };
     /**
-     * @description moved: one tile in the direction asked. blocked: the tile is not walkable; they turn to face it without moving. refused: the tile is floor, but in a space they may not enter (designated and not on its list, or locked); they turn to face it without moving, and may ask with `requestEntry`. too_fast: over walking speed; nothing happens, not even the turn.
+     * @description moved: one tile in the direction asked. blocked: the tile is not walkable; they turn to face it without moving. refused: the tile is floor, but in a space they may not enter (designated and not on its list, or locked); they turn to face it without moving, and may ask with `requestEntry`. full: the tile is floor, in a space they may enter but that already holds as many people as its capacity allows; they turn to face it without moving. Asking does not help. too_fast: over walking speed; nothing happens, not even the turn.
      * @enum {string}
      */
-    MoveOutcome: "moved" | "blocked" | "refused" | "too_fast";
+    MoveOutcome: "moved" | "blocked" | "refused" | "full" | "too_fast";
     /**
-     * @description arrived: walking to somebody, you are one tile from them, in their space, never on their tile; to a space, you are on the free tile nearest its middle, or its middle when none is free; to a tile, you are on it. stopped: you sent `stopWalking` or a `move`. refused: a space you may not enter is in the way, or is where you were going, and you stopped beside the first one; `mayAsk` says whether asking to enter it would be taken. gone: they left, or were not here. elsewhere: they are online, but connected to another world server, which a walk cannot reach. gone and elsewhere end only walks to somebody. no_way: no path reaches where you were going: walls, a space with no room beside them, or a walk past the step limit. moved_by_staff: staff removed you from a space mid-walk.
+     * @description arrived: walking to somebody, you are one tile from them, in their space, never on their tile; to a space, you are on the free tile nearest its middle, or its middle when none is free; to a tile, you are on it. stopped: you sent `stopWalking` or a `move`. refused: a space you may not enter is in the way, or is where you were going, and you stopped beside the first one; `mayAsk` says whether asking to enter it would be taken. full: a space you may enter is in the way, or is where you were going, but already holds as many people as its capacity allows, and you stopped beside the first one; `mayAsk` is false. Refused wins when a space is both closed to you and full. gone: they left, or were not here. elsewhere: they are online, but connected to another world server, which a walk cannot reach. gone and elsewhere end only walks to somebody. no_way: no path reaches where you were going: walls, a space with no room beside them, or a walk past the step limit. moved_by_staff: staff removed you from a space mid-walk.
      * @enum {string}
      */
     WalkEndReason:
       | "arrived"
       | "stopped"
       | "refused"
+      | "full"
       | "gone"
       | "elsewhere"
       | "no_way"
@@ -105,6 +106,17 @@ export interface components {
       | "nobody_inside"
       | "not_needed"
       | "cancelled";
+    /** @description A file sent in a call’s chat, from `POST /v1/cohorts/{cohortId}/spaces/{spaceId}/call/attachments`. */
+    ChatAttachment: {
+      /**
+       * Format: uuid
+       * @description Open it with `GET /v1/media/{mediaId}/url` on campus-api.
+       */
+      mediaId: string;
+      fileName: string | null;
+      contentType: string;
+      sizeBytes: number;
+    };
     /** @description Answered with `pong`. */
     PingMessage: {
       /** @constant */
@@ -159,11 +171,13 @@ export interface components {
       requestId: string;
       admit: boolean;
     };
-    /** @description A line of chat to whoever can hear you: everybody in a whole-room space, or the people within its subscribe radius in a proximity space, measured when you send it, without the hysteresis `nearby` keeps, so the two need not match at the edge. Up to 500 characters, trimmed. Answered by the `said` you and they get; five lines at once, then one a second, after which a NOT_ALLOWED error. Never stored. Counts as activity. */
+    /** @description A line of chat to whoever can hear you: everybody in a whole-room space, or the people within its subscribe radius in a proximity space, measured when you send it, without the hysteresis `nearby` keeps, so the two need not match at the edge. Up to 500 characters, trimmed; may be empty when it carries an `attachment`. Answered by the `said` you and they get; five lines at once, then one a second, after which a NOT_ALLOWED error. Never stored. Counts as activity. */
     SayMessage: {
       /** @constant */
       type: "say";
+      /** @default  */
       text: string;
+      attachment?: components["schemas"]["ChatAttachment"];
     };
     /** @description Staff only: switch off somebody’s microphone in the call for their space, once; they may switch it back on. An admin may mute anybody in the cohort’s campus; a professor or mentor only somebody in the designated space they stand in, whose list names them. Never an admin, never yourself. Answered by `staffAction`, to you and to them; otherwise by a NOT_ALLOWED error saying why. Counts as activity. */
     MuteMessage: {
@@ -425,7 +439,10 @@ export interface components {
       userId: string;
       /** @description The space they said it in, so a meeting’s chat can be kept apart. */
       spaceKey: string;
+      /** @description Empty when the line is only a file. */
       text: string;
+      /** @description The file sent with it, as the speaker gave it; null for none. */
+      attachment: components["schemas"]["ChatAttachment"] | null;
       /** @description When world relayed it, as an ISO timestamp. */
       at: string;
     };
@@ -590,6 +607,7 @@ export type BroadcastCall = components["schemas"]["BroadcastCall"];
 export type MoveOutcome = components["schemas"]["MoveOutcome"];
 export type WalkEndReason = components["schemas"]["WalkEndReason"];
 export type EntryRequestOutcome = components["schemas"]["EntryRequestOutcome"];
+export type ChatAttachment = components["schemas"]["ChatAttachment"];
 export type PingMessage = components["schemas"]["PingMessage"];
 export type MoveMessage = components["schemas"]["MoveMessage"];
 export type SetStatusMessage = components["schemas"]["SetStatusMessage"];

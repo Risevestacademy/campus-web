@@ -4,6 +4,7 @@ import type { MoveOutcome, WalkEndReason } from "./generated/world-protocol";
 export const MOVE_CORRECTIONS = [
   "blocked",
   "refused",
+  "full",
   "too_fast",
 ] as const satisfies readonly MoveOutcome[];
 
@@ -16,6 +17,7 @@ export const WALK_END_REASONS = [
   "arrived",
   "stopped",
   "refused",
+  "full",
   "gone",
   "elsewhere",
   "no_way",
