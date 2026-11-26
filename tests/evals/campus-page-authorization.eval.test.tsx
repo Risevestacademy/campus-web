@@ -15,6 +15,8 @@ import AdministrationOverviewPage from "@/app/campus/[id]/(administration)/overv
 import PersonPage from "@/app/campus/[id]/(administration)/people/[userId]/page";
 import PeoplePage from "@/app/campus/[id]/(administration)/people/page";
 import CohortTracksPage from "@/app/campus/[id]/(administration)/tracks/page";
+import CohortCalendarPage from "@/app/campus/[id]/(calendar)/calendar/page";
+import CalendarLayout from "@/app/campus/[id]/(calendar)/layout";
 import JoinPage from "@/app/campus/[id]/join/page";
 import CohortLayout from "@/app/campus/[id]/layout";
 import CampusPage from "@/app/campus/page";
@@ -82,6 +84,11 @@ const PAGES: Record<string, ProtectedPage> = {
     denial: COHORT_DENIAL,
     routeAccessCalls: [],
   },
+  "app/campus/[id]/(calendar)/calendar/page.tsx": {
+    render: () => CohortCalendarPage({ params, searchParams }),
+    denial: COHORT_DENIAL,
+    routeAccessCalls: [],
+  },
   "app/campus/[id]/join/page.tsx": {
     render: () => JoinPage({ params, searchParams }),
     denial: COHORT_DENIAL,
@@ -139,6 +146,14 @@ const INVALID_COHORT_ROUTES = [
     () => ActiveCampusLayout({ params: invalidParams, children: null }),
   ],
   ["meeting", () => ActiveCampusMeetingPage({ params: invalidParams })],
+  [
+    "calendar",
+    () => CohortCalendarPage({ params: invalidParams, searchParams }),
+  ],
+  [
+    "calendar layout",
+    () => CalendarLayout({ params: invalidParams, children: null }),
+  ],
   [
     "join",
     () =>

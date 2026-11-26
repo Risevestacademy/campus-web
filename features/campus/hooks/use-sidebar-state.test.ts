@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { setActivePanel, setSidebarMode } from "../store/sidebar-store";
-import { useSidebarMode } from "./use-sidebar-state";
+import { useActivePanel, useSidebarMode } from "./use-sidebar-state";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -46,5 +46,31 @@ describe("sidebar mode", () => {
     act(() => setActivePanel("chat"));
 
     expect(result.current).toBe("campus");
+  });
+});
+
+describe("active panel", () => {
+  it("shows the stored panel when the page is none of them", () => {
+    setActivePanel("tasks");
+
+    const { result } = renderHook(() => useActivePanel(undefined));
+
+    expect(result.current).toBe("tasks");
+  });
+
+  it("enters on the panel the page is, whatever is stored", () => {
+    setActivePanel("map");
+
+    const { result } = renderHook(() => useActivePanel("calendar"));
+
+    expect(result.current).toBe("calendar");
+  });
+
+  it("follows a panel chosen after entering", () => {
+    const { result } = renderHook(() => useActivePanel("calendar"));
+
+    act(() => setActivePanel("search"));
+
+    expect(result.current).toBe("search");
   });
 });

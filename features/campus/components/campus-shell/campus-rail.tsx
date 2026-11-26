@@ -12,7 +12,7 @@ import { type ReactNode, useState } from "react";
 
 import logoMark from "@/assets/icon-inverse.svg";
 import { useAnalyticsConsent } from "@/core/analytics/consent";
-import { campusHref } from "@/core/navigation";
+import { calendarHref, campusHref } from "@/core/navigation";
 import { badgeVariants } from "@/shared/ui/badge";
 import { buttonVariants } from "@/shared/ui/button";
 import { Separator } from "@/shared/ui/separator";
@@ -20,7 +20,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
 import { useActivePanel, useSidebarMode } from "../../hooks/use-sidebar-state";
 import { openFeedbackPanel } from "../../store/feedback-panel-store";
-import type { SidebarMode } from "../../store/sidebar-preferences";
+import type {
+  SidebarMode,
+  SidebarPanelId,
+} from "../../store/sidebar-preferences";
 import { useCampusView } from "../campus-view-provider";
 import { SettingsDialog } from "../settings/settings-dialog";
 import type { LogOutActionComponent } from "./log-out-confirm-dialog";
@@ -118,19 +121,24 @@ export function CampusRail({
   account,
   cohortId,
   hasAdministration = false,
+  initialPanel,
   initialSidebarMode,
   LogOutAction,
 }: {
   account: ReactNode;
   cohortId: string;
   hasAdministration?: boolean;
+  initialPanel?: SidebarPanelId;
   initialSidebarMode?: SidebarMode;
   LogOutAction?: LogOutActionComponent;
 }) {
-  const activePanel = useActivePanel();
+  const activePanel = useActivePanel(initialPanel);
   const sidebarMode = useSidebarMode(initialSidebarMode, hasAdministration);
   const { openAdministration, openPanel } = useCampusView();
-  const mapHref = campusHref(cohortId);
+  const hrefs: Partial<Record<SidebarPanelId, Route>> = {
+    calendar: calendarHref(cohortId),
+    map: campusHref(cohortId),
+  };
 
   return (
     <nav
@@ -163,7 +171,7 @@ export function CampusRail({
               label={item.label}
               isActive={sidebarMode === "campus" && activePanel === item.id}
               badgeCount={item.badgeCount}
-              href={item.id === "map" ? mapHref : undefined}
+              href={hrefs[item.id]}
               onClick={() => openPanel(item.id)}
             >
               <item.Icon

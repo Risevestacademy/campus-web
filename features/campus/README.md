@@ -20,6 +20,8 @@ and the Active Campus media UI inside it. Admin catalogues and pages belong to
   cohort={{ name: "Product Design 2026", role: "student" }} // the member's place; undefined for an administrator with none
   cohortId={id}
   initialSidebarMode="admin" // Cohort Administration only
+  CalendarPanel={CalendarPanel} // from calendar; every cohort layout passes it
+  initialPanel="calendar" // the calendar page only
 >
   <ActiveCampus
     cohortId={id}
@@ -109,8 +111,13 @@ browser media or `localStorage`.
    `SidebarPanelId` and the stored-preferences schema follow.
 2. Add the rail item to `components/campus-shell/rail-items.ts`.
 3. Panel content owned by another feature arrives as a `CampusShell` prop
-   (like `OverviewPanel`); until it exists the shell shows a coming-soon
-   panel.
+   (like `OverviewPanel`, or `CalendarPanel` from `calendar`); until it
+   exists the shell shows a coming-soon panel.
+4. A rail item that is also a page (Campus overview, Calendar) gets its href
+   in `campus-rail.tsx`. The page's layout passes `initialPanel` so landing on
+   it shows that panel whatever was stored, until the member picks another;
+   `useActivePanel(routePanel)` does for panels what `useSidebarMode` does for
+   the mode.
 
 ### Adding a media control
 

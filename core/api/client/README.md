@@ -235,6 +235,18 @@ template is listed there; until then the proxy answers it with `404`. List it
 `true` to forward it, or `false` for a route no browser sends (a webhook
 another server calls); the proxy answers a `false` route with the same `404`.
 
+### Connecting Google Calendar
+
+Connecting a calendar is the same kind of navigation, to
+`/api/v1/calendar/connect`: campus-api answers `302` to Google, and Google
+returns to `/api/v1/calendar/connect/callback`, which needs the session that
+started it and answers `302` into the web app at
+`/campus?calendar=<outcome>`. The proxy sends the session cookie on, passes
+both redirects through without following them, and rewrites nothing: unlike
+sign-in it keeps no return cookie, because the way back is fixed by
+campus-api. The Google console's callback address for the calendar must be
+on the web app's origin for the session cookie to arrive.
+
 ## Google OAuth
 
 OAuth must begin with a browser navigation, not a client-side `fetch`:

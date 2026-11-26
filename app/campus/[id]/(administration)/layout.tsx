@@ -4,6 +4,7 @@ import {
   requireRouteAccess,
   SessionUnavailable,
 } from "@/features/auth";
+import { CalendarPanel } from "@/features/calendar";
 import {
   CampusShell,
   PresenceDock,
@@ -46,6 +47,7 @@ export default async function AdministrationLayout({
             collapseButton={<SidebarCollapseButton />}
           />
         }
+        CalendarPanel={CalendarPanel}
         FeedbackPopup={FeedbackPopup}
         LogOutAction={LogOutAction}
         OwnProfileAction={OwnProfileAction}

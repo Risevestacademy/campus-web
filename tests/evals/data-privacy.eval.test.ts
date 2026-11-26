@@ -37,6 +37,7 @@ import {
 } from "@/features/admin/people/schemas/people.schema";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
+import { parseCalendarStatus } from "@/features/calendar/schemas/calendar-status.schema";
 import { checkConnection } from "@/features/campus/services/connection-check/check-connection";
 import {
   type ConnectionCheckAccess,
@@ -777,6 +778,31 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       const invite = parsePendingInvite({ ...pendingInvite(), ...UNEXPECTED });
 
       expect(keyPaths(invite)).toEqual(PENDING_INVITE_ALLOW_LIST);
+    });
+  });
+
+  describe("a member's calendar never reaches a screen beyond what it shows", () => {
+    it("keeps only whether the calendar is connected, never the events read with it", () => {
+      const status = parseCalendarStatus({
+        connected: true,
+        truncated: false,
+        events: [
+          {
+            id: "e-1",
+            title: "Private dentist appointment",
+            location: "12 Hospital Road",
+            meetingUrl: "https://meet.google.com/abc-defg-hij",
+            htmlLink: "https://www.google.com/calendar/event?eid=abc",
+            room: null,
+          },
+        ],
+        ...UNEXPECTED,
+      });
+
+      expect(status).toStrictEqual({ connected: true });
+      expect(JSON.stringify(status)).not.toMatch(
+        /dentist|Hospital|meet\.google|calendar\/event/,
+      );
     });
   });
 
