@@ -54,6 +54,21 @@ describe("walkEndedNotice", () => {
     expect(walkEndedNotice(ended(reason), presence, false)).toBe(notice);
   });
 
+  it.each([true, false])(
+    "says a full space whether or not a map is mounted (%s)",
+    (mapAnswersRefusals) => {
+      expect(
+        walkEndedNotice(ended("full", "library"), presence, mapAnswersRefusals),
+      ).toBe("Library is full");
+    },
+  );
+
+  it("still says a full space when world names none", () => {
+    expect(walkEndedNotice(ended("full"), presence, false)).toBe(
+      "That space is full",
+    );
+  });
+
   it("leaves a refused walk to a mounted map, which offers to ask", () => {
     expect(
       walkEndedNotice(ended("refused", "library"), presence, true),

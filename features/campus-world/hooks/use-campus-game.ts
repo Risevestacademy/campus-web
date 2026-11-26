@@ -4,10 +4,15 @@ import { useCallback, useState } from "react";
 import { useStore } from "zustand";
 
 import { ANALYTICS_EVENTS } from "@/core/analytics/events";
-import { claimEntryRefusals, type PresenceStore } from "@/core/presence";
+import {
+  claimEntryRefusals,
+  fullSpaceNotice,
+  type PresenceStore,
+} from "@/core/presence";
 import type { WorldMovement } from "@/core/realtime";
 
 import { closeEntryToast, showEntryToast } from "../components/entry-toast";
+import { showSpaceFullToast } from "../components/space-full-toast";
 import type { CampusGame } from "../game/campus-runtime";
 import { failureEventProperties } from "../services/map/campus-map-error";
 import { mapSourceFromSnapshot } from "../services/map/load-campus-map";
@@ -84,6 +89,8 @@ function mountCampusGame(
       },
       onRenderError: failRender,
       onEntryRefused: (refusal) => askToEnter?.refused(refusal),
+      onSpaceFull: (spaceKey) =>
+        showSpaceFullToast(fullSpaceNotice(presence.getState(), spaceKey)),
       onZoomChanged(level) {
         dependencies.captureEvent?.(
           ANALYTICS_EVENTS.CAMPUS_WORLD_CAMERA_ZOOMED,
