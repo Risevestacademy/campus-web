@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { socialFor } from "@/core/realtime";
 import { serverFrames } from "@/tests/fixtures/world-frames";
 
+import { resetSendBudgets } from "../services/chat/send-budget";
 import { CHAT_LINE_MAX_LENGTH, useSendChat } from "./use-send-chat";
 
 const COHORT = "send-chat-cohort";
@@ -21,6 +22,7 @@ function connect(accepts = true) {
 
 beforeEach(() => {
   unbind();
+  resetSendBudgets();
 });
 
 afterEach(() => {
@@ -58,10 +60,15 @@ describe("useSendChat", () => {
     }
   });
 
-  it("holds the sixth line sent at once, and keeps it from the socket", () => {
+  it("keeps the budget when the composer leaves the screen and comes back", () => {
     const send = connect();
+    const first = renderHook(() => useSendChat(COHORT));
+    for (let line = 0; line < 5; line += 1) {
+      first.result.current.send(`line ${line}`);
+    }
+    first.unmount();
+
     const { result } = renderHook(() => useSendChat(COHORT));
-    for (let line = 0; line < 5; line += 1) result.current.send(`line ${line}`);
 
     expect(result.current.send("one more")).toBe("too-fast");
     expect(send).toHaveBeenCalledTimes(5);

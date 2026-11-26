@@ -6,6 +6,7 @@ import {
   createWorldMovementChannel,
   type Direction,
   type MoveResultMessage,
+  type PositionCorrectedMessage,
   type WalkEndedMessage,
   type WalkingMessage,
 } from "@/core/realtime";
@@ -76,11 +77,13 @@ function startMovement(
   movement.apply(snapshot);
   const onMoveCorrected = vi.fn();
   const onEntryRefused = vi.fn();
+  const onSpaceFull = vi.fn();
   const controller = createOwnAvatarMovement({
     layout,
     movement,
     onMoveCorrected,
     onEntryRefused,
+    onSpaceFull,
     prefersReducedMotion: () => reducedMotion,
     readPresence: presence.getState,
   });
@@ -94,7 +97,11 @@ function startMovement(
   }
 
   function receive(
-    result: MoveResultMessage | WalkingMessage | WalkEndedMessage,
+    result:
+      | MoveResultMessage
+      | WalkingMessage
+      | WalkEndedMessage
+      | PositionCorrectedMessage,
   ) {
     presence.getState().apply(result);
     movement.apply(result);
@@ -105,6 +112,7 @@ function startMovement(
     movement,
     onMoveCorrected,
     onEntryRefused,
+    onSpaceFull,
     presence,
     receive,
     sent,
@@ -287,6 +295,91 @@ describe("createOwnAvatarMovement", () => {
       mayAsk: null,
       spaceKey: "room",
     });
+  });
+
+  it("names the space a step into a full one faced, turns the avatar and never offers to ask", () => {
+    const {
+      controller,
+      onEntryRefused,
+      onMoveCorrected,
+      onSpaceFull,
+      receive,
+      sent,
+      update,
+    } = startMovement(false, () => true, ROOM_LAYOUT);
+    update(0, "right", ["right"]);
+    const facingFull = {
+      userId: "ada",
+      x: 0,
+      y: 0,
+      facing: "right" as const,
+    };
+
+    receive({
+      type: "moveResult",
+      seq: sent.length,
+      outcome: "full",
+      player: facingFull,
+    });
+
+    expect(onSpaceFull).toHaveBeenCalledExactlyOnceWith("room");
+    expect(onEntryRefused).not.toHaveBeenCalled();
+    expect(onMoveCorrected).toHaveBeenCalledExactlyOnceWith("full");
+    expect(controller.readPlayer()).toEqual(facingFull);
+  });
+
+  it("stops predicting steps into a full space for a few seconds, then tries again", () => {
+    const { controller, onMoveCorrected, receive, sent, update } =
+      startMovement(false, () => true, ROOM_LAYOUT);
+    const facingFull = {
+      userId: "ada",
+      x: 0,
+      y: 0,
+      facing: "right" as const,
+    };
+    update(0, "right", ["right"]);
+    receive({
+      type: "moveResult",
+      seq: sent.length,
+      outcome: "full",
+      player: facingFull,
+    });
+
+    // Held against the door: the avatar stays put, so there is nothing for
+    // world's answers to snap back.
+    update(150, null, ["right"]);
+    expect(controller.readPlayer()).toMatchObject({ x: 0, y: 0 });
+    receive({
+      type: "moveResult",
+      seq: sent.length,
+      outcome: "full",
+      player: facingFull,
+    });
+    expect(controller.readPlayer()).toMatchObject({ x: 0, y: 0 });
+    expect(onMoveCorrected).toHaveBeenCalledTimes(1);
+
+    // Someone may have left by now, so the next press goes through.
+    update(3000, null, ["right"]);
+    update(150, null, ["right"]);
+    expect(controller.readPlayer()?.x).toBeGreaterThan(0);
+  });
+
+  it("does not say a space is full for any other answer", () => {
+    const { onSpaceFull, receive, sent, update } = startMovement(
+      false,
+      () => true,
+      ROOM_LAYOUT,
+    );
+    update(0, "right", ["right"]);
+
+    receive({
+      type: "moveResult",
+      seq: sent.length,
+      outcome: "blocked",
+      player: { userId: "ada", x: 0, y: 0, facing: "right" },
+    });
+
+    expect(onSpaceFull).not.toHaveBeenCalled();
   });
 
   it("passes on a refused walk's space and whether asking would be taken", () => {
@@ -563,6 +656,158 @@ describe("createOwnAvatarMovement", () => {
       receive(ended(2));
       receive(step(3));
       expect(controller.takeWalkStarted()).toBe(true);
+    });
+  });
+
+  describe("world moving the avatar out of a wall", () => {
+    const corrected = (x: number, y = 0): PositionCorrectedMessage => ({
+      type: "positionCorrected",
+      player: { userId: "ada", x, y, facing: "down" },
+    });
+
+    it("snaps to the tile world chose, with no animation", () => {
+      const { controller, receive } = startMovement();
+
+      receive(corrected(3, 2));
+
+      expect(controller.readPlayer()).toEqual({
+        userId: "ada",
+        x: 3,
+        y: 2,
+        facing: "down",
+      });
+    });
+
+    it("replays the steps world has not answered from the new tile", () => {
+      const { controller, receive, sent, update } = startMovement();
+      update(0, "right", ["right"]);
+      update(20, null, []);
+      expect(sent).toHaveLength(1);
+
+      receive(corrected(3, 2));
+      expect(controller.readPlayer()).toEqual({
+        userId: "ada",
+        x: 3,
+        y: 2,
+        facing: "right",
+      });
+
+      update(100, null, []);
+      expect(controller.readPlayer()).toEqual({
+        userId: "ada",
+        x: 4,
+        y: 2,
+        facing: "right",
+      });
+    });
+
+    it("does not jump when world answers a step sent before the snap", () => {
+      const { controller, onMoveCorrected, receive, update } = startMovement();
+      update(0, "right", ["right"]);
+      receive(corrected(3, 2));
+      update(50, null, []);
+
+      receive({
+        type: "moveResult",
+        seq: 1,
+        outcome: "moved",
+        player: { userId: "ada", x: 4, y: 2, facing: "right" },
+      });
+
+      expect(controller.readPlayer()?.x).toBe(3.5);
+      update(50, null, []);
+      expect(controller.readPlayer()).toEqual({
+        userId: "ada",
+        x: 4,
+        y: 2,
+        facing: "right",
+      });
+      expect(onMoveCorrected).not.toHaveBeenCalled();
+    });
+
+    it("keeps a step pressed after the snap ahead of the replayed one", () => {
+      const { controller, receive, sent, update } = startMovement();
+      update(0, "down", ["down"]);
+      receive(corrected(3, 1));
+      update(100, null, []);
+      update(0, "down", ["down"]);
+      update(100, null, []);
+      expect(sent).toEqual([
+        { direction: "down", seq: 1 },
+        { direction: "down", seq: 2 },
+      ]);
+      expect(controller.readPlayer()).toEqual({
+        userId: "ada",
+        x: 3,
+        y: 3,
+        facing: "down",
+      });
+
+      receive({
+        type: "moveResult",
+        seq: 1,
+        outcome: "moved",
+        player: { userId: "ada", x: 3, y: 2, facing: "down" },
+      });
+
+      expect(controller.readPlayer()).toEqual({
+        userId: "ada",
+        x: 3,
+        y: 3,
+        facing: "down",
+      });
+    });
+
+    it("steps on from the new tile, with the next sequence number", () => {
+      const { controller, receive, sent, update } = startMovement();
+      update(0, "right", ["right"]);
+      receive(corrected(3, 2));
+
+      update(200, "right", ["right"]);
+
+      expect(sent.at(-1)).toEqual({ direction: "right", seq: 2 });
+      expect(controller.readPlayer()?.y).toBe(2);
+    });
+
+    it("forgets tiles learned as refused on the old map", () => {
+      const { controller, receive, update } = startMovement();
+      update(0, "right", ["right"]);
+      receive({
+        type: "moveResult",
+        seq: 1,
+        outcome: "refused",
+        player: { userId: "ada", x: 0, y: 0, facing: "right" },
+      });
+      update(100, null, ["right"]);
+      expect(controller.readPlayer()?.x).toBe(0);
+
+      receive(corrected(0, 0));
+      update(0, null, ["right"]);
+      update(50, null, ["right"]);
+
+      expect(controller.readPlayer()?.x).toBeGreaterThan(0);
+    });
+
+    it("tells the camera to come back to the avatar, once", () => {
+      const { controller, receive } = startMovement();
+      expect(controller.takeWalkStarted()).toBe(false);
+
+      receive(corrected(3, 2));
+
+      expect(controller.takeWalkStarted()).toBe(true);
+      expect(controller.takeWalkStarted()).toBe(false);
+    });
+
+    it("moves the avatar in presence too, so the roster and the map agree", () => {
+      const { presence, receive } = startMovement();
+
+      receive(corrected(3, 2));
+
+      expect(presence.getState().positions.get("ada")).toEqual({
+        x: 3,
+        y: 2,
+        facing: "down",
+      });
     });
   });
 });

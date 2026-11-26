@@ -2,6 +2,7 @@ import { ANALYTICS_EVENTS } from "@/core/analytics";
 import { captureBrowserAnalyticsEvent } from "@/core/analytics/client";
 import {
   entryRefusalsClaimed,
+  fullSpaceNotice,
   type Presence,
   refusedEntryNotice,
 } from "@/core/presence";
@@ -20,6 +21,10 @@ export function walkEndedNotice(
   switch (reason) {
     case "refused":
       return mapAnswersRefusals ? null : refusedEntryNotice(presence, spaceKey);
+    // A full space has nothing to ask for, so it is told here whether or not
+    // a map is mounted.
+    case "full":
+      return fullSpaceNotice(presence, spaceKey);
     case "gone":
       return "They've left the campus.";
     case "elsewhere":

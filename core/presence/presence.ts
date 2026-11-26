@@ -180,8 +180,21 @@ function awaitingCall(hearing: PresenceHearing): PresenceHearing {
   return hearing === null ? null : "awaiting";
 }
 
-function ownSpaceOf({ selfId, participants }: Presence): string | undefined {
+function ownSpaceOf({
+  selfId,
+  participants,
+}: Pick<Presence, "selfId" | "participants">): string | undefined {
   return selfId === null ? undefined : participants.get(selfId)?.spaceKey;
+}
+
+// The lines said in the space the member is in.
+export function chatInOwnSpace(
+  presence: Pick<Presence, "chat" | "selfId" | "participants">,
+): Presence["chat"] {
+  const space = ownSpaceOf(presence);
+  return space === undefined
+    ? []
+    : presence.chat.filter(({ spaceKey }) => spaceKey === space);
 }
 
 // World keeps no chat and will not send it again, so leaving a space leaves
@@ -195,7 +208,7 @@ function withSpaceEntry(previous: Presence, next: Presence): Presence {
   return {
     ...next,
     spaceEnteredAt: Date.now(),
-    chat: next.chat.filter(({ spaceKey }) => spaceKey === space),
+    chat: chatInOwnSpace(next),
   };
 }
 
@@ -339,6 +352,7 @@ function applyFrame(presence: Presence, message: ServerMessage): Presence {
     case "moveResult":
     case "walking":
     case "walkEnded":
+    case "positionCorrected":
       return message.player.userId === presence.selfId
         ? moveKnown(presence, [message.player])
         : presence;

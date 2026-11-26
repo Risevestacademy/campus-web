@@ -34,7 +34,6 @@ const framesAsRead = {
   mapChanged: { type: "mapChanged" },
   watching: { type: "watching" },
   notification: { type: "notification" },
-  positionCorrected: { type: "positionCorrected" },
   walking: { type: "walking", player: serverFrames.walking.player },
   walkEnded: {
     type: "walkEnded",
@@ -176,7 +175,7 @@ describe("parseServerMessage", () => {
     },
   );
 
-  it.each(["moved", "blocked", "refused", "too_fast"] as const)(
+  it.each(["moved", "blocked", "refused", "full", "too_fast"] as const)(
     "reads a %s outcome as world sent it",
     (outcome) => {
       const frame = { ...serverFrames.moveResult, outcome };
@@ -187,6 +186,81 @@ describe("parseServerMessage", () => {
       });
     },
   );
+
+  it("reads a walk that ended at a full space as world sent it", () => {
+    const frame = { ...serverFrames.walkEnded, reason: "full" };
+
+    expect(parseServerMessage(frameText(frame))).toEqual({
+      ok: true,
+      message: { ...framesAsRead.walkEnded, reason: "full" },
+    });
+  });
+
+  describe("a file sent with a line", () => {
+    const attachment = {
+      mediaId: "9a0b8f10-1b64-4a3e-bf1a-2f5a58a0f4de",
+      fileName: "onboarding-flow.pdf",
+      contentType: "application/pdf",
+      sizeBytes: 1_234_567,
+    };
+    const said = (extra: unknown) =>
+      frameText({ ...serverFrames.said, ...(extra as object) });
+
+    it("keeps the file as the speaker gave it", () => {
+      expect(parseServerMessage(said({ text: "", attachment }))).toEqual({
+        ok: true,
+        message: { ...serverFrames.said, text: "", attachment },
+      });
+    });
+
+    it("reads a line with no file", () => {
+      expect(parseServerMessage(said({ attachment: null }))).toMatchObject({
+        ok: true,
+        message: { attachment: null },
+      });
+    });
+
+    it("reads a line from a world that sends no attachment field", () => {
+      const { attachment: _omitted, ...frame } = serverFrames.said;
+
+      expect(parseServerMessage(frameText(frame))).toEqual({
+        ok: true,
+        message: { ...serverFrames.said, attachment: null },
+      });
+    });
+
+    it("keeps a file with no name", () => {
+      const nameless = { ...attachment, fileName: null };
+
+      expect(parseServerMessage(said({ attachment: nameless }))).toMatchObject({
+        ok: true,
+        message: { attachment: nameless },
+      });
+    });
+
+    it("drops what the file says about itself beyond what is read", () => {
+      const result = parseServerMessage(
+        said({ attachment: { ...attachment, url: "https://example.test/x" } }),
+      );
+
+      expect(result).toMatchObject({ ok: true });
+      expect(JSON.stringify(result)).not.toContain("example.test");
+    });
+
+    it.each([
+      ["a file name over 255 characters", { fileName: "x".repeat(256) }],
+      ["a negative size", { sizeBytes: -1 }],
+      ["a fractional size", { sizeBytes: 1.5 }],
+      ["no media id", { mediaId: "" }],
+      ["a media id that is not a uuid", { mediaId: "../cohorts/x" }],
+      ["no content type", { contentType: "" }],
+      ["a content type over 255 characters", { contentType: "x".repeat(256) }],
+    ])("refuses %s", (_, change) => {
+      expect(
+        parseServerMessage(said({ attachment: { ...attachment, ...change } })),
+      ).toMatchObject({ ok: false, reason: "invalid" });
+    });
+  });
 
   it("reads a NOT_ALLOWED error as world sent it", () => {
     const frame = { ...serverFrames.error, code: "NOT_ALLOWED" as const };

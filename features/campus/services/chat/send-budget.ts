@@ -34,3 +34,20 @@ export function createSendBudget(now: () => number = Date.now): SendBudget {
     },
   };
 }
+
+const budgets = new Map<string, SendBudget>();
+
+// One budget a cohort, for as long as the page lives, as world counts by seat:
+// the composer leaving the screen must not hand back a full one.
+export function sendBudgetFor(cohortId: string): SendBudget {
+  const held = budgets.get(cohortId);
+  if (held) return held;
+
+  const budget = createSendBudget();
+  budgets.set(cohortId, budget);
+  return budget;
+}
+
+export function resetSendBudgets(): void {
+  budgets.clear();
+}

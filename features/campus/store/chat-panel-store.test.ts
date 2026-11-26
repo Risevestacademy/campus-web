@@ -2,13 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   closeChat,
-  getChatDraftSnapshot,
+  getChatDraft,
   getChatOpenSnapshot,
-  getChatReadThroughSnapshot,
+  getChatReadThrough,
   getChatTabSnapshot,
   getServerChatOpenSnapshot,
   markChatReadThrough,
   openChat,
+  resetChat,
   setChatDraft,
   setChatTab,
   subscribeToChatPanel,
@@ -18,8 +19,8 @@ import {
 afterEach(() => {
   closeChat();
   setChatTab("chat");
-  setChatDraft("");
-  markChatReadThrough(null);
+  setChatDraft("c-1", "");
+  markChatReadThrough("c-1", null);
 });
 
 describe("chat panel store", () => {
@@ -43,9 +44,9 @@ describe("chat panel store", () => {
     expect(getChatOpenSnapshot()).toBe(false);
   });
 
-  it("opens on a tab when asked, and otherwise on the one it last showed", () => {
-    openChat("people");
-    expect(getChatTabSnapshot()).toBe("people");
+  it("opens on the tab it last showed", () => {
+    setChatTab("people");
+    openChat();
 
     closeChat();
     openChat();
@@ -69,31 +70,51 @@ describe("chat panel store", () => {
     expect(listener).toHaveBeenCalledTimes(3);
   });
 
-  it("keeps a draft while the panel is closed", () => {
+  it("keeps a draft while the panel is closed or has left the screen", () => {
     openChat();
-    setChatDraft("half a thought");
+    setChatDraft("c-1", "half a thought");
 
     closeChat();
     openChat();
+    resetChat();
 
-    expect(getChatDraftSnapshot()).toBe("half a thought");
+    expect(getChatDraft("c-1")).toBe("half a thought");
+  });
+
+  it("keeps one cohort's draft and read line out of another", () => {
+    setChatDraft("c-1", "for cohort one");
+    markChatReadThrough("c-1", "line-7");
+
+    expect(getChatDraft("c-2")).toBe("");
+    expect(getChatReadThrough("c-2")).toBeNull();
   });
 
   it("remembers the newest line read", () => {
-    expect(getChatReadThroughSnapshot()).toBeNull();
+    expect(getChatReadThrough("c-1")).toBeNull();
 
-    markChatReadThrough("line-7");
+    markChatReadThrough("c-1", "line-7");
 
-    expect(getChatReadThroughSnapshot()).toBe("line-7");
+    expect(getChatReadThrough("c-1")).toBe("line-7");
+  });
+
+  it("forgets whether it was open and on which tab when reset", () => {
+    setChatTab("people");
+    openChat();
+
+    resetChat();
+
+    expect(getChatOpenSnapshot()).toBe(false);
+    expect(getChatTabSnapshot()).toBe("chat");
   });
 
   it("keeps nothing in browser storage, a draft included", () => {
     window.localStorage.clear();
     window.sessionStorage.clear();
 
-    openChat("people");
-    setChatDraft("a private word");
-    markChatReadThrough("line-7");
+    setChatTab("people");
+    openChat();
+    setChatDraft("c-1", "a private word");
+    markChatReadThrough("c-1", "line-7");
 
     expect(window.localStorage.length).toBe(0);
     expect(window.sessionStorage.length).toBe(0);

@@ -18,6 +18,7 @@ import {
 } from "../services/meeting/meeting";
 import { browserMicrophoneLevelMeter } from "../services/microphone-level/browser-microphone-level";
 import type { MicrophoneLevelMeter } from "../services/microphone-level/microphone-level-meter";
+import { OWN_NAME } from "../services/own-name";
 import type {
   MeetingParticipant,
   MeetingTile,
@@ -154,8 +155,6 @@ function OwnScreenMedia({ wrapFallback }: FallbackMotionProps) {
     />
   );
 }
-
-const OWN_NAME = "You";
 
 type ParticipantVoiceProps = FallbackMotionProps &
   Readonly<{

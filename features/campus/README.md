@@ -84,9 +84,11 @@ lands. Whether it is open
 and which tab shows live in `store/chat-panel-store.ts`, never saved: the sidebar
 and the chat panel are never open together, so `useSidebarVisible` is the saved
 sidebar choice and not chat open. Chat opening or closing never writes the saved
-sidebar choice, so the sidebar returns by itself; showing the sidebar (`setSidebarOpen(true)`,
-`setActivePanel`, `setSidebarMode`) closes chat. The panel is as wide as the sidebar, so
-swapping them does not move the meeting.
+sidebar choice, so the sidebar returns by itself; showing the sidebar (`openSidebar`,
+`openPanel`, `openAdministration` on `CampusViewProvider`) closes chat. The store is
+reset when the panel leaves the screen, and `ActiveCampus` keys it by cohort, so chat
+never follows the member to another page or cohort, where nothing could close it. The
+panel is as wide as the sidebar, so swapping them does not move the meeting.
 
 The rail's avatar opens the member's account menu (`rail-account.tsx`): their
 name, track and cohort, and status; the status choices (the tray's `menu`
@@ -110,7 +112,7 @@ because Campus may not import those features.
 | `components/settings/`                                                                                                                                           | the rail's Settings dialog: devices, theme (Light, Dark, Match device), Reduce motion (`shared/motion`), usage analytics, Log out; Notifications is a placeholder tab                                      | `useMediaSession`, `LogOutAction`             |
 | `components/` (media UI)                                                                                                                                         | `ActiveCampus`, control bar, media toggles and settings, meeting header, tiles, view switch                                                                                                                | `useMediaSession`, `CampusViewProvider`       |
 | `services/presence-session/`, `components/presence-session*`, `components/*presence-tab*`                                                                        | per-cohort admission, Presence Tab, session composition, gate ([README](services/presence-session/README.md))                                                                                              | `useAdmission`, `usePresenceTab`              |
-| `components/chat/`, `store/chat-panel-store.ts`, `hooks/use-chat-*.ts`, `hooks/use-send-chat.ts`, `services/chat/`                                               | the chat panel: tabs, the conversation, the People tab, and the swap with the sidebar; open, tab, draft and read marker, never saved                                                                       | `presenceFor`, `socialFor`, `useMediaSession` |
+| `components/chat/`, `store/chat-panel-store.ts`, `hooks/use-chat-*.ts`, `hooks/use-send-chat.ts`, `services/chat/`                                               | the chat panel: tabs, the conversation, the People tab, and the swap with the sidebar; open, tab, and per cohort the draft, read marker and send budget, never saved                                       | `presenceFor`, `socialFor`, `useMediaSession` |
 | `components/meeting-header.tsx`, `hooks/use-space-lock.ts`                                                                                                       | the header over the map: the meeting's people, the lock for a lockable space you stand in (alone too), and Open sidebar while the sidebar is closed                                                        | `socialFor`, `presenceFor`                    |
 | `components/status-dock.tsx`, `status-tray.tsx`, `presence-menu-trigger.tsx`, `services/status-choice/`, `hooks/use-own-status.ts`, `hooks/use-status-choice.ts` | the member's avatar on both docks and the tray it opens, also drawn in the account menu: Available, Busy or Away, optionally for a fixed time; sends `setStatus` and draws it at once                      | `socialFor`, `presenceFor`                    |
 | `components/presence-dock.tsx`, `remote-audio-output.tsx`, `hooks/use-call-audio-feedback.ts`, `hooks/use-camera-publish-feedback.ts`                            | compact controls on non-map pages; one audio mix, one call-audio failure toast and one refused-camera toast per session                                                                                    | `useMediaSession`                             |
@@ -157,6 +159,9 @@ browser media or `localStorage`.
   through `CampusViewProvider` intent actions; the provider alone coordinates
   sidebar writes with meeting layout. Draw the sidebar from `useSidebarVisible`,
   which gives way to the chat panel; `useSidebarOpen` is the saved choice.
+- The chat draft, read marker and send budget are held by cohort, outside React:
+  the composer leaving the screen must not hand back a full budget, and one
+  cohort's words never show in another.
 - Chat panel state is read through `hooks/use-chat-panel.ts`. Never write the
   saved sidebar choice to make room for chat, and never save chat state.
 - Do not add a meeting lock control until a real meeting capability owns it.

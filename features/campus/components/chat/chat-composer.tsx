@@ -26,12 +26,13 @@ export function ChatComposer({
   placeholder,
   synced,
 }: Readonly<{ cohortId: string; placeholder: string; synced: boolean }>) {
-  const draft = useChatDraft();
+  const draft = useChatDraft(cohortId);
   const { send } = useSendChat(cohortId);
   const [refusal, setRefusal] = useState<keyof typeof REFUSALS>();
-  const length = draft.length;
-  const tooLong = draft.trim().length > CHAT_LINE_MAX_LENGTH;
-  const canSend = synced && draft.trim().length > 0 && !tooLong;
+  // What world counts: the line once trimmed.
+  const length = draft.trim().length;
+  const tooLong = length > CHAT_LINE_MAX_LENGTH;
+  const canSend = synced && length > 0 && !tooLong;
   const reason = refusal
     ? REFUSALS[refusal]
     : synced
@@ -45,7 +46,7 @@ export function ChatComposer({
     const outcome = send(draft);
     if (outcome === "sent") {
       setRefusal(undefined);
-      setChatDraft("");
+      setChatDraft(cohortId, "");
     } else if (outcome === "too-fast" || outcome === "not-ready") {
       setRefusal(outcome);
     }
@@ -78,7 +79,7 @@ export function ChatComposer({
           value={draft}
           onChange={(event) => {
             setRefusal(undefined);
-            setChatDraft(event.target.value);
+            setChatDraft(cohortId, event.target.value);
           }}
           onKeyDown={submitOnEnter}
           placeholder={placeholder}

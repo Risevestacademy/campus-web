@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "cn";
-import { motion } from "motion/react";
+import { motion, useReducedMotionConfig } from "motion/react";
 import type { ReactNode } from "react";
 
 import {
@@ -37,6 +37,7 @@ export function CampusSidebar({
   panels,
 }: CampusSidebarProps) {
   const isOpen = useSidebarVisible();
+  const reduceMotion = Boolean(useReducedMotionConfig());
   const activePanel = useActivePanel();
   const sidebarMode = useSidebarMode(
     initialMode,
@@ -48,7 +49,7 @@ export function CampusSidebar({
       data-slot="campus-sidebar"
       initial={false}
       animate={{ width: isOpen ? SIDEBAR_WIDTH : 0 }}
-      transition={SIDEBAR_TRANSITION}
+      transition={reduceMotion ? { duration: 0 } : SIDEBAR_TRANSITION}
       className="bg-shell-panel border-shell-line shrink-0 overflow-hidden rounded-xl border"
     >
       <motion.div

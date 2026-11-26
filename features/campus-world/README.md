@@ -50,6 +50,19 @@ naming it on its bottom edge; whoever stands inside sees it as usual.
 `game/lock-layer.ts` draws the hatch under avatars and the plate above the
 furniture, from `services/space-locks/`.
 
+A full space: a step into a space that already holds as many people as its
+capacity allows comes back as `full`, and so does a walk that ends beside one.
+The avatar turns to face it without moving, as for `blocked`, and there is
+nothing to ask for, since nobody queues. Own movement names the space the step
+faced (`onSpaceFull`), and `components/space-full-toast.tsx` says "Library is
+full" in one toast, with the same icon tile as a refused entry, that stands for
+any number of presses at the same door. Unlike a refused tile, a full one is not
+kept like a wall: capacity frees up as people leave. The prediction treats it as
+shut for `FULL_TILE_MEMORY_MS` (3 seconds) after the answer, so a key held at
+the door does not snap the avatar back on every step, and tries again after. A
+walk that ends at a full space is told by `features/campus`'s walk feedback
+instead, in the same words (`fullSpaceNotice`).
+
 Asking to enter: own movement reports every refused step (the space at the
 tile it faced) and refused walk (world's `spaceKey` and `mayAsk`), and
 `services/space-locks/ask-to-enter.ts` carries the whole ask in one tile toast (drawn by `components/entry-toast.tsx`)
@@ -180,6 +193,16 @@ initialized`. The runtime moves its one canvas between containers, clears
   `facing`, a ring for you) until character art exists. Once world has
   placed you, the camera follows your drawn, predicted position each frame,
   clamped to the map, so it never waits for world's answer.
+- A `positionCorrected` frame (a new map put your tile inside a wall) snaps
+  the avatar to the tile world chose, with no animation. Steps world has not
+  answered yet are replayed from that tile, as world runs them from there, so
+  their `moveResult`s land where the avatar already is. Refused tiles are
+  forgotten, since some were learned on the old map, and the camera is brought
+  back to you once, as a walk's start does. Sequence numbers carry on. Others
+  see the move as `moved`.
+- The web does not read `mapChanged` yet, so after a republish the avatar keeps
+  predicting against the walls it loaded until a reload. A step into a wall the
+  new map added is predicted, then snapped back with the bump feedback.
 - A link that names a space (`?goToSpace=` on the map's URL, from a room link)
   mounts `WalkOnArrival`: it sends `goToSpace` once world is ready, then drops
   the parameter so a reload does not walk again.

@@ -10,6 +10,7 @@ import type {
   BroadcastMessage as PublishedBroadcastMessage,
   Call as PublishedCall,
   CallMessage as PublishedCallMessage,
+  ChatAttachment,
   Direction,
   EntryRequestedMessage as PublishedEntryRequestedMessage,
   EntryRequestEndedMessage as PublishedEntryRequestEndedMessage,
@@ -25,6 +26,7 @@ import type {
   NearbyMessage,
   Player,
   PongMessage,
+  PositionCorrectedMessage as PublishedPositionCorrectedMessage,
   ReplacedMessage,
   SaidMessage as PublishedSaidMessage,
   ServerMessage as PublishedServerMessage,
@@ -58,6 +60,10 @@ export type ErrorMessage = Simplify<
 >;
 export type WalkEndReason = OrUnknown<PublishedWalkEndReason>;
 export type WalkingMessage = Pick<PublishedWalkingMessage, "type" | "player">;
+export type PositionCorrectedMessage = Pick<
+  PublishedPositionCorrectedMessage,
+  "type" | "player"
+>;
 export type WalkEndedMessage = Simplify<
   Pick<PublishedWalkEndedMessage, "type" | "player" | "spaceKey" | "mayAsk"> & {
     reason: WalkEndReason;
@@ -100,8 +106,9 @@ export type EntryRequestOutcome = OrUnknown<PublishedEntryRequestOutcome>;
 export type StaffAction = OrUnknown<PublishedStaffActionMessage["action"]>;
 export type SaidMessage = Pick<
   PublishedSaidMessage,
-  "type" | "id" | "userId" | "spaceKey" | "text" | "at"
+  "type" | "id" | "userId" | "spaceKey" | "text" | "attachment" | "at"
 >;
+export type { ChatAttachment };
 export type EntryRequestedMessage = Pick<
   PublishedEntryRequestedMessage,
   "type" | "requestId" | "userId" | "spaceKey"
@@ -149,11 +156,7 @@ export type CallMessage = Simplify<
 // stripped to their type, so nothing unread travels on.
 type UnreadType = Extract<
   PublishedServerMessage["type"],
-  | "desksChanged"
-  | "mapChanged"
-  | "watching"
-  | "notification"
-  | "positionCorrected"
+  "desksChanged" | "mapChanged" | "watching" | "notification"
 >;
 type UnreadMessage = { [Type in UnreadType]: { type: Type } }[UnreadType];
 
@@ -182,6 +185,7 @@ export type ServerMessage =
   | BroadcastMessage
   | WalkingMessage
   | WalkEndedMessage
+  | PositionCorrectedMessage
   | UnreadMessage;
 
 function orUnknown<const Values extends readonly [string, ...string[]]>(
@@ -330,6 +334,10 @@ const walkEndedMessageSchema = z.toZod<WalkEndedMessage>()(
   }),
 );
 
+const positionCorrectedMessageSchema = z.toZod<PositionCorrectedMessage>()(
+  z.object({ type: z.literal("positionCorrected"), player: playerSchema }),
+);
+
 const errorMessageSchema = z.toZod<ErrorMessage>()(
   z.object({
     type: z.literal("error"),
@@ -388,6 +396,18 @@ const entryRequestOutcomeSchema = z.toZod<EntryRequestOutcome>()(
   ]),
 );
 
+// A file sent with a line, as the speaker gave it: world passes it on without
+// checking it, so what it says about itself is capped here. The media id goes
+// into a campus-api path, so it must be a uuid and nothing else.
+const chatAttachmentSchema = z.toZod<ChatAttachment>()(
+  z.object({
+    mediaId: z.uuid(),
+    fileName: z.string().max(255).nullable(),
+    contentType: z.string().min(1).max(255),
+    sizeBytes: z.number().int().min(0),
+  }),
+);
+
 const saidMessageSchema = z.toZod<SaidMessage>()(
   z.object({
     type: z.literal("said"),
@@ -395,6 +415,8 @@ const saidMessageSchema = z.toZod<SaidMessage>()(
     userId: z.string(),
     spaceKey: z.string(),
     text: z.string(),
+    // A world that does not send the field yet means no file.
+    attachment: chatAttachmentSchema.nullable().default(null),
     at: z.string(),
   }),
 );
@@ -497,9 +519,9 @@ const serverMessageSchema = z.toZod<ServerMessage>()(
     unreadMessageSchema("mapChanged"),
     unreadMessageSchema("watching"),
     unreadMessageSchema("notification"),
-    unreadMessageSchema("positionCorrected"),
     walkingMessageSchema,
     walkEndedMessageSchema,
+    positionCorrectedMessageSchema,
   ]),
 );
 

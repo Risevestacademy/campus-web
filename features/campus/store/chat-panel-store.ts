@@ -3,23 +3,26 @@
 export const CHAT_TABS = ["chat", "people", "resources"] as const;
 export type ChatTab = (typeof CHAT_TABS)[number];
 
-// Not saved: the panel opens closed on every visit, and opening it never
-// changes the member's saved sidebar choice, so the sidebar returns by
-// itself once chat closes. The draft is what the member has typed and not
-// sent, kept so closing the panel does not lose it; like everything said in
-// chat it stays in memory and never reaches storage.
+// Not saved. Whether it is open and which tab shows are reset when the panel
+// leaves the screen, so it opens closed on every visit. Opening it never changes
+// the member's saved sidebar choice, so the sidebar returns by itself once chat
+// closes. The draft (what the member typed and has not sent) and the newest line
+// read are kept per cohort, so one cohort's words never show in another and
+// nothing typed is lost by leaving. Like everything said in chat they stay in
+// memory and never reach storage.
 type ChatPanelState = Readonly<{
-  draft: string;
+  // By cohort id.
+  drafts: Readonly<Record<string, string>>;
   open: boolean;
-  // The newest line the member has seen with the Chat tab showing.
-  readThroughId: string | null;
+  // By cohort id: the newest line seen with the Chat tab showing.
+  readThroughIds: Readonly<Record<string, string | null>>;
   tab: ChatTab;
 }>;
 
 const INITIAL_STATE: ChatPanelState = {
-  draft: "",
+  drafts: {},
   open: false,
-  readThroughId: null,
+  readThroughIds: {},
   tab: "chat",
 };
 
@@ -28,9 +31,9 @@ let state: ChatPanelState = INITIAL_STATE;
 
 function update(next: ChatPanelState): void {
   if (
-    next.draft === state.draft &&
+    next.drafts === state.drafts &&
     next.open === state.open &&
-    next.readThroughId === state.readThroughId &&
+    next.readThroughIds === state.readThroughIds &&
     next.tab === state.tab
   ) {
     return;
@@ -56,32 +59,34 @@ export function getServerChatTabSnapshot(): ChatTab {
   return "chat";
 }
 
-export function getChatDraftSnapshot(): string {
-  return state.draft;
+export function getChatDraft(cohortId: string): string {
+  return state.drafts[cohortId] ?? "";
 }
 
-export function getServerChatDraftSnapshot(): string {
-  return "";
+export function getChatReadThrough(cohortId: string): string | null {
+  return state.readThroughIds[cohortId] ?? null;
 }
 
-export function getChatReadThroughSnapshot(): string | null {
-  return state.readThroughId;
+export function setChatDraft(cohortId: string, draft: string): void {
+  if (draft === getChatDraft(cohortId)) return;
+
+  update({ ...state, drafts: { ...state.drafts, [cohortId]: draft } });
 }
 
-export function getServerChatReadThroughSnapshot(): string | null {
-  return null;
+export function markChatReadThrough(
+  cohortId: string,
+  readThroughId: string | null,
+): void {
+  if (readThroughId === getChatReadThrough(cohortId)) return;
+
+  update({
+    ...state,
+    readThroughIds: { ...state.readThroughIds, [cohortId]: readThroughId },
+  });
 }
 
-export function setChatDraft(draft: string): void {
-  update({ ...state, draft });
-}
-
-export function markChatReadThrough(readThroughId: string | null): void {
-  update({ ...state, readThroughId });
-}
-
-export function openChat(tab?: ChatTab): void {
-  update({ ...state, open: true, tab: tab ?? state.tab });
+export function openChat(): void {
+  update({ ...state, open: true });
 }
 
 export function closeChat(): void {
@@ -90,6 +95,12 @@ export function closeChat(): void {
 
 export function toggleChat(): void {
   update({ ...state, open: !state.open });
+}
+
+// Leaving the Active Campus (another page, another cohort) closes the panel:
+// the store outlives the page, and another page has no way to close it.
+export function resetChat(): void {
+  update({ ...state, open: false, tab: "chat" });
 }
 
 export function setChatTab(tab: ChatTab): void {
