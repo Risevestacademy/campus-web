@@ -3,13 +3,14 @@
 export const CHAT_TABS = ["chat", "people", "resources"] as const;
 export type ChatTab = (typeof CHAT_TABS)[number];
 
-// Not saved: the panel opens closed on every visit, and opening it never
-// changes the member's saved sidebar choice, so the sidebar returns by
-// itself once chat closes.
+// Not saved, and reset when the panel leaves the screen, so it opens closed on
+// every visit. Opening it never changes the member's saved sidebar choice, so
+// the sidebar returns by itself once chat closes.
 type ChatPanelState = Readonly<{ open: boolean; tab: ChatTab }>;
 
 const listeners = new Set<() => void>();
-let state: ChatPanelState = { open: false, tab: "chat" };
+const CLOSED: ChatPanelState = { open: false, tab: "chat" };
+let state: ChatPanelState = CLOSED;
 
 function update(next: ChatPanelState): void {
   if (next.open === state.open && next.tab === state.tab) return;
@@ -34,8 +35,8 @@ export function getServerChatTabSnapshot(): ChatTab {
   return "chat";
 }
 
-export function openChat(tab?: ChatTab): void {
-  update({ open: true, tab: tab ?? state.tab });
+export function openChat(): void {
+  update({ ...state, open: true });
 }
 
 export function closeChat(): void {
@@ -44,6 +45,12 @@ export function closeChat(): void {
 
 export function toggleChat(): void {
   update({ ...state, open: !state.open });
+}
+
+// Leaving the Active Campus (another page, another cohort) forgets the panel:
+// the store outlives the page, and another page has no way to close it.
+export function resetChat(): void {
+  update(CLOSED);
 }
 
 export function setChatTab(tab: ChatTab): void {

@@ -6,6 +6,7 @@ import {
   getChatTabSnapshot,
   getServerChatOpenSnapshot,
   openChat,
+  resetChat,
   setChatTab,
   subscribeToChatPanel,
   toggleChat,
@@ -37,9 +38,9 @@ describe("chat panel store", () => {
     expect(getChatOpenSnapshot()).toBe(false);
   });
 
-  it("opens on a tab when asked, and otherwise on the one it last showed", () => {
-    openChat("people");
-    expect(getChatTabSnapshot()).toBe("people");
+  it("opens on the tab it last showed", () => {
+    setChatTab("people");
+    openChat();
 
     closeChat();
     openChat();
@@ -63,10 +64,21 @@ describe("chat panel store", () => {
     expect(listener).toHaveBeenCalledTimes(3);
   });
 
+  it("forgets both when reset", () => {
+    setChatTab("people");
+    openChat();
+
+    resetChat();
+
+    expect(getChatOpenSnapshot()).toBe(false);
+    expect(getChatTabSnapshot()).toBe("chat");
+  });
+
   it("keeps nothing in browser storage", () => {
     window.localStorage.clear();
 
-    openChat("people");
+    setChatTab("people");
+    openChat();
 
     expect(window.localStorage.length).toBe(0);
   });

@@ -1,7 +1,6 @@
 "use client";
 
 import { parseStoredSidebarPreferences } from "../schemas/sidebar-preferences.schema";
-import { closeChat } from "./chat-panel-store";
 import {
   DEFAULT_ACTIVE_PANEL,
   DEFAULT_SIDEBAR_OPEN,
@@ -72,10 +71,7 @@ export function getServerSidebarOpenSnapshot(): boolean {
   return DEFAULT_SIDEBAR_OPEN;
 }
 
-// The sidebar and the chat panel are never open together, so showing the
-// sidebar closes chat. Closing chat does not touch what is saved here.
 export function setActivePanel(activePanel: SidebarPanelId): void {
-  closeChat();
   sidebarModeRevision += 1;
   writeStoredPreferences({
     ...readStoredPreferences(),
@@ -86,7 +82,6 @@ export function setActivePanel(activePanel: SidebarPanelId): void {
 }
 
 export function setSidebarMode(sidebarMode: SidebarMode): void {
-  closeChat();
   sidebarModeRevision += 1;
   writeStoredPreferences({
     ...readStoredPreferences(),
@@ -96,7 +91,6 @@ export function setSidebarMode(sidebarMode: SidebarMode): void {
 }
 
 export function setSidebarOpen(sidebarOpen: boolean): void {
-  if (sidebarOpen) closeChat();
   writeStoredPreferences({ ...readStoredPreferences(), sidebarOpen });
 }
 
