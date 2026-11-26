@@ -288,6 +288,8 @@ test("offers no file sending in the corridors", async ({ page }) => {
     .click({ force: true });
 
   await expect(
-    chat.getByText("Files can be sent in meeting rooms, not in the corridors."),
+    chat.getByText(
+      "Files can be sent in meeting spaces, not in the corridors.",
+    ),
   ).toBeVisible();
 });
