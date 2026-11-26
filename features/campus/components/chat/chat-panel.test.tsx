@@ -127,7 +127,10 @@ describe("ChatPanel", () => {
 
   it("lists the people in the meeting on the People tab, the member first", () => {
     renderChat();
-    act(() => openChat("people"));
+    act(() => {
+      setChatTab("people");
+      openChat();
+    });
 
     const rows = screen.getAllByRole("listitem");
     expect(rows).toHaveLength(2);
@@ -139,7 +142,10 @@ describe("ChatPanel", () => {
   it("says nobody else is here when the member is alone", () => {
     seedPresence(COHORT_ID);
     renderChat();
-    act(() => openChat("people"));
+    act(() => {
+      setChatTab("people");
+      openChat();
+    });
 
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
     expect(screen.getByText("Nobody else is here.")).toBeInTheDocument();
@@ -181,7 +187,10 @@ describe("ChatPanel", () => {
 
   it("remembers the tab it showed when it opens again", () => {
     renderChat();
-    act(() => openChat("people"));
+    act(() => {
+      setChatTab("people");
+      openChat();
+    });
     act(() => closeChat());
     act(() => openChat());
 
@@ -205,5 +214,23 @@ describe("ChatPanel", () => {
     act(() => openChat());
 
     expect(screen.getByText(/Everyone in the room/)).toBeInTheDocument();
+  });
+
+  it("opens closed again after it left the screen while open", () => {
+    const first = renderChat();
+    act(() => {
+      setChatTab("people");
+      openChat();
+    });
+
+    first.unmount();
+
+    expect(getChatOpenSnapshot()).toBe(false);
+    expect(getChatTabSnapshot()).toBe("chat");
+
+    renderChat();
+    expect(
+      screen.queryByRole("complementary", { name: "Meeting chat" }),
+    ).not.toBeInTheDocument();
   });
 });

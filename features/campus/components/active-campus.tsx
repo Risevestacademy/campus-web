@@ -53,7 +53,7 @@ export function ActiveCampus({
           </aside>
         </div>
       </div>
-      <ChatPanel cohortId={cohortId} />
+      <ChatPanel key={cohortId} cohortId={cohortId} />
     </div>
   );
 }

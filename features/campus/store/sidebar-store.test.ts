@@ -97,18 +97,6 @@ describe("sidebar and chat panel", () => {
     expect(getSidebarOpenSnapshot()).toBe(true);
   });
 
-  it.each([
-    ["opening the sidebar", () => setSidebarOpen(true)],
-    ["choosing a panel", () => setActivePanel("tasks")],
-    ["choosing the administration mode", () => setSidebarMode("admin")],
-  ])("closes chat when %s", (_, show) => {
-    openChat();
-
-    show();
-
-    expect(getChatOpenSnapshot()).toBe(false);
-  });
-
   it("keeps chat open when the sidebar is collapsed", () => {
     openChat();
 

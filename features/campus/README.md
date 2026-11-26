@@ -71,9 +71,11 @@ Chat and Resources are placeholders until their features land. Whether it is ope
 and which tab shows live in `store/chat-panel-store.ts`, never saved: the sidebar
 and the chat panel are never open together, so `useSidebarVisible` is the saved
 sidebar choice and not chat open. Chat opening or closing never writes the saved
-sidebar choice, so the sidebar returns by itself; showing the sidebar (`setSidebarOpen(true)`,
-`setActivePanel`, `setSidebarMode`) closes chat. The panel is as wide as the sidebar, so
-swapping them does not move the meeting.
+sidebar choice, so the sidebar returns by itself; showing the sidebar (`openSidebar`,
+`openPanel`, `openAdministration` on `CampusViewProvider`) closes chat. The store is
+reset when the panel leaves the screen, and `ActiveCampus` keys it by cohort, so chat
+never follows the member to another page or cohort, where nothing could close it. The
+panel is as wide as the sidebar, so swapping them does not move the meeting.
 
 The rail's avatar opens the member's account menu (`rail-account.tsx`): their
 name, track and cohort, and status; the status choices (the tray's `menu`
