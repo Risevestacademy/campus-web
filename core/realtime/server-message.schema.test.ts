@@ -16,11 +16,7 @@ function frameText(value: unknown): string {
 const { mode: _mode, ...welcome } = serverFrames.welcome;
 
 const { userId: _lockedBy, ...lockChanged } = serverFrames.lockChanged;
-const {
-  room: _room,
-  subscribeRadius: _subscribeRadius,
-  ...call
-} = serverFrames.call.call!;
+const { subscribeRadius: _subscribeRadius, ...call } = serverFrames.call.call!;
 
 // Each frame as the parser hands it on: unread fields dropped, and a frame no
 // feature reads yet cut down to its type.

@@ -44,6 +44,7 @@ const ROOM_CALL: ServerMessage = {
   type: "call",
   call: {
     url: "wss://media.example.test",
+    room: "space:c-1:s-library",
     token: "media-token",
     hearing: "room",
     audibleRadius: 6,

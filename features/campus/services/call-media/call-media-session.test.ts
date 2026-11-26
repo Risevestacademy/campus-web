@@ -40,6 +40,7 @@ const CALL: CallMessage = {
   type: "call",
   call: {
     url: "wss://media.example.test",
+    room: "space:c-1:s-library",
     token: TOKEN,
     hearing: "proximity",
     audibleRadius: 6,

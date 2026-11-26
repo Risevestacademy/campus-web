@@ -20,7 +20,7 @@ and the Active Campus media UI inside it. Admin catalogues and pages belong to
   cohort={{ name: "Product Design 2026", role: "student" }} // the member's place; undefined for an administrator with none
   cohortId={id}
   initialSidebarMode="admin" // Cohort Administration only
-  CalendarPanel={CalendarPanel} // from calendar; every cohort layout passes it
+  CalendarPanel={CalendarPanel} // from calendar; every cohort layout passes it, and the shell gives it `administrator` and `role`
   initialPanel="calendar" // the calendar page only
 >
   <ActiveCampus

@@ -11,6 +11,8 @@ test.skip(
 
 const EVENTS = "GET /v1/calendar/events";
 const DISCONNECT = "DELETE /v1/calendar";
+const SPACES = "GET /v1/spaces";
+const MAKE_LINK = "POST /v1/cohorts/c-1/spaces/s-2/links";
 const CALENDAR = "/campus/c-1/calendar";
 
 const ROOM = {
@@ -314,4 +316,79 @@ test("an outcome campus-api does not send is ignored", async ({
   await expect(
     page.getByRole("region", { name: "Notifications" }),
   ).not.toContainText(/./);
+});
+
+test("a student is not offered New room link", async ({ fakeApi, page }) => {
+  await fakeApi.scriptRoutes({ [EVENTS]: connected });
+
+  await openCalendar(page);
+
+  await expect(page.getByText(/^Connected to Google/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "New room link" })).toHaveCount(
+    0,
+  );
+});
+
+test("an admin makes a link for any space and is told what to do with it", async ({
+  fakeApi,
+  page,
+}) => {
+  await fakeApi.scriptSession(sessions.admin(membership("c-1", "Cohort 1")));
+  await fakeApi.scriptRoutes({
+    [EVENTS]: connected,
+    [SPACES]: {
+      status: 200,
+      body: {
+        items: [
+          { id: "s-1", name: "Pod A", kind: "classroom", isMapDefault: false },
+          {
+            id: "s-2",
+            name: "Town Hall",
+            kind: "town_hall",
+            isMapDefault: false,
+          },
+          { id: "s-0", name: "Corridors", kind: "open", isMapDefault: true },
+        ],
+        meta: { page: 1, perPage: 100, total: 3, totalPages: 1 },
+      },
+    },
+    [MAKE_LINK]: {
+      status: 201,
+      body: {
+        audience: "cohort",
+        code: "k3F9xQ2pLm",
+        url: "https://campus.example/join/k3F9xQ2pLm",
+        title: "All hands",
+        cohortId: "c-1",
+        spaceId: "s-2",
+        spaceKey: "town-hall",
+        spaceName: "Town Hall",
+        cohortTrackId: null,
+        mentorshipGroupId: null,
+        startsAt: null,
+      },
+    },
+  });
+  await openCalendar(page);
+
+  await page.getByRole("button", { name: "New room link" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Event name").fill("All hands");
+  await expect(dialog.getByRole("option", { name: "Corridors" })).toHaveCount(
+    0,
+  );
+  await dialog.getByLabel("Space").selectOption({ label: "Town Hall" });
+  await dialog.getByRole("button", { name: "Make link" }).click();
+
+  await expect(dialog.getByLabel("Link")).toHaveValue(
+    "https://campus.example/join/k3F9xQ2pLm",
+  );
+  await expect(
+    dialog.getByText(/Campus doesn.t create the event/),
+  ).toBeVisible();
+  const made = await fakeApi.requestsTo(
+    "POST",
+    "/v1/cohorts/c-1/spaces/s-2/links",
+  );
+  expect(made).toHaveLength(1);
 });

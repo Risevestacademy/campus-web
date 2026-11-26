@@ -7,6 +7,7 @@ export {
   type Participant,
   type Position,
   type Presence,
+  spaceIdOfRoom,
   spaceNameOf,
   withoutRemoteParticipants,
   type WorldMap,

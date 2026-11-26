@@ -9,6 +9,7 @@ import {
   applyServerMessage,
   EMPTY_PRESENCE,
   type Presence,
+  spaceIdOfRoom,
   spaceNameOf,
   withoutRemoteParticipants,
   withOwnStatus,
@@ -615,6 +616,33 @@ describe("meeting roster", () => {
     },
   );
 
+  describe("the space they stand in, named by its call's room", () => {
+    it("keeps the room of the call for their space, and nothing else of it", () => {
+      const called = presenceAfter([inLibrary(ADA)], callFrame("room"));
+
+      expect(called.spaceRoom).toBe("space:c-1:s-library");
+      expect(JSON.stringify(called)).not.toContain(MEDIA_TOKEN);
+    });
+
+    it.each([
+      ["a call of none", { type: "call", call: null } satisfies ServerMessage],
+      ["their own step into another space", stepInto("ada", "_default")],
+      [
+        "a reconnect snapshot",
+        {
+          type: "snapshot",
+          map: MAP,
+          players: [ADA],
+          spaces: [],
+        } satisfies ServerMessage,
+      ],
+    ])("forgets it after %s", (_case, message) => {
+      const called = presenceAfter([inLibrary(ADA)], callFrame("room"));
+
+      expect(applyServerMessage(called, message).spaceRoom).toBeNull();
+    });
+  });
+
   it("opens a new encounter in a room even before World empties the corridor's nearby", () => {
     const inCorridor = presenceAfter(
       [ADA, GRACE, inLibrary(LIN)],
@@ -746,5 +774,21 @@ describe("space names", () => {
 
   it("shows the key for a space world has not named", () => {
     expect(spaceNameOf(EMPTY_PRESENCE, "pod-9")).toBe("pod-9");
+  });
+});
+
+describe("spaceIdOfRoom", () => {
+  it("reads the space's id from a room of this cohort", () => {
+    expect(spaceIdOfRoom("space:c-1:s-library", "c-1")).toBe("s-library");
+  });
+
+  it.each([
+    ["another cohort's room", "space:c-2:s-library"],
+    ["a broadcast room", "broadcast:c-1"],
+    ["a room with more parts", "space:c-1:s-library:extra"],
+    ["no id", "space:c-1:"],
+    ["nothing", null],
+  ])("is null for %s", (_case, room) => {
+    expect(spaceIdOfRoom(room, "c-1")).toBeNull();
   });
 });

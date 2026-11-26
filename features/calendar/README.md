@@ -10,14 +10,14 @@ routes; the page that opens one (`/join/{code}`) belongs to `room-link`.
 
 `index.ts` is the only entry point.
 
-| Export                       | Composed by                                                |
-| ---------------------------- | ---------------------------------------------------------- |
-| `CalendarPanel`              | the three `app/campus/[id]` layouts, through `CampusShell` |
-| `CalendarPage`               | `app/campus/[id]/(calendar)/calendar/page.tsx`             |
-| `CalendarOutcomeNotice`      | `app/campus/page.tsx` and the calendar page                |
-| `parseConnectOutcome`        | the same two pages, to read `?calendar=`                   |
-| `CALENDAR_OUTCOME_PARAMETER` | the same two pages                                         |
-| `ConnectOutcome`             | the same two pages (type)                                  |
+| Export                       | Composed by                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `CalendarPanel`              | the three `app/campus/[id]` layouts, through `CampusShell`, which passes it `administrator` and the member's `role` |
+| `CalendarPage`               | `app/campus/[id]/(calendar)/calendar/page.tsx`                                                                      |
+| `CalendarOutcomeNotice`      | `app/campus/page.tsx` and the calendar page                                                                         |
+| `parseConnectOutcome`        | the same two pages, to read `?calendar=`                                                                            |
+| `CALENDAR_OUTCOME_PARAMETER` | the same two pages                                                                                                  |
+| `ConnectOutcome`             | the same two pages (type)                                                                                           |
 
 ### The page
 
@@ -82,6 +82,28 @@ and answer when the answer is parsed, and shows as Busy. The meeting link is
 never kept. The Google link is kept only if it is `https` on a Google host,
 and is opened with `rel="noopener noreferrer"`. A single event campus cannot
 read is skipped, not the whole answer.
+
+### New room link
+
+Staff make a link for an event here and paste it into an event in their own
+Google Calendar. Campus never creates the event, and the dialog says so. The
+"New room link" button is in the panel once the calendar is connected, and not
+shown to students or guests.
+
+- **Admins choose any space** from a select. `GET /v1/spaces` is admin-only;
+  only spaces that are set up and are not the map's corridors are offered,
+  because campus-api refuses the rest.
+- **Professors and mentors make a link for the space they stand in.** campus-api
+  gives them no list of spaces, and the web app learns a space's id only from
+  World's `call` for it (`core/presence` keeps its room as `spaceRoom`;
+  `spaceIdOfRoom` reads the id). So the button is disabled, with a line saying
+  so, until that call has arrived, and in the corridors, which take no link.
+  The space follows them as they walk.
+- The link is for the whole cohort. Who is expected (a track or a pod) is not
+  asked yet.
+- After making one, the dialog shows the link with Copy and what to do next.
+  The address is checked to be the join page of that very code before it is
+  shown.
 
 ### Decisions
 

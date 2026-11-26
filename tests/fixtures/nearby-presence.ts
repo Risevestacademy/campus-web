@@ -47,6 +47,7 @@ export function callFrame(hearing: Call["hearing"]): ServerMessage {
     type: "call",
     call: {
       url: "wss://media.example.test",
+      room: "space:c-1:s-library",
       token: MEDIA_TOKEN,
       hearing,
       audibleRadius: 6,
