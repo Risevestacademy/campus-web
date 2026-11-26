@@ -50,6 +50,19 @@ naming it on its bottom edge; whoever stands inside sees it as usual.
 `game/lock-layer.ts` draws the hatch under avatars and the plate above the
 furniture, from `services/space-locks/`.
 
+A full space: a step into a space that already holds as many people as its
+capacity allows comes back as `full`, and so does a walk that ends beside one.
+The avatar turns to face it without moving, as for `blocked`, and there is
+nothing to ask for, since nobody queues. Own movement names the space the step
+faced (`onSpaceFull`), and `components/space-full-toast.tsx` says "Library is
+full" in one toast, with the same icon tile as a refused entry, that stands for
+any number of presses at the same door. Unlike a refused tile, a full one is not
+kept like a wall: capacity frees up as people leave. The prediction treats it as
+shut for `FULL_TILE_MEMORY_MS` (3 seconds) after the answer, so a key held at
+the door does not snap the avatar back on every step, and tries again after. A
+walk that ends at a full space is told by `features/campus`'s walk feedback
+instead, in the same words (`fullSpaceNotice`).
+
 Asking to enter: own movement reports every refused step (the space at the
 tile it faced) and refused walk (world's `spaceKey` and `mayAsk`), and
 `services/space-locks/ask-to-enter.ts` carries the whole ask in one tile toast (drawn by `components/entry-toast.tsx`)

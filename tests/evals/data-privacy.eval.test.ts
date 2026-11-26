@@ -366,7 +366,7 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   notification: ["type"],
   positionCorrected: [...under("player", PLAYER_PATHS), "type"],
   replaced: ["type"],
-  said: ["at", "id", "spaceKey", "text", "type", "userId"],
+  said: ["at", "attachment", "id", "spaceKey", "text", "type", "userId"],
   spaceChanged: ["spaceKey", "type", "userId"],
   statusChanged: ["status", "type", "until", "userId"],
   snapshot: [
@@ -900,6 +900,38 @@ describe("Data privacy eval (threshold: every case holds)", () => {
         expect(keyPaths(parsed)).toEqual(WORLD_FRAME_ALLOW_LIST[frame.type]);
       },
     );
+
+    it("keeps only the file fields of a said frame that carries a file", () => {
+      const parsed = parsedMessage(
+        JSON.stringify({
+          ...serverFrames.said,
+          text: "",
+          attachment: {
+            mediaId: "9a0b8f10-1b64-4a3e-bf1a-2f5a58a0f4de",
+            fileName: "onboarding-flow.pdf",
+            contentType: "application/pdf",
+            sizeBytes: 1_234_567,
+            url: "https://storage.example.test/signed?token=secret",
+            ...UNEXPECTED,
+          },
+        }),
+      );
+
+      expect(keyPaths(parsed)).toEqual([
+        "at",
+        ...under("attachment", [
+          "contentType",
+          "fileName",
+          "mediaId",
+          "sizeBytes",
+        ]),
+        "id",
+        "spaceKey",
+        "text",
+        "type",
+        "userId",
+      ]);
+    });
 
     it("never carries the text of a frame it could not read", () => {
       const unknownType = parseServerMessage(
