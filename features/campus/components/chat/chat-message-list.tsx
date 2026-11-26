@@ -25,13 +25,15 @@ export function ChatMessageList({
   const scroller = useRef<HTMLDivElement>(null);
   const groups = useMemo(() => groupMessages(messages), [messages]);
   // How many lines there were when the member scrolled up, or null at the end.
-  const [leftAt, setLeftAt] = useState<number | null>(null);
-  const hasNew = leftAt !== null && messages.length > leftAt;
+  const [countWhenAway, setCountWhenAway] = useState<number | null>(null);
+  const hasNew = countWhenAway !== null && messages.length > countWhenAway;
 
   function onScroll(event: UIEvent<HTMLDivElement>) {
     // Scrolling is measured from the bottom: 0 is the newest line.
     const away = -event.currentTarget.scrollTop > AT_BOTTOM_PX;
-    setLeftAt((previous) => (away ? (previous ?? messages.length) : null));
+    setCountWhenAway((previous) =>
+      away ? (previous ?? messages.length) : null,
+    );
   }
 
   function jumpToNewest() {

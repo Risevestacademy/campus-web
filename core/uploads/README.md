@@ -44,6 +44,7 @@ hour, so a picked file that is dropped needs no call.
 | `put-file.ts`      | the PUT to storage with progress and cancel                |
 | `upload.schema.ts` | parsing the limits, the signed upload and the 413/415 body |
 | `types.ts`         | the kinds, results and problems                            |
+| `whole-megabytes`  | how a size limit is read out to the member                 |
 
 ## Contributing
 

@@ -25,6 +25,7 @@ import {
   attachToCall,
   readFileLink,
 } from "../../services/chat/chat-attachment-api.adapter";
+import { resetSendBudgets } from "../../services/chat/send-budget";
 import type { MeetingMediaTransport } from "../../services/media-session/contracts";
 import { MediaSessionProvider } from "../../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../../services/media-session/media-session-store";
@@ -38,7 +39,10 @@ import {
 import { ChatPanel } from "./chat-panel";
 import { ChatToggleButton } from "./chat-toggle-button";
 
-vi.mock("@/core/uploads", () => ({ uploadMedia: vi.fn() }));
+vi.mock("@/core/uploads", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/core/uploads")>()),
+  uploadMedia: vi.fn(),
+}));
 vi.mock("../../services/chat/chat-attachment-api.adapter", () => ({
   attachToCall: vi.fn(),
   readFileLink: vi.fn(),
@@ -160,8 +164,9 @@ afterEach(() => {
   act(() => {
     closeChat();
     setChatTab("chat");
-    setChatDraft("");
-    markChatReadThrough(null);
+    setChatDraft(COHORT, "");
+    markChatReadThrough(COHORT, null);
+    resetSendBudgets();
   });
   unbind();
   clearPresence(COHORT);
@@ -248,7 +253,10 @@ describe("a file in the conversation", () => {
 describe("the Resources tab", () => {
   it("says there are no files yet", () => {
     renderChat();
-    act(() => openChat("resources"));
+    act(() => {
+      setChatTab("resources");
+      openChat();
+    });
 
     expect(
       screen.getByText(
@@ -262,7 +270,10 @@ describe("the Resources tab", () => {
 
   it("lists the files sent, newest first, with who sent each and a count", () => {
     renderChat();
-    act(() => openChat("resources"));
+    act(() => {
+      setChatTab("resources");
+      openChat();
+    });
 
     hear(
       said("1", GRACE.userId, "", PLAN, "2026-11-17T15:01:10.000Z"),
@@ -289,7 +300,10 @@ describe("the Resources tab", () => {
       url: "https://storage.example.test/x",
     });
     renderChat();
-    act(() => openChat("resources"));
+    act(() => {
+      setChatTab("resources");
+      openChat();
+    });
     hear(said("1", GRACE.userId, "", PLAN));
 
     fireEvent.click(
@@ -303,7 +317,10 @@ describe("the Resources tab", () => {
 
   it("starts over when the member walks into another space", () => {
     renderChat();
-    act(() => openChat("resources"));
+    act(() => {
+      setChatTab("resources");
+      openChat();
+    });
     hear(said("1", GRACE.userId, "", PLAN));
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
 
@@ -377,7 +394,7 @@ describe("sending a file from the composer", () => {
     expect(click).not.toHaveBeenCalled();
     expect(
       screen.getByText(
-        "Files can be sent in meeting rooms, not in the corridors.",
+        "Files can be sent in meeting spaces, not in the corridors.",
       ),
     ).toBeVisible();
   });

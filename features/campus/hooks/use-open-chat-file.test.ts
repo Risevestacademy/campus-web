@@ -43,7 +43,7 @@ afterEach(() => {
   open.mockRestore();
   vi.mocked(readFileLink).mockReset();
   replaceDocument.mockReset();
-  setChatDraft("");
+  setChatDraft("c-1", "");
 });
 
 describe("useOpenChatFile", () => {
@@ -121,6 +121,26 @@ describe("useOpenChatFile", () => {
       expect.objectContaining({ title: "We couldn't open that file" }),
     );
     expect(result.current.opening).toBeNull();
+    addToast.mockRestore();
+  });
+
+  it("does not blame the connection for a file the member may not have", async () => {
+    const addToast = vi.spyOn(toast, "add");
+    open.mockReturnValue(fakeTab() as unknown as Window);
+    vi.mocked(readFileLink).mockResolvedValue({
+      kind: "problem",
+      problem: "not-found",
+    });
+    const { result } = renderHook(() => useOpenChatFile());
+
+    await act(() => result.current.open(FILE));
+
+    expect(addToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "It was removed, or you can no longer enter the space it was sent in.",
+      }),
+    );
     addToast.mockRestore();
   });
 

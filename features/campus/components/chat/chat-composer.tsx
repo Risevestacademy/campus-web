@@ -14,12 +14,16 @@ import { Button } from "@/shared/ui/button";
 import { Textarea } from "@/shared/ui/textarea";
 
 import { useChatDraft } from "../../hooks/use-chat-panel";
-import { CHAT_LINE_MAX_LENGTH, useSendChat } from "../../hooks/use-send-chat";
 import {
-  NO_ROOM_MESSAGE,
+  CHAT_LINE_MAX_LENGTH,
+  SEND_REFUSALS,
+  useSendChat,
+} from "../../hooks/use-send-chat";
+import {
+  NO_CALL_SPACE_MESSAGE,
   useSendChatFile,
 } from "../../hooks/use-send-chat-file";
-import { setChatDraft } from "../../store/chat-panel-store";
+import { getChatDraft, setChatDraft } from "../../store/chat-panel-store";
 
 // The counter shows only near the limit, where it matters.
 const COUNTER_FROM = 400;
@@ -29,11 +33,6 @@ const COUNTER_FROM = 400;
 const FILE_PICKER_TYPES =
   "image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx";
 
-const REFUSALS = {
-  "not-ready": "Reconnecting…",
-  "too-fast": "You're sending too fast. Try again in a moment.",
-} as const;
-
 // Where the member writes. A line that cannot go out stays in the box with
 // the reason beneath it, so nothing they typed is lost. A file goes with
 // whatever is typed as its caption.
@@ -42,20 +41,25 @@ export function ChatComposer({
   placeholder,
   synced,
 }: Readonly<{ cohortId: string; placeholder: string; synced: boolean }>) {
-  const draft = useChatDraft();
+  const draft = useChatDraft(cohortId);
   const { send } = useSendChat(cohortId);
   const file = useSendChatFile(cohortId);
   const picker = useRef<HTMLInputElement>(null);
-  const [refusal, setRefusal] = useState<keyof typeof REFUSALS>();
+  const [refusal, setRefusal] = useState<keyof typeof SEND_REFUSALS>();
   const [attachNotice, setAttachNotice] = useState<string>();
-  const length = draft.length;
-  const tooLong = draft.trim().length > CHAT_LINE_MAX_LENGTH;
+  // What world counts: the line once trimmed.
+  const length = draft.trim().length;
+  const tooLong = length > CHAT_LINE_MAX_LENGTH;
   const sending = file.activity.kind !== "idle";
-  const canSend = synced && draft.trim().length > 0 && !tooLong && !sending;
+  const canSend = synced && length > 0 && !tooLong && !sending;
   const reason =
     file.problem ??
     attachNotice ??
-    (refusal ? REFUSALS[refusal] : synced ? "" : REFUSALS["not-ready"]);
+    (refusal
+      ? SEND_REFUSALS[refusal]
+      : synced
+        ? ""
+        : SEND_REFUSALS["not-ready"]);
   const isProblem = Boolean(file.problem ?? refusal);
 
   function submit(event?: FormEvent) {
@@ -65,7 +69,7 @@ export function ChatComposer({
     const outcome = send(draft);
     if (outcome === "sent") {
       setRefusal(undefined);
-      setChatDraft("");
+      setChatDraft(cohortId, "");
     } else if (outcome === "too-fast" || outcome === "not-ready") {
       setRefusal(outcome);
     }
@@ -83,7 +87,7 @@ export function ChatComposer({
     setAttachNotice(undefined);
     file.clearProblem();
     if (!file.canAttach) {
-      setAttachNotice(NO_ROOM_MESSAGE);
+      setAttachNotice(NO_CALL_SPACE_MESSAGE);
       return;
     }
     picker.current?.click();
@@ -95,7 +99,15 @@ export function ChatComposer({
     if (!picked || tooLong) return;
 
     setRefusal(undefined);
-    if (await file.sendFile(picked, draft)) setChatDraft("");
+    // What is typed now is the caption. The box is only cleared if it still
+    // holds it: anything typed while the file uploaded is the member's to send.
+    const caption = draft;
+    if (
+      (await file.sendFile(picked, caption)) &&
+      getChatDraft(cohortId) === caption
+    ) {
+      setChatDraft(cohortId, "");
+    }
   }
 
   return (
@@ -108,31 +120,30 @@ export function ChatComposer({
               : `Sending ${file.activity.fileName}`}
           </p>
           {file.activity.kind === "uploading" ? (
-            <>
+            <div
+              role="progressbar"
+              aria-label="Uploading your file"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(file.activity.progress * 100)}
+              className="bg-border h-1.5 w-16 shrink-0 overflow-hidden rounded-full"
+            >
               <div
-                role="progressbar"
-                aria-label="Uploading your file"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.round(file.activity.progress * 100)}
-                className="bg-border h-1.5 w-16 shrink-0 overflow-hidden rounded-full"
-              >
-                <div
-                  className="bg-primary h-full transition-[width]"
-                  style={{ width: `${file.activity.progress * 100}%` }}
-                />
-              </div>
-              <Button
-                type="button"
-                size="xs"
-                variant="outline"
-                onClick={file.cancel}
-                className="shrink-0"
-              >
-                Cancel upload
-              </Button>
-            </>
+                className="bg-primary h-full transition-[width]"
+                style={{ width: `${file.activity.progress * 100}%` }}
+              />
+            </div>
           ) : null}
+          {/* Stays until the line is said: a file can still be stopped. */}
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            onClick={file.cancel}
+            className="shrink-0"
+          >
+            Cancel upload
+          </Button>
         </div>
       )}
       <div className="bg-surface border-shell-line focus-within:border-ring flex items-end gap-1 rounded-2xl border p-1.5">
@@ -150,7 +161,7 @@ export function ChatComposer({
           size="icon-xs"
           variant="ghost"
           aria-label="Attach a file"
-          title={file.canAttach ? "Attach a file" : NO_ROOM_MESSAGE}
+          title={file.canAttach ? "Attach a file" : NO_CALL_SPACE_MESSAGE}
           aria-disabled={!file.canAttach || sending || undefined}
           disabled={sending}
           onClick={pickFile}
@@ -165,7 +176,7 @@ export function ChatComposer({
             setRefusal(undefined);
             setAttachNotice(undefined);
             file.clearProblem();
-            setChatDraft(event.target.value);
+            setChatDraft(cohortId, event.target.value);
           }}
           onKeyDown={submitOnEnter}
           placeholder={placeholder}

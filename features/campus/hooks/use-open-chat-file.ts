@@ -43,7 +43,10 @@ export function useOpenChatFile() {
           id: FILE_TOAST_ID,
           priority: "high",
           title: "We couldn't open that file",
-          description: "Check your connection and try again.",
+          description:
+            result.problem === "not-found"
+              ? "It was removed, or you can no longer enter the space it was sent in."
+              : "Check your connection and try again.",
           type: "warning",
         });
       }

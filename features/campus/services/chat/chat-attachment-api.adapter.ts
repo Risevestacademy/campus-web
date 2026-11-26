@@ -51,14 +51,16 @@ export async function attachToCall(
   }
 }
 
-export type FileLinkProblem = "signed-out" | "gone" | "unavailable";
+export type FileLinkProblem =
+  "signed-out" | "gone" | "not-found" | "unavailable";
 
 export type FileLinkResult =
   { kind: "link"; url: string } | { kind: "problem"; problem: FileLinkProblem };
 
 // A fresh link to a file sent in a call's chat. It lasts fifteen minutes, so it
 // is asked for when the member opens the file and never kept. 410 means the
-// call ended and the file was let go. Nothing throws.
+// call ended and the file was let go. 404 means the member may no longer enter
+// the space, or the file was removed. Nothing throws.
 export async function readFileLink(
   api: ApiClient,
   mediaId: string,
@@ -71,6 +73,9 @@ export async function readFileLink(
       return { kind: "problem", problem: "signed-out" };
     }
     if (response.status === 410) return { kind: "problem", problem: "gone" };
+    if (response.status === 404) {
+      return { kind: "problem", problem: "not-found" };
+    }
     const url = response.ok ? parseFileLink(data) : undefined;
     return url
       ? { kind: "link", url }

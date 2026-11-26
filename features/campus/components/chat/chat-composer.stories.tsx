@@ -9,7 +9,7 @@ const meta = {
   component: ChatComposer,
   decorators: [
     (Story) => {
-      setChatDraft("");
+      setChatDraft("story-cohort", "");
       return (
         <div className="bg-shell-panel border-shell-line w-78 rounded-xl border">
           <Story />

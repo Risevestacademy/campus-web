@@ -10,7 +10,7 @@ import type {
 import type { VideoLayer } from "../media-session/contracts";
 import { meetingParticipantOf } from "./participant-identity";
 
-type MeetingPresence = Pick<
+export type MeetingPresence = Pick<
   Presence,
   | "selfId"
   | "participants"

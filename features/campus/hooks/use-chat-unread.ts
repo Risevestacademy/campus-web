@@ -9,7 +9,7 @@ import { useChatReadThrough } from "./use-chat-panel";
 
 // Lines from other people the member has not seen with the Chat tab showing.
 export function useChatUnread(cohortId: string): number {
-  const readThroughId = useChatReadThrough();
+  const readThroughId = useChatReadThrough(cohortId);
 
   return useStore(presenceFor(cohortId), (presence) =>
     unreadCount(selectChatLines(presence), presence.selfId, readThroughId),
@@ -24,7 +24,7 @@ export function useMarkChatRead(cohortId: string): void {
 
     function markNewest() {
       const lines = selectChatLines(store.getState());
-      markChatReadThrough(lines.at(-1)?.id ?? null);
+      markChatReadThrough(cohortId, lines.at(-1)?.id ?? null);
     }
 
     markNewest();

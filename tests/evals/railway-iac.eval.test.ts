@@ -47,22 +47,22 @@ const campusWebBaseVariables = {
 };
 
 describe("Railway IaC eval (required threshold: 8/8)", () => {
-  it("owns only the two frontend services through one stable partial", async () => {
-    const definitions = await Promise.all([
-      evaluateRailwayDefinition("staging"),
-      evaluateRailwayDefinition("production"),
-    ]);
+  it("owns only the frontend services through one stable partial, with Storybook in staging alone", async () => {
+    const staging = await evaluateRailwayDefinition("staging");
+    const production = await evaluateRailwayDefinition("production");
+    const servicesOf = (definition: ProjectDefinition) =>
+      definition.resources?.flat().map(({ name, type }) => ({ name, type }));
 
     expect(partial).toBe("campus-frontends");
-    for (const definition of definitions) {
-      expect(definition.name).toBe("campus-by-rise");
-      expect(
-        definition.resources?.flat().map(({ name, type }) => ({ name, type })),
-      ).toEqual([
-        { name: "campus-storybook", type: "service" },
-        { name: "campus-web", type: "service" },
-      ]);
-    }
+    expect(staging.name).toBe("campus-by-rise");
+    expect(production.name).toBe("campus-by-rise");
+    expect(servicesOf(staging)).toEqual([
+      { name: "campus-storybook", type: "service" },
+      { name: "campus-web", type: "service" },
+    ]);
+    expect(servicesOf(production)).toEqual([
+      { name: "campus-web", type: "service" },
+    ]);
   });
 
   it("pins each environment to its required GitHub source", async () => {
@@ -85,9 +85,6 @@ describe("Railway IaC eval (required threshold: 8/8)", () => {
       stagingSource,
     );
     expect(findService(staging, "campus-web").source).toEqual(stagingSource);
-    expect(findService(production, "campus-storybook").source).toEqual(
-      productionSource,
-    );
     expect(findService(production, "campus-web").source).toEqual(
       productionSource,
     );
@@ -107,19 +104,14 @@ describe("Railway IaC eval (required threshold: 8/8)", () => {
   });
 
   it("keeps application variables out of campus-storybook", async () => {
-    const definitions = await Promise.all([
-      evaluateRailwayDefinition("staging"),
-      evaluateRailwayDefinition("production"),
-    ]);
+    const staging = await evaluateRailwayDefinition("staging");
 
-    for (const definition of definitions) {
-      expect(findService(definition, "campus-storybook").variables).toEqual({
-        RAILPACK_SPA_OUTPUT_DIR: {
-          type: "literal",
-          value: "storybook-static",
-        },
-      });
-    }
+    expect(findService(staging, "campus-storybook").variables).toEqual({
+      RAILPACK_SPA_OUTPUT_DIR: {
+        type: "literal",
+        value: "storybook-static",
+      },
+    });
   });
 
   it("renders the imported build and watch settings in both environments", async () => {
@@ -169,10 +161,11 @@ describe("Railway IaC eval (required threshold: 8/8)", () => {
       ],
     };
 
+    const [staging] = definitions;
+    expect(findService(staging, "campus-storybook").build).toEqual(
+      expectedStorybookBuild,
+    );
     for (const definition of definitions) {
-      expect(findService(definition, "campus-storybook").build).toEqual(
-        expectedStorybookBuild,
-      );
       expect(findService(definition, "campus-web").build).toEqual(
         expectedWebBuild,
       );
@@ -199,19 +192,18 @@ describe("Railway IaC eval (required threshold: 8/8)", () => {
     });
   });
 
-  it("keeps production frontends always-on and byte-identical to the imported configuration", async () => {
+  it("keeps production campus-web always-on, with the same start, healthcheck and telemetry as staging", async () => {
     const production = await evaluateRailwayDefinition("production");
 
-    expect(findService(production, "campus-storybook").deploy).toEqual({
+    expect(findService(production, "campus-web").deploy).toEqual({
       ...alwaysOnRegions,
       healthcheckPath: "/",
+      startCommand: "pnpm start",
     });
-    expect(findService(production, "campus-web").deploy).toEqual(
-      alwaysOnRegions,
-    );
-    expect(findService(production, "campus-web").variables).toEqual(
-      campusWebBaseVariables,
-    );
+    expect(findService(production, "campus-web").variables).toEqual({
+      ...campusWebBaseVariables,
+      NEXT_TELEMETRY_DISABLED: { type: "literal", value: "1" },
+    });
   });
 
   it("fails closed when the target Railway environment is unsupported", async () => {

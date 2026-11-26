@@ -125,7 +125,7 @@ describe("readFileLink", () => {
 
   it.each([
     [401, "signed-out"],
-    [404, "unavailable"],
+    [404, "not-found"],
     [503, "unavailable"],
   ])("answers a %s as %s", async (status, problem) => {
     mockApi.server.use(

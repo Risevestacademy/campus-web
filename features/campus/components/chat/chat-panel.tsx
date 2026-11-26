@@ -16,6 +16,7 @@ import {
   CHAT_TABS,
   type ChatTab,
   closeChat,
+  resetChat,
   setChatTab,
 } from "../../store/chat-panel-store";
 import { SIDEBAR_WIDTH } from "../campus-shell/sidebar-width";
@@ -26,7 +27,6 @@ import { ResourcesTab } from "./resources-tab";
 
 // The sidebar's width, so swapping one for the other does not move the
 // meeting.
-const CHAT_PANEL_WIDTH = SIDEBAR_WIDTH;
 const PANEL_TRANSITION = {
   type: "spring",
   stiffness: 420,
@@ -68,7 +68,7 @@ function ChatPanelContent({ cohortId }: Readonly<{ cohortId: string }>) {
       ref={panel}
       role="presentation"
       onKeyDown={closeOnEscape}
-      style={{ width: CHAT_PANEL_WIDTH }}
+      style={{ width: SIDEBAR_WIDTH }}
       className="flex h-full flex-col"
     >
       <Tabs
@@ -123,7 +123,7 @@ function ChatPanelContent({ cohortId }: Readonly<{ cohortId: string }>) {
           <PeopleTab localId={localId} people={people} />
         </TabsPanel>
         <TabsPanel value="resources" className="flex min-h-0 flex-col">
-          <ResourcesTab cohortId={cohortId} />
+          <ResourcesTab files={files} />
         </TabsPanel>
       </Tabs>
     </div>
@@ -136,6 +136,8 @@ export function ChatPanel({ cohortId }: Readonly<{ cohortId: string }>) {
   const open = useChatOpen();
   const reduceMotion = Boolean(useReducedMotionConfig());
 
+  useMountEffect(() => resetChat);
+
   return (
     <AnimatePresence initial={false}>
       {open ? (
@@ -145,7 +147,7 @@ export function ChatPanel({ cohortId }: Readonly<{ cohortId: string }>) {
           aria-label="Meeting chat"
           data-slot="chat-panel"
           initial={{ width: 0 }}
-          animate={{ width: CHAT_PANEL_WIDTH }}
+          animate={{ width: SIDEBAR_WIDTH }}
           exit={{ width: 0 }}
           transition={reduceMotion ? { duration: 0 } : PANEL_TRANSITION}
           className="bg-shell-panel border-shell-line shrink-0 overflow-hidden rounded-xl border"

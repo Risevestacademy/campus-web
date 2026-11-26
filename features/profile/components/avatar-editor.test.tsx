@@ -32,7 +32,10 @@ const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: navigation.refresh }),
 }));
-vi.mock("@/core/uploads", () => ({ uploadMedia: vi.fn() }));
+vi.mock("@/core/uploads", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/core/uploads")>()),
+  uploadMedia: vi.fn(),
+}));
 
 const CROPPED = new Blob(["cropped"], { type: "image/webp" });
 vi.mock("../lib/crop-avatar", () => ({

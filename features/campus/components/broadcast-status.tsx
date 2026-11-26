@@ -7,6 +7,7 @@ import { presenceFor } from "@/core/presence";
 
 import { liveBroadcasts } from "../services/media-session/contracts";
 import { useMediaSession } from "../services/media-session/media-session-provider";
+import { OWN_NAME } from "../services/own-name";
 
 const SPEAKERS = new Intl.ListFormat("en", {
   style: "long",
@@ -17,7 +18,7 @@ const SPEAKERS = new Intl.ListFormat("en", {
 const UNNAMED_SPEAKER = "An admin";
 
 // The member's own broadcast comes first, as "You".
-export const OWN_SPEAKER = "You";
+export const OWN_SPEAKER = OWN_NAME;
 
 export function broadcastHeadline(names: readonly string[]) {
   const plural = names.length > 1 || names[0] === OWN_SPEAKER;

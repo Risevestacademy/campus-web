@@ -1,8 +1,14 @@
-import type { ChatLine, Participant, Presence } from "@/core/presence";
+import {
+  chatInOwnSpace,
+  type ChatLine,
+  type Participant,
+  type Presence,
+} from "@/core/presence";
 import type { ChatAttachment } from "@/core/realtime";
 import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 
-export const OWN_NAME = "You";
+import { OWN_NAME } from "../own-name";
+
 const UNNAMED_SPEAKER = "Campus member";
 
 type ChatPresence = Pick<Presence, "chat" | "selfId" | "participants">;
@@ -27,18 +33,11 @@ export type ChatGroup = Readonly<{
   messages: readonly ChatMessage[];
 }>;
 
-function ownSpaceOf({ selfId, participants }: ChatPresence) {
-  return selfId === null ? undefined : participants.get(selfId)?.spaceKey;
-}
-
 // World only sends what is said in the member's own space, and the presence
 // store drops a space's lines when they leave it. This keeps a line out of
 // the panel all the same if a frame puts the member somewhere else first.
 export function selectChatLines(presence: ChatPresence): readonly ChatLine[] {
-  const space = ownSpaceOf(presence);
-  return space === undefined
-    ? []
-    : presence.chat.filter(({ spaceKey }) => spaceKey === space);
+  return chatInOwnSpace(presence);
 }
 
 function nameOf(

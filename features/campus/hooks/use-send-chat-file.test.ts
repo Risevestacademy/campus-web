@@ -12,11 +12,19 @@ import {
 import { serverFrames } from "@/tests/fixtures/world-frames";
 
 import { attachToCall } from "../services/chat/chat-attachment-api.adapter";
-import { NO_ROOM_MESSAGE, useSendChatFile } from "./use-send-chat-file";
+import { resetSendBudgets } from "../services/chat/send-budget";
+import {
+  MOVED_SPACE_MESSAGE,
+  NO_CALL_SPACE_MESSAGE,
+  useSendChatFile,
+} from "./use-send-chat-file";
 
 const replaceDocument = vi.hoisted(() => vi.fn());
 
-vi.mock("@/core/uploads", () => ({ uploadMedia: vi.fn() }));
+vi.mock("@/core/uploads", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/core/uploads")>()),
+  uploadMedia: vi.fn(),
+}));
 vi.mock("../services/chat/chat-attachment-api.adapter", () => ({
   attachToCall: vi.fn(),
 }));
@@ -59,6 +67,7 @@ function enterRoom() {
 const pdf = () => new File(["x"], "plan.pdf", { type: "application/pdf" });
 
 beforeEach(() => {
+  resetSendBudgets();
   seedPresence(COHORT);
   vi.mocked(uploadMedia).mockResolvedValue({
     kind: "uploaded",
@@ -139,8 +148,61 @@ describe("useSendChatFile", () => {
     });
 
     expect(sent).toBe(false);
-    expect(result.current.problem).toBe(NO_ROOM_MESSAGE);
+    expect(result.current.problem).toBe(NO_CALL_SPACE_MESSAGE);
     expect(uploadMedia).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["while the file uploads", "upload"],
+    ["while it is tied to the call", "attach"],
+  ] as const)("says nothing when the member walks out %s", async (_, when) => {
+    const send = connect();
+    enterRoom();
+    const walkOut = () =>
+      applyFrame(COHORT, {
+        type: "spaceChanged",
+        userId: serverFrames.welcome.userId,
+        spaceKey: "library",
+      });
+    if (when === "upload") {
+      vi.mocked(uploadMedia).mockImplementation(async () => {
+        walkOut();
+        return { kind: "uploaded", mediaId: "m-1" };
+      });
+    } else {
+      vi.mocked(attachToCall).mockImplementation(async () => {
+        walkOut();
+        return { kind: "attached", attachment: ATTACHMENT };
+      });
+    }
+    const { result } = renderHook(() => useSendChatFile(COHORT));
+
+    await act(async () => {
+      await result.current.sendFile(pdf(), "");
+    });
+
+    expect(result.current.problem).toBe(MOVED_SPACE_MESSAGE);
+    expect(send).not.toHaveBeenCalled();
+    expect(attachToCall).toHaveBeenCalledTimes(when === "upload" ? 0 : 1);
+  });
+
+  it("sends nothing when cancelled after the upload finished", async () => {
+    const send = connect();
+    enterRoom();
+    const { result } = renderHook(() => useSendChatFile(COHORT));
+    vi.mocked(attachToCall).mockImplementation(async () => {
+      result.current.cancel();
+      return { kind: "attached", attachment: ATTACHMENT };
+    });
+
+    let sent = true;
+    await act(async () => {
+      sent = await result.current.sendFile(pdf(), "");
+    });
+
+    expect(sent).toBe(false);
+    expect(send).not.toHaveBeenCalled();
+    expect(result.current.problem).toBeUndefined();
   });
 
   it("can attach once the space's call is known", () => {

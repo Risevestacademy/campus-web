@@ -1,5 +1,6 @@
 export {
   applyServerMessage,
+  chatInOwnSpace,
   DEFAULT_SPACE_KEY,
   EMPTY_PRESENCE,
   type Hearing,

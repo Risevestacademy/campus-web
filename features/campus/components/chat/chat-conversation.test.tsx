@@ -14,6 +14,7 @@ import {
 } from "@/tests/fixtures/nearby-presence";
 import { serverFrames } from "@/tests/fixtures/world-frames";
 
+import { resetSendBudgets } from "../../services/chat/send-budget";
 import type { MeetingMediaTransport } from "../../services/media-session/contracts";
 import { MediaSessionProvider } from "../../services/media-session/media-session-provider";
 import { createMediaSessionStore } from "../../services/media-session/media-session-store";
@@ -92,8 +93,9 @@ afterEach(() => {
   act(() => {
     closeChat();
     setChatTab("chat");
-    setChatDraft("");
-    markChatReadThrough(null);
+    setChatDraft(COHORT, "");
+    markChatReadThrough(COHORT, null);
+    resetSendBudgets();
   });
   unbind();
   clearPresence(COHORT);
@@ -288,6 +290,16 @@ describe("the composer", () => {
     expect(box()).toHaveAttribute("aria-invalid", "true");
   });
 
+  it("counts the line as world will, without the spaces around it", () => {
+    renderChat();
+    act(() => openChat());
+
+    type(`${"x".repeat(498)}          `);
+
+    expect(screen.getByText("498/500")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
+  });
+
   it("keeps the text and says so when the sixth line comes too fast", () => {
     const send = connectSocial();
     renderChat();
@@ -415,7 +427,10 @@ describe("unread", () => {
 
   it("marks a dot on the Chat tab when lines arrive on another tab", () => {
     renderChat();
-    act(() => openChat("people"));
+    act(() => {
+      setChatTab("people");
+      openChat();
+    });
 
     hear(said("1", GRACE.userId, "One"));
 
