@@ -60,14 +60,14 @@ In React, `useWorldSession()` gives `status`, `connect` and `reconnect` under
 
 ## Modules
 
-| Module                       | Owns                                                        |
-| ---------------------------- | ----------------------------------------------------------- |
-| `world-session.ts`           | the realtime client composed with presence and analytics    |
-| `realtime-analytics.ts`      | the analytics events for each client event (pure)           |
-| `browser-world-session.ts`   | browser adapters: socket URL, `WebSocket`, PostHog, console |
-| `world-session-provider.tsx` | `WorldSessionProvider`, `useWorldSession`                   |
-| `walk-feedback.ts`           | the notice for a walk that ended, and its analytics event   |
-| `world-error-feedback.ts`    | the notice for a world `error` frame, in the member's words |
+| Module                       | Owns                                                                         |
+| ---------------------------- | ---------------------------------------------------------------------------- |
+| `world-session.ts`           | the realtime client composed with presence and analytics                     |
+| `realtime-analytics.ts`      | the analytics events for each client event (pure)                            |
+| `browser-world-session.ts`   | browser adapters: socket URL, `WebSocket`, PostHog, console                  |
+| `world-session-provider.tsx` | `WorldSessionProvider`, `useWorldSession`                                    |
+| `walk-feedback.ts`           | the notice for a walk that ended (a full space too), and its analytics event |
+| `world-error-feedback.ts`    | the notice for a world `error` frame, in the member's words                  |
 
 ## Analytics
 

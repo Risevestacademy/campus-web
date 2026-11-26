@@ -129,6 +129,7 @@ export const serverFrames: ServerFrames = {
     userId: GRACE,
     spaceKey: "library",
     text: "Hello",
+    attachment: null,
     at: "2026-10-30T09:00:00.000Z",
   },
   staffAction: {
