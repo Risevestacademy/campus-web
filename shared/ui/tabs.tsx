@@ -52,4 +52,42 @@ function TabsPanel({ className, ...props }: TabsPrimitive.Panel.Props) {
   );
 }
 
-export { Tabs, TabsList, TabsPanel, TabsTab };
+// A pill-shaped list for a panel's header: the open tab is a filled pill, and
+// a count may sit beside its name.
+function TabsPillList({ className, ...props }: TabsPrimitive.List.Props) {
+  return (
+    <TabsPrimitive.List
+      data-slot="tabs-pill-list"
+      className={cn(
+        "bg-surface-hover flex min-w-0 gap-0.5 rounded-full p-0.75",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function TabsPillTab({
+  children,
+  className,
+  count,
+  ...props
+}: TabsPrimitive.Tab.Props & { count?: number }) {
+  return (
+    <TabsPrimitive.Tab
+      data-slot="tabs-pill-tab"
+      className={cn(
+        "text-foreground-secondary hover:text-foreground focus-visible:ring-ring/50 data-active:bg-surface-inverse data-active:text-foreground-inverse dark:data-active:bg-primary dark:data-active:text-primary-foreground relative flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.8125rem] leading-5 font-semibold whitespace-nowrap outline-none focus-visible:ring-3 disabled:pointer-events-none disabled:opacity-50",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      {count === undefined ? null : (
+        <span className="font-medium tabular-nums opacity-80">{count}</span>
+      )}
+    </TabsPrimitive.Tab>
+  );
+}
+
+export { Tabs, TabsList, TabsPanel, TabsPillList, TabsPillTab, TabsTab };
