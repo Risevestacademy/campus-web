@@ -16,6 +16,7 @@ import { InvitationOffer, InviteConfirmation } from "@/features/invitation";
 import { toast, Toaster } from "@/shared/ui/toast";
 import {
   acceptedDecision,
+  inviteFlagged,
   invitePreview,
   pendingInvite,
 } from "@/tests/fixtures/invites";
@@ -42,7 +43,11 @@ const API_ORIGIN = "https://api.example.test";
 const PREVIEW_URL = `${API_ORIGIN}/v1/invites/preview`;
 const VALIDATE_URL = `${API_ORIGIN}/v1/invites/validate-user-invite`;
 const DECISION_URL = `${TEST_ORIGIN}/api/v1/invites/decision`;
+const FLAG_URL = `${TEST_ORIGIN}/api/v1/invites/flag`;
 const ACCEPT_FAILURE = "We couldn't accept your invitation";
+const FLAG_FAILURE =
+  "We couldn't send your message. Check your connection and try again.";
+const FLAGGED_STATUS = "Your Campus admin has your message.";
 
 const serverApi = createApiClient({ baseUrl: API_ORIGIN });
 
@@ -58,9 +63,11 @@ const malformed: Reply = () =>
 interface BackendAnswer {
   name: string;
   reply: Reply;
-  // What the visitor sees on a read (preview or validate), and after Accept.
+  // What the visitor sees on a read (preview or validate), after Accept, and
+  // after sending a flag.
   read: string;
   accept: string;
+  flag: string;
 }
 
 const EXPIRED = "alert: This invitation has expired";
@@ -69,6 +76,8 @@ const ACCEPTED = "alert: You've already accepted this invitation + Google";
 const CLOSED = "alert: This invitation is no longer active";
 const READ_OUTAGE = "alert: We couldn't load this invitation + retry";
 const ACCEPT_OUTAGE = `toast: ${ACCEPT_FAILURE}`;
+const FLAG_OUTAGE = `dialog: ${FLAG_FAILURE}`;
+const FLAGGED = "status: flagged";
 
 const FAILURES: BackendAnswer[] = [
   {
@@ -76,72 +85,85 @@ const FAILURES: BackendAnswer[] = [
     reply: failure(401, "UNAUTHORIZED"),
     read: "go /sign-in",
     accept: "go /sign-in",
+    flag: "go /sign-in",
   },
   {
     name: "403",
     reply: failure(403, "FORBIDDEN"),
     read: EXPIRED,
     accept: EXPIRED,
+    flag: EXPIRED,
   },
   {
     name: "404",
     reply: failure(404, "NOT_FOUND"),
     read: NOT_FOUND,
     accept: NOT_FOUND,
+    flag: NOT_FOUND,
   },
   {
     name: "409 accepted",
     reply: failure(409, "INVITE_ALREADY_ACCEPTED"),
     read: ACCEPTED,
     accept: ACCEPTED,
+    flag: ACCEPTED,
   },
   {
     name: "409 declined",
     reply: failure(409, "INVITE_ALREADY_DECLINED"),
     read: CLOSED,
     accept: CLOSED,
+    flag: CLOSED,
   },
   {
     name: "409 revoked",
     reply: failure(409, "INVITE_REVOKED"),
     read: CLOSED,
     accept: CLOSED,
+    flag: CLOSED,
   },
   {
+    // On the flag route a plain CONFLICT means it is already flagged.
     name: "409 standing membership",
     reply: failure(409, "CONFLICT"),
     read: "alert: You're already a member of this cohort",
     accept: "alert: You're already a member of this cohort",
+    flag: FLAGGED,
   },
   {
     name: "429",
     reply: failure(429, "RATE_LIMITED"),
     read: READ_OUTAGE,
     accept: ACCEPT_OUTAGE,
+    flag: FLAG_OUTAGE,
   },
   {
     name: "500",
     reply: failure(500, "INTERNAL_ERROR"),
     read: READ_OUTAGE,
     accept: ACCEPT_OUTAGE,
+    flag: FLAG_OUTAGE,
   },
   {
     name: "502 proxy",
     reply: failure(502, "INTERNAL_ERROR"),
     read: READ_OUTAGE,
     accept: ACCEPT_OUTAGE,
+    flag: FLAG_OUTAGE,
   },
   {
     name: "malformed body",
     reply: malformed,
     read: READ_OUTAGE,
     accept: ACCEPT_OUTAGE,
+    flag: FLAG_OUTAGE,
   },
   {
     name: "network failure",
     reply: () => HttpResponse.error(),
     read: READ_OUTAGE,
     accept: ACCEPT_OUTAGE,
+    flag: FLAG_OUTAGE,
   },
 ];
 
@@ -202,6 +224,43 @@ async function observeAccept(reply: Reply): Promise<string> {
   return posts.length === 1 ? seen : `${seen} after ${posts.length} accepts`;
 }
 
+async function observeFlag(reply: Reply): Promise<string> {
+  mockApi.server.use(
+    http.get(VALIDATE_URL, json(pendingInvite())),
+    http.post(FLAG_URL, reply),
+  );
+  render(
+    <>
+      {withQueryClient(await InviteConfirmation({ api: serverApi }))}
+      <Toaster />
+    </>,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Flag an Issue" }));
+  fireEvent.change(await screen.findByLabelText("What's wrong?"), {
+    target: { value: "Wrong track" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Send to admin" }));
+  await waitFor(() => {
+    expect(
+      navigations.length > 0 ||
+        screen.queryByText(FLAGGED_STATUS, { exact: false }) !== null ||
+        screen.queryByText(FLAG_FAILURE) !== null ||
+        // A settled invite replaces the actions with its notice.
+        screen.queryByRole("button", { name: "Go to Campus", hidden: true }) ===
+          null,
+    ).toBe(true);
+  });
+
+  let seen: string;
+  if (navigations.length > 0) seen = `go ${navigations.join(",")}`;
+  else if (screen.queryByText(FLAG_FAILURE)) seen = FLAG_OUTAGE;
+  else if (screen.queryByText(FLAGGED_STATUS, { exact: false })) seen = FLAGGED;
+  else seen = describeScreen();
+  const posts = mockApi.requests.filter(({ url }) => url === FLAG_URL);
+  return posts.length === 1 ? seen : `${seen} after ${posts.length} flags`;
+}
+
 function settleRun() {
   toast.close();
   mockApi.reset();
@@ -239,7 +298,7 @@ async function collectMismatches(
   return mismatches;
 }
 
-describe("Invitation eval (threshold: 0 mismatched outcomes, 0 automatic retries, 0 navigations on a failed accept)", () => {
+describe("Invitation eval (threshold: 0 mismatched outcomes, 0 automatic retries, 0 navigations on a failed accept or flag)", () => {
   it("shows the right screen for every answer to the invite preview", async () => {
     const answers = [
       {
@@ -309,6 +368,25 @@ describe("Invitation eval (threshold: 0 mismatched outcomes, 0 automatic retries
         expected: accept,
       })),
       observeAccept,
+    );
+
+    expect(mismatches).toEqual([]);
+  });
+
+  it("records a flag only on a flagged answer, explains every other, and flags once per click", async () => {
+    const answers = [
+      { name: "200", reply: json(inviteFlagged()), flag: FLAGGED },
+      ...FAILURES,
+    ];
+
+    const mismatches = await collectMismatches(
+      "flag",
+      answers.map(({ name, reply, flag }) => ({
+        name,
+        reply,
+        expected: flag,
+      })),
+      observeFlag,
     );
 
     expect(mismatches).toEqual([]);

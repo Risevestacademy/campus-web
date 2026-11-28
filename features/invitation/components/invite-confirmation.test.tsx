@@ -12,7 +12,11 @@ import {
 
 import { createApiClient } from "@/core/api/client";
 import { toast, Toaster } from "@/shared/ui/toast";
-import { acceptedDecision, pendingInvite } from "@/tests/fixtures/invites";
+import {
+  acceptedDecision,
+  inviteFlagged,
+  pendingInvite,
+} from "@/tests/fixtures/invites";
 import { inOrder, type Reply, TEST_ORIGIN } from "@/tests/fixtures/mock-api";
 import { withQueryClient } from "@/tests/fixtures/query-client";
 
@@ -39,7 +43,10 @@ vi.mock("@/shared/lib/document-navigation", () => ({
 const API_ORIGIN = "https://api.example.test";
 const VALIDATE_URL = `${API_ORIGIN}/v1/invites/validate-user-invite`;
 const DECISION_URL = `${TEST_ORIGIN}/api/v1/invites/decision`;
+const FLAG_URL = `${TEST_ORIGIN}/api/v1/invites/flag`;
 const ACCEPT_FAILURE = "We couldn't accept your invitation";
+const FLAG_FAILURE =
+  "We couldn't send your message. Check your connection and try again.";
 
 const serverApi = createApiClient({ baseUrl: API_ORIGIN });
 
@@ -59,8 +66,13 @@ function decisionReplies(...replies: Reply[]) {
   mockApi.server.use(http.post(DECISION_URL, inOrder(...replies)));
 }
 
+function flagReplies(...replies: Reply[]) {
+  mockApi.server.use(http.post(FLAG_URL, inOrder(...replies)));
+}
+
 const decisionPosts = () =>
   mockApi.requests.filter(({ url }) => url === DECISION_URL);
+const flagPosts = () => mockApi.requests.filter(({ url }) => url === FLAG_URL);
 
 async function renderConfirmation() {
   render(
@@ -247,4 +259,138 @@ describe("InviteConfirmation: accepting", () => {
       expect(decisionPosts()).toHaveLength(2);
     },
   );
+});
+
+describe("InviteConfirmation: flagging an issue", () => {
+  beforeEach(() => {
+    pendingInviteReplies(json(pendingInvite()));
+  });
+
+  async function openFlagDialog() {
+    await renderConfirmation();
+    fireEvent.click(screen.getByRole("button", { name: "Flag an Issue" }));
+    return screen.findByRole("dialog");
+  }
+
+  function typeMessage(message: string) {
+    fireEvent.change(screen.getByLabelText("What's wrong?"), {
+      target: { value: message },
+    });
+  }
+
+  function send() {
+    fireEvent.click(screen.getByRole("button", { name: "Send to admin" }));
+  }
+
+  it("sends the trimmed message for the invite on screen, then says the admin has it", async () => {
+    const sent: unknown[] = [];
+    mockApi.server.use(
+      http.post(FLAG_URL, async ({ request }) => {
+        sent.push(await request.json());
+        return Response.json(inviteFlagged());
+      }),
+    );
+    await openFlagDialog();
+
+    typeMessage("  I applied for Product Design.  ");
+    send();
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Your Campus admin has your message.",
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Issue flagged" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Go to Campus" })).toBeEnabled();
+    expect(sent).toEqual([
+      {
+        message: "I applied for Product Design.",
+        inviteId: pendingInvite().id,
+      },
+    ]);
+  });
+
+  it("asks for a message before sending anything", async () => {
+    await openFlagDialog();
+
+    typeMessage("   ");
+    send();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Tell your Campus admin what's wrong.",
+    );
+    expect(flagPosts()).toHaveLength(0);
+  });
+
+  it("keeps the dialog and the message when sending fails, so it can be sent again by hand", async () => {
+    flagReplies(failure(503, "INTERNAL_ERROR"), json(inviteFlagged()));
+    await openFlagDialog();
+
+    typeMessage("Wrong cohort");
+    send();
+
+    expect(await screen.findByText(FLAG_FAILURE)).toBeInTheDocument();
+    expect(screen.getByLabelText("What's wrong?")).toHaveValue("Wrong cohort");
+    expect(flagPosts()).toHaveLength(1);
+
+    send();
+
+    expect(await screen.findByRole("status")).toBeInTheDocument();
+    expect(flagPosts()).toHaveLength(2);
+  });
+
+  it("disables the send while the flag is in flight", async () => {
+    flagReplies(neverAnswers);
+    await openFlagDialog();
+
+    typeMessage("Wrong role");
+    send();
+
+    expect(
+      await screen.findByRole("button", { name: "Sending…" }),
+    ).toBeDisabled();
+  });
+
+  it("shows an invite flagged before this visit as already sent", async () => {
+    pendingInviteReplies(
+      json(pendingInvite({ flaggedAt: "2026-10-03T12:00:00.000Z" })),
+    );
+
+    await renderConfirmation();
+
+    expect(
+      screen.getByRole("button", { name: "Issue flagged" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Your Campus admin has your message.",
+    );
+  });
+
+  it("explains an invite that was settled before the flag arrived", async () => {
+    flagReplies(failure(409, "INVITE_REVOKED"));
+    await openFlagDialog();
+
+    typeMessage("Wrong track");
+    send();
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "This invitation is no longer active",
+      }),
+    ).toBeVisible();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("sends a signed-out visitor to sign in", async () => {
+    flagReplies(failure(401, "UNAUTHORIZED"));
+    await openFlagDialog();
+
+    typeMessage("Wrong track");
+    send();
+
+    await waitFor(() => {
+      expect(sideEffects).toEqual(["replace document /sign-in"]);
+    });
+  });
 });

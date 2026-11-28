@@ -223,6 +223,7 @@ const INVITE_PREVIEW_ALLOW_LIST = [
 const PENDING_INVITE_ALLOW_LIST = [
   "cohort.name",
   "cohortRole",
+  "flaggedAt",
   "id",
   "systemRole",
   "track.name",

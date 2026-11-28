@@ -19,7 +19,7 @@ export type InvitePreview = Simplify<
 export type PendingInvite = Simplify<
   Pick<
     Schemas["InviteOnboardingResponseDto"],
-    "id" | "cohortRole" | "systemRole"
+    "id" | "cohortRole" | "systemRole" | "flaggedAt"
   > & {
     cohort: Named<Schemas["InviteCohortDto"]> | null;
     track: Named<Schemas["InviteTrackDto"]> | null;
@@ -49,3 +49,12 @@ export type InviteRead<Invite> =
 export type InviteAcceptance =
   | { kind: "accepted"; destination: string }
   | { kind: "problem"; problem: InviteProblem };
+
+// What POST /v1/invites/flag takes. inviteId is always sent, as for the
+// decision, so a replacement is never flagged unseen.
+export type InviteFlag = Required<
+  Pick<Schemas["InviteFlagDto"], "message" | "inviteId">
+>;
+
+export type InviteFlagging =
+  { kind: "flagged" } | { kind: "problem"; problem: InviteProblem };
