@@ -6,7 +6,12 @@ import { type ExceptionCode, type Simplify } from "@/core/api/schemas";
 import type { MediaKind, SignedUpload, UploadLimits } from "./types";
 
 const mediaKindSchema = z.toZod<MediaKind>()(
-  z.enum(["avatar", "notice_attachment", "feedback_attachment"]),
+  z.enum([
+    "avatar",
+    "notice_attachment",
+    "feedback_attachment",
+    "call_chat_attachment",
+  ]),
 );
 
 const uploadKindLimitsSchema = z.toZod<UploadLimits>()(

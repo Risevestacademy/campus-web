@@ -182,6 +182,57 @@ describe("createWorldSocialChannel", () => {
       expect(send).not.toHaveBeenCalled();
     });
 
+    describe("with a file", () => {
+      const attachment = {
+        mediaId: "9a0b8f10-1b64-4a3e-bf1a-2f5a58a0f4de",
+        fileName: "onboarding-flow.pdf",
+        contentType: "application/pdf",
+        sizeBytes: 1_234_567,
+      };
+
+      it("sends the file with the trimmed line", () => {
+        const { channel, send } = readyChannel();
+
+        expect(channel.sendSay("  Here it is ", attachment)).toBe(true);
+
+        expect(send).toHaveBeenCalledExactlyOnceWith({
+          type: "say",
+          text: "Here it is",
+          attachment,
+        });
+      });
+
+      it("sends a file with no line, which world takes only with a file", () => {
+        const { channel, send } = readyChannel();
+
+        expect(channel.sendSay("   ", attachment)).toBe(true);
+
+        expect(send).toHaveBeenCalledExactlyOnceWith({
+          type: "say",
+          text: "",
+          attachment,
+        });
+      });
+
+      it("still sends nothing for a line over the limit", () => {
+        const { channel, send } = readyChannel();
+
+        expect(
+          channel.sendSay("x".repeat(SAY_MAX_LENGTH + 1), attachment),
+        ).toBe(false);
+        expect(send).not.toHaveBeenCalled();
+      });
+
+      it("sends nothing before world has welcomed the member", () => {
+        const channel = createWorldSocialChannel();
+        const send = vi.fn(() => true);
+        channel.bind(send);
+
+        expect(channel.sendSay("", attachment)).toBe(false);
+        expect(send).not.toHaveBeenCalled();
+      });
+    });
+
     it("sends a line of exactly the limit", () => {
       const { channel, send } = readyChannel();
 

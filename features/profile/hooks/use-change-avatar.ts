@@ -4,7 +4,11 @@ import { useRef, useState } from "react";
 
 import { browserApi } from "@/core/api/client/browser";
 import { SIGN_IN_PATH } from "@/core/navigation";
-import { uploadMedia, type UploadProblem } from "@/core/uploads";
+import {
+  uploadMedia,
+  type UploadProblem,
+  wholeMegabytes,
+} from "@/core/uploads";
 import { replaceDocument } from "@/shared/lib/document-navigation";
 import { toast } from "@/shared/ui/toast";
 
@@ -18,17 +22,13 @@ export type AvatarActivity =
   | { kind: "saving" }
   | { kind: "removing" };
 
-function megabytes(bytes: number) {
-  return `${Math.max(1, Math.floor(bytes / 1_000_000))} MB`;
-}
-
 function uploadMessage(problem: UploadProblem): string | undefined {
   switch (problem.kind) {
     case "type-not-allowed":
       return "Campus couldn't take this picture's format. Choose a JPEG, PNG or WebP picture.";
     case "too-large":
       return problem.maxBytes
-        ? `That picture is over ${megabytes(problem.maxBytes)}. Choose a smaller one.`
+        ? `That picture is over ${wholeMegabytes(problem.maxBytes)}. Choose a smaller one.`
         : "That picture is too big. Choose a smaller one.";
     case "rate-limited":
       return "You've uploaded a lot just now. Wait a few minutes and try again.";

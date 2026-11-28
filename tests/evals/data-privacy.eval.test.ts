@@ -44,6 +44,10 @@ import {
 } from "@/features/admin/people/schemas/people.schema";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
+import {
+  parseAttachedFile,
+  parseFileLink,
+} from "@/features/campus/services/chat/chat-attachment.schema";
 import { checkConnection } from "@/features/campus/services/connection-check/check-connection";
 import {
   type ConnectionCheckAccess,
@@ -316,6 +320,7 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   call: [
     "call.audibleRadius",
     "call.hearing",
+    "call.room",
     "call.token",
     "call.url",
     "type",
@@ -649,6 +654,39 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       });
 
       expect(keyPaths(card)).toEqual(PERSON_CARD_ALLOW_LIST);
+    });
+
+    it("keeps only what a chat line carries of a file campus-api tied to the call, never its link", () => {
+      const file = parseAttachedFile({
+        id: "9a0b8f10-1b64-4a3e-bf1a-2f5a58a0f4de",
+        fileName: "onboarding-flow.pdf",
+        contentType: "application/pdf",
+        sizeBytes: 1_234_567,
+        url: "https://storage.example.test/signed?token=secret",
+        urlExpiresAt: "2026-11-17T15:15:00.000Z",
+        ...UNEXPECTED,
+      });
+
+      expect(keyPaths(file)).toEqual([
+        "contentType",
+        "fileName",
+        "mediaId",
+        "sizeBytes",
+      ]);
+    });
+
+    it("keeps only the address of a fresh file link, and only over https", () => {
+      const body = {
+        id: "9a0b8f10-1b64-4a3e-bf1a-2f5a58a0f4de",
+        fileName: "onboarding-flow.pdf",
+        url: "https://storage.example.test/signed?token=secret",
+        ...UNEXPECTED,
+      };
+
+      expect(parseFileLink(body)).toBe(body.url);
+      expect(
+        parseFileLink({ ...body, url: "http://storage.example.test/x" }),
+      ).toBeUndefined();
     });
 
     it("keeps only the own-profile fields the account menu and editor read, never consent or the system role", () => {
@@ -1014,11 +1052,8 @@ describe("Data privacy eval (threshold: every case holds)", () => {
         }),
       );
 
-      const {
-        room: _room,
-        subscribeRadius: _subscribeRadius,
-        ...expectedCall
-      } = serverFrames.call.call!;
+      const { subscribeRadius: _subscribeRadius, ...expectedCall } =
+        serverFrames.call.call!;
       expect(call).toEqual({
         type: "call",
         call: { ...expectedCall, token: TOKEN },

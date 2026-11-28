@@ -11,6 +11,8 @@ export type ChatTab = (typeof CHAT_TABS)[number];
 // nothing typed is lost by leaving. Like everything said in chat they stay in
 // memory and never reach storage.
 type ChatPanelState = Readonly<{
+  // Files that answered 410 when opened: the call ended and let them go.
+  goneFileIds: readonly string[];
   // By cohort id.
   drafts: Readonly<Record<string, string>>;
   open: boolean;
@@ -20,6 +22,7 @@ type ChatPanelState = Readonly<{
 }>;
 
 const INITIAL_STATE: ChatPanelState = {
+  goneFileIds: [],
   drafts: {},
   open: false,
   readThroughIds: {},
@@ -31,6 +34,7 @@ let state: ChatPanelState = INITIAL_STATE;
 
 function update(next: ChatPanelState): void {
   if (
+    next.goneFileIds === state.goneFileIds &&
     next.drafts === state.drafts &&
     next.open === state.open &&
     next.readThroughIds === state.readThroughIds &&
@@ -83,6 +87,19 @@ export function markChatReadThrough(
     ...state,
     readThroughIds: { ...state.readThroughIds, [cohortId]: readThroughId },
   });
+}
+
+export function getGoneFileIdsSnapshot(): readonly string[] {
+  return state.goneFileIds;
+}
+
+export function getServerGoneFileIdsSnapshot(): readonly string[] {
+  return INITIAL_STATE.goneFileIds;
+}
+
+export function markFileGone(mediaId: string): void {
+  if (state.goneFileIds.includes(mediaId)) return;
+  update({ ...state, goneFileIds: [...state.goneFileIds, mediaId] });
 }
 
 export function openChat(): void {

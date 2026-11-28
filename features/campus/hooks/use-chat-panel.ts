@@ -6,8 +6,10 @@ import {
   getChatOpenSnapshot,
   getChatReadThrough,
   getChatTabSnapshot,
+  getGoneFileIdsSnapshot,
   getServerChatOpenSnapshot,
   getServerChatTabSnapshot,
+  getServerGoneFileIdsSnapshot,
   subscribeToChatPanel,
 } from "../store/chat-panel-store";
 
@@ -40,5 +42,14 @@ export function useChatReadThrough(cohortId: string): string | null {
     subscribeToChatPanel,
     () => getChatReadThrough(cohortId),
     () => null,
+  );
+}
+
+// The files that answered 410 when opened.
+export function useGoneFileIds(): readonly string[] {
+  return useSyncExternalStore(
+    subscribeToChatPanel,
+    getGoneFileIdsSnapshot,
+    getServerGoneFileIdsSnapshot,
   );
 }

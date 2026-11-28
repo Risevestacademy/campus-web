@@ -1023,7 +1023,7 @@ export interface paths {
     };
     /**
      * A fresh link to an attachment
-     * @description For refreshing an attachment link that has expired or answered 403. The link lasts 15 minutes. Images open in the browser; anything else downloads. Only for someone who can see what the file is attached to: a notice they can see, or feedback an admin may read.
+     * @description For refreshing an attachment link that has expired or answered 403. The link lasts 15 minutes. Images open in the browser; anything else downloads. Only for someone who can see what the file is attached to: a notice they can see, feedback an admin may read, or a call in a space they may enter.
      */
     get: operations["MediaController_url"];
     put?: never;
@@ -1288,9 +1288,9 @@ export interface paths {
      * View a member’s profile card
      * @description What one member sees of another: names, photo, bio, address and the cohorts the two share. The phone number is never on a card.
      *
-     *     A member can open the card of anybody they share a live cohort with, and sees only the shared cohorts. An admin can open any card and sees every live cohort, as does a person opening their own.
+     *     A member can open the card of anybody they share a live cohort with, and sees only the shared cohorts. Any member can open an admin’s card, also seeing only the shared cohorts, which may be none. An admin can open any card and sees every live cohort, as does a person opening their own.
      *
-     *     Anything else answers 404 — no such account, a suspended one, or one the caller shares no cohort with — so a card cannot be used to find out who has an account.
+     *     Anything else answers 404 — no such account, a suspended one, or a non-admin the caller shares no cohort with — so a card cannot be used to find out who has an account.
      */
     get: operations["ProfileController_getCard"];
     put?: never;
@@ -1310,7 +1310,7 @@ export interface paths {
     };
     /**
      * List a cohort's people
-     * @description Everybody with a live place in the cohort, with their display name and sprite, for the sidebar: the whole cohort in one response, sorted by display name with unnamed people last. Who of them is online, and where, comes from the world socket.
+     * @description Everybody with a live place in the cohort, plus every admin, who counts as in every cohort, with their display name and sprite, for the sidebar: the whole cohort in one response, sorted by display name with unnamed people last. Who of them is online, and where, comes from the world socket.
      *
      *     For the cohort's live members and for admins. Suspended accounts are listed for admins only.
      */
@@ -1364,7 +1364,7 @@ export interface paths {
      *
      *     Send `table` to sweep one table only, and `retentionDays` with it for a one-off period. No period may be under 30 days.
      *
-     *     Each table is swept in a transaction of its own, which also writes a `retention_swept` audit entry. Nothing runs this on a timer: call it daily or weekly from an external scheduler.
+     *     Each table is swept in a transaction of its own, which also writes a `retention_swept` audit entry. The same sweep already runs once a day on its own; call this for one now.
      */
     post: operations["RetentionController_sweep"];
     delete?: never;
@@ -1771,6 +1771,28 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/cohorts/{cohortId}/spaces/{spaceId}/call/attachments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Send a file in a space's call chat
+     * @description Ties an uploaded file to the call going on in the space. Then send the chat line through world with this `attachment` (`mediaId`, `fileName`, `contentType`, `sizeBytes`); world passes it on unchecked, and whoever gets it opens the file with `GET /v1/media/{id}/url`.
+     *
+     *     Anyone who may enter the space can open it while the call goes on. Once the call ends it answers 410 (`MEDIA_GONE`), and the file is deleted a week later.
+     */
+    post: operations["CallChatController_attach"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/calendar/connect": {
     parameters: {
       query?: never;
@@ -2089,6 +2111,7 @@ export interface components {
       | "UPLOAD_TOO_LARGE"
       | "UPLOAD_TYPE_NOT_ALLOWED"
       | "UPLOAD_MISMATCH"
+      | "MEDIA_GONE"
       | "SERVICE_UNAVAILABLE"
       | "INTERNAL_ERROR";
     ApiErrorBodyDto: {
@@ -3538,7 +3561,11 @@ export interface components {
       marked: number;
     };
     /** @enum {string} */
-    MediaKind: "avatar" | "notice_attachment" | "feedback_attachment";
+    MediaKind:
+      | "avatar"
+      | "notice_attachment"
+      | "feedback_attachment"
+      | "call_chat_attachment";
     CreateUploadDto: {
       kind: components["schemas"]["MediaKind"];
       /**
@@ -4872,6 +4899,13 @@ export interface components {
       endedAt: string | null;
       /** @example 3600000 */
       durationMs: number | null;
+    };
+    AttachToCallDto: {
+      /**
+       * Format: uuid
+       * @description From `POST /v1/uploads` with kind `call_chat_attachment`, after the file was PUT.
+       */
+      mediaId: string;
     };
     CalendarAppConnectDto: {
       /**
@@ -8230,6 +8264,15 @@ export interface operations {
           "application/json": components["schemas"]["ApiErrorResponseDto"];
         };
       };
+      /** @description A file you could read, since let go by its owner, such as one sent in a call that has ended (`MEDIA_GONE`). Show it as no longer available. */
+      410: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
       /** @description Uploads are not configured here. */
       503: {
         headers: {
@@ -10427,6 +10470,95 @@ export interface operations {
         };
       };
       /** @description Recording is not configured here. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
+  CallChatController_attach: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cohortId: string;
+        spaceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AttachToCallDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttachmentDto"];
+        };
+      };
+      /** @description An id is not a UUID. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No usable full-access session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description The caller may not enter the space. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No space with that id, or no `call_chat_attachment` upload of the caller’s is waiting under `mediaId`. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description No call is going on in the space. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Nothing was uploaded, or the file is not what its upload was signed for (`UPLOAD_MISMATCH`). Upload it again. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Uploads are not configured here. */
       503: {
         headers: {
           [name: string]: unknown;

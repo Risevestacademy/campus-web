@@ -4,6 +4,7 @@ import {
   type Participant,
   type Presence,
 } from "@/core/presence";
+import type { ChatAttachment } from "@/core/realtime";
 import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 
 import { OWN_NAME } from "../own-name";
@@ -20,6 +21,7 @@ export type ChatMessage = Readonly<{
   initial: string;
   avatarClassName: string;
   text: string;
+  attachment: ChatAttachment | null;
   at: string;
   isOwn: boolean;
 }>;
@@ -62,6 +64,7 @@ export function messageOf(
     initial: initialOf(isOwn ? nameOf(line, participants) : name),
     avatarClassName: avatarToneOf(line.userId),
     text: line.text,
+    attachment: line.attachment,
     at: line.at,
     isOwn,
   };

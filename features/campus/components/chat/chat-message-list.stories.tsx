@@ -27,6 +27,7 @@ function message(
     initial: person.initial,
     avatarClassName: person.tone,
     text,
+    attachment: null,
     at,
     isOwn: who === "you",
   };
@@ -117,4 +118,41 @@ export const LongText: Story = {
 
 export const WithoutAJoinTime: Story = {
   args: { enteredAt: null },
+};
+
+export const WithFiles: Story = {
+  args: {
+    messages: [
+      {
+        ...message(
+          "1",
+          "grace",
+          "The onboarding flow",
+          "2026-11-17T15:01:10.000Z",
+        ),
+        attachment: {
+          mediaId: "story-list-pdf",
+          fileName: "onboarding-flow.pdf",
+          contentType: "application/pdf",
+          sizeBytes: 1_234_567,
+        },
+      },
+      {
+        ...message("2", "lin", "", "2026-11-17T15:02:10.000Z"),
+        attachment: {
+          mediaId: "story-list-image",
+          fileName: "sign-in-frame.png",
+          contentType: "image/png",
+          sizeBytes: 48_213,
+        },
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const log = within(canvasElement).getByRole("log", { name: "Messages" });
+
+    await expect(
+      within(log).getAllByRole("button", { name: /^Open / }),
+    ).toHaveLength(2);
+  },
 };
