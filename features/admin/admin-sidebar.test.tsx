@@ -28,6 +28,7 @@ describe("AdminSidebar", () => {
     ["/campus/c-1/people", "People"],
     ["/campus/c-1/invites", "Invites"],
     ["/campus/c-1/tracks", "Programme Tracks"],
+    ["/campus/c-1/maps", "Maps"],
     ["/campus/c-1/feedback", "Feedback & reports"],
   ])("marks %s as the current page", (path, label) => {
     pathname.current = path;

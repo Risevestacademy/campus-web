@@ -32,6 +32,13 @@ import {
 } from "@/features/admin/invites/schemas/invite.schema";
 import { parseGroupOptions } from "@/features/admin/invites/schemas/mentorship-group.schema";
 import {
+  parseCampusMaps,
+  parseMapProblems,
+  parseSpacePage,
+  parseSyncResult,
+} from "@/features/admin/maps/schemas/maps.schema";
+import { parseSpaceGrants } from "@/features/admin/maps/schemas/space-grants.schema";
+import {
   parsePeopleList,
   parsePersonCard,
 } from "@/features/admin/people/schemas/people.schema";
@@ -771,6 +778,158 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       expect(
         parseFeedbackReceipt({ id: "f-1", title: "x", ...UNEXPECTED }),
       ).toEqual({ id: "f-1" });
+    });
+
+    it("keeps only the map fields that choose and describe the entry map", () => {
+      const maps = parseCampusMaps([
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          key: "campus",
+          name: "Campus",
+          isEntry: true,
+          retiredAt: null,
+          syncedVersion: "version-2",
+          syncedAt: "2026-11-24T10:00:00.000Z",
+          publishedAt: "2026-11-24T10:05:00.000Z",
+          publishedVersion: "version-1",
+          ...UNEXPECTED,
+        },
+      ]);
+
+      expect(keyPaths(maps)).toEqual([
+        "[].id",
+        "[].isEntry",
+        "[].key",
+        "[].name",
+        "[].publishedVersion",
+        "[].retiredAt",
+        "[].syncedVersion",
+      ]);
+    });
+
+    it("keeps only what names who may enter a space", () => {
+      const grants = parseSpaceGrants([
+        {
+          id: "66666666-6666-4666-8666-666666666666",
+          spaceId: "55555555-5555-4555-8555-555555555555",
+          grantedBy: "22222222-2222-4222-8222-222222222222",
+          validFrom: "2026-11-01T09:00:00.000Z",
+          validTo: null,
+          live: true,
+          ...UNEXPECTED,
+          subject: {
+            type: "user",
+            userId: "22222222-2222-4222-8222-222222222222",
+            email: "ada@campus.local",
+            displayName: "Ada L.",
+            ...UNEXPECTED,
+          },
+        },
+      ]);
+
+      expect(keyPaths(grants)).toEqual([
+        "[].id",
+        "[].live",
+        "[].subject.displayName",
+        "[].subject.email",
+        "[].subject.type",
+      ]);
+    });
+
+    it("keeps only the space fields the Maps page edits", () => {
+      const page = parseSpacePage({
+        items: [
+          {
+            id: "11111111-1111-4111-8111-111111111111",
+            mapId: "22222222-2222-4222-8222-222222222222",
+            kind: null,
+            access: "normal",
+            audioMode: "proximity",
+            key: "room_space_1",
+            name: "room_space_1",
+            isMapDefault: false,
+            capacity: null,
+            audibleRadius: "8.50",
+            subscribeRadius: "10.00",
+            hysteresisFactor: "1.20",
+            retiredAt: null,
+            createdAt: "2026-11-01T09:00:00.000Z",
+            updatedAt: "2026-11-01T09:00:00.000Z",
+            ...UNEXPECTED,
+          },
+        ],
+        meta: { page: 1, totalPages: 1, total: 1, perPage: 100, ...UNEXPECTED },
+      });
+
+      expect(keyPaths(page)).toEqual([
+        "spaces[].access",
+        "spaces[].audioMode",
+        "spaces[].capacity",
+        "spaces[].id",
+        "spaces[].isMapDefault",
+        "spaces[].key",
+        "spaces[].kind",
+        "spaces[].mapId",
+        "spaces[].name",
+        "totalPages",
+      ]);
+    });
+
+    it("keeps only the map sync fields the Maps page marks", () => {
+      const result = parseSyncResult({
+        dryRun: true,
+        changed: true,
+        ...UNEXPECTED,
+        maps: [
+          {
+            outcome: "updated",
+            key: "campus",
+            version: "d686dbad05445e71",
+            isEntry: true,
+            ...UNEXPECTED,
+            spaces: {
+              added: [
+                { key: "library", name: "Library", kind: null, ...UNEXPECTED },
+              ],
+              restored: [],
+              retired: [],
+              needsKind: [],
+              ...UNEXPECTED,
+            },
+            desks: { added: [], restored: [], retired: [], ...UNEXPECTED },
+          },
+        ],
+      });
+
+      expect(keyPaths(result)).toEqual([
+        "changed",
+        "dryRun",
+        "maps[].desks.added[]",
+        "maps[].desks.restored[]",
+        "maps[].desks.retired[]",
+        "maps[].isEntry",
+        "maps[].key",
+        "maps[].outcome",
+        "maps[].spaces.added[].key",
+        "maps[].spaces.added[].kind",
+        "maps[].spaces.added[].name",
+        "maps[].spaces.needsKind[]",
+        "maps[].spaces.restored[]",
+        "maps[].spaces.retired[]",
+      ]);
+    });
+
+    it("keeps only the lines of a map sync rejection", () => {
+      expect(
+        parseMapProblems({
+          error: {
+            code: "CONFLICT",
+            message: "Rejected",
+            details: { problems: ["campus: no spawn point"], ...UNEXPECTED },
+            ...UNEXPECTED,
+          },
+        }),
+      ).toEqual(["campus: no spawn point"]);
     });
 
     it("keeps only the pending-invite fields the confirmation renders", () => {
