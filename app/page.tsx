@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+
+import { readSiteOrigin } from "@/core/seo";
 import {
   CTASection,
   ExploreCampusSection,
@@ -5,12 +8,18 @@ import {
   FeaturesSection,
   FooterSection,
   HeroSection,
+  HomeStructuredData,
   HowToJoinSection,
 } from "@/features/home";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default function Home() {
   return (
     <main>
+      <HomeStructuredData origin={readSiteOrigin()} />
       <HeroSection />
       <ExploreCampusSection />
       <FeaturesSection />

@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { parsePersonId, PersonAdministration } from "@/features/admin";
 import { requireRouteAccess, SessionUnavailable } from "@/features/auth";
 
 import { requireCohortId } from "../../../require-cohort-id";
+
+export const metadata: Metadata = { title: "Member" };
 
 export default async function PersonPage({
   params,

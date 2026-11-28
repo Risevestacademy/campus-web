@@ -18,6 +18,8 @@ Implemented concerns:
   applied from realtime messages. See `presence/README.md`.
 - `realtime`: generated world socket protocol types, the parser for inbound
   frames, the close policy and the socket client. See `realtime/README.md`.
+- `seo`: the site origin, root metadata, crawler rules, and structured data.
+  See `seo/README.md`.
 - `session`: the cross-feature Campus Access Session refresh contract. See
   `session/README.md`.
 - `uploads`: sending a file to campus-api's storage for a `mediaId`. See

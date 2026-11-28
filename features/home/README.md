@@ -6,7 +6,9 @@ Owns the public landing page rendered at `/`. Sign-in and Campus belong to
 ## Interface
 
 `index.ts` exports one `<Name>Section` per section; `app/page.tsx` composes
-them in order. Consumers never deep-import `sections/`.
+them in order. Consumers never deep-import `sections/`. It also exports
+`HomeStructuredData`, the page's JSON-LD (`WebSite` and `FAQPage`), which
+renders only when the site origin is set.
 
 ## Modules
 
@@ -16,6 +18,8 @@ them in order. Consumers never deep-import `sections/`.
 | `sections/hero/`                               | the hero and its mobile menu (client leaf) | none |
 | `themed-image.tsx`, `themed-image.stories.tsx` | an image with a light and a dark variant   | none |
 | `brand-gradient.ts`                            | the dark hero and CTA background           | none |
+| `faqs.ts`                                      | FAQ copy, shown and published as JSON-LD   | none |
+| `structured-data.tsx`                          | the landing page's JSON-LD                 | none |
 
 A section is one file until it has a client leaf, a test, or several files;
 then it moves to `sections/<name>/` with `<name>-section.tsx` as its entry.

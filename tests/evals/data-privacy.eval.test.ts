@@ -17,6 +17,7 @@ import {
   type ServerMessage,
 } from "@/core/realtime";
 import { readWorldOrigin } from "@/core/realtime/configuration";
+import { parseSiteOrigin } from "@/core/seo/site";
 import {
   parseSignedUpload,
   parseUploadLimits,
@@ -1312,6 +1313,17 @@ describe("Data privacy eval (threshold: every case holds)", () => {
     });
   });
 
+  describe("the site origin never names a host only Railway can reach", () => {
+    it.each(["https://WEB.RAILWAY.INTERNAL", "https://web.railway.internal."])(
+      "refuses the Railway private host %s before it becomes metadataBase",
+      (origin) => {
+        expect(() => parseSiteOrigin({ NEXT_PUBLIC_SITE_URL: origin })).toThrow(
+          "NEXT_PUBLIC_SITE_URL",
+        );
+      },
+    );
+  });
+
   describe("the connection check only connects to the pinned media host", () => {
     const MEDIA_ORIGIN = "wss://media.campus.example";
     const grant = {
@@ -1487,6 +1499,25 @@ describe("Data privacy eval (threshold: every case holds)", () => {
             NEXT_PUBLIC_MEDIA_URL: mediaUrl,
           }),
         ).toThrow("NEXT_PUBLIC_MEDIA_URL");
+      },
+    );
+
+    it.each([
+      "http://campus.example",
+      "http://localhost:3000",
+      "https://web.railway.internal",
+      "https://user:secret@campus.example",
+      "https://campus.example/path",
+      "https://campus.example/?q=1",
+    ])(
+      "rejects the site URL %s before it becomes metadataBase and turns on indexing",
+      (siteUrl) => {
+        expect(() =>
+          validateBuildEnvironment({
+            ...protectedBuild,
+            NEXT_PUBLIC_SITE_URL: siteUrl,
+          }),
+        ).toThrow("NEXT_PUBLIC_SITE_URL");
       },
     );
 

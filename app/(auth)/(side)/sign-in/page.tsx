@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import {
   authErrorMessage,
   ForgetPreviousMember,
@@ -6,6 +8,8 @@ import {
   SignInPanel,
 } from "@/features/auth";
 import { firstSearchParameter } from "@/shared/lib/search-params";
+
+export const metadata: Metadata = { title: "Sign in" };
 
 interface SignInPageProps {
   searchParams: Promise<{

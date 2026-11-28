@@ -13,8 +13,8 @@ const SANITY_DATASET_PATTERN = /^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$/;
 // One hostname label, because the ID is the first label of the map API host.
 const SANITY_PROJECT_ID_PATTERN = /^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/;
 
-// Stricter than readWorldOrigin and readMediaOrigin: a deployed build never
-// points at loopback.
+// Stricter than readWorldOrigin, readMediaOrigin and readSiteOrigin: a deployed
+// build never points at loopback.
 function isPublicOrigin(value: string, protocol: "https:" | "wss:"): boolean {
   const url = parseBareOrigin(value);
 
@@ -66,6 +66,15 @@ const protectedBuildEnvironmentSchema = z.object({
     .trim()
     .refine((value) => !value || isPublicOrigin(value, "wss:"), {
       error: "NEXT_PUBLIC_MEDIA_URL must be a public WSS origin.",
+    })
+    .optional(),
+  // Optional: only the production service sets it, so every other build stays
+  // out of search engines.
+  NEXT_PUBLIC_SITE_URL: z
+    .string()
+    .trim()
+    .refine((value) => !value || isPublicOrigin(value, "https:"), {
+      error: "NEXT_PUBLIC_SITE_URL must be a public HTTPS origin.",
     })
     .optional(),
 });

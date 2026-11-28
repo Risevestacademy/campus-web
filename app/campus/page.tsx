@@ -1,4 +1,5 @@
 import { cn } from "cn";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -14,6 +15,8 @@ import { CohortChooser } from "@/features/campus";
 import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 import { firstSearchParameter } from "@/shared/lib/search-params";
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
+
+export const metadata: Metadata = { title: "Your campuses" };
 
 interface CampusPageProps {
   searchParams: Promise<{ view?: string | string[]; page?: string | string[] }>;

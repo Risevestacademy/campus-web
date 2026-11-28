@@ -1,13 +1,20 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { getServerApi } from "@/core/api/client/server";
 import { campusHref, campusPreJoinHref } from "@/core/navigation";
+import { PRIVATE_PAGE_ROBOTS } from "@/core/seo";
 import { requireRouteAccess, SessionUnavailable } from "@/features/auth";
 import {
   enterRoomLink,
   parseRoomLinkCode,
   RoomLinkNotice,
 } from "@/features/room-link";
+
+export const metadata: Metadata = {
+  title: "Joining a room",
+  robots: PRIVATE_PAGE_ROBOTS,
+};
 
 interface RoomLinkPageProps {
   params: Promise<{ code: string }>;

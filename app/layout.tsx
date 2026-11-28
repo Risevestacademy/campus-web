@@ -8,17 +8,14 @@ import {
   AnalyticsConsentBanner,
   PrivacyChoicesButton,
 } from "@/core/analytics/consent";
+import { buildRootMetadata, readSiteOrigin } from "@/core/seo";
 import { sidebarInitializerScript } from "@/features/campus/document";
 import { motionInitializerScript } from "@/shared/motion";
 import { fontVariableClasses } from "@/shared/styles/fonts";
 import { themeInitializerScript } from "@/shared/theme";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
 
-export const metadata: Metadata = {
-  title: "Campus by Rise",
-  description:
-    "A persistent digital campus for learning, collaboration, and community at Rise.",
-};
+export const metadata: Metadata = buildRootMetadata(readSiteOrigin());
 
 export default function RootLayout({
   children,

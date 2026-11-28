@@ -5,3 +5,4 @@ export { FeaturesSection } from "./sections/features";
 export { FooterSection } from "./sections/footer";
 export { HeroSection } from "./sections/hero/hero-section";
 export { HowToJoinSection } from "./sections/how-to-join";
+export { HomeStructuredData } from "./structured-data";

@@ -1,7 +1,11 @@
+import type { Metadata } from "next";
+
 import { CohortAdministrationOverview } from "@/features/admin";
 import { requireRouteAccess, SessionUnavailable } from "@/features/auth";
 
 import { requireCohortId } from "../../require-cohort-id";
+
+export const metadata: Metadata = { title: "Overview" };
 
 export default async function AdministrationOverviewPage({
   params,

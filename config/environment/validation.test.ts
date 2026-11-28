@@ -16,6 +16,7 @@ const DATASET_MESSAGE =
 const WORLD_URL_MESSAGE =
   "NEXT_PUBLIC_WORLD_URL must be a public HTTPS origin.";
 const MEDIA_URL_MESSAGE = "NEXT_PUBLIC_MEDIA_URL must be a public WSS origin.";
+const SITE_URL_MESSAGE = "NEXT_PUBLIC_SITE_URL must be a public HTTPS origin.";
 
 describe("build environment validation", () => {
   afterEach(() => {
@@ -181,6 +182,35 @@ describe("build environment validation", () => {
       }),
     ).toThrow(
       ["Invalid build environment:", `- ${MEDIA_URL_MESSAGE}`].join("\n"),
+    );
+  });
+
+  it.each([
+    ["no site URL, as on staging", undefined],
+    ["an empty site URL", ""],
+    ["a public HTTPS site", "https://campus.example.test"],
+  ])("accepts a protected build with %s", (_case, siteUrl) => {
+    expect(() =>
+      validateBuildEnvironment({
+        ...completeProtectedEnvironment,
+        NEXT_PUBLIC_SITE_URL: siteUrl,
+      }),
+    ).not.toThrow();
+  });
+
+  it.each([
+    ["plain HTTP", "http://campus.example.test"],
+    ["loopback", "https://localhost"],
+    ["a Railway private host", "https://web.railway.internal"],
+    ["a path", "https://campus.example.test/home"],
+  ])("rejects a site URL naming %s", (_case, siteUrl) => {
+    expect(() =>
+      validateBuildEnvironment({
+        ...completeProtectedEnvironment,
+        NEXT_PUBLIC_SITE_URL: siteUrl,
+      }),
+    ).toThrow(
+      ["Invalid build environment:", `- ${SITE_URL_MESSAGE}`].join("\n"),
     );
   });
 

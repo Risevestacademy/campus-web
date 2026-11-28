@@ -116,6 +116,7 @@ IaC for every environment instead of maintaining it only in the dashboard.
 - `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`
 - `NEXT_PUBLIC_SANITY_DATASET`
 - `NEXT_PUBLIC_SANITY_PROJECT_ID`
+- `NEXT_PUBLIC_SITE_URL` (optional; production only, turns on search indexing)
 - `NEXT_PUBLIC_WORLD_URL`
 
 In every environment, `campus-web` also owns:
