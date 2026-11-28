@@ -2,6 +2,7 @@
 
 import { createContext, type ReactNode, useContext, useReducer } from "react";
 
+import { closeChat } from "../store/chat-panel-store";
 import type { SidebarPanelId } from "../store/sidebar-preferences";
 import {
   setActivePanel,
@@ -106,15 +107,20 @@ export function CampusViewProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "focus-tile", ...focus });
       setSidebarOpen(false);
     },
+    // The sidebar and the chat panel are never open together, so each intent
+    // that shows the sidebar closes chat. Closing chat saves nothing.
     openAdministration: () => {
+      closeChat();
       returnToMap();
       setSidebarMode("admin");
     },
     openPanel: (panelId) => {
+      closeChat();
       returnToMap();
       setActivePanel(panelId);
     },
     openSidebar: () => {
+      closeChat();
       returnToMap();
       setSidebarOpen(true);
     },
