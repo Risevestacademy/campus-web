@@ -1,7 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, userEvent, within } from "storybook/test";
 
-import { Tabs, TabsList, TabsPanel, TabsTab } from "./tabs";
+import {
+  Tabs,
+  TabsList,
+  TabsPanel,
+  TabsPillList,
+  TabsPillTab,
+  TabsTab,
+} from "./tabs";
 
 const meta = {
   title: "Primitives/Tabs",
@@ -68,5 +75,46 @@ export const InSidebar: Story = {
     await userEvent.click(canvas.getByRole("tab", { name: "Appearance" }));
 
     await expect(await canvas.findByText("Theme")).toBeVisible();
+  },
+};
+
+// As in the chat panel's header: pills in a rounded list, with a count beside
+// a name.
+export const Pills: Story = {
+  render: () => (
+    <Tabs
+      defaultValue="chat"
+      className="bg-shell-panel border-shell-line w-80 gap-0 rounded-xl border p-3"
+    >
+      <TabsPillList aria-label="Chat sections">
+        <TabsPillTab value="chat">Chat</TabsPillTab>
+        <TabsPillTab value="people" count={3}>
+          People
+        </TabsPillTab>
+        <TabsPillTab value="resources" count={0}>
+          Resources
+        </TabsPillTab>
+      </TabsPillList>
+      <TabsPanel value="chat" className="pt-3">
+        The conversation.
+      </TabsPanel>
+      <TabsPanel value="people" className="pt-3">
+        Who is here.
+      </TabsPanel>
+      <TabsPanel value="resources" className="pt-3">
+        Files sent in the meeting.
+      </TabsPanel>
+    </Tabs>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("tab", { name: "Chat" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    await userEvent.click(canvas.getByRole("tab", { name: /People/ }));
+
+    await expect(canvas.getByText("Who is here.")).toBeVisible();
   },
 };

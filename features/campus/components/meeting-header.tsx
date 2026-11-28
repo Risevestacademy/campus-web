@@ -8,7 +8,7 @@ import { AnimatePresence, motion, useReducedMotionConfig } from "motion/react";
 
 import { Button } from "@/shared/ui/button";
 
-import { useSidebarOpen } from "../hooks/use-sidebar-state";
+import { useSidebarVisible } from "../hooks/use-sidebar-state";
 import type { SpaceLock } from "../hooks/use-space-lock";
 import { splitAtCap } from "../services/meeting/meeting";
 import type { Meeting, MeetingParticipant } from "../types/active-campus.types";
@@ -125,7 +125,7 @@ export function MeetingHeader({
   meeting,
 }: Readonly<{ lock?: SpaceLock | null; meeting: Meeting | null }>) {
   const { openSidebar } = useCampusView();
-  const sidebarOpen = useSidebarOpen();
+  const sidebarOpen = useSidebarVisible();
   const reduceMotion = Boolean(useReducedMotionConfig());
   const title = meeting?.title ?? lock?.spaceName;
 

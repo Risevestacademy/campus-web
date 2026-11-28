@@ -13,7 +13,6 @@ import { type ReactNode, useState } from "react";
 import logoMark from "@/assets/icon-inverse.svg";
 import { useAnalyticsConsent } from "@/core/analytics/consent";
 import { campusHref } from "@/core/navigation";
-import { badgeVariants } from "@/shared/ui/badge";
 import { buttonVariants } from "@/shared/ui/button";
 import { Separator } from "@/shared/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
@@ -31,7 +30,6 @@ function RailButton({
   isActive,
   isPressed,
   disabled,
-  badgeCount,
   href,
   onClick,
   children,
@@ -40,7 +38,6 @@ function RailButton({
   isActive?: boolean;
   isPressed?: boolean;
   disabled?: boolean;
-  badgeCount?: number;
   href?: Route;
   onClick?: () => void;
   children: React.ReactNode;
@@ -60,16 +57,6 @@ function RailButton({
         )}
       >
         {children}
-        {badgeCount ? (
-          <span
-            className={cn(
-              badgeVariants({ variant: "destructive" }),
-              "absolute top-1 right-1 h-4 min-w-4 rounded-full border-0 bg-[#D63941] p-0 text-[10px] text-[#F7F7F7] dark:bg-[#D63941] dark:text-[#F7F7F7]",
-            )}
-          >
-            {badgeCount}
-          </span>
-        ) : null}
       </TooltipTrigger>
       <TooltipContent side="right">{label}</TooltipContent>
     </Tooltip>
@@ -162,7 +149,6 @@ export function CampusRail({
               key={item.id}
               label={item.label}
               isActive={sidebarMode === "campus" && activePanel === item.id}
-              badgeCount={item.badgeCount}
               href={item.id === "map" ? mapHref : undefined}
               onClick={() => openPanel(item.id)}
             >

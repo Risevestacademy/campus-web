@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { BroadcastStatus } from "./broadcast-status";
 import { CampusControlBar } from "./campus-control-bar";
 import type { CampusViewer } from "./campus-shell/feedback-layer";
+import { ChatPanel } from "./chat/chat-panel";
 import { MeetingOverlay } from "./meeting-overlay";
 import { ScreenShareStatus } from "./screen-share-status";
 import { WorldConnectionStatus } from "./world-connection-status";
@@ -19,7 +20,7 @@ export function ActiveCampus({
   zoomControls: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-1">
+    <div className="flex min-w-0 flex-1 gap-1.5">
       <div className="bg-cobalt-500/10 grid flex-1 grid-rows-[auto_1fr_auto] rounded-xl">
         <div className="relative z-1">
           <aside
@@ -52,6 +53,7 @@ export function ActiveCampus({
           </aside>
         </div>
       </div>
+      <ChatPanel key={cohortId} cohortId={cohortId} />
     </div>
   );
 }
