@@ -1,6 +1,7 @@
 "use client";
 
 import { GaugeIcon } from "@phosphor-icons/react/dist/ssr/Gauge";
+import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr/MapTrifold";
 import { StackIcon } from "@phosphor-icons/react/dist/ssr/Stack";
 import { UserPlusIcon } from "@phosphor-icons/react/dist/ssr/UserPlus";
 import { UsersIcon } from "@phosphor-icons/react/dist/ssr/Users";
@@ -34,6 +35,11 @@ function navigationItems(cohortId: string) {
       href: cohortAdministrationHref(cohortId, "tracks"),
       label: "Programme Tracks",
       Icon: StackIcon,
+    },
+    {
+      href: cohortAdministrationHref(cohortId, "maps"),
+      label: "Maps",
+      Icon: MapTrifoldIcon,
     },
     {
       href: cohortAdministrationHref(cohortId, "feedback"),

@@ -5,6 +5,7 @@ export { CohortCatalogue } from "./cohorts/components/cohort-catalogue";
 export { CohortTrackAdministration } from "./cohorts/components/cohort-track-administration";
 export { FeedbackAdministration } from "./feedback/components/feedback-administration";
 export { InvitesAdministration } from "./invites/components/invites-administration";
+export { MapsAdministration } from "./maps/components/maps-administration";
 export { PeopleAdministration } from "./people/components/people-administration";
 export { PersonAdministration } from "./people/components/person-administration";
 export { parsePersonId } from "./people/schemas/person-id.schema";
