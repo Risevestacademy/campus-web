@@ -32,9 +32,17 @@ import {
 } from "@/features/admin/invites/schemas/invite.schema";
 import { parseGroupOptions } from "@/features/admin/invites/schemas/mentorship-group.schema";
 import {
+  parseCampusMaps,
+  parseMapProblems,
+  parseSpacePage,
+  parseSyncResult,
+} from "@/features/admin/maps/schemas/maps.schema";
+import { parseSpaceGrants } from "@/features/admin/maps/schemas/space-grants.schema";
+import {
   parsePeopleList,
   parsePersonCard,
 } from "@/features/admin/people/schemas/people.schema";
+import { parseRoster } from "@/features/admin/people/schemas/roster.schema";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
 import { checkConnection } from "@/features/campus/services/connection-check/check-connection";
@@ -109,6 +117,7 @@ const FEEDBACK_RECORD_ALLOW_LIST = [
 ].sort();
 
 const PERSON_ALLOW_LIST = [
+  "accessExpiresAt",
   "avatarUrl",
   "displayName",
   "email",
@@ -118,7 +127,22 @@ const PERSON_ALLOW_LIST = [
   "role",
   "status",
   "systemRole",
+  "trackId",
   "trackName",
+];
+const FORMER_MEMBER_ALLOW_LIST = [
+  "accessExpiresAt",
+  "dismissalReason",
+  "leftAt",
+  "role",
+  "status",
+  "track.name",
+  "user.avatarUrl",
+  "user.displayName",
+  "user.email",
+  "user.firstName",
+  "user.id",
+  "user.lastName",
 ];
 const IMPORT_ALLOW_LIST = [
   "failed[].email",
@@ -216,6 +240,7 @@ const INVITE_PREVIEW_ALLOW_LIST = [
 const PENDING_INVITE_ALLOW_LIST = [
   "cohort.name",
   "cohortRole",
+  "flaggedAt",
   "id",
   "systemRole",
   "track.name",
@@ -337,7 +362,7 @@ const WORLD_FRAME_ALLOW_LIST: Record<ServerMessage["type"], string[]> = {
   notification: ["type"],
   positionCorrected: [...under("player", PLAYER_PATHS), "type"],
   replaced: ["type"],
-  said: ["at", "id", "spaceKey", "text", "type", "userId"],
+  said: ["at", "attachment", "id", "spaceKey", "text", "type", "userId"],
   spaceChanged: ["spaceKey", "type", "userId"],
   statusChanged: ["status", "type", "until", "userId"],
   snapshot: [
@@ -516,6 +541,7 @@ describe("Data privacy eval (threshold: every case holds)", () => {
                   track: { id: "t-1", name: "Backend", code: "BE" },
                   role: "student",
                   status: "active",
+                  accessExpiresAt: null,
                   joinedAt: "2026-09-22T12:00:00.000Z",
                 },
               ],
@@ -533,6 +559,38 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       );
 
       expect(keyPaths(page?.people[0])).toEqual(PERSON_ALLOW_LIST);
+    });
+
+    it("keeps only the former member fields the Former members list reads, never the membership id or the account's status", () => {
+      const page = parseRoster({
+        items: [
+          {
+            id: "m-1",
+            role: "student",
+            status: "dismissed",
+            state: "ended",
+            dismissalReason: "Posted the answer to a live assessment.",
+            user: {
+              id: "u-1",
+              email: "ada@campus.local",
+              firstName: "Ada",
+              lastName: "Lovelace",
+              displayName: null,
+              avatarUrl: null,
+              status: "suspended",
+              ...UNEXPECTED,
+            },
+            track: { id: "t-1", name: "Backend", code: "BE", ...UNEXPECTED },
+            joinedAt: "2026-09-22T12:00:00.000Z",
+            leftAt: "2026-10-13T12:00:00.000Z",
+            accessExpiresAt: null,
+            ...UNEXPECTED,
+          },
+        ],
+        meta: { page: 1, totalPages: 1, total: 1, perPage: 20, ...UNEXPECTED },
+      });
+
+      expect(keyPaths(page?.members[0])).toEqual(FORMER_MEMBER_ALLOW_LIST);
     });
 
     it("keeps only the invite fields the Invites page reads, never who sent it or any link", () => {
@@ -773,6 +831,158 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       ).toEqual({ id: "f-1" });
     });
 
+    it("keeps only the map fields that choose and describe the entry map", () => {
+      const maps = parseCampusMaps([
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          key: "campus",
+          name: "Campus",
+          isEntry: true,
+          retiredAt: null,
+          syncedVersion: "version-2",
+          syncedAt: "2026-11-24T10:00:00.000Z",
+          publishedAt: "2026-11-24T10:05:00.000Z",
+          publishedVersion: "version-1",
+          ...UNEXPECTED,
+        },
+      ]);
+
+      expect(keyPaths(maps)).toEqual([
+        "[].id",
+        "[].isEntry",
+        "[].key",
+        "[].name",
+        "[].publishedVersion",
+        "[].retiredAt",
+        "[].syncedVersion",
+      ]);
+    });
+
+    it("keeps only what names who may enter a space", () => {
+      const grants = parseSpaceGrants([
+        {
+          id: "66666666-6666-4666-8666-666666666666",
+          spaceId: "55555555-5555-4555-8555-555555555555",
+          grantedBy: "22222222-2222-4222-8222-222222222222",
+          validFrom: "2026-11-01T09:00:00.000Z",
+          validTo: null,
+          live: true,
+          ...UNEXPECTED,
+          subject: {
+            type: "user",
+            userId: "22222222-2222-4222-8222-222222222222",
+            email: "ada@campus.local",
+            displayName: "Ada L.",
+            ...UNEXPECTED,
+          },
+        },
+      ]);
+
+      expect(keyPaths(grants)).toEqual([
+        "[].id",
+        "[].live",
+        "[].subject.displayName",
+        "[].subject.email",
+        "[].subject.type",
+      ]);
+    });
+
+    it("keeps only the space fields the Maps page edits", () => {
+      const page = parseSpacePage({
+        items: [
+          {
+            id: "11111111-1111-4111-8111-111111111111",
+            mapId: "22222222-2222-4222-8222-222222222222",
+            kind: null,
+            access: "normal",
+            audioMode: "proximity",
+            key: "room_space_1",
+            name: "room_space_1",
+            isMapDefault: false,
+            capacity: null,
+            audibleRadius: "8.50",
+            subscribeRadius: "10.00",
+            hysteresisFactor: "1.20",
+            retiredAt: null,
+            createdAt: "2026-11-01T09:00:00.000Z",
+            updatedAt: "2026-11-01T09:00:00.000Z",
+            ...UNEXPECTED,
+          },
+        ],
+        meta: { page: 1, totalPages: 1, total: 1, perPage: 100, ...UNEXPECTED },
+      });
+
+      expect(keyPaths(page)).toEqual([
+        "spaces[].access",
+        "spaces[].audioMode",
+        "spaces[].capacity",
+        "spaces[].id",
+        "spaces[].isMapDefault",
+        "spaces[].key",
+        "spaces[].kind",
+        "spaces[].mapId",
+        "spaces[].name",
+        "totalPages",
+      ]);
+    });
+
+    it("keeps only the map sync fields the Maps page marks", () => {
+      const result = parseSyncResult({
+        dryRun: true,
+        changed: true,
+        ...UNEXPECTED,
+        maps: [
+          {
+            outcome: "updated",
+            key: "campus",
+            version: "d686dbad05445e71",
+            isEntry: true,
+            ...UNEXPECTED,
+            spaces: {
+              added: [
+                { key: "library", name: "Library", kind: null, ...UNEXPECTED },
+              ],
+              restored: [],
+              retired: [],
+              needsKind: [],
+              ...UNEXPECTED,
+            },
+            desks: { added: [], restored: [], retired: [], ...UNEXPECTED },
+          },
+        ],
+      });
+
+      expect(keyPaths(result)).toEqual([
+        "changed",
+        "dryRun",
+        "maps[].desks.added[]",
+        "maps[].desks.restored[]",
+        "maps[].desks.retired[]",
+        "maps[].isEntry",
+        "maps[].key",
+        "maps[].outcome",
+        "maps[].spaces.added[].key",
+        "maps[].spaces.added[].kind",
+        "maps[].spaces.added[].name",
+        "maps[].spaces.needsKind[]",
+        "maps[].spaces.restored[]",
+        "maps[].spaces.retired[]",
+      ]);
+    });
+
+    it("keeps only the lines of a map sync rejection", () => {
+      expect(
+        parseMapProblems({
+          error: {
+            code: "CONFLICT",
+            message: "Rejected",
+            details: { problems: ["campus: no spawn point"], ...UNEXPECTED },
+            ...UNEXPECTED,
+          },
+        }),
+      ).toEqual(["campus: no spawn point"]);
+    });
+
     it("keeps only the pending-invite fields the confirmation renders", () => {
       const invite = parsePendingInvite({ ...pendingInvite(), ...UNEXPECTED });
 
@@ -797,6 +1007,38 @@ describe("Data privacy eval (threshold: every case holds)", () => {
         expect(keyPaths(parsed)).toEqual(WORLD_FRAME_ALLOW_LIST[frame.type]);
       },
     );
+
+    it("keeps only the file fields of a said frame that carries a file", () => {
+      const parsed = parsedMessage(
+        JSON.stringify({
+          ...serverFrames.said,
+          text: "",
+          attachment: {
+            mediaId: "9a0b8f10-1b64-4a3e-bf1a-2f5a58a0f4de",
+            fileName: "onboarding-flow.pdf",
+            contentType: "application/pdf",
+            sizeBytes: 1_234_567,
+            url: "https://storage.example.test/signed?token=secret",
+            ...UNEXPECTED,
+          },
+        }),
+      );
+
+      expect(keyPaths(parsed)).toEqual([
+        "at",
+        ...under("attachment", [
+          "contentType",
+          "fileName",
+          "mediaId",
+          "sizeBytes",
+        ]),
+        "id",
+        "spaceKey",
+        "text",
+        "type",
+        "userId",
+      ]);
+    });
 
     it("never carries the text of a frame it could not read", () => {
       const unknownType = parseServerMessage(

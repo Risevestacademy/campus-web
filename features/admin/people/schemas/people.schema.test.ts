@@ -25,11 +25,13 @@ function user(overrides: Record<string, unknown> = {}) {
         cohort: { id: "cohort-2", name: "Other", code: "O" },
         track: null,
         role: "mentor",
+        accessExpiresAt: null,
       },
       {
         cohort: { id: COHORT_ID, name: "Cohort 1", code: "C1" },
         track: { id: "track-1", name: "Backend", code: "BE" },
         role: "student",
+        accessExpiresAt: null,
       },
     ],
     ...overrides,
@@ -52,7 +54,9 @@ describe("people list parser", () => {
           systemRole: "user",
           status: "active",
           role: "student",
+          trackId: "track-1",
           trackName: "Backend",
+          accessExpiresAt: null,
         },
       ],
       page: 2,
@@ -100,7 +104,12 @@ describe("people list parser", () => {
       COHORT_ID,
     );
 
-    expect(page?.people[0]).toMatchObject({ role: undefined, trackName: null });
+    expect(page?.people[0]).toMatchObject({
+      role: undefined,
+      trackId: null,
+      trackName: null,
+      accessExpiresAt: null,
+    });
   });
 
   it("rejects a body that is not a page of people", () => {
@@ -159,6 +168,7 @@ describe("people query parser", () => {
         page: "3",
       }),
     ).toEqual({
+      scope: "current",
       chip: "mentor",
       search: "ada",
       trackId: "3f0c2d1a-6b6e-4c4b-8f55-0c9d1e5a7b21",
@@ -177,10 +187,22 @@ describe("people query parser", () => {
     expect(
       parsePeopleQuery({ role: "admin", q: " ", track: "nope", page: "0" }),
     ).toEqual({
+      scope: "current",
       chip: "all",
       search: undefined,
       trackId: undefined,
       page: 1,
+    });
+  });
+});
+
+describe("people query scope", () => {
+  it("lists former members only when asked, and keeps no search for them", () => {
+    expect(parsePeopleQuery({}).scope).toBe("current");
+    expect(parsePeopleQuery({ members: "past" }).scope).toBe("current");
+    expect(parsePeopleQuery({ members: "former", q: "ada" })).toMatchObject({
+      scope: "former",
+      search: undefined,
     });
   });
 });

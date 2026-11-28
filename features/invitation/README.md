@@ -2,7 +2,7 @@
 
 Owns what an invitee sees and does between opening the emailed Invite Link
 and entering Campus: the public Invite Preview, the signed-in confirmation,
-and the accept. `auth` decides who may reach each route; this feature decides
+the accept, and flagging a mistake on the invite. `auth` decides who may reach each route; this feature decides
 what renders there. Invitation administration will belong to `admin`.
 
 ## Interface
@@ -46,21 +46,24 @@ forwards the visitor's address, which campus-api rate-limits on.
 
 ## Modules
 
-| Module                                   | Owns                                                                                           | Seam          |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------- |
-| `services/invite.service.ts`             | preview, validate, and decision calls; one outcome mapping                                     | `ApiClient`   |
-| `services/invite-token-proxy.service.ts` | token-to-cookie redirect for the root proxy                                                    | `NextRequest` |
-| `services/invite-token.service.ts`       | reads the token cookie for the page                                                            | `cookies()`   |
-| `schemas/invite.schema.ts`               | strips responses to the fields screens render                                                  | none          |
-| `schemas/invite-token.schema.ts`         | token bounds, checked on the way in and on every read                                          | none          |
-| `types/invite.types.ts`                  | the rendered picks of the generated DTOs, and `InviteProblem`                                  | none          |
-| `hooks/use-accept-invite.ts`             | the accept mutation, analytics, full-load navigation                                           | `browserApi`  |
-| `hooks/use-missing-invite-link-shown.ts` | counts each missing-link notice shown                                                          | none          |
-| `components/`                            | offer, confirmation, details, one notice per problem, Google sign-in link, missing-link notice | none          |
+| Module                                   | Owns                                                                                                                 | Seam          |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `services/invite.service.ts`             | preview, validate, decision, and flag calls; one outcome mapping                                                     | `ApiClient`   |
+| `services/invite-token-proxy.service.ts` | token-to-cookie redirect for the root proxy                                                                          | `NextRequest` |
+| `services/invite-token.service.ts`       | reads the token cookie for the page                                                                                  | `cookies()`   |
+| `schemas/invite.schema.ts`               | strips responses to the fields screens render                                                                        | none          |
+| `schemas/invite-token.schema.ts`         | token bounds, checked on the way in and on every read                                                                | none          |
+| `schemas/invite-flag.schema.ts`          | the flag message, trimmed and bounded as campus-api checks it                                                        | `FormData`    |
+| `types/invite.types.ts`                  | the rendered picks of the generated DTOs, and `InviteProblem`                                                        | none          |
+| `hooks/use-accept-invite.ts`             | the accept mutation, analytics, full-load navigation                                                                 | `browserApi`  |
+| `hooks/use-flag-invite.ts`               | the flag mutation and where each answer leads                                                                        | `browserApi`  |
+| `hooks/use-missing-invite-link-shown.ts` | counts each missing-link notice shown                                                                                | none          |
+| `components/`                            | offer, confirmation, actions, flag dialog, details, one notice per problem, Google sign-in link, missing-link notice | none          |
 
 Reads run in Server Components and call the service directly: nothing
 refetches them, so a query layer would add only a loading state. The accept
-runs in the browser through `/api`, because only the proxy sets auth cookies.
+runs in the browser through `/api`, because only the proxy sets auth cookies;
+the flag goes the same way, since the browser holds the session.
 
 ## Contributing
 
@@ -87,6 +90,12 @@ runs in the browser through `/api`, because only the proxy sets auth cookies.
   holds the invitee's email. Widen a schema in `invite.schema.ts` and in
   `tests/evals/data-privacy.eval.test.ts` together.
 - A successful accept captures `auth.verification_completed` once.
+- "Flag an Issue" sends one note per invite, with the `inviteId` on screen,
+  and never retries: campus-api emails the admin on the first, and a second is
+  a 409. On the flag route a plain `CONFLICT` means already flagged, so it
+  counts as sent. A flag is not an answer: Go to Campus stays available, and
+  `flaggedAt` from validate-user-invite shows the flag as sent on a later
+  visit. A failed send keeps the dialog and the message.
 - A signed-out visit to `/invitation` without a token shows the missing-link
   notice, never refresh, and captures `invitation.missing_link_shown` once.
 - Use `GLOSSARY.md` terms (Invite Link, Invite Preview, Invitation).
@@ -94,7 +103,10 @@ runs in the browser through `/api`, because only the proxy sets auth cookies.
 
 ### Known gaps
 
-- "Flag an Issue" has no backend; Decline is not wired.
+- Decline is not wired.
+- A flag reaches the admin by email only: the admin Invites page does not yet
+  read `flaggedAt` or `flagMessage`, or filter with
+  `GET /v1/invites?flagged=true`. To be covered in a future pass.
 - The token still reaches host access logs on the first request, until
   campus-api changes the link shape.
 
@@ -107,5 +119,6 @@ pnpm eval:privacy
 pnpm build && pnpm playwright test tests/e2e/invitation.spec.ts
 ```
 
-`eval:invitation` walks every backend answer on all three routes and fails on
-a mismatched screen or a second accept per click.
+`eval:invitation` walks every backend answer on the preview, validate,
+decision, and flag routes and fails on a mismatched screen or a second accept
+or flag per click.

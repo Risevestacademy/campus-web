@@ -6,6 +6,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { createApiClient } from "@/core/api/client";
 import {
   acceptedDecision,
+  inviteFlagged,
   invitePreview,
   pendingInvite,
 } from "@/tests/fixtures/invites";
@@ -13,11 +14,12 @@ import type { Reply } from "@/tests/fixtures/mock-api";
 
 import {
   acceptInvite,
+  flagInvite,
   previewInvite,
   readPendingInvite,
 } from "./invite.service";
 
-// Status codes map to problems once for all three routes; the invitation eval
+// Status codes map to problems once for every route; the invitation eval
 // walks every answer through every route, so this file covers request and
 // response shape only.
 
@@ -30,6 +32,7 @@ const API_ORIGIN = "https://api.example.test";
 const PREVIEW_URL = `${API_ORIGIN}/v1/invites/preview`;
 const VALIDATE_URL = `${API_ORIGIN}/v1/invites/validate-user-invite`;
 const DECISION_URL = `${API_ORIGIN}/v1/invites/decision`;
+const FLAG_URL = `${API_ORIGIN}/v1/invites/flag`;
 const TOKEN = "Aj2Q1WN2qnVm6pDv2Bbou2QrXj20GDxBe5ZYX8YLN6I";
 const INVITE_ID = pendingInvite().id;
 
@@ -130,6 +133,7 @@ describe("readPendingInvite", () => {
         track: { name: "Backend Engineering" },
         cohortRole: "student",
         systemRole: "user",
+        flaggedAt: null,
         user: {
           email: "ada@campus.local",
           displayName: "Ada Lovelace",
@@ -201,6 +205,58 @@ describe("acceptInvite", () => {
     );
 
     await expect(acceptInvite(api, INVITE_ID)).resolves.toEqual({
+      kind: "problem",
+      problem: "unavailable",
+    });
+  });
+});
+
+describe("flagInvite", () => {
+  const flag = { message: "Wrong track", inviteId: INVITE_ID };
+
+  it("sends the message and the id of the invite the visitor saw, nothing else", async () => {
+    const sent = capturingBody(FLAG_URL, inviteFlagged());
+
+    await expect(flagInvite(api, flag)).resolves.toEqual({ kind: "flagged" });
+
+    expect(sent).toEqual([{ message: "Wrong track", inviteId: INVITE_ID }]);
+  });
+
+  it("treats an invite that already carries a flag as flagged", async () => {
+    mockApi.server.use(
+      http.post(FLAG_URL, () =>
+        Response.json(
+          { error: { code: "CONFLICT", message: "x" } },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    await expect(flagInvite(api, flag)).resolves.toEqual({ kind: "flagged" });
+  });
+
+  it("treats a 400 as unavailable: the message was checked before sending", async () => {
+    mockApi.server.use(
+      http.post(FLAG_URL, () =>
+        Response.json(
+          { error: { code: "VALIDATION_ERROR", message: "x" } },
+          { status: 400 },
+        ),
+      ),
+    );
+
+    await expect(flagInvite(api, flag)).resolves.toEqual({
+      kind: "problem",
+      problem: "unavailable",
+    });
+  });
+
+  it("does not count an answer without flaggedAt as a flag", async () => {
+    mockApi.server.use(
+      http.post(FLAG_URL, json({ inviteId: INVITE_ID, flaggedAt: "" })),
+    );
+
+    await expect(flagInvite(api, flag)).resolves.toEqual({
       kind: "problem",
       problem: "unavailable",
     });

@@ -3,11 +3,14 @@ import { type ExceptionCode, parseExceptionCode } from "@/core/api/schemas";
 
 import {
   parseAcceptedCohort,
+  parseFlaggedAt,
   parseInvitePreview,
   parsePendingInvite,
 } from "../schemas/invite.schema";
 import type {
   InviteAcceptance,
+  InviteFlag,
+  InviteFlagging,
   InvitePreview,
   InviteProblem,
   InviteRead,
@@ -115,4 +118,22 @@ export async function acceptInvite(
   return read.kind === "loaded"
     ? { kind: "accepted", destination: campusDestination(read.invite) }
     : read;
+}
+
+export async function flagInvite(
+  api: ApiClient,
+  { message, inviteId }: InviteFlag,
+): Promise<InviteFlagging> {
+  const read = await readInvite(
+    () =>
+      api.POST("/v1/invites/flag", {
+        body: { message, inviteId },
+      }),
+    parseFlaggedAt,
+  );
+
+  if (read.kind === "loaded") return { kind: "flagged" };
+  // On this route a plain CONFLICT means the invite already carries a flag,
+  // which is all the invitee was asking for.
+  return read.problem === "already-member" ? { kind: "flagged" } : read;
 }

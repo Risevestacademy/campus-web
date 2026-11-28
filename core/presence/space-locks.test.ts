@@ -6,6 +6,7 @@ import { EMPTY_PRESENCE, type Presence } from "./presence";
 import {
   claimEntryRefusals,
   entryRefusalsClaimed,
+  fullSpaceNotice,
   isSpaceLocked,
   ownSpaceKeyOf,
   refusedEntryNotice,
@@ -58,6 +59,16 @@ describe("refusedEntryNotice", () => {
     [null, "You can't enter that space"],
   ])("words a refusal at %s as %j", (spaceKey, notice) => {
     expect(refusedEntryNotice(presence, spaceKey)).toBe(notice);
+  });
+});
+
+describe("fullSpaceNotice", () => {
+  it.each([
+    ["room_2", "Room 2 is full"],
+    ["library", "library is full"],
+    [null, "That space is full"],
+  ])("words a full space at %s as %j", (spaceKey, notice) => {
+    expect(fullSpaceNotice(presence, spaceKey)).toBe(notice);
   });
 });
 

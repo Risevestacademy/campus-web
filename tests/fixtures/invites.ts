@@ -3,6 +3,7 @@ import type { components } from "@/core/api/client";
 type Schemas = components["schemas"];
 type InvitePreviewDto = Schemas["InvitePreviewResponseDto"];
 type PendingInviteDto = Schemas["InviteOnboardingResponseDto"];
+type InviteFlagResponseDto = Schemas["InviteFlagResponseDto"];
 
 // Shapes copied from campus-api responses for /v1/invites/*.
 export function invitePreview(
@@ -60,6 +61,7 @@ export function pendingInvite(
     status: "pending",
     expiresAt: "2026-10-07T19:58:13.568Z",
     guestAccessExpiresAt: null,
+    flaggedAt: null,
     invitedBy: {
       id: "b59d4da6-6f3f-46da-b179-d0b4b5b2ff51",
       firstName: "Ejemen",
@@ -99,4 +101,10 @@ export function acceptedDecision(
       : null,
     systemRole: "user",
   };
+}
+
+export function inviteFlagged(
+  flaggedAt = "2026-10-03T12:00:00.000Z",
+): InviteFlagResponseDto {
+  return { inviteId: pendingInvite().id, flaggedAt };
 }

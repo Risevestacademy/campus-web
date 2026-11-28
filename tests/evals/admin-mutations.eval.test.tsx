@@ -16,6 +16,15 @@ import {
   DetachCohortTrackDialog,
 } from "@/features/admin/cohorts/components/cohort-track-actions";
 import { FeedbackStatusControl } from "@/features/admin/feedback/components/feedback-status-control";
+import { MapWorkspace } from "@/features/admin/maps/components/map-workspace";
+import type {
+  EntryMapRecord,
+  PublishedEntryMap,
+  SpaceSettings,
+} from "@/features/admin/maps/types/maps.types";
+import { PersonActions } from "@/features/admin/people/components/person-actions";
+import type { MembershipActionsAvailable } from "@/features/admin/people/membership-actions";
+import type { PersonActionsAvailable } from "@/features/admin/people/person-actions";
 import { CreateTrackTile } from "@/features/admin/tracks/components/create-track-tile";
 import { TrackAdministrationCard } from "@/features/admin/tracks/components/track-administration-card";
 import { toast, Toaster } from "@/shared/ui/toast";
@@ -102,10 +111,163 @@ const UNAVAILABLE_TRACK_DELETE =
   "We couldn't delete this Programme Track. Check your connection and try again.";
 const UNAVAILABLE_FEEDBACK_STATUS =
   "We couldn't update this feedback. Nothing was changed. Check your connection and try again.";
+const UNAVAILABLE_SPACE_UPDATE =
+  "We couldn't save this space. Check your connection and try again.";
+const UNAVAILABLE_MAP_PUBLISH =
+  "We couldn't publish the map. Check your connection and try again.";
 const UNAVAILABLE_ATTACH =
   "We couldn't attach this Programme Track. Try again.";
 const UNAVAILABLE_DETACH =
   "We couldn't detach this Programme Track. Try again.";
+
+const PERSON_NAME = "Ada Lovelace";
+const PERSON_URL = `${API}/users/user-1`;
+
+function personActions(actions: PersonActionsAvailable) {
+  return (
+    <PersonActions
+      cohortId="cohort-1"
+      userId="user-1"
+      name={PERSON_NAME}
+      actions={actions}
+    />
+  );
+}
+
+async function confirmPersonActionTwice(
+  item: string,
+  dialogName: string,
+  button: RegExp,
+) {
+  fireEvent.click(
+    screen.getByRole("button", { name: `Manage ${PERSON_NAME}` }),
+  );
+  const menu = await screen.findByRole("menu");
+  fireEvent.click(within(menu).getByRole("menuitem", { name: item }));
+  await clickTwice(dialogName, button);
+}
+
+const MEMBER_URL = `${API}/cohorts/cohort-1/members/user-1`;
+const NO_ACCOUNT_ACTIONS: PersonActionsAvailable = {
+  roleChange: undefined,
+  suspend: false,
+  reinstate: false,
+};
+const STUDENT_MEMBERSHIP: MembershipActionsAvailable = {
+  moveTo: [{ id: "t-2", name: "Design" }],
+  visitEnds: null,
+  ends: ["graduate", "defer", "withdraw", "dismiss", "remove"],
+};
+const GUEST_MEMBERSHIP: MembershipActionsAvailable = {
+  moveTo: [],
+  visitEnds: "2099-01-10T12:00:00.000Z",
+  ends: ["remove"],
+};
+
+function membershipActions(membership: MembershipActionsAvailable) {
+  return (
+    <PersonActions
+      cohortId="cohort-1"
+      userId="user-1"
+      name={PERSON_NAME}
+      actions={NO_ACCOUNT_ACTIONS}
+      membership={membership}
+    />
+  );
+}
+
+async function openMembershipDialog(item: string, dialogName: string) {
+  fireEvent.click(
+    screen.getByRole("button", { name: `Manage ${PERSON_NAME}` }),
+  );
+  const menu = await screen.findByRole("menu");
+  fireEvent.click(within(menu).getByRole("menuitem", { name: item }));
+  return screen.findByRole("dialog", { name: dialogName });
+}
+
+async function fillAndConfirmTwice(
+  item: string,
+  dialogName: string,
+  field: string,
+  value: string,
+  button: RegExp,
+) {
+  const dialog = await openMembershipDialog(item, dialogName);
+  fireEvent.change(within(dialog).getByLabelText(field), {
+    target: { value },
+  });
+  await clickTwice(dialogName, button);
+}
+
+const UNAVAILABLE_MEMBERSHIP =
+  "We couldn't make this change. Nothing was changed. Check your connection and try again.";
+const MEMBERSHIP_FORBIDDEN =
+  "You no longer have permission to change memberships.";
+const MEMBERSHIP_MISSING =
+  "They're no longer in this cohort. Refresh the page.";
+const END_EXPLANATIONS = {
+  400: "campus-api rejected this request. Check the reason and try again.",
+  403: MEMBERSHIP_FORBIDDEN,
+  404: MEMBERSHIP_MISSING,
+  409: "This membership has already ended, or can't end this way. Refresh the page.",
+  500: UNAVAILABLE_MEMBERSHIP,
+  0: UNAVAILABLE_MEMBERSHIP,
+};
+
+const PERSON_INVALID =
+  "campus-api rejected this request. Refresh the page and try again.";
+const PERSON_MISSING = "This account no longer exists. Refresh the page.";
+const UNAVAILABLE_ROLE_CHANGE =
+  "We couldn't change this role. Nothing was changed. Check your connection and try again.";
+const UNAVAILABLE_SUSPEND =
+  "We couldn't suspend this account. Nothing was changed. Check your connection and try again.";
+const UNAVAILABLE_REINSTATE =
+  "We couldn't reinstate this account. Nothing was changed. Check your connection and try again.";
+const ROLE_EXPLANATIONS = {
+  400: PERSON_INVALID,
+  403: "You no longer have permission to change roles.",
+  404: PERSON_MISSING,
+  409: "A super admin's role, and your own, can't be changed here.",
+  500: UNAVAILABLE_ROLE_CHANGE,
+  0: UNAVAILABLE_ROLE_CHANGE,
+};
+
+const MAP_ID = "22222222-2222-4222-8222-222222222222";
+const entryMap: PublishedEntryMap = {
+  mapKey: "campus",
+  version: "version-2",
+  widthTiles: 12,
+  heightTiles: 6,
+  spaces: [
+    {
+      key: "room_space_1",
+      name: "room_space_1",
+      bounds: { shape: "rect", x: 1, y: 1, width: 4, height: 4 },
+    },
+  ],
+  desks: [],
+  walls: [],
+};
+const mapRecord: EntryMapRecord = {
+  id: MAP_ID,
+  key: "campus",
+  name: "Campus",
+  syncedVersion: "version-2",
+  publishedVersion: "version-1",
+};
+const mapSpaces: SpaceSettings[] = [
+  {
+    id: "space-1",
+    mapId: MAP_ID,
+    key: "room_space_1",
+    name: "room_space_1",
+    kind: null,
+    access: "normal",
+    audioMode: "proximity",
+    capacity: null,
+    isMapDefault: false,
+  },
+];
 
 const MUTATIONS: readonly Mutation[] = [
   {
@@ -284,6 +446,283 @@ const MUTATIONS: readonly Mutation[] = [
       404: "This feedback no longer exists. Refresh the page.",
       500: UNAVAILABLE_FEEDBACK_STATUS,
       0: UNAVAILABLE_FEEDBACK_STATUS,
+    },
+  },
+  {
+    name: "Space update",
+    method: "patch",
+    url: `${API}/spaces/space-1`,
+    succeeded: "Space saved",
+    render: () => (
+      <MapWorkspace
+        map={entryMap}
+        entry={mapRecord}
+        spaces={mapSpaces}
+        cohortId="cohort-1"
+        grantOptions={{ tracks: [], groups: [] }}
+      />
+    ),
+    doubleSubmit: async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Show me" }));
+      const inspector = await screen.findByRole("dialog");
+      fireEvent.change(within(inspector).getByLabelText("Room type"), {
+        target: { value: "meeting_room" },
+      });
+      const save = within(inspector).getByRole("button", {
+        name: /^(Save space|Saving…)$/,
+      });
+      fireEvent.click(save);
+      fireEvent.click(save);
+    },
+    explanations: {
+      400: "campus-api refused one of these values. Check them and try again.",
+      403: "Only administrators can change spaces.",
+      404: "This space no longer exists. Refresh the page.",
+      409: "The campus already has one of this kind. Only one town hall and one notice board may exist.",
+      500: UNAVAILABLE_SPACE_UPDATE,
+      0: UNAVAILABLE_SPACE_UPDATE,
+    },
+  },
+  {
+    name: "Map publish",
+    method: "post",
+    url: `${API}/maps/${MAP_ID}/publish`,
+    succeeded: "campus is live",
+    render: () => (
+      <MapWorkspace
+        map={entryMap}
+        entry={mapRecord}
+        spaces={mapSpaces}
+        cohortId="cohort-1"
+        grantOptions={{ tracks: [], groups: [] }}
+      />
+    ),
+    doubleSubmit: async () => {
+      const publish = screen.getByRole("button", {
+        name: /^(Publish campus|Publishing…)$/,
+      });
+      fireEvent.click(publish);
+      fireEvent.click(publish);
+    },
+    explanations: {
+      400: "campus-api refused the request. Refresh the page and try again.",
+      403: "Only administrators can publish maps.",
+      404: "campus-api has no such map. Sync first, then publish.",
+      409: "This map can't be published: only the map people enter on can be served, and it can't be retired. Sync, then try again.",
+      500: UNAVAILABLE_MAP_PUBLISH,
+      0: UNAVAILABLE_MAP_PUBLISH,
+    },
+  },
+  {
+    name: "Promote to admin",
+    method: "patch",
+    url: `${PERSON_URL}/system-role`,
+    succeeded: "Promoted to admin",
+    render: () =>
+      personActions({
+        roleChange: "admin",
+        suspend: true,
+        reinstate: false,
+      }),
+    doubleSubmit: () =>
+      confirmPersonActionTwice(
+        "Promote to admin",
+        `Promote ${PERSON_NAME} to admin?`,
+        /^(Promote to admin|Saving…)$/,
+      ),
+    explanations: ROLE_EXPLANATIONS,
+  },
+  {
+    name: "Demote from admin",
+    method: "patch",
+    url: `${PERSON_URL}/system-role`,
+    succeeded: "Demoted from admin",
+    render: () =>
+      personActions({
+        roleChange: "user",
+        suspend: true,
+        reinstate: false,
+      }),
+    doubleSubmit: () =>
+      confirmPersonActionTwice(
+        "Demote from admin",
+        `Demote ${PERSON_NAME} from admin?`,
+        /^(Demote from admin|Saving…)$/,
+      ),
+    explanations: ROLE_EXPLANATIONS,
+  },
+  {
+    name: "Suspend",
+    method: "post",
+    url: `${PERSON_URL}/suspend`,
+    succeeded: "Account suspended",
+    render: () =>
+      personActions({
+        roleChange: "admin",
+        suspend: true,
+        reinstate: false,
+      }),
+    doubleSubmit: () =>
+      confirmPersonActionTwice(
+        "Suspend",
+        `Suspend ${PERSON_NAME}?`,
+        /^(Suspend|Suspending…)$/,
+      ),
+    explanations: {
+      400: "campus-api rejected this request. Check the reason and try again.",
+      403: "You don't have permission to suspend this account. Only a super admin can suspend another super admin.",
+      404: PERSON_MISSING,
+      409: "This account is already suspended. Refresh the page.",
+      500: UNAVAILABLE_SUSPEND,
+      0: UNAVAILABLE_SUSPEND,
+    },
+  },
+  {
+    name: "Reinstate",
+    method: "post",
+    url: `${PERSON_URL}/reinstate`,
+    succeeded: "Account reinstated",
+    render: () =>
+      personActions({
+        roleChange: "admin",
+        suspend: false,
+        reinstate: true,
+      }),
+    doubleSubmit: () =>
+      confirmPersonActionTwice(
+        "Reinstate",
+        `Reinstate ${PERSON_NAME}?`,
+        /^(Reinstate|Reinstating…)$/,
+      ),
+    explanations: {
+      400: PERSON_INVALID,
+      403: "You don't have permission to reinstate this account. Only a super admin can lift a suspension a super admin made.",
+      404: PERSON_MISSING,
+      409: "This account isn't suspended any more. Refresh the page.",
+      500: UNAVAILABLE_REINSTATE,
+      0: UNAVAILABLE_REINSTATE,
+    },
+  },
+  {
+    name: "Mark as graduated",
+    method: "post",
+    url: `${MEMBER_URL}/graduate`,
+    succeeded: "Marked as graduated",
+    render: () => membershipActions(STUDENT_MEMBERSHIP),
+    doubleSubmit: async () => {
+      await openMembershipDialog(
+        "Mark as graduated",
+        `Mark ${PERSON_NAME} as graduated?`,
+      );
+      await clickTwice(
+        `Mark ${PERSON_NAME} as graduated?`,
+        /^(Mark as graduated|Saving…)$/,
+      );
+    },
+    explanations: END_EXPLANATIONS,
+  },
+  {
+    name: "Defer",
+    method: "post",
+    url: `${MEMBER_URL}/defer`,
+    succeeded: "Marked as deferred",
+    render: () => membershipActions(STUDENT_MEMBERSHIP),
+    doubleSubmit: async () => {
+      await openMembershipDialog("Defer", `Defer ${PERSON_NAME}?`);
+      await clickTwice(`Defer ${PERSON_NAME}?`, /^(Defer|Deferring…)$/);
+    },
+    explanations: END_EXPLANATIONS,
+  },
+  {
+    name: "Withdraw",
+    method: "post",
+    url: `${MEMBER_URL}/withdraw`,
+    succeeded: "Marked as withdrawn",
+    render: () => membershipActions(STUDENT_MEMBERSHIP),
+    doubleSubmit: async () => {
+      await openMembershipDialog("Withdraw", `Withdraw ${PERSON_NAME}?`);
+      await clickTwice(`Withdraw ${PERSON_NAME}?`, /^(Withdraw|Withdrawing…)$/);
+    },
+    explanations: END_EXPLANATIONS,
+  },
+  {
+    name: "Remove from cohort",
+    method: "post",
+    url: `${MEMBER_URL}/remove`,
+    succeeded: "Removed from the cohort",
+    render: () => membershipActions(STUDENT_MEMBERSHIP),
+    doubleSubmit: async () => {
+      await openMembershipDialog(
+        "Remove from cohort",
+        `Remove ${PERSON_NAME} from this cohort?`,
+      );
+      await clickTwice(
+        `Remove ${PERSON_NAME} from this cohort?`,
+        /^(Remove|Removing…)$/,
+      );
+    },
+    explanations: END_EXPLANATIONS,
+  },
+  {
+    name: "Dismiss",
+    method: "post",
+    url: `${MEMBER_URL}/dismiss`,
+    succeeded: "Dismissed from the cohort",
+    render: () => membershipActions(STUDENT_MEMBERSHIP),
+    doubleSubmit: () =>
+      fillAndConfirmTwice(
+        "Dismiss",
+        `Dismiss ${PERSON_NAME}?`,
+        "Reason",
+        "Posted the answer to a live assessment.",
+        /^(Dismiss|Dismissing…)$/,
+      ),
+    explanations: END_EXPLANATIONS,
+  },
+  {
+    name: "Change track",
+    method: "patch",
+    url: `${MEMBER_URL}/track`,
+    succeeded: "Track changed",
+    render: () => membershipActions(STUDENT_MEMBERSHIP),
+    doubleSubmit: () =>
+      fillAndConfirmTwice(
+        "Change track",
+        `Change ${PERSON_NAME}'s track?`,
+        "New track",
+        "t-2",
+        /^(Change track|Saving…)$/,
+      ),
+    explanations: {
+      400: "campus-api rejected this request. Refresh the page and try again.",
+      403: MEMBERSHIP_FORBIDDEN,
+      404: "They're no longer in this cohort, or that track no longer exists. Refresh the page.",
+      409: "They can't move to that track. They may already be on it or have left the cohort, or the cohort may no longer run it. Refresh the page.",
+      500: UNAVAILABLE_MEMBERSHIP,
+      0: UNAVAILABLE_MEMBERSHIP,
+    },
+  },
+  {
+    name: "Extend visit",
+    method: "patch",
+    url: MEMBER_URL,
+    succeeded: "Visit extended",
+    render: () => membershipActions(GUEST_MEMBERSHIP),
+    doubleSubmit: () =>
+      fillAndConfirmTwice(
+        "Extend visit",
+        `Extend ${PERSON_NAME}'s visit?`,
+        "New end",
+        "2099-02-01T09:30",
+        /^(Extend visit|Saving…)$/,
+      ),
+    explanations: {
+      400: "campus-api needs an end later than now and later than the current one.",
+      403: MEMBERSHIP_FORBIDDEN,
+      404: MEMBERSHIP_MISSING,
+      409: "This visit has already ended. Send them a new invite instead.",
+      500: UNAVAILABLE_MEMBERSHIP,
+      0: UNAVAILABLE_MEMBERSHIP,
     },
   },
 ];

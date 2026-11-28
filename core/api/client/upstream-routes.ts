@@ -38,6 +38,7 @@ const PUBLISHED_ROUTES = {
   "/v1/cohorts/{cohortId}/mentorship-groups/{groupId}/students": true,
   "/v1/cohorts/{cohortId}/mentorship-groups/{groupId}/students/{cohortMemberId}": true,
   "/v1/cohorts/{id}/profiles": true,
+  "/v1/spaces/{id}": true,
   "/v1/spaces/{id}/memberships": true,
   "/v1/spaces/{id}/memberships/{membershipId}": true,
   "/v1/users": true,
@@ -51,12 +52,14 @@ const PUBLISHED_ROUTES = {
   "/v1/uploads/limits": true,
   "/v1/audit-log": true,
   "/v1/maps/sync": true,
+  "/v1/maps/{id}/publish": true,
   "/v1/feedback": true,
   "/v1/feedback/{id}": true,
   "/v1/dashboard": true,
   // Published, but no browser code calls them yet, so the proxy does not
   // forward them. Server code reaches them directly (a room link's page
   // enters through its code on the server). Forward one when a browser needs it.
+  "/v1/maps": false,
   "/v1/calendar": false,
   "/v1/calendar/connect": false,
   "/v1/calendar/connect/callback": false,
@@ -76,14 +79,12 @@ const PUBLISHED_ROUTES = {
   "/v1/cohorts/{cohortId}/desks/{key}/claim": false,
   "/v1/cohorts/{cohortId}/desks/{key}/release": false,
   "/v1/cohorts/{cohortId}/spaces/{spaceId}/links": false,
-  "/v1/maps/{id}/publish": false,
   "/v1/notices": false,
   "/v1/notices/{id}": false,
   "/v1/notices/{id}/pin": false,
   "/v1/room-links/{code}": false,
   "/v1/room-links/{code}/enter": false,
   "/v1/spaces": false,
-  "/v1/spaces/{id}": false,
   "/v1/users/me/analytics-consent": false,
   // LiveKit calls campus-api directly; no browser sends it.
   "/v1/calls/webhook": false,

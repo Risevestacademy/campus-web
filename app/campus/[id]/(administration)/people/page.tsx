@@ -7,6 +7,7 @@ import { requireCohortId } from "../../require-cohort-id";
 interface PeoplePageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{
+    members?: string | string[];
     role?: string | string[];
     q?: string | string[];
     track?: string | string[];
@@ -32,10 +33,15 @@ export default async function PeoplePage({
     <PeopleAdministration
       cohortId={id}
       rawQuery={{
+        members: firstSearchParameter(query.members),
         role: firstSearchParameter(query.role),
         q: firstSearchParameter(query.q),
         track: firstSearchParameter(query.track),
         page: firstSearchParameter(query.page),
+      }}
+      viewer={{
+        id: access.session.user.id,
+        systemRole: access.session.user.systemRole,
       }}
     />
   );

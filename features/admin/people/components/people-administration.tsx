@@ -12,19 +12,23 @@ import {
   loadPeopleView,
   type PeopleView,
 } from "../services/people-view.service";
-import type { PeopleQuery } from "../types/people.types";
-import { PeopleChips, PeopleFilters } from "./people-filters";
+import type { PeopleQuery, PeopleViewer } from "../types/people.types";
+import { FormerMembersTable } from "./former-members-table";
+import { PeopleChips, PeopleFilters, PeopleScopeTabs } from "./people-filters";
 import { PeopleTable } from "./people-table";
 
 function PeopleList({
   cohortId,
   query,
-  list,
+  view,
+  viewer,
 }: {
   cohortId: string;
   query: PeopleQuery;
-  list: PeopleView["list"];
+  view: PeopleView;
+  viewer: PeopleViewer;
 }) {
+  const { list } = view;
   if (list.kind === "unavailable") {
     return (
       <Notice>
@@ -38,13 +42,23 @@ function PeopleList({
       </Notice>
     );
   }
-  if (list.people.length === 0) {
+  const rows = list.scope === "current" ? list.people : list.members;
+  if (rows.length === 0) {
     return <Notice>No one matches.</Notice>;
   }
 
   return (
     <>
-      <PeopleTable cohortId={cohortId} people={list.people} />
+      {list.scope === "current" ? (
+        <PeopleTable
+          cohortId={cohortId}
+          people={list.people}
+          viewer={viewer}
+          tracks={view.tracks.kind === "loaded" ? view.tracks.tracks : []}
+        />
+      ) : (
+        <FormerMembersTable members={list.members} />
+      )}
       <CataloguePagination
         ariaLabel="People pages"
         hrefForPage={(page) => peopleHref(cohortId, { ...query, page })}
@@ -59,10 +73,12 @@ export function PeopleAdministrationView({
   cohortId,
   query,
   view,
+  viewer,
 }: {
   cohortId: string;
   query: PeopleQuery;
   view: PeopleView;
+  viewer: PeopleViewer;
 }) {
   return (
     <section
@@ -75,9 +91,15 @@ export function PeopleAdministrationView({
         </h1>
       </header>
 
+      <PeopleScopeTabs cohortId={cohortId} query={query} />
       <PeopleFilters cohortId={cohortId} query={query} tracks={view.tracks} />
       <PeopleChips cohortId={cohortId} query={query} counts={view.counts} />
-      <PeopleList cohortId={cohortId} query={query} list={view.list} />
+      <PeopleList
+        cohortId={cohortId}
+        query={query}
+        view={view}
+        viewer={viewer}
+      />
     </section>
   );
 }
@@ -85,14 +107,27 @@ export function PeopleAdministrationView({
 export async function PeopleAdministration({
   cohortId,
   rawQuery,
+  viewer,
 }: {
   cohortId: string;
-  rawQuery: { role?: string; q?: string; track?: string; page?: string };
+  rawQuery: {
+    members?: string;
+    role?: string;
+    q?: string;
+    track?: string;
+    page?: string;
+  };
+  viewer: PeopleViewer;
 }) {
   const query = parsePeopleQuery(rawQuery);
   const view = await loadPeopleView(await getServerApi(), cohortId, query);
 
   return (
-    <PeopleAdministrationView cohortId={cohortId} query={query} view={view} />
+    <PeopleAdministrationView
+      cohortId={cohortId}
+      query={query}
+      view={view}
+      viewer={viewer}
+    />
   );
 }

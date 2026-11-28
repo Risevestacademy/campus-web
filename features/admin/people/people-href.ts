@@ -8,6 +8,7 @@ export function peopleHref(
 ): Route {
   const search = new URLSearchParams();
 
+  if (view.scope === "former") search.set("members", "former");
   if (view.chip && view.chip !== "all") search.set("role", view.chip);
   if (view.search) search.set("q", view.search);
   if (view.trackId) search.set("track", view.trackId);

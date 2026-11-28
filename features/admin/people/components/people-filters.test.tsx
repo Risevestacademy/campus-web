@@ -5,6 +5,7 @@ import type { PeopleQuery, TrackOptionsRead } from "../types/people.types";
 import { PeopleFilters } from "./people-filters";
 
 const QUERY: PeopleQuery = {
+  scope: "current",
   chip: "all",
   search: undefined,
   trackId: undefined,

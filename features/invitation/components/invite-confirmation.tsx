@@ -1,7 +1,7 @@
 import type { ApiClient } from "@/core/api/client";
 
 import { readPendingInvite } from "../services/invite.service";
-import { AcceptInviteActions } from "./accept-invite-actions";
+import { InviteActions } from "./invite-actions";
 import { inviteeDetails } from "./invite-details";
 import { inviteReadProblem } from "./invite-read-problem";
 
@@ -33,7 +33,10 @@ export async function InviteConfirmation({ api }: { api: ApiClient }) {
         Set by campus admin - not editable here
       </p>
 
-      <AcceptInviteActions inviteId={read.invite.id} />
+      <InviteActions
+        inviteId={read.invite.id}
+        flagged={Boolean(read.invite.flaggedAt)}
+      />
     </div>
   );
 }
