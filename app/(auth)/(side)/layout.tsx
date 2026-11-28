@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
+
 import { DecorativeCirclesSVG } from "@/assets/svgs/decorative-circles";
+import { PRIVATE_PAGE_ROBOTS } from "@/core/seo";
+
+export const metadata: Metadata = { robots: PRIVATE_PAGE_ROBOTS };
 
 export default function AuthSideLayout({
   children,

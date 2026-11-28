@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import { CohortGate, normalizeCohortReturnTo } from "@/features/auth";
 import {
   CampusJoinButton,
@@ -9,6 +11,8 @@ import { CampusMapPreparationGate } from "@/features/campus-world";
 import { firstSearchParameter } from "@/shared/lib/search-params";
 
 import { requireCohortId } from "../require-cohort-id";
+
+export const metadata: Metadata = { title: "Join campus" };
 
 interface JoinPageProps {
   params: Promise<{ id: string }>;

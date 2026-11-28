@@ -1,6 +1,10 @@
+import type { Metadata } from "next";
+
 import { CohortGate } from "@/features/auth";
 
 import { requireCohortId } from "../../require-cohort-id";
+
+export const metadata: Metadata = { title: "Meeting" };
 
 export default async function ActiveCampusMeetingPage({
   params,

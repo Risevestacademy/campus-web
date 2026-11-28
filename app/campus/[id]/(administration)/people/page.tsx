@@ -1,8 +1,12 @@
+import type { Metadata } from "next";
+
 import { PeopleAdministration } from "@/features/admin";
 import { requireRouteAccess, SessionUnavailable } from "@/features/auth";
 import { firstSearchParameter } from "@/shared/lib/search-params";
 
 import { requireCohortId } from "../../require-cohort-id";
+
+export const metadata: Metadata = { title: "People" };
 
 interface PeoplePageProps {
   params: Promise<{ id: string }>;

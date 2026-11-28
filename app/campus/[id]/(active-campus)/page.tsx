@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import { CohortGate } from "@/features/auth";
 import {
   CampusWorld,
@@ -7,6 +9,8 @@ import {
 import { firstSearchParameter } from "@/shared/lib/search-params";
 
 import { requireCohortId } from "../require-cohort-id";
+
+export const metadata: Metadata = { title: "Campus" };
 
 export default async function ActiveCampusPage({
   params,

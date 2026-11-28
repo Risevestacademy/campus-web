@@ -14,7 +14,10 @@ import {
 
 // The proxy moves the invite token into a cookie before render; this stops a
 // stray one from ever leaving as a Referer.
-export const metadata: Metadata = { referrer: "no-referrer" };
+export const metadata: Metadata = {
+  title: "Accept your invitation",
+  referrer: "no-referrer",
+};
 
 export default async function InvitationPage() {
   const token = await readInviteToken();

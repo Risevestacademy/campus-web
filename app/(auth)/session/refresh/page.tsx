@@ -1,7 +1,11 @@
+import type { Metadata } from "next";
+
 import { normalizeReturnTo, RefreshSession } from "@/features/auth";
 import { firstSearchParameter } from "@/shared/lib/search-params";
 
 import { Providers } from "../../../providers";
+
+export const metadata: Metadata = { title: "Refreshing your session" };
 
 interface SessionRefreshPageProps {
   searchParams: Promise<{ returnTo?: string | string[] }>;

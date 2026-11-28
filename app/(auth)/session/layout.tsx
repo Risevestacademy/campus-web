@@ -1,3 +1,9 @@
+import type { Metadata } from "next";
+
+import { PRIVATE_PAGE_ROBOTS } from "@/core/seo";
+
+export const metadata: Metadata = { robots: PRIVATE_PAGE_ROBOTS };
+
 export default function AuthLayout({
   children,
 }: {

@@ -1,7 +1,11 @@
+import type { Metadata } from "next";
+
 import { MapsAdministration } from "@/features/admin";
 import { requireRouteAccess, SessionUnavailable } from "@/features/auth";
 
 import { requireCohortId } from "../../require-cohort-id";
+
+export const metadata: Metadata = { title: "Maps" };
 
 interface MapsPageProps {
   params: Promise<{ id: string }>;

@@ -68,6 +68,15 @@ const protectedBuildEnvironmentSchema = z.object({
       error: "NEXT_PUBLIC_MEDIA_URL must be a public WSS origin.",
     })
     .optional(),
+  // Optional: only the production service sets it, so every other build stays
+  // out of search engines.
+  NEXT_PUBLIC_SITE_URL: z
+    .string()
+    .trim()
+    .refine((value) => !value || isPublicOrigin(value, "https:"), {
+      error: "NEXT_PUBLIC_SITE_URL must be a public HTTPS origin.",
+    })
+    .optional(),
 });
 
 function isProtectedBuild(environment: BuildEnvironment): boolean {
