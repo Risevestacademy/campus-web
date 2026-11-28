@@ -37,6 +37,10 @@ export default async function PeoplePage({
         track: firstSearchParameter(query.track),
         page: firstSearchParameter(query.page),
       }}
+      viewer={{
+        id: access.session.user.id,
+        systemRole: access.session.user.systemRole,
+      }}
     />
   );
 }

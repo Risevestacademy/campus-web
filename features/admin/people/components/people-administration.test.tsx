@@ -1,14 +1,38 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  act,
+  fireEvent,
+  render as renderUi,
+  screen,
+  within,
+} from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { presenceFor } from "@/core/presence";
 import type { Avatar } from "@/core/realtime";
 
 import type { PeopleView } from "../services/people-view.service";
-import type { PeopleQuery, Person } from "../types/people.types";
+import type { PeopleQuery, PeopleViewer, Person } from "../types/people.types";
 import { PeopleAdministrationView } from "./people-administration";
 
 vi.mock("server-only", () => ({}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
+// The row menu's mutations need a query client; a wrapper keeps it across
+// `rerender`.
+function render(ui: ReactElement) {
+  const client = new QueryClient();
+  return renderUi(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+}
+
+const VIEWER: PeopleViewer = { id: "viewer", systemRole: "admin" };
 
 const QUERY: PeopleQuery = {
   chip: "all",
@@ -72,6 +96,7 @@ describe("People page", () => {
   it("has no header count and no attendance, check-in or Classroom parts", () => {
     render(
       <PeopleAdministrationView
+        viewer={VIEWER}
         cohortId="people-cohort"
         query={QUERY}
         view={view([person("ada")])}
@@ -87,12 +112,13 @@ describe("People page", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getAllByRole("columnheader").map((header) => header.textContent),
-    ).toEqual(["Name", "Role", "Track", "Status"]);
+    ).toEqual(["Name", "Role", "Track", "Status", "Actions"]);
   });
 
   it("names the role chips with their counts and says professor, not instructor", () => {
     render(
       <PeopleAdministrationView
+        viewer={VIEWER}
         cohortId="people-cohort"
         query={{ ...QUERY, chip: "professor" }}
         view={view([person("grace", { role: "professor" })])}
@@ -122,6 +148,7 @@ describe("People page", () => {
 
     render(
       <PeopleAdministrationView
+        viewer={VIEWER}
         cohortId="people-cohort"
         query={QUERY}
         view={view([
@@ -144,6 +171,7 @@ describe("People page", () => {
   it("links a person's name to their page", () => {
     render(
       <PeopleAdministrationView
+        viewer={VIEWER}
         cohortId="people-cohort"
         query={QUERY}
         view={view([person("ada")])}
@@ -159,6 +187,7 @@ describe("People page", () => {
   it("marks a suspended member and does not link them to a page that cannot open", () => {
     render(
       <PeopleAdministrationView
+        viewer={VIEWER}
         cohortId="people-cohort"
         query={QUERY}
         view={view([person("ada", { status: "suspended" }), person("bola")])}
@@ -174,6 +203,7 @@ describe("People page", () => {
   it("badges a system administrator as Admin whatever their cohort role", () => {
     render(
       <PeopleAdministrationView
+        viewer={VIEWER}
         cohortId="people-cohort"
         query={QUERY}
         view={view([person("ada", { systemRole: "admin", role: "student" })])}
@@ -188,6 +218,7 @@ describe("People page", () => {
   it("does not call anyone offline before the first snapshot", () => {
     render(
       <PeopleAdministrationView
+        viewer={VIEWER}
         cohortId="people-cohort"
         query={QUERY}
         view={view([person("ada")])}
@@ -201,6 +232,7 @@ describe("People page", () => {
     seed("people-cohort", [avatar("ada", "available")]);
     render(
       <PeopleAdministrationView
+        viewer={VIEWER}
         cohortId="people-cohort"
         query={QUERY}
         view={view([person("ada"), person("bola")])}
@@ -224,6 +256,7 @@ describe("People page", () => {
     seed("people-cohort", [avatar("ada", "available")]);
     render(
       <PeopleAdministrationView
+        viewer={VIEWER}
         cohortId="people-cohort"
         query={QUERY}
         view={view([person("ada")])}
@@ -245,6 +278,7 @@ describe("People page", () => {
   it("says when the list cannot load and when nobody matches", () => {
     const { rerender } = render(
       <PeopleAdministrationView
+        viewer={VIEWER}
         cohortId="people-cohort"
         query={QUERY}
         view={{ ...view([]), list: { kind: "unavailable" } }}
@@ -256,11 +290,52 @@ describe("People page", () => {
 
     rerender(
       <PeopleAdministrationView
+        viewer={VIEWER}
         cohortId="people-cohort"
         query={QUERY}
         view={view([])}
       />,
     );
     expect(screen.getByRole("alert")).toHaveTextContent("No one matches.");
+  });
+
+  it("offers the account actions on other rows and none on your own", () => {
+    render(
+      <PeopleAdministrationView
+        viewer={VIEWER}
+        cohortId="people-cohort"
+        query={QUERY}
+        view={view([
+          person("viewer", { systemRole: "admin" }),
+          person("ada"),
+          person("bola", { status: "suspended" }),
+        ])}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Manage VIEWER" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage ADA" }));
+    expect(
+      screen.getAllByRole("menuitem").map((item) => item.textContent),
+    ).toEqual(["Promote to admin", "Suspend"]);
+  });
+
+  it("lets you reinstate a suspended member from the list, since they have no page", () => {
+    render(
+      <PeopleAdministrationView
+        viewer={VIEWER}
+        cohortId="people-cohort"
+        query={QUERY}
+        view={view([person("bola", { status: "suspended" })])}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage BOLA" }));
+    expect(
+      screen.getAllByRole("menuitem").map((item) => item.textContent),
+    ).toEqual(["Promote to admin", "Reinstate"]);
   });
 });
