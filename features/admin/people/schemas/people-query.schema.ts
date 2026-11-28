@@ -13,6 +13,7 @@ export const PEOPLE_CHIPS: readonly PeopleChip[] = [
 const SEARCH_MAX_LENGTH = 128;
 
 const querySchema = z.object({
+  members: z.enum(["current", "former"]).catch("current"),
   role: z.union([z.literal("all"), cohortRoleSchema]).catch("all"),
   q: z.string().trim().max(SEARCH_MAX_LENGTH).optional().catch(undefined),
   track: z.uuid().optional().catch(undefined),
@@ -20,12 +21,20 @@ const querySchema = z.object({
 });
 
 export function parsePeopleQuery(raw: {
+  members?: string;
   role?: string;
   q?: string;
   track?: string;
   page?: string;
 }): PeopleQuery {
-  const { role, q, track, page } = querySchema.parse(raw);
+  const { members, role, q, track, page } = querySchema.parse(raw);
 
-  return { chip: role, search: q || undefined, trackId: track, page };
+  return {
+    scope: members,
+    chip: role,
+    // The roster of former members has no search, so none is kept for it.
+    search: members === "current" ? q || undefined : undefined,
+    trackId: track,
+    page,
+  };
 }

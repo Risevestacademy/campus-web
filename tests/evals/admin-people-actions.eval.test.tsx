@@ -45,7 +45,12 @@ function renderActions(actions: PersonActionsAvailable = ACTIVE_USER) {
   render(
     <>
       {withQueryClient(
-        <PersonActions userId="user-1" name={NAME} actions={actions} />,
+        <PersonActions
+          cohortId="cohort-1"
+          userId="user-1"
+          name={NAME}
+          actions={actions}
+        />,
       )}
       <Toaster />
     </>,

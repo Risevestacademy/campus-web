@@ -13,20 +13,22 @@ import {
   type PeopleView,
 } from "../services/people-view.service";
 import type { PeopleQuery, PeopleViewer } from "../types/people.types";
-import { PeopleChips, PeopleFilters } from "./people-filters";
+import { FormerMembersTable } from "./former-members-table";
+import { PeopleChips, PeopleFilters, PeopleScopeTabs } from "./people-filters";
 import { PeopleTable } from "./people-table";
 
 function PeopleList({
   cohortId,
   query,
-  list,
+  view,
   viewer,
 }: {
   cohortId: string;
   query: PeopleQuery;
-  list: PeopleView["list"];
+  view: PeopleView;
   viewer: PeopleViewer;
 }) {
+  const { list } = view;
   if (list.kind === "unavailable") {
     return (
       <Notice>
@@ -40,13 +42,23 @@ function PeopleList({
       </Notice>
     );
   }
-  if (list.people.length === 0) {
+  const rows = list.scope === "current" ? list.people : list.members;
+  if (rows.length === 0) {
     return <Notice>No one matches.</Notice>;
   }
 
   return (
     <>
-      <PeopleTable cohortId={cohortId} people={list.people} viewer={viewer} />
+      {list.scope === "current" ? (
+        <PeopleTable
+          cohortId={cohortId}
+          people={list.people}
+          viewer={viewer}
+          tracks={view.tracks.kind === "loaded" ? view.tracks.tracks : []}
+        />
+      ) : (
+        <FormerMembersTable members={list.members} />
+      )}
       <CataloguePagination
         ariaLabel="People pages"
         hrefForPage={(page) => peopleHref(cohortId, { ...query, page })}
@@ -79,12 +91,13 @@ export function PeopleAdministrationView({
         </h1>
       </header>
 
+      <PeopleScopeTabs cohortId={cohortId} query={query} />
       <PeopleFilters cohortId={cohortId} query={query} tracks={view.tracks} />
       <PeopleChips cohortId={cohortId} query={query} counts={view.counts} />
       <PeopleList
         cohortId={cohortId}
         query={query}
-        list={view.list}
+        view={view}
         viewer={viewer}
       />
     </section>
@@ -97,7 +110,13 @@ export async function PeopleAdministration({
   viewer,
 }: {
   cohortId: string;
-  rawQuery: { role?: string; q?: string; track?: string; page?: string };
+  rawQuery: {
+    members?: string;
+    role?: string;
+    q?: string;
+    track?: string;
+    page?: string;
+  };
   viewer: PeopleViewer;
 }) {
   const query = parsePeopleQuery(rawQuery);

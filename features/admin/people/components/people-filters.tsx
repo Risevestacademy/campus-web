@@ -28,25 +28,31 @@ export function PeopleFilters({
       role="search"
       className="flex flex-wrap items-center gap-3"
     >
+      {query.scope === "former" ? (
+        <input type="hidden" name="members" value="former" />
+      ) : null}
       {query.chip === "all" ? null : (
         <input type="hidden" name="role" value={query.chip} />
       )}
-      <label className="relative min-w-64 flex-1">
-        <span className="sr-only">Search by name or email</span>
-        <MagnifyingGlassIcon
-          aria-hidden
-          size={18}
-          className="text-icon-muted pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-        />
-        <Input
-          type="search"
-          name="q"
-          defaultValue={query.search}
-          maxLength={128}
-          placeholder="Search by name or email"
-          className="h-11 rounded-xl pl-10"
-        />
-      </label>
+      {/* The roster of former members has no search. */}
+      {query.scope === "current" ? (
+        <label className="relative min-w-64 flex-1">
+          <span className="sr-only">Search by name or email</span>
+          <MagnifyingGlassIcon
+            aria-hidden
+            size={18}
+            className="text-icon-muted pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+          />
+          <Input
+            type="search"
+            name="q"
+            defaultValue={query.search}
+            maxLength={128}
+            placeholder="Search by name or email"
+            className="h-11 rounded-xl pl-10"
+          />
+        </label>
+      ) : null}
       {tracks.kind === "loaded" && tracks.tracks.length > 0 ? (
         <label className="flex items-center gap-2 text-sm">
           <span className="sr-only">Track</span>
@@ -65,7 +71,7 @@ export function PeopleFilters({
         </label>
       ) : null}
       <button type="submit" className={buttonVariants({ variant: "outline" })}>
-        Search
+        {query.scope === "current" ? "Search" : "Filter"}
       </button>
     </Form>
   );
@@ -90,6 +96,7 @@ export function PeopleChips({
             <li key={chip}>
               <Link
                 href={peopleHref(cohortId, {
+                  scope: query.scope,
                   chip,
                   search: query.search,
                   trackId: query.trackId,
@@ -103,6 +110,37 @@ export function PeopleChips({
             </li>
           );
         })}
+      </ul>
+    </nav>
+  );
+}
+
+const SCOPE_LABELS = {
+  current: "Current members",
+  former: "Former members",
+} as const;
+
+export function PeopleScopeTabs({
+  cohortId,
+  query,
+}: {
+  cohortId: string;
+  query: PeopleQuery;
+}) {
+  return (
+    <nav aria-label="Current or former members">
+      <ul className="border-border flex gap-6 border-b dark:border-[#2B3B5F]">
+        {(["current", "former"] as const).map((scope) => (
+          <li key={scope}>
+            <Link
+              href={peopleHref(cohortId, { scope })}
+              aria-current={scope === query.scope ? "page" : undefined}
+              className="text-foreground-secondary aria-[current=page]:border-foreground aria-[current=page]:text-foreground -mb-px inline-flex border-b-2 border-transparent pb-3 text-sm font-medium"
+            >
+              {SCOPE_LABELS[scope]}
+            </Link>
+          </li>
+        ))}
       </ul>
     </nav>
   );

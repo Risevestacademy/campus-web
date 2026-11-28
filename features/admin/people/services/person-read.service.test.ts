@@ -48,8 +48,9 @@ function listItem(id: string, overrides: Record<string, unknown> = {}) {
     memberships: [
       {
         cohort: { id: "c-1" },
-        track: { name: "Backend" },
+        track: { id: "t-1", name: "Backend" },
         role: "student",
+        accessExpiresAt: null,
       },
     ],
     ...overrides,

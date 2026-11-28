@@ -23,6 +23,7 @@ import type {
   SpaceSettings,
 } from "@/features/admin/maps/types/maps.types";
 import { PersonActions } from "@/features/admin/people/components/person-actions";
+import type { MembershipActionsAvailable } from "@/features/admin/people/membership-actions";
 import type { PersonActionsAvailable } from "@/features/admin/people/person-actions";
 import { CreateTrackTile } from "@/features/admin/tracks/components/create-track-tile";
 import { TrackAdministrationCard } from "@/features/admin/tracks/components/track-administration-card";
@@ -123,7 +124,14 @@ const PERSON_NAME = "Ada Lovelace";
 const PERSON_URL = `${API}/users/user-1`;
 
 function personActions(actions: PersonActionsAvailable) {
-  return <PersonActions userId="user-1" name={PERSON_NAME} actions={actions} />;
+  return (
+    <PersonActions
+      cohortId="cohort-1"
+      userId="user-1"
+      name={PERSON_NAME}
+      actions={actions}
+    />
+  );
 }
 
 async function confirmPersonActionTwice(
@@ -138,6 +146,73 @@ async function confirmPersonActionTwice(
   fireEvent.click(within(menu).getByRole("menuitem", { name: item }));
   await clickTwice(dialogName, button);
 }
+
+const MEMBER_URL = `${API}/cohorts/cohort-1/members/user-1`;
+const NO_ACCOUNT_ACTIONS: PersonActionsAvailable = {
+  roleChange: undefined,
+  suspend: false,
+  reinstate: false,
+};
+const STUDENT_MEMBERSHIP: MembershipActionsAvailable = {
+  moveTo: [{ id: "t-2", name: "Design" }],
+  visitEnds: null,
+  ends: ["graduate", "defer", "withdraw", "dismiss", "remove"],
+};
+const GUEST_MEMBERSHIP: MembershipActionsAvailable = {
+  moveTo: [],
+  visitEnds: "2099-01-10T12:00:00.000Z",
+  ends: ["remove"],
+};
+
+function membershipActions(membership: MembershipActionsAvailable) {
+  return (
+    <PersonActions
+      cohortId="cohort-1"
+      userId="user-1"
+      name={PERSON_NAME}
+      actions={NO_ACCOUNT_ACTIONS}
+      membership={membership}
+    />
+  );
+}
+
+async function openMembershipDialog(item: string, dialogName: string) {
+  fireEvent.click(
+    screen.getByRole("button", { name: `Manage ${PERSON_NAME}` }),
+  );
+  const menu = await screen.findByRole("menu");
+  fireEvent.click(within(menu).getByRole("menuitem", { name: item }));
+  return screen.findByRole("dialog", { name: dialogName });
+}
+
+async function fillAndConfirmTwice(
+  item: string,
+  dialogName: string,
+  field: string,
+  value: string,
+  button: RegExp,
+) {
+  const dialog = await openMembershipDialog(item, dialogName);
+  fireEvent.change(within(dialog).getByLabelText(field), {
+    target: { value },
+  });
+  await clickTwice(dialogName, button);
+}
+
+const UNAVAILABLE_MEMBERSHIP =
+  "We couldn't make this change. Nothing was changed. Check your connection and try again.";
+const MEMBERSHIP_FORBIDDEN =
+  "You no longer have permission to change memberships.";
+const MEMBERSHIP_MISSING =
+  "They're no longer in this cohort. Refresh the page.";
+const END_EXPLANATIONS = {
+  400: "campus-api rejected this request. Check the reason and try again.",
+  403: MEMBERSHIP_FORBIDDEN,
+  404: MEMBERSHIP_MISSING,
+  409: "This membership has already ended, or can't end this way. Refresh the page.",
+  500: UNAVAILABLE_MEMBERSHIP,
+  0: UNAVAILABLE_MEMBERSHIP,
+};
 
 const PERSON_INVALID =
   "campus-api rejected this request. Refresh the page and try again.";
@@ -526,6 +601,128 @@ const MUTATIONS: readonly Mutation[] = [
       409: "This account isn't suspended any more. Refresh the page.",
       500: UNAVAILABLE_REINSTATE,
       0: UNAVAILABLE_REINSTATE,
+    },
+  },
+  {
+    name: "Mark as graduated",
+    method: "post",
+    url: `${MEMBER_URL}/graduate`,
+    succeeded: "Marked as graduated",
+    render: () => membershipActions(STUDENT_MEMBERSHIP),
+    doubleSubmit: async () => {
+      await openMembershipDialog(
+        "Mark as graduated",
+        `Mark ${PERSON_NAME} as graduated?`,
+      );
+      await clickTwice(
+        `Mark ${PERSON_NAME} as graduated?`,
+        /^(Mark as graduated|Saving…)$/,
+      );
+    },
+    explanations: END_EXPLANATIONS,
+  },
+  {
+    name: "Defer",
+    method: "post",
+    url: `${MEMBER_URL}/defer`,
+    succeeded: "Marked as deferred",
+    render: () => membershipActions(STUDENT_MEMBERSHIP),
+    doubleSubmit: async () => {
+      await openMembershipDialog("Defer", `Defer ${PERSON_NAME}?`);
+      await clickTwice(`Defer ${PERSON_NAME}?`, /^(Defer|Deferring…)$/);
+    },
+    explanations: END_EXPLANATIONS,
+  },
+  {
+    name: "Withdraw",
+    method: "post",
+    url: `${MEMBER_URL}/withdraw`,
+    succeeded: "Marked as withdrawn",
+    render: () => membershipActions(STUDENT_MEMBERSHIP),
+    doubleSubmit: async () => {
+      await openMembershipDialog("Withdraw", `Withdraw ${PERSON_NAME}?`);
+      await clickTwice(`Withdraw ${PERSON_NAME}?`, /^(Withdraw|Withdrawing…)$/);
+    },
+    explanations: END_EXPLANATIONS,
+  },
+  {
+    name: "Remove from cohort",
+    method: "post",
+    url: `${MEMBER_URL}/remove`,
+    succeeded: "Removed from the cohort",
+    render: () => membershipActions(STUDENT_MEMBERSHIP),
+    doubleSubmit: async () => {
+      await openMembershipDialog(
+        "Remove from cohort",
+        `Remove ${PERSON_NAME} from this cohort?`,
+      );
+      await clickTwice(
+        `Remove ${PERSON_NAME} from this cohort?`,
+        /^(Remove|Removing…)$/,
+      );
+    },
+    explanations: END_EXPLANATIONS,
+  },
+  {
+    name: "Dismiss",
+    method: "post",
+    url: `${MEMBER_URL}/dismiss`,
+    succeeded: "Dismissed from the cohort",
+    render: () => membershipActions(STUDENT_MEMBERSHIP),
+    doubleSubmit: () =>
+      fillAndConfirmTwice(
+        "Dismiss",
+        `Dismiss ${PERSON_NAME}?`,
+        "Reason",
+        "Posted the answer to a live assessment.",
+        /^(Dismiss|Dismissing…)$/,
+      ),
+    explanations: END_EXPLANATIONS,
+  },
+  {
+    name: "Change track",
+    method: "patch",
+    url: `${MEMBER_URL}/track`,
+    succeeded: "Track changed",
+    render: () => membershipActions(STUDENT_MEMBERSHIP),
+    doubleSubmit: () =>
+      fillAndConfirmTwice(
+        "Change track",
+        `Change ${PERSON_NAME}'s track?`,
+        "New track",
+        "t-2",
+        /^(Change track|Saving…)$/,
+      ),
+    explanations: {
+      400: "campus-api rejected this request. Refresh the page and try again.",
+      403: MEMBERSHIP_FORBIDDEN,
+      404: "They're no longer in this cohort, or that track no longer exists. Refresh the page.",
+      409: "They can't move to that track. They may already be on it or have left the cohort, or the cohort may no longer run it. Refresh the page.",
+      500: UNAVAILABLE_MEMBERSHIP,
+      0: UNAVAILABLE_MEMBERSHIP,
+    },
+  },
+  {
+    name: "Extend visit",
+    method: "patch",
+    url: MEMBER_URL,
+    succeeded: "Visit extended",
+    render: () => membershipActions(GUEST_MEMBERSHIP),
+    doubleSubmit: () =>
+      fillAndConfirmTwice(
+        "Extend visit",
+        `Extend ${PERSON_NAME}'s visit?`,
+        "New end",
+        "2099-02-01T09:30",
+        /^(Extend visit|Saving…)$/,
+      ),
+    explanations: {
+      400: "campus-api needs an end later than now and later than the current one.",
+      403: MEMBERSHIP_FORBIDDEN,
+      404: MEMBERSHIP_MISSING,
+      409: "This visit has already ended. Send them a new invite instead.",
+      500: UNAVAILABLE_MEMBERSHIP,
+      0: UNAVAILABLE_MEMBERSHIP,
     },
   },
 ];

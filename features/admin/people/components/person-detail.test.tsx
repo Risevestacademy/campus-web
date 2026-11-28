@@ -19,7 +19,9 @@ function person(overrides: Partial<Person> = {}): Person {
     systemRole: "user",
     status: "active",
     role: "student",
+    trackId: "t-1",
     trackName: "Backend",
+    accessExpiresAt: null,
     ...overrides,
   };
 }
