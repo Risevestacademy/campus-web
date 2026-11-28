@@ -77,11 +77,13 @@ function startMovement(
   movement.apply(snapshot);
   const onMoveCorrected = vi.fn();
   const onEntryRefused = vi.fn();
+  const onSpaceFull = vi.fn();
   const controller = createOwnAvatarMovement({
     layout,
     movement,
     onMoveCorrected,
     onEntryRefused,
+    onSpaceFull,
     prefersReducedMotion: () => reducedMotion,
     readPresence: presence.getState,
   });
@@ -110,6 +112,7 @@ function startMovement(
     movement,
     onMoveCorrected,
     onEntryRefused,
+    onSpaceFull,
     presence,
     receive,
     sent,
@@ -292,6 +295,91 @@ describe("createOwnAvatarMovement", () => {
       mayAsk: null,
       spaceKey: "room",
     });
+  });
+
+  it("names the space a step into a full one faced, turns the avatar and never offers to ask", () => {
+    const {
+      controller,
+      onEntryRefused,
+      onMoveCorrected,
+      onSpaceFull,
+      receive,
+      sent,
+      update,
+    } = startMovement(false, () => true, ROOM_LAYOUT);
+    update(0, "right", ["right"]);
+    const facingFull = {
+      userId: "ada",
+      x: 0,
+      y: 0,
+      facing: "right" as const,
+    };
+
+    receive({
+      type: "moveResult",
+      seq: sent.length,
+      outcome: "full",
+      player: facingFull,
+    });
+
+    expect(onSpaceFull).toHaveBeenCalledExactlyOnceWith("room");
+    expect(onEntryRefused).not.toHaveBeenCalled();
+    expect(onMoveCorrected).toHaveBeenCalledExactlyOnceWith("full");
+    expect(controller.readPlayer()).toEqual(facingFull);
+  });
+
+  it("stops predicting steps into a full space for a few seconds, then tries again", () => {
+    const { controller, onMoveCorrected, receive, sent, update } =
+      startMovement(false, () => true, ROOM_LAYOUT);
+    const facingFull = {
+      userId: "ada",
+      x: 0,
+      y: 0,
+      facing: "right" as const,
+    };
+    update(0, "right", ["right"]);
+    receive({
+      type: "moveResult",
+      seq: sent.length,
+      outcome: "full",
+      player: facingFull,
+    });
+
+    // Held against the door: the avatar stays put, so there is nothing for
+    // world's answers to snap back.
+    update(150, null, ["right"]);
+    expect(controller.readPlayer()).toMatchObject({ x: 0, y: 0 });
+    receive({
+      type: "moveResult",
+      seq: sent.length,
+      outcome: "full",
+      player: facingFull,
+    });
+    expect(controller.readPlayer()).toMatchObject({ x: 0, y: 0 });
+    expect(onMoveCorrected).toHaveBeenCalledTimes(1);
+
+    // Someone may have left by now, so the next press goes through.
+    update(3000, null, ["right"]);
+    update(150, null, ["right"]);
+    expect(controller.readPlayer()?.x).toBeGreaterThan(0);
+  });
+
+  it("does not say a space is full for any other answer", () => {
+    const { onSpaceFull, receive, sent, update } = startMovement(
+      false,
+      () => true,
+      ROOM_LAYOUT,
+    );
+    update(0, "right", ["right"]);
+
+    receive({
+      type: "moveResult",
+      seq: sent.length,
+      outcome: "blocked",
+      player: { userId: "ada", x: 0, y: 0, facing: "right" },
+    });
+
+    expect(onSpaceFull).not.toHaveBeenCalled();
   });
 
   it("passes on a refused walk's space and whether asking would be taken", () => {
