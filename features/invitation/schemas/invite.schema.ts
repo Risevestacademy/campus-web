@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { cohortRoleSchema, systemRoleSchema } from "@/core/api/schemas";
+import type { components } from "@/core/api/client";
+import {
+  cohortRoleSchema,
+  type Simplify,
+  systemRoleSchema,
+} from "@/core/api/schemas";
 
 import type { InvitePreview, PendingInvite } from "../types/invite.types";
 
@@ -27,6 +32,7 @@ const pendingInviteSchema = z.toZod<PendingInvite>()(
     track: namedSchema.nullable(),
     cohortRole: cohortRoleSchema.nullish(),
     systemRole: systemRoleSchema,
+    flaggedAt: z.string().nullish(),
     user: z.object({
       email: z.string().min(1),
       displayName: optionalNameSchema,
@@ -35,6 +41,10 @@ const pendingInviteSchema = z.toZod<PendingInvite>()(
     }),
   }),
 );
+
+const flaggedSchema = z.toZod<
+  Simplify<Pick<components["schemas"]["InviteFlagResponseDto"], "flaggedAt">>
+>()(z.object({ flaggedAt: z.string().min(1) }));
 
 const acceptedSchema = z.object({
   status: z.literal("accepted"),
@@ -54,4 +64,9 @@ export function parseAcceptedCohort(value: unknown): string | null | undefined {
   const parsed = acceptedSchema.safeParse(value);
   if (!parsed.success) return undefined;
   return parsed.data.membership?.cohortId ?? null;
+}
+
+// When the flag was recorded; only its presence is read.
+export function parseFlaggedAt(value: unknown): string | undefined {
+  return flaggedSchema.safeParse(value).data?.flaggedAt;
 }
