@@ -52,7 +52,7 @@ function renderChat() {
   return render(
     <MotionConfig reducedMotion="always">
       <MediaSessionProvider store={mediaStore()}>
-        <ChatToggleButton />
+        <ChatToggleButton cohortId={COHORT_ID} />
         <ChatPanel cohortId={COHORT_ID} />
         <OpenState />
       </MediaSessionProvider>
@@ -152,10 +152,10 @@ describe("ChatPanel", () => {
     expect(screen.getByRole("tab", { name: /People/ })).toHaveTextContent("1");
   });
 
-  it("shows a placeholder on the Chat and Resources tabs for now", () => {
+  it("shows the conversation on the Chat tab and a placeholder on Resources", () => {
     renderChat();
     act(() => openChat());
-    expect(screen.getByText("Chat is coming soon.")).toBeInTheDocument();
+    expect(screen.getByRole("log", { name: "Messages" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Resources" }));
     expect(screen.getByText("Resources is coming soon.")).toBeInTheDocument();

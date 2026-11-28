@@ -10,6 +10,7 @@ import { Tabs, TabsPanel, TabsPillList, TabsPillTab } from "@/shared/ui/tabs";
 
 import { useChatOpen, useChatTab } from "../../hooks/use-chat-panel";
 import { useChatPeople } from "../../hooks/use-chat-people";
+import { useChatUnread } from "../../hooks/use-chat-unread";
 import {
   CHAT_TABS,
   type ChatTab,
@@ -18,6 +19,7 @@ import {
   setChatTab,
 } from "../../store/chat-panel-store";
 import { SIDEBAR_WIDTH } from "../campus-shell/sidebar-width";
+import { ChatConversation } from "./chat-conversation";
 import { CHAT_PANEL_ID, focusChatToggle } from "./chat-ids";
 import { PeopleTab } from "./people-tab";
 
@@ -44,6 +46,7 @@ function ComingSoon({ what }: Readonly<{ what: string }>) {
 function ChatPanelContent({ cohortId }: Readonly<{ cohortId: string }>) {
   const tab = useChatTab();
   const { hearing, localId, people, spaceName } = useChatPeople(cohortId);
+  const unread = useChatUnread(cohortId);
   const panel = useRef<HTMLDivElement>(null);
 
   // Opening the panel moves focus into it, onto the tab that is showing.
@@ -82,7 +85,18 @@ function ChatPanelContent({ cohortId }: Readonly<{ cohortId: string }>) {
       >
         <div className="flex shrink-0 items-center justify-between gap-2 p-3 pb-2">
           <TabsPillList aria-label="Chat sections">
-            <TabsPillTab value="chat">Chat</TabsPillTab>
+            <TabsPillTab value="chat">
+              Chat
+              {tab !== "chat" && unread > 0 ? (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="bg-error absolute top-0.5 right-1 size-1.5 rounded-full"
+                  />
+                  <span className="sr-only">, new messages</span>
+                </>
+              ) : null}
+            </TabsPillTab>
             <TabsPillTab value="people" count={people.length}>
               People
             </TabsPillTab>
@@ -106,7 +120,7 @@ function ChatPanelContent({ cohortId }: Readonly<{ cohortId: string }>) {
         </p>
 
         <TabsPanel value="chat" className="flex min-h-0 flex-col">
-          <ComingSoon what="Chat" />
+          <ChatConversation cohortId={cohortId} spaceName={spaceName} />
         </TabsPanel>
         <TabsPanel value="people" className="flex min-h-0 flex-col">
           <PeopleTab localId={localId} people={people} />

@@ -2,7 +2,9 @@ import { useSyncExternalStore } from "react";
 
 import {
   type ChatTab,
+  getChatDraft,
   getChatOpenSnapshot,
+  getChatReadThrough,
   getChatTabSnapshot,
   getServerChatOpenSnapshot,
   getServerChatTabSnapshot,
@@ -22,5 +24,21 @@ export function useChatTab(): ChatTab {
     subscribeToChatPanel,
     getChatTabSnapshot,
     getServerChatTabSnapshot,
+  );
+}
+
+export function useChatDraft(cohortId: string): string {
+  return useSyncExternalStore(
+    subscribeToChatPanel,
+    () => getChatDraft(cohortId),
+    () => "",
+  );
+}
+
+export function useChatReadThrough(cohortId: string): string | null {
+  return useSyncExternalStore(
+    subscribeToChatPanel,
+    () => getChatReadThrough(cohortId),
+    () => null,
   );
 }

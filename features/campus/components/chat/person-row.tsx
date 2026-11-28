@@ -7,9 +7,8 @@ import { cn } from "cn";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 
 import { useMediaSession } from "../../services/media-session/media-session-provider";
+import { OWN_NAME } from "../../services/own-name";
 import type { MeetingParticipant } from "../../types/active-campus.types";
-
-const OWN_NAME = "You";
 
 // One person in the meeting, with whether their microphone is on: the same
 // read the meeting tiles make.

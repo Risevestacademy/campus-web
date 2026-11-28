@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ServerMessage } from "@/core/realtime";
 import { serverFrames } from "@/tests/fixtures/world-frames";
@@ -109,6 +109,7 @@ describe("chat", () => {
       spaceKey: serverFrames.said.spaceKey,
       text: "First",
       at: serverFrames.said.at,
+      senderName: null,
     });
   });
 
@@ -136,6 +137,154 @@ describe("chat", () => {
     const after = applyServerMessage(before, serverFrames.snapshot);
 
     expect(after.chat).toHaveLength(1);
+  });
+
+  it("ignores a line with no text, which can only carry a file", () => {
+    const presence = applied(said("a", ""), said("b", "   "), said("c"));
+
+    expect(presence.chat.map(({ id }) => id)).toEqual(["c"]);
+  });
+
+  describe("who said it", () => {
+    const grace = serverFrames.joined.player;
+    const sayingIn = (id: string, spaceKey: string): ServerMessage => ({
+      ...serverFrames.said,
+      id,
+      userId: grace.userId,
+      spaceKey,
+    });
+
+    it("keeps the name the speaker had when they spoke, after they leave", () => {
+      const presence = applied(
+        serverFrames.welcome,
+        serverFrames.snapshot,
+        serverFrames.joined,
+        said("a"),
+        { type: "left", userId: grace.userId },
+      );
+
+      expect(presence.participants.has(grace.userId)).toBe(false);
+      expect(presence.chat[0]?.senderName).toBe(grace.displayName);
+    });
+
+    it("has no name for a speaker the member has not met", () => {
+      const presence = applied(
+        serverFrames.welcome,
+        serverFrames.snapshot,
+        said("a"),
+      );
+
+      expect(presence.chat[0]?.senderName).toBeNull();
+    });
+
+    it("keeps the name the speaker had then, not the one they have since", () => {
+      const presence = applied(
+        serverFrames.welcome,
+        serverFrames.snapshot,
+        serverFrames.joined,
+        said("a"),
+        {
+          type: "appearance",
+          userId: grace.userId,
+          displayName: "Renamed",
+          spriteKey: null,
+        },
+      );
+
+      expect(presence.chat[0]?.senderName).toBe(grace.displayName);
+    });
+
+    describe("leaving a space", () => {
+      afterEach(() => vi.useRealTimers());
+
+      const crossing = (spaceKey: string): ServerMessage => ({
+        type: "spaceChanged",
+        userId: serverFrames.welcome.userId,
+        spaceKey,
+      });
+
+      it("clears the lines of the space the member left and keeps the new one's", () => {
+        const before = applied(
+          serverFrames.welcome,
+          serverFrames.snapshot,
+          sayingIn("here", "_default"),
+          sayingIn("there", "library"),
+        );
+
+        const after = applyServerMessage(before, crossing("library"));
+
+        expect(after.chat.map(({ id }) => id)).toEqual(["there"]);
+      });
+
+      it("keeps every line while the member stays in their space", () => {
+        const before = applied(
+          serverFrames.welcome,
+          serverFrames.snapshot,
+          sayingIn("a", "_default"),
+        );
+
+        const after = applyServerMessage(before, {
+          type: "spaceChanged",
+          userId: grace.userId,
+          spaceKey: "library",
+        });
+
+        expect(after.chat).toHaveLength(1);
+      });
+
+      it("notes when the member came into the space they stand in", () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-11-17T15:00:00.000Z"));
+        const first = applied(serverFrames.welcome, serverFrames.snapshot);
+        expect(first.spaceEnteredAt).toBe(
+          Date.parse("2026-11-17T15:00:00.000Z"),
+        );
+
+        vi.setSystemTime(new Date("2026-11-17T15:05:00.000Z"));
+        const crossed = applyServerMessage(first, crossing("library"));
+
+        expect(crossed.spaceEnteredAt).toBe(
+          Date.parse("2026-11-17T15:05:00.000Z"),
+        );
+      });
+
+      it("keeps that moment through a reconnect into the same space", () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-11-17T15:00:00.000Z"));
+        const first = applied(serverFrames.welcome, serverFrames.snapshot);
+
+        vi.setSystemTime(new Date("2026-11-17T15:30:00.000Z"));
+        const again = applyServerMessage(first, serverFrames.snapshot);
+
+        expect(again.spaceEnteredAt).toBe(first.spaceEnteredAt);
+      });
+
+      it("starts over when a reconnect places the member in another space", () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-11-17T15:00:00.000Z"));
+        const first = applied(
+          serverFrames.welcome,
+          serverFrames.snapshot,
+          sayingIn("old", "_default"),
+        );
+
+        vi.setSystemTime(new Date("2026-11-17T15:30:00.000Z"));
+        const [self] = serverFrames.snapshot.players;
+        const again = applyServerMessage(first, {
+          ...serverFrames.snapshot,
+          players: self ? [{ ...self, spaceKey: "library" }] : [],
+        });
+
+        expect(again.chat).toEqual([]);
+        expect(again.spaceEnteredAt).toBe(
+          Date.parse("2026-11-17T15:30:00.000Z"),
+        );
+      });
+
+      it("has no moment before the member is placed", () => {
+        expect(applied(serverFrames.welcome).spaceEnteredAt).toBeNull();
+      });
+    });
   });
 });
 

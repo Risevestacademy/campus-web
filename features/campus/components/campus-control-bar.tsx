@@ -32,7 +32,10 @@ function CampusActionControls({ cohortId }: Readonly<{ cohortId: string }>) {
         className={CAMPUS_ACTION_CLASS_NAME}
         cohortId={cohortId}
       />
-      <ChatToggleButton className={CAMPUS_ACTION_CLASS_NAME} />
+      <ChatToggleButton
+        className={CAMPUS_ACTION_CLASS_NAME}
+        cohortId={cohortId}
+      />
       <Button
         type="button"
         size="icon"

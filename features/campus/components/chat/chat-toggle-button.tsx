@@ -6,6 +6,7 @@ import { cn } from "cn";
 import { Button } from "@/shared/ui/button";
 
 import { useChatOpen } from "../../hooks/use-chat-panel";
+import { useChatUnread } from "../../hooks/use-chat-unread";
 import { toggleChat } from "../../store/chat-panel-store";
 import { CHAT_PANEL_ID, CHAT_TOGGLE_ID } from "./chat-ids";
 
@@ -13,9 +14,15 @@ import { CHAT_PANEL_ID, CHAT_TOGGLE_ID } from "./chat-ids";
 // gives way, so the meeting keeps its room.
 export function ChatToggleButton({
   className,
-}: Readonly<{ className?: string }>) {
+  cohortId,
+}: Readonly<{ className?: string; cohortId: string }>) {
   const open = useChatOpen();
-  const label = open ? "Close chat" : "Open chat";
+  const unread = useChatUnread(cohortId);
+  const label = open
+    ? "Close chat"
+    : unread > 0
+      ? `Open chat, ${unread} unread`
+      : "Open chat";
 
   return (
     <Button
@@ -29,11 +36,20 @@ export function ChatToggleButton({
       title={label}
       onClick={toggleChat}
       className={cn(
+        "relative",
         className,
         open && "bg-primary text-primary-foreground hover:bg-primary",
       )}
     >
       <ChatIcon aria-hidden weight={open ? "fill" : "regular"} />
+      {open || unread === 0 ? null : (
+        <span
+          aria-hidden="true"
+          className="bg-error text-primary-foreground absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[0.625rem] leading-none font-bold"
+        >
+          {unread > 99 ? "99+" : unread}
+        </span>
+      )}
     </Button>
   );
 }

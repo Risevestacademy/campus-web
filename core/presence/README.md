@@ -61,6 +61,7 @@ status, statusUntil, spaceKey }>`. `status` is `available`, `busy`, `away` (or `
   frame, and the old call says nothing about the new space. Only the hearing
   is kept, never the call's token. `hearingOf(call)` is the one rule for
   which calls are heard; the audio session uses it too.
+- `chatInOwnSpace(presence)`: the chat lines said in the member's own space.
 - `meetingRoster`: who you meet, in the order they arrived, without you.
   Under `room` hearing it is everyone presence knows in your space; while
   `awaiting` it is nobody; otherwise it is whoever `nearby` names that
@@ -72,6 +73,11 @@ status, statusUntil, spaceKey }>`. `status` is `available`, `busy`, `away` (or `
 - `encounter`: how many times somebody joined `meetingRoster` after nobody
   was. A view opened during one encounter (the meeting grid) checks it, so it
   does not reopen by itself when the next one starts.
+- `spaceEnteredAt`: when, by this device's clock, you came into the space you
+  stand in (`Date.now()`), set by your first `snapshot` and by your own
+  `spaceChanged` into another space, and kept through a reconnect that puts
+  you back in the same one. Chat reads it as when "You joined". It is null
+  until you are placed.
 
 They are separate maps so React can subscribe to who is here without
 rendering on every `moved` tick. A `spaceChanged` does replace the person's
@@ -114,7 +120,7 @@ the map state above. `Presence` extends its `Social` fields:
 | `snapshot`          | `lockableSpaces` and `lockedSpaces` replaced, `entryRequests` emptied |
 | `lockableSpaces`    | `lockableSpaces` replaced                                             |
 | `lockChanged`       | `lockedSpaces`: the space added or removed                            |
-| `said`              | `chat`: the newest 200 lines, a repeated `id` ignored                 |
+| `said`              | `chat`: the newest 200 lines, a repeated `id` or empty text ignored   |
 | `entryRequested`    | `entryRequests`: open, keyed by `requestId`                           |
 | `entryRequestEnded` | out of `entryRequests`, into `entryOutcomes` (newest 20)              |
 | `staffAction`       | `staffActions`: the newest 10, each with a running `seq`              |
@@ -125,6 +131,15 @@ the map state above. `Presence` extends its `Social` fields:
 - World keeps no history, so a reconnect's `snapshot` keeps `chat`,
   `entryOutcomes` and `staffActions` (what the member has already seen) and
   replaces the locks.
+- A chat line is `{ id, userId, spaceKey, text, at, senderName }`.
+  `senderName` is the speaker's `displayName` when the line arrived, or null
+  for someone presence does not know: people who leave drop out of
+  `participants`, and their lines keep their name. A line with no text can
+  only carry a file, which is not read yet, and is ignored.
+- Leaving a space leaves its chat behind: when you cross into another space
+  (your own `spaceChanged`), or a `snapshot` places you in one other than
+  before, `chat` keeps only the lines said in the space you are in now and
+  `spaceEnteredAt` is set again. World never resends a line.
 - Open requests were sent to a socket, so they end with it: a `snapshot` and
   `clearRemoteParticipants()` both empty `entryRequests`, since no frame says
   so when a socket closes.
