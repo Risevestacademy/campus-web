@@ -103,16 +103,21 @@ export type PeopleViewer = Pick<Schemas["SessionUserDto"], "id" | "systemRole">;
 // `super_admin` is granted only by the seed, never through the API.
 export type AssignableSystemRole = Schemas["SetSystemRoleDto"]["systemRole"];
 
-export type PersonActionProblem =
-  | "invalid"
-  | "signed-out"
-  | "forbidden"
-  | "missing"
-  | "conflict"
-  | "unavailable";
+export type PersonRecordProblem =
+  "invalid" | "signed-out" | "forbidden" | "missing" | "unavailable";
+// A 409: the account is a super admin's, or your own.
+export type PersonRoleProblem = PersonRecordProblem | "protected";
+// A 409: the account is already suspended, or is your own.
+export type PersonSuspendProblem = PersonRecordProblem | "already-suspended";
+// A 409: the account is not suspended.
+export type PersonReinstateProblem = PersonRecordProblem | "not-suspended";
 
-export type PersonAction =
-  { kind: "done" } | { kind: "problem"; problem: PersonActionProblem };
+export type PersonRoleChange =
+  { kind: "changed" } | { kind: "problem"; problem: PersonRoleProblem };
+export type PersonSuspension =
+  { kind: "suspended" } | { kind: "problem"; problem: PersonSuspendProblem };
+export type PersonReinstatement =
+  { kind: "reinstated" } | { kind: "problem"; problem: PersonReinstateProblem };
 
 // What `POST /v1/users/{id}/suspend` takes from the form.
 export type SuspendRequest = Simplify<

@@ -31,43 +31,47 @@ import {
 } from "../schemas/suspend.schema";
 import type {
   AssignableSystemRole,
-  PersonActionProblem,
+  PersonReinstateProblem,
+  PersonRoleProblem,
+  PersonSuspendProblem,
 } from "../types/people.types";
 
-type Messages = Record<PersonActionProblem, string | undefined>;
+type Messages<TProblem extends string> = Readonly<
+  Record<TProblem, string | undefined>
+>;
 
 const INVALID =
   "campus-api rejected this request. Refresh the page and try again.";
 const MISSING = "This account no longer exists. Refresh the page.";
 
-const ROLE_PROBLEMS: Messages = {
+const ROLE_PROBLEMS: Messages<PersonRoleProblem> = {
   invalid: INVALID,
   "signed-out": undefined,
   forbidden: "You no longer have permission to change roles.",
   missing: MISSING,
-  conflict: "A super admin's role, and your own, can't be changed here.",
+  protected: "A super admin's role, and your own, can't be changed here.",
   unavailable:
     "We couldn't change this role. Nothing was changed. Check your connection and try again.",
 };
 
-const SUSPEND_PROBLEMS: Messages = {
+const SUSPEND_PROBLEMS: Messages<PersonSuspendProblem> = {
   invalid: "campus-api rejected this request. Check the reason and try again.",
   "signed-out": undefined,
   forbidden:
     "You don't have permission to suspend this account. Only a super admin can suspend another super admin.",
   missing: MISSING,
-  conflict: "This account is already suspended. Refresh the page.",
+  "already-suspended": "This account is already suspended. Refresh the page.",
   unavailable:
     "We couldn't suspend this account. Nothing was changed. Check your connection and try again.",
 };
 
-const REINSTATE_PROBLEMS: Messages = {
+const REINSTATE_PROBLEMS: Messages<PersonReinstateProblem> = {
   invalid: INVALID,
   "signed-out": undefined,
   forbidden:
     "You don't have permission to reinstate this account. Only a super admin can lift a suspension a super admin made.",
   missing: MISSING,
-  conflict: "This account isn't suspended any more. Refresh the page.",
+  "not-suspended": "This account isn't suspended any more. Refresh the page.",
   unavailable:
     "We couldn't reinstate this account. Nothing was changed. Check your connection and try again.",
 };

@@ -9,7 +9,9 @@ import {
 } from "../services/person-actions.adapter";
 import type {
   AssignableSystemRole,
-  PersonActionProblem,
+  PersonReinstateProblem,
+  PersonRoleProblem,
+  PersonSuspendProblem,
   SuspendRequest,
 } from "../types/people.types";
 
@@ -25,7 +27,7 @@ export function useSetSystemRole({
   systemRole,
   onDone,
 }: PersonTarget & { systemRole: AssignableSystemRole }) {
-  const { mutate, ...controls } = useAdminMutation<void, PersonActionProblem>({
+  const { mutate, ...controls } = useAdminMutation<void, PersonRoleProblem>({
     mutationFn: () => setSystemRole(browserApi, userId, systemRole),
     onSucceeded: () => {
       onDone();
@@ -44,7 +46,7 @@ export function useSetSystemRole({
 export function useSuspendPerson({ userId, name, onDone }: PersonTarget) {
   const { mutate, ...controls } = useAdminMutation<
     SuspendRequest,
-    PersonActionProblem
+    PersonSuspendProblem
   >({
     mutationFn: (request) => suspendPerson(browserApi, userId, request),
     onSucceeded: () => {
@@ -61,7 +63,10 @@ export function useSuspendPerson({ userId, name, onDone }: PersonTarget) {
 }
 
 export function useReinstatePerson({ userId, name, onDone }: PersonTarget) {
-  const { mutate, ...controls } = useAdminMutation<void, PersonActionProblem>({
+  const { mutate, ...controls } = useAdminMutation<
+    void,
+    PersonReinstateProblem
+  >({
     mutationFn: () => reinstatePerson(browserApi, userId),
     onSucceeded: () => {
       onDone();

@@ -22,6 +22,8 @@ import type {
   PublishedEntryMap,
   SpaceSettings,
 } from "@/features/admin/maps/types/maps.types";
+import { PersonActions } from "@/features/admin/people/components/person-actions";
+import type { PersonActionsAvailable } from "@/features/admin/people/person-actions";
 import { CreateTrackTile } from "@/features/admin/tracks/components/create-track-tile";
 import { TrackAdministrationCard } from "@/features/admin/tracks/components/track-administration-card";
 import { toast, Toaster } from "@/shared/ui/toast";
@@ -116,6 +118,44 @@ const UNAVAILABLE_ATTACH =
   "We couldn't attach this Programme Track. Try again.";
 const UNAVAILABLE_DETACH =
   "We couldn't detach this Programme Track. Try again.";
+
+const PERSON_NAME = "Ada Lovelace";
+const PERSON_URL = `${API}/users/user-1`;
+
+function personActions(actions: PersonActionsAvailable) {
+  return <PersonActions userId="user-1" name={PERSON_NAME} actions={actions} />;
+}
+
+async function confirmPersonActionTwice(
+  item: string,
+  dialogName: string,
+  button: RegExp,
+) {
+  fireEvent.click(
+    screen.getByRole("button", { name: `Manage ${PERSON_NAME}` }),
+  );
+  const menu = await screen.findByRole("menu");
+  fireEvent.click(within(menu).getByRole("menuitem", { name: item }));
+  await clickTwice(dialogName, button);
+}
+
+const PERSON_INVALID =
+  "campus-api rejected this request. Refresh the page and try again.";
+const PERSON_MISSING = "This account no longer exists. Refresh the page.";
+const UNAVAILABLE_ROLE_CHANGE =
+  "We couldn't change this role. Nothing was changed. Check your connection and try again.";
+const UNAVAILABLE_SUSPEND =
+  "We couldn't suspend this account. Nothing was changed. Check your connection and try again.";
+const UNAVAILABLE_REINSTATE =
+  "We couldn't reinstate this account. Nothing was changed. Check your connection and try again.";
+const ROLE_EXPLANATIONS = {
+  400: PERSON_INVALID,
+  403: "You no longer have permission to change roles.",
+  404: PERSON_MISSING,
+  409: "A super admin's role, and your own, can't be changed here.",
+  500: UNAVAILABLE_ROLE_CHANGE,
+  0: UNAVAILABLE_ROLE_CHANGE,
+};
 
 const MAP_ID = "22222222-2222-4222-8222-222222222222";
 const entryMap: PublishedEntryMap = {
@@ -396,6 +436,96 @@ const MUTATIONS: readonly Mutation[] = [
       409: "This map can't be published: only the map people enter on can be served, and it can't be retired. Sync, then try again.",
       500: UNAVAILABLE_MAP_PUBLISH,
       0: UNAVAILABLE_MAP_PUBLISH,
+    },
+  },
+  {
+    name: "Promote to admin",
+    method: "patch",
+    url: `${PERSON_URL}/system-role`,
+    succeeded: "Promoted to admin",
+    render: () =>
+      personActions({
+        roleChange: "admin",
+        suspend: true,
+        reinstate: false,
+      }),
+    doubleSubmit: () =>
+      confirmPersonActionTwice(
+        "Promote to admin",
+        `Promote ${PERSON_NAME} to admin?`,
+        /^(Promote to admin|Saving…)$/,
+      ),
+    explanations: ROLE_EXPLANATIONS,
+  },
+  {
+    name: "Demote from admin",
+    method: "patch",
+    url: `${PERSON_URL}/system-role`,
+    succeeded: "Demoted from admin",
+    render: () =>
+      personActions({
+        roleChange: "user",
+        suspend: true,
+        reinstate: false,
+      }),
+    doubleSubmit: () =>
+      confirmPersonActionTwice(
+        "Demote from admin",
+        `Demote ${PERSON_NAME} from admin?`,
+        /^(Demote from admin|Saving…)$/,
+      ),
+    explanations: ROLE_EXPLANATIONS,
+  },
+  {
+    name: "Suspend",
+    method: "post",
+    url: `${PERSON_URL}/suspend`,
+    succeeded: "Account suspended",
+    render: () =>
+      personActions({
+        roleChange: "admin",
+        suspend: true,
+        reinstate: false,
+      }),
+    doubleSubmit: () =>
+      confirmPersonActionTwice(
+        "Suspend",
+        `Suspend ${PERSON_NAME}?`,
+        /^(Suspend|Suspending…)$/,
+      ),
+    explanations: {
+      400: "campus-api rejected this request. Check the reason and try again.",
+      403: "You don't have permission to suspend this account. Only a super admin can suspend another super admin.",
+      404: PERSON_MISSING,
+      409: "This account is already suspended. Refresh the page.",
+      500: UNAVAILABLE_SUSPEND,
+      0: UNAVAILABLE_SUSPEND,
+    },
+  },
+  {
+    name: "Reinstate",
+    method: "post",
+    url: `${PERSON_URL}/reinstate`,
+    succeeded: "Account reinstated",
+    render: () =>
+      personActions({
+        roleChange: "admin",
+        suspend: false,
+        reinstate: true,
+      }),
+    doubleSubmit: () =>
+      confirmPersonActionTwice(
+        "Reinstate",
+        `Reinstate ${PERSON_NAME}?`,
+        /^(Reinstate|Reinstating…)$/,
+      ),
+    explanations: {
+      400: PERSON_INVALID,
+      403: "You don't have permission to reinstate this account. Only a super admin can lift a suspension a super admin made.",
+      404: PERSON_MISSING,
+      409: "This account isn't suspended any more. Refresh the page.",
+      500: UNAVAILABLE_REINSTATE,
+      0: UNAVAILABLE_REINSTATE,
     },
   },
 ];
