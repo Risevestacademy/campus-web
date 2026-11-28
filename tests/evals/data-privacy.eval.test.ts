@@ -42,6 +42,7 @@ import {
   parsePeopleList,
   parsePersonCard,
 } from "@/features/admin/people/schemas/people.schema";
+import { parseRoster } from "@/features/admin/people/schemas/roster.schema";
 import { parseReturnTo } from "@/features/auth/schemas/return-to";
 import { parseSessionBody } from "@/features/auth/schemas/session.schema";
 import { checkConnection } from "@/features/campus/services/connection-check/check-connection";
@@ -116,6 +117,7 @@ const FEEDBACK_RECORD_ALLOW_LIST = [
 ].sort();
 
 const PERSON_ALLOW_LIST = [
+  "accessExpiresAt",
   "avatarUrl",
   "displayName",
   "email",
@@ -125,7 +127,22 @@ const PERSON_ALLOW_LIST = [
   "role",
   "status",
   "systemRole",
+  "trackId",
   "trackName",
+];
+const FORMER_MEMBER_ALLOW_LIST = [
+  "accessExpiresAt",
+  "dismissalReason",
+  "leftAt",
+  "role",
+  "status",
+  "track.name",
+  "user.avatarUrl",
+  "user.displayName",
+  "user.email",
+  "user.firstName",
+  "user.id",
+  "user.lastName",
 ];
 const IMPORT_ALLOW_LIST = [
   "failed[].email",
@@ -524,6 +541,7 @@ describe("Data privacy eval (threshold: every case holds)", () => {
                   track: { id: "t-1", name: "Backend", code: "BE" },
                   role: "student",
                   status: "active",
+                  accessExpiresAt: null,
                   joinedAt: "2026-09-22T12:00:00.000Z",
                 },
               ],
@@ -541,6 +559,38 @@ describe("Data privacy eval (threshold: every case holds)", () => {
       );
 
       expect(keyPaths(page?.people[0])).toEqual(PERSON_ALLOW_LIST);
+    });
+
+    it("keeps only the former member fields the Former members list reads, never the membership id or the account's status", () => {
+      const page = parseRoster({
+        items: [
+          {
+            id: "m-1",
+            role: "student",
+            status: "dismissed",
+            state: "ended",
+            dismissalReason: "Posted the answer to a live assessment.",
+            user: {
+              id: "u-1",
+              email: "ada@campus.local",
+              firstName: "Ada",
+              lastName: "Lovelace",
+              displayName: null,
+              avatarUrl: null,
+              status: "suspended",
+              ...UNEXPECTED,
+            },
+            track: { id: "t-1", name: "Backend", code: "BE", ...UNEXPECTED },
+            joinedAt: "2026-09-22T12:00:00.000Z",
+            leftAt: "2026-10-13T12:00:00.000Z",
+            accessExpiresAt: null,
+            ...UNEXPECTED,
+          },
+        ],
+        meta: { page: 1, totalPages: 1, total: 1, perPage: 20, ...UNEXPECTED },
+      });
+
+      expect(keyPaths(page?.members[0])).toEqual(FORMER_MEMBER_ALLOW_LIST);
     });
 
     it("keeps only the invite fields the Invites page reads, never who sent it or any link", () => {

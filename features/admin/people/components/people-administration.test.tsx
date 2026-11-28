@@ -13,7 +13,12 @@ import { presenceFor } from "@/core/presence";
 import type { Avatar } from "@/core/realtime";
 
 import type { PeopleView } from "../services/people-view.service";
-import type { PeopleQuery, PeopleViewer, Person } from "../types/people.types";
+import type {
+  PeopleQuery,
+  PeopleViewer,
+  Person,
+  RosterMember,
+} from "../types/people.types";
 import { PeopleAdministrationView } from "./people-administration";
 
 vi.mock("server-only", () => ({}));
@@ -35,6 +40,7 @@ function render(ui: ReactElement) {
 const VIEWER: PeopleViewer = { id: "viewer", systemRole: "admin" };
 
 const QUERY: PeopleQuery = {
+  scope: "current",
   chip: "all",
   search: undefined,
   trackId: undefined,
@@ -52,14 +58,23 @@ function person(id: string, overrides: Partial<Person> = {}): Person {
     systemRole: "user",
     status: "active",
     role: "student",
+    trackId: "t-1",
     trackName: "Backend",
+    accessExpiresAt: null,
     ...overrides,
   };
 }
 
 function view(people: Person[]): PeopleView {
   return {
-    list: { kind: "loaded", people, page: 1, totalPages: 1, total: 6 },
+    list: {
+      scope: "current",
+      kind: "loaded",
+      people,
+      page: 1,
+      totalPages: 1,
+      total: 6,
+    },
     counts: { all: 6, student: 4, professor: 1, mentor: 1 },
     tracks: { kind: "loaded", tracks: [{ id: "t-1", name: "Backend" }] },
   };
@@ -281,7 +296,7 @@ describe("People page", () => {
         viewer={VIEWER}
         cohortId="people-cohort"
         query={QUERY}
-        view={{ ...view([]), list: { kind: "unavailable" } }}
+        view={{ ...view([]), list: { scope: "current", kind: "unavailable" } }}
       />,
     );
     expect(screen.getByRole("alert")).toHaveTextContent(
@@ -320,7 +335,15 @@ describe("People page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Manage ADA" }));
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
-    ).toEqual(["Promote to admin", "Suspend"]);
+    ).toEqual([
+      "Mark as graduated",
+      "Defer",
+      "Withdraw",
+      "Dismiss",
+      "Remove from cohort",
+      "Promote to admin",
+      "Suspend",
+    ]);
   });
 
   it("lets you reinstate a suspended member from the list, since they have no page", () => {
@@ -336,6 +359,177 @@ describe("People page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Manage BOLA" }));
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
-    ).toEqual(["Promote to admin", "Reinstate"]);
+    ).toEqual([
+      "Mark as graduated",
+      "Defer",
+      "Withdraw",
+      "Dismiss",
+      "Remove from cohort",
+      "Promote to admin",
+      "Reinstate",
+    ]);
+  });
+
+  it("offers a student the cohort's other tracks and a guest an extension", () => {
+    render(
+      <PeopleAdministrationView
+        viewer={VIEWER}
+        cohortId="people-cohort"
+        query={QUERY}
+        view={{
+          ...view([
+            person("ada"),
+            person("gus", {
+              role: "guest",
+              trackId: null,
+              trackName: null,
+              accessExpiresAt: "2026-12-05T12:00:00.000Z",
+            }),
+            person("pat", { role: "professor", trackId: null }),
+          ]),
+          tracks: {
+            kind: "loaded",
+            tracks: [
+              { id: "t-1", name: "Backend" },
+              { id: "t-2", name: "Design" },
+            ],
+          },
+        }}
+      />,
+    );
+
+    const itemsOf = (name: string) => {
+      fireEvent.click(screen.getByRole("button", { name: `Manage ${name}` }));
+      const items = screen
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent);
+      fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+      return items;
+    };
+
+    expect(itemsOf("ADA")).toContain("Change track");
+    expect(itemsOf("GUS")).toEqual([
+      "Extend visit",
+      "Remove from cohort",
+      "Promote to admin",
+      "Suspend",
+    ]);
+    expect(itemsOf("PAT")).toEqual([
+      "Remove from cohort",
+      "Promote to admin",
+      "Suspend",
+    ]);
+  });
+
+  it("lists former members with how their place ended, unlinked and without a menu", () => {
+    const former: RosterMember[] = [
+      {
+        role: "student",
+        status: "dismissed",
+        dismissalReason: "Posted the answer to a live assessment.",
+        leftAt: "2026-10-13T12:00:00.000Z",
+        accessExpiresAt: null,
+        user: {
+          id: "dee",
+          email: "dee@campus.local",
+          firstName: "Dee",
+          lastName: null,
+          displayName: null,
+          avatarUrl: null,
+        },
+        track: { name: "Backend" },
+      },
+      {
+        role: "guest",
+        status: null,
+        dismissalReason: null,
+        leftAt: null,
+        accessExpiresAt: "2026-10-20T12:00:00.000Z",
+        user: {
+          id: "gwen",
+          email: "gwen@campus.local",
+          firstName: "Gwen",
+          lastName: null,
+          displayName: null,
+          avatarUrl: null,
+        },
+        track: null,
+      },
+      {
+        role: "mentor",
+        status: null,
+        dismissalReason: null,
+        leftAt: "2026-11-02T09:00:00.000Z",
+        accessExpiresAt: null,
+        user: {
+          id: "mo",
+          email: "mo@campus.local",
+          firstName: "Mo",
+          lastName: null,
+          displayName: null,
+          avatarUrl: null,
+        },
+        track: null,
+      },
+    ];
+
+    render(
+      <PeopleAdministrationView
+        viewer={VIEWER}
+        cohortId="people-cohort"
+        query={{ ...QUERY, scope: "former" }}
+        view={{
+          ...view([]),
+          list: {
+            scope: "former",
+            kind: "loaded",
+            members: former,
+            page: 1,
+            totalPages: 1,
+            total: 3,
+          },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: "Former members" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.queryByRole("searchbox", { name: "Search by name or email" }),
+    ).not.toBeInTheDocument();
+
+    const rows = within(
+      screen.getByRole("table", { name: "Former members" }),
+    ).getAllByRole("row");
+    expect(rows[1]).toHaveTextContent("Dismissed");
+    expect(rows[1]).toHaveTextContent(
+      "Posted the answer to a live assessment.",
+    );
+    expect(rows[1]).toHaveTextContent("13 Oct 2026");
+    expect(rows[2]).toHaveTextContent("Visit ended");
+    expect(rows[2]).toHaveTextContent("20 Oct 2026");
+    expect(rows[3]).toHaveTextContent("Removed");
+
+    expect(screen.queryByRole("link", { name: "Dee" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^Manage / }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the role chips on the Former members list", () => {
+    render(
+      <PeopleAdministrationView
+        viewer={VIEWER}
+        cohortId="people-cohort"
+        query={{ ...QUERY, scope: "former" }}
+        view={view([])}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Students 4" })).toHaveAttribute(
+      "href",
+      "/campus/people-cohort/people?members=former&role=student",
+    );
   });
 });

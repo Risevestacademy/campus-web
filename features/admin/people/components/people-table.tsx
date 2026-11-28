@@ -5,25 +5,33 @@ import { avatarToneOf, initialOf } from "@/shared/lib/avatar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
 
 import { RoleBadge } from "../../role-badge";
+import {
+  hasMembershipActions,
+  membershipActionsFor,
+} from "../membership-actions";
 import { personName } from "../people-format";
 import { personHref } from "../people-href";
 import { hasPersonActions, personActionsFor } from "../person-actions";
-import type { PeopleViewer, Person } from "../types/people.types";
+import type { PeopleViewer, Person, TrackOption } from "../types/people.types";
 import { PersonActions } from "./person-actions";
 import { PersonStatus } from "./person-status";
 
-const HEADER_CELL = "bg-[#EFFAFF] px-4 py-3 font-medium dark:bg-[#2B3B5F]";
-const BODY_CELL =
+export const HEADER_CELL =
+  "bg-[#EFFAFF] px-4 py-3 font-medium dark:bg-[#2B3B5F]";
+export const BODY_CELL =
   "border-border border-b px-4 py-4 group-last/row:border-b-0 dark:border-[#2B3B5F]";
 
 export function PeopleTable({
   cohortId,
   people,
   viewer,
+  tracks,
 }: {
   cohortId: string;
   people: readonly Person[];
   viewer: PeopleViewer;
+  // The cohort's tracks, which a student can be moved between.
+  tracks: readonly TrackOption[];
 }) {
   return (
     <div className="border-border overflow-x-auto rounded-3xl border p-3 dark:border-[#2B3B5F]">
@@ -53,6 +61,7 @@ export function PeopleTable({
             const name = personName(person);
             const suspended = person.status === "suspended";
             const actions = personActionsFor(viewer, person);
+            const membership = membershipActionsFor(viewer, person, tracks);
 
             return (
               <tr
@@ -110,11 +119,14 @@ export function PeopleTable({
                 </td>
                 {/* Above the row's link, so the menu opens instead of the person. */}
                 <td className={`${BODY_CELL} relative z-10 w-px text-right`}>
-                  {hasPersonActions(actions) ? (
+                  {hasPersonActions(actions) ||
+                  hasMembershipActions(membership) ? (
                     <PersonActions
+                      cohortId={cohortId}
                       userId={person.id}
                       name={name}
                       actions={actions}
+                      membership={membership}
                     />
                   ) : null}
                 </td>

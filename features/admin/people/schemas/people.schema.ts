@@ -33,8 +33,9 @@ const listItemSchema = z.toZod<PersonListItem>()(
     memberships: z.array(
       z.object({
         cohort: z.object({ id: z.string() }),
-        track: z.object({ name: z.string() }).nullable(),
+        track: z.object({ id: z.string(), name: z.string() }).nullable(),
         role: cohortRoleSchema,
+        accessExpiresAt: z.iso.datetime({ offset: true }).nullable(),
       }),
     ),
   }),
@@ -60,7 +61,9 @@ export function parsePeopleList(
     return {
       ...user,
       role: place?.role,
+      trackId: place?.track?.id ?? null,
       trackName: place?.track?.name ?? null,
+      accessExpiresAt: place?.accessExpiresAt ?? null,
     };
   });
 

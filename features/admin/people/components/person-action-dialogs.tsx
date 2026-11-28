@@ -83,7 +83,7 @@ interface ActionDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-function ConfirmDialog({
+export function ConfirmDialog({
   open,
   onOpenChange,
   isPending,
