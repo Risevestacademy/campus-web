@@ -12,7 +12,7 @@ import {
   loadPeopleView,
   type PeopleView,
 } from "../services/people-view.service";
-import type { PeopleQuery } from "../types/people.types";
+import type { PeopleQuery, PeopleViewer } from "../types/people.types";
 import { PeopleChips, PeopleFilters } from "./people-filters";
 import { PeopleTable } from "./people-table";
 
@@ -20,10 +20,12 @@ function PeopleList({
   cohortId,
   query,
   list,
+  viewer,
 }: {
   cohortId: string;
   query: PeopleQuery;
   list: PeopleView["list"];
+  viewer: PeopleViewer;
 }) {
   if (list.kind === "unavailable") {
     return (
@@ -44,7 +46,7 @@ function PeopleList({
 
   return (
     <>
-      <PeopleTable cohortId={cohortId} people={list.people} />
+      <PeopleTable cohortId={cohortId} people={list.people} viewer={viewer} />
       <CataloguePagination
         ariaLabel="People pages"
         hrefForPage={(page) => peopleHref(cohortId, { ...query, page })}
@@ -59,10 +61,12 @@ export function PeopleAdministrationView({
   cohortId,
   query,
   view,
+  viewer,
 }: {
   cohortId: string;
   query: PeopleQuery;
   view: PeopleView;
+  viewer: PeopleViewer;
 }) {
   return (
     <section
@@ -77,7 +81,12 @@ export function PeopleAdministrationView({
 
       <PeopleFilters cohortId={cohortId} query={query} tracks={view.tracks} />
       <PeopleChips cohortId={cohortId} query={query} counts={view.counts} />
-      <PeopleList cohortId={cohortId} query={query} list={view.list} />
+      <PeopleList
+        cohortId={cohortId}
+        query={query}
+        list={view.list}
+        viewer={viewer}
+      />
     </section>
   );
 }
@@ -85,14 +94,21 @@ export function PeopleAdministrationView({
 export async function PeopleAdministration({
   cohortId,
   rawQuery,
+  viewer,
 }: {
   cohortId: string;
   rawQuery: { role?: string; q?: string; track?: string; page?: string };
+  viewer: PeopleViewer;
 }) {
   const query = parsePeopleQuery(rawQuery);
   const view = await loadPeopleView(await getServerApi(), cohortId, query);
 
   return (
-    <PeopleAdministrationView cohortId={cohortId} query={query} view={view} />
+    <PeopleAdministrationView
+      cohortId={cohortId}
+      query={query}
+      view={view}
+      viewer={viewer}
+    />
   );
 }
