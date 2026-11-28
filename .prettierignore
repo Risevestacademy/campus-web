@@ -6,3 +6,6 @@ node_modules
 out
 storybook-static
 next-env.d.ts
+
+# Real map data for stories, kept on one line.
+features/admin/maps/components/map-fixture.json

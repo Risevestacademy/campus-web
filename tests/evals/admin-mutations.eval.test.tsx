@@ -16,6 +16,12 @@ import {
   DetachCohortTrackDialog,
 } from "@/features/admin/cohorts/components/cohort-track-actions";
 import { FeedbackStatusControl } from "@/features/admin/feedback/components/feedback-status-control";
+import { MapWorkspace } from "@/features/admin/maps/components/map-workspace";
+import type {
+  EntryMapRecord,
+  PublishedEntryMap,
+  SpaceSettings,
+} from "@/features/admin/maps/types/maps.types";
 import { CreateTrackTile } from "@/features/admin/tracks/components/create-track-tile";
 import { TrackAdministrationCard } from "@/features/admin/tracks/components/track-administration-card";
 import { toast, Toaster } from "@/shared/ui/toast";
@@ -102,10 +108,51 @@ const UNAVAILABLE_TRACK_DELETE =
   "We couldn't delete this Programme Track. Check your connection and try again.";
 const UNAVAILABLE_FEEDBACK_STATUS =
   "We couldn't update this feedback. Nothing was changed. Check your connection and try again.";
+const UNAVAILABLE_SPACE_UPDATE =
+  "We couldn't save this space. Check your connection and try again.";
+const UNAVAILABLE_MAP_PUBLISH =
+  "We couldn't publish the map. Check your connection and try again.";
 const UNAVAILABLE_ATTACH =
   "We couldn't attach this Programme Track. Try again.";
 const UNAVAILABLE_DETACH =
   "We couldn't detach this Programme Track. Try again.";
+
+const MAP_ID = "22222222-2222-4222-8222-222222222222";
+const entryMap: PublishedEntryMap = {
+  mapKey: "campus",
+  version: "version-2",
+  widthTiles: 12,
+  heightTiles: 6,
+  spaces: [
+    {
+      key: "room_space_1",
+      name: "room_space_1",
+      bounds: { shape: "rect", x: 1, y: 1, width: 4, height: 4 },
+    },
+  ],
+  desks: [],
+  walls: [],
+};
+const mapRecord: EntryMapRecord = {
+  id: MAP_ID,
+  key: "campus",
+  name: "Campus",
+  syncedVersion: "version-2",
+  publishedVersion: "version-1",
+};
+const mapSpaces: SpaceSettings[] = [
+  {
+    id: "space-1",
+    mapId: MAP_ID,
+    key: "room_space_1",
+    name: "room_space_1",
+    kind: null,
+    access: "normal",
+    audioMode: "proximity",
+    capacity: null,
+    isMapDefault: false,
+  },
+];
 
 const MUTATIONS: readonly Mutation[] = [
   {
@@ -284,6 +331,71 @@ const MUTATIONS: readonly Mutation[] = [
       404: "This feedback no longer exists. Refresh the page.",
       500: UNAVAILABLE_FEEDBACK_STATUS,
       0: UNAVAILABLE_FEEDBACK_STATUS,
+    },
+  },
+  {
+    name: "Space update",
+    method: "patch",
+    url: `${API}/spaces/space-1`,
+    succeeded: "Space saved",
+    render: () => (
+      <MapWorkspace
+        map={entryMap}
+        entry={mapRecord}
+        spaces={mapSpaces}
+        cohortId="cohort-1"
+        grantOptions={{ tracks: [], groups: [] }}
+      />
+    ),
+    doubleSubmit: async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Show me" }));
+      const inspector = await screen.findByRole("dialog");
+      fireEvent.change(within(inspector).getByLabelText("Room type"), {
+        target: { value: "meeting_room" },
+      });
+      const save = within(inspector).getByRole("button", {
+        name: /^(Save space|Saving…)$/,
+      });
+      fireEvent.click(save);
+      fireEvent.click(save);
+    },
+    explanations: {
+      400: "campus-api refused one of these values. Check them and try again.",
+      403: "Only administrators can change spaces.",
+      404: "This space no longer exists. Refresh the page.",
+      409: "The campus already has one of this kind. Only one town hall and one notice board may exist.",
+      500: UNAVAILABLE_SPACE_UPDATE,
+      0: UNAVAILABLE_SPACE_UPDATE,
+    },
+  },
+  {
+    name: "Map publish",
+    method: "post",
+    url: `${API}/maps/${MAP_ID}/publish`,
+    succeeded: "campus is live",
+    render: () => (
+      <MapWorkspace
+        map={entryMap}
+        entry={mapRecord}
+        spaces={mapSpaces}
+        cohortId="cohort-1"
+        grantOptions={{ tracks: [], groups: [] }}
+      />
+    ),
+    doubleSubmit: async () => {
+      const publish = screen.getByRole("button", {
+        name: /^(Publish campus|Publishing…)$/,
+      });
+      fireEvent.click(publish);
+      fireEvent.click(publish);
+    },
+    explanations: {
+      400: "campus-api refused the request. Refresh the page and try again.",
+      403: "Only administrators can publish maps.",
+      404: "campus-api has no such map. Sync first, then publish.",
+      409: "This map can't be published: only the map people enter on can be served, and it can't be retired. Sync, then try again.",
+      500: UNAVAILABLE_MAP_PUBLISH,
+      0: UNAVAILABLE_MAP_PUBLISH,
     },
   },
 ];

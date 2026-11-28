@@ -1473,6 +1473,30 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/maps": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List the maps (admin only)
+     * @description Every map the database knows of, retired ones included, with the entry map first and the rest by key. Not paginated: a campus has a handful of maps.
+     *
+     *     `syncedVersion` is the Sanity version the last sync read, and `publishedVersion` the synced version when an admin last published. When they differ, the latest sync is not live yet. Compare `syncedVersion` with the manifest in Sanity to tell whether there is something newer to sync.
+     *
+     *     World loads the current map from Sanity when told, not `publishedVersion`: if Sanity changed between the sync and the publish, world serves the newer one.
+     */
+    get: operations["MapsController_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/maps/sync": {
     parameters: {
       query?: never;
@@ -4327,6 +4351,46 @@ export interface components {
       spaces: components["schemas"]["MapSyncSpacesDto"];
       desks: components["schemas"]["MapSyncDesksDto"];
     };
+    MapResponseDto: {
+      /** Format: uuid */
+      id: string;
+      /**
+       * @description The map's ID in Sanity.
+       * @example campus
+       */
+      key: string;
+      /** @example Campus */
+      name: string;
+      /** @description Whether this is the map people enter on: the only one that can be published. */
+      isEntry: boolean;
+      /**
+       * Format: date-time
+       * @description Null while the map is still published in Sanity.
+       */
+      retiredAt: string | null;
+      /**
+       * @description The Sanity version the last sync read. Null until a sync has run since
+       *     versions were recorded.
+       * @example 3f9c2a
+       */
+      syncedVersion: string | null;
+      /**
+       * Format: date-time
+       * @description When a sync first read `syncedVersion`.
+       */
+      syncedAt: string | null;
+      /**
+       * Format: date-time
+       * @description When an admin last published the map. Null if never.
+       */
+      publishedAt: string | null;
+      /**
+       * @description The synced version at the last publish. When it differs from
+       *     `syncedVersion`, the latest sync has not been published.
+       * @example 3f9c2a
+       */
+      publishedVersion: string | null;
+    };
     MapSyncResultDto: {
       /** @description True when nothing was kept: this was a look, not a sync. */
       dryRun: boolean;
@@ -4350,6 +4414,12 @@ export interface components {
        * @example campus
        */
       key: string;
+      /**
+       * @description The synced version this publish recorded. Null when no sync has recorded
+       *     one yet.
+       * @example 3f9c2a
+       */
+      publishedVersion: string | null;
     };
     GrantSpaceMembershipDto: {
       /**
@@ -9373,6 +9443,43 @@ export interface operations {
       };
     };
   };
+  MapsController_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MapResponseDto"][];
+        };
+      };
+      /** @description No usable session: none sent, unparseable, expired, provisional, or its account is gone or suspended. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+      /** @description Signed in, but not an admin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponseDto"];
+        };
+      };
+    };
+  };
   MapsController_sync: {
     parameters: {
       query?: {
@@ -9717,6 +9824,8 @@ export interface operations {
          *     up.
          */
         needsKind?: boolean;
+        /** @description Only the spaces of this map. */
+        mapId?: string;
       };
       header?: never;
       path?: never;
